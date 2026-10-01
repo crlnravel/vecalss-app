@@ -89,8 +89,8 @@ function TypedRouteStateContent({
   const Icon = icon ?? defaultIcons[kind];
 
   return (
-    <div className="w-full max-w-xl rounded-3xl border border-voyage-soft-border bg-voyage-surface p-6 text-left shadow-[0_24px_70px_-44px_rgba(1,76,56,0.3)] sm:p-8">
-      <div className={cn("flex size-12 items-center justify-center rounded-2xl", iconClasses(kind))}>
+    <div className="w-full max-w-xl rounded-card border border-voyage-soft-border bg-voyage-surface p-6 text-left shadow-[0_24px_70px_-44px_rgba(1,76,56,0.3)] sm:p-8">
+      <div className={cn("flex size-12 items-center justify-center rounded-field", iconClasses(kind))}>
         <Icon aria-hidden="true" className={cn("size-6", kind === "loading" && "motion-safe:animate-spin")} />
       </div>
       <h1 className="mt-5 font-heading text-2xl font-semibold leading-tight tracking-[-0.03em] text-voyage-ink sm:text-3xl">{title}</h1>
@@ -99,20 +99,20 @@ function TypedRouteStateContent({
       {children}
       {kind === "loading" ? (
         <div aria-hidden="true" className="mt-6 grid gap-2">
-          <span className="h-3 w-3/4 animate-pulse rounded-full bg-primary-100" />
-          <span className="h-3 w-1/2 animate-pulse rounded-full bg-primary-100" />
+          <span className="h-3 w-3/4 animate-pulse rounded-pill bg-primary-100" />
+          <span className="h-3 w-1/2 animate-pulse rounded-pill bg-primary-100" />
         </div>
       ) : null}
       {onRetry || returnHref ? (
         <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {onRetry ? (
-            <Button onClick={onRetry} type="button" variant="brand">
+            <Button onClick={onRetry} type="button" variant="default">
               <RefreshCw aria-hidden="true" />
               {retryLabel}
             </Button>
           ) : null}
           {returnHref ? (
-            <Button nativeButton={false} render={<Link href={returnHref} />} variant="brandOutline">
+            <Button nativeButton={false} render={<Link href={returnHref} />} variant="outline">
               <ArrowLeft aria-hidden="true" />
               {returnLabel}
             </Button>

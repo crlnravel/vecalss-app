@@ -61,7 +61,7 @@ export function AccordionList({
             data-state={isOpen ? "open" : "closed"}
             className={cn(
               variant === "default"
-                ? "group overflow-hidden rounded-2xl border border-[var(--voyage-deep)]/10 bg-[var(--voyage-deep)]/[0.03] px-4 py-4 transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_52px_-42px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)] data-[state=open]:bg-white data-[state=open]:shadow-[0_22px_64px_-50px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] md:px-5 md:py-4"
+                ? "group overflow-hidden rounded-field border border-[var(--voyage-deep)]/10 bg-[var(--voyage-deep)]/[0.03] px-4 py-4 transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_52px_-42px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)] data-[state=open]:bg-white data-[state=open]:shadow-[0_22px_64px_-50px_color-mix(in_oklab,var(--voyage-deep)_36%,transparent)] md:px-5 md:py-4"
                 : "group py-5 md:py-6",
             )}
           >
@@ -88,7 +88,7 @@ export function AccordionList({
               <span
                 className={cn(
                   "flex size-11 shrink-0 items-center justify-center text-[var(--voyage-deep)] transition-transform duration-300 group-data-[state=open]:rotate-180",
-                  variant === "default" && "rounded-full border border-[var(--voyage-deep)]/12 bg-white group-data-[state=open]:border-[var(--voyage-deep)]/30 group-data-[state=open]:bg-[var(--voyage-deep)]/10",
+                  variant === "default" && "rounded-pill border border-[var(--voyage-deep)]/12 bg-white group-data-[state=open]:border-[var(--voyage-deep)]/30 group-data-[state=open]:bg-[var(--voyage-deep)]/10",
                 )}
                 aria-hidden="true"
               >

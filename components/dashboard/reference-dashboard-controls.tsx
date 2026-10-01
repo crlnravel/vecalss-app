@@ -88,13 +88,13 @@ function ReferenceSelect({
           className="isolate z-50 outline-none"
           sideOffset={6}
         >
-          <SelectPrimitive.Popup className={cn("max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-3xl border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", classNames?.popup)}>
+          <SelectPrimitive.Popup className={cn("max-h-(--available-height) min-w-(--anchor-width) overflow-hidden rounded-field border border-primary-100 bg-white p-1.5 text-secondary-900 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_50%,transparent)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", classNames?.popup)}>
             <SelectPrimitive.List className="max-h-72 overflow-y-auto">
               {options.map((option) => option.disabled ? (
                 <div
                   aria-disabled="true"
                   aria-selected="false"
-                  className={cn("relative flex w-full items-center rounded-2xl px-3 py-2.5 pr-9 text-sm font-medium opacity-45", classNames?.item)}
+                  className={cn("relative flex w-full items-center rounded-detail px-3 py-2.5 pr-9 text-sm font-medium opacity-45", classNames?.item)}
                   data-disabled="true"
                   key={option.value}
                   role="option"
@@ -103,7 +103,7 @@ function ReferenceSelect({
                 </div>
               ) : (
                 <SelectPrimitive.Item
-                  className={cn("group relative flex w-full cursor-default items-center rounded-2xl px-3 py-2.5 pr-9 text-sm font-medium outline-none data-[highlighted]:bg-primary-50 data-[highlighted]:text-primary-900 data-[selected]:bg-primary-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-45", classNames?.item)}
+                  className={cn("group relative flex w-full cursor-default items-center rounded-detail px-3 py-2.5 pr-9 text-sm font-medium outline-none data-[highlighted]:bg-primary-50 data-[highlighted]:text-primary-900 data-[selected]:bg-primary-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-45", classNames?.item)}
                   key={option.value}
                   value={toInternalValue(option.value)}
                 >

@@ -42,7 +42,7 @@ function PaginationPrevious({
       aria-label="Ke halaman sebelumnya"
       className={cn(className)}
       size="sm"
-      variant="ghost"
+      variant="outline"
       {...props}
     >
       <ChevronLeft data-icon="inline-start" />
@@ -61,7 +61,7 @@ function PaginationNext({
       aria-label="Ke halaman berikutnya"
       className={cn(className)}
       size="sm"
-      variant="ghost"
+      variant="outline"
       {...props}
     >
       <span className="hidden sm:block">{text}</span>

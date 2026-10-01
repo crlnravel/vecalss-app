@@ -11,6 +11,15 @@
   --text-xs: 0.8rem;
   --text-sm: 0.9333333333333333rem;
   --text-base: 0.9333333333333333rem;
+
+  /* Shared primitive corners are CSS-pixel tokens, independent from rem scaling. */
+  --radius-indicator: 4px;
+  --radius-detail: 8px;
+  --radius-control: 12px;
+  --radius-field: 20px;
+  --radius-card: 32px;
+  --radius-panel: 36px;
+  --radius-pill: 9999px;
 }
 
 @theme inline {
@@ -56,15 +65,19 @@
   --color-card-foreground: var(--card-foreground);
   --color-dashboard-sun: var(--dashboard-sun);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-  --radius-5xl: calc(var(--radius) * 3.2);
-  --radius-6xl: calc(var(--radius) * 4);
+  /* Legacy utility names stay on the same semantic scale. */
+  --radius: var(--radius-control);
+  --radius-xs: var(--radius-indicator);
+  --radius-sm: var(--radius-indicator);
+  --radius-md: var(--radius-detail);
+  --radius-lg: var(--radius-control);
+  --radius-xl: var(--radius-control);
+  --radius-2xl: var(--radius-field);
+  --radius-3xl: var(--radius-card);
+  --radius-4xl: var(--radius-card);
+  --radius-5xl: var(--radius-panel);
+  --radius-6xl: var(--radius-panel);
+  --radius-full: var(--radius-pill);
 }
 
 :root {
@@ -107,9 +120,6 @@
   --chart-3: var(--voyage-leaf);
   --chart-4: var(--warning-500);
   --chart-5: var(--danger-600);
-
-  /* Radius */
-  --radius: 0.625rem;
 
   /* Sidebar */
   --sidebar: var(--background);

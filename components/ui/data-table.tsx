@@ -124,7 +124,7 @@ function DataTableFilterChips({
     <div aria-label="Filter tabel aktif" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5" role="group">
       {filters.map((filter) => (
         <span
-          className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-secondary-50 px-2.5 py-1.5 text-xs text-secondary-700"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-control bg-secondary-50 px-2.5 py-1.5 text-xs text-secondary-700"
           key={filter.id}
         >
           <span className="font-semibold text-secondary-900">{filter.label}</span>
@@ -133,7 +133,7 @@ function DataTableFilterChips({
           {filter.href ? (
             <Link
                aria-label={`Hapus filter ${filter.label}`}
-              className="ml-0.5 inline-flex size-[44px] items-center justify-center rounded-xl text-secondary-500 transition-colors motion-reduce:transition-none hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
+              className="ml-0.5 inline-flex size-[44px] items-center justify-center rounded-control text-secondary-500 transition-colors motion-reduce:transition-none hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
               href={filter.href}
             >
               <X aria-hidden="true" size={13} />
@@ -144,7 +144,7 @@ function DataTableFilterChips({
       {clearFiltersHref ? (
         <Link
           className={cn(
-            buttonVariants({ size: "default", variant: "ghost" }),
+            buttonVariants({ size: "default", variant: "outline" }),
             "ml-1 min-h-[44px] text-secondary-600 motion-reduce:transform-none motion-reduce:transition-none",
           )}
           href={clearFiltersHref}
@@ -203,7 +203,7 @@ function DataTableSortHeader<T>({
   return (
     <Link
        aria-label={`Urutkan berdasarkan ${column.label}; aktifkan untuk ${nextAction}`}
-      className="group inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors motion-reduce:transition-none hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+      className="group inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-control px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors motion-reduce:transition-none hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
       href={sort.href(nextSortKey, nextDirection)}
       prefetch={false}
     >
@@ -230,8 +230,8 @@ function DataTableHeader<T>({
   return (
     <TableHeader>
       <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-        {showRowNumbers ? <TableHead className="w-14 rounded-l-xl px-3 py-2.5 text-center sm:px-4">No.</TableHead> : selection ? (
-          <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
+        {showRowNumbers ? <TableHead className="w-14 rounded-l-control px-3 py-2.5 text-center sm:px-4">No.</TableHead> : selection ? (
+          <TableHead className="w-12 rounded-l-control px-4 py-2.5 sm:px-5">
             <Checkbox
               aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
               aria-label={hasPartialSelection || areAllVisibleSelected ? "Hapus pilihan semua baris di halaman ini" : "Pilih semua baris di halaman ini"}
@@ -246,8 +246,8 @@ function DataTableHeader<T>({
             aria-sort={column.sortKey && sort ? sort.key === column.sortKey ? sort.direction === "asc" ? "ascending" : "descending" : "none" : undefined}
             className={cn(
               "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-700 sm:px-5",
-              index === 0 && !selection && !showRowNumbers && "rounded-l-xl",
-              index === visibleColumns.length - 1 && "rounded-r-xl",
+              index === 0 && !selection && !showRowNumbers && "rounded-l-control",
+              index === visibleColumns.length - 1 && "rounded-r-control",
               column.headerClassName,
             )}
             key={column.id}
@@ -414,7 +414,7 @@ function DataTableSearchForm({
       action={search.action}
       aria-busy={tableIsLoading}
       className={cn(
-        "relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25",
+        "relative min-w-[min(100%,18rem)] flex-1 rounded-field border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] motion-reduce:transition-none focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25",
         className,
       )}
       method="get"
@@ -437,7 +437,7 @@ function DataTableSearchForm({
         {search.label ?? "Cari tabel"}
       </label>
       <input
-        className="h-auto min-h-[44px] w-full rounded-2xl border-0 bg-transparent py-2.5 pl-10 pr-11 text-sm text-secondary-900 outline-none transition-[color,background-color] motion-reduce:transition-none placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
+        className="h-auto min-h-[44px] w-full rounded-field border-0 bg-transparent py-2.5 pl-10 pr-11 text-sm text-secondary-900 outline-none transition-[color,background-color] motion-reduce:transition-none placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
         id={searchId}
         name="q"
         onChange={handleSearchChange}
@@ -456,7 +456,7 @@ function DataTableSearchForm({
       {search.value && search.clearHref ? (
         <Link
           aria-label="Hapus pencarian tabel"
-          className="absolute right-0 top-1/2 inline-flex size-[44px] -translate-y-1/2 items-center justify-center rounded-xl text-secondary-400 transition-colors motion-reduce:transition-none hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
+          className="absolute right-0 top-1/2 inline-flex size-[44px] -translate-y-1/2 items-center justify-center rounded-control text-secondary-400 transition-colors motion-reduce:transition-none hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/30"
           href={search.clearHref}
           onClick={cancelPendingSearch}
         >
@@ -484,16 +484,16 @@ function DataTableActionMenu({
         render={
           <Button
             aria-label={hasSelection ? "Buka aksi massal" : "Buka aksi tabel"}
-            className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl text-secondary-500 motion-reduce:transition-none"
-            size="icon-sm"
+            className="text-secondary-500"
+            size="icon"
             type="button"
-            variant="ghost"
+            variant="outline"
           />
         }
       >
         <MoreHorizontal aria-hidden="true" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
+      <DropdownMenuContent align="end" className="w-56 rounded-field" keepMounted>
         {hasSelection ? (
           <>
             <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
@@ -586,16 +586,17 @@ function DataTableToolbar({
                 render={
                   <Button
                     aria-label="Buka filter tabel"
-                    className="size-[44px] min-h-[44px] min-w-[44px] rounded-xl motion-reduce:transition-none aria-expanded:bg-secondary-50"
-                    size="icon-sm"
+                    className="aria-expanded:bg-secondary-50"
+                    data-active={filters.length ? "" : undefined}
+                    size="icon"
                     type="button"
-                    variant={filters.length ? "contextSelected" : "ghost"}
+                    variant="outline"
                   />
                 }
               >
                 <ListFilter aria-hidden="true" />
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
+              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-field p-2">
                 {filterPanel}
               </PopoverContent>
             </Popover>

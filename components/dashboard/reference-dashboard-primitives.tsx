@@ -9,8 +9,7 @@ import {
   UserRound,
   Zap,
 } from "@/lib/icons";
-import { MentorBadge } from "@/components/ui/mentor-badge";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import {
@@ -146,7 +145,7 @@ function ReferenceEmptyState({
       {...props}
     >
       {Icon ? (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+        <div className="mb-4 flex size-12 items-center justify-center rounded-field bg-primary-50 text-primary-700">
           <Icon aria-hidden={true} className="size-5" />
         </div>
       ) : null}
@@ -278,7 +277,7 @@ function ReferenceStatCard({
         </span>
         {Icon ? <Icon aria-hidden={true} className="size-4 text-primary-700" /> : null}
       </div>
-      <div className="mt-3 flex size-20 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]">
+      <div className="mt-3 flex size-20 items-center justify-center rounded-field border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)]">
         <span className="font-heading text-3xl leading-none font-semibold tracking-[-0.03em] text-secondary-900">
           {value}
         </span>
@@ -308,26 +307,23 @@ function ReferenceStatCard({
 }
 
 function ReferenceStatusBadge({
-  appearance = "reference",
   className,
   label,
   size = "sm",
   status,
   tone,
 }: {
-  appearance?: "mentor" | "reference";
   className?: string;
   label?: ReactNode;
-  size?: "sm" | "xs";
+  size?: "md" | "sm" | "xs";
   status: string;
   tone?: ReferenceStatusTone;
 }) {
   const resolvedTone = tone ?? resolveStatusTone(status);
-  const Badge = appearance === "mentor" ? MentorBadge : StudentBadge;
-
   return (
     <Badge
       className={className}
+      depth="sunken"
       size={size}
       tone={resolvedTone}
     >
@@ -367,7 +363,7 @@ function ReferenceActivityItem({
     >
       <div
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-full",
+          "flex size-8 shrink-0 items-center justify-center rounded-pill",
           REFERENCE_ICON_TONE_CLASS_NAMES[tone],
         )}
       >
@@ -378,7 +374,7 @@ function ReferenceActivityItem({
           <p className="min-w-0 truncate text-sm font-semibold text-secondary-900">
             {activity.href ? (
               <Link
-                className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                className="rounded-indicator underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 href={activity.href}
               >
                 {activity.title}
@@ -431,7 +427,7 @@ function ReferenceActivityFeed({
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-5 md:px-5">
         <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-primary-500" />
+          <span className="size-2 rounded-pill bg-primary-500" />
           <h2 className="text-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase">
             {title}
           </h2>
@@ -448,7 +444,7 @@ function ReferenceActivityFeed({
       </div>
 
       {nextAction ? (
-        <div className="mx-4 mt-4 shrink-0 rounded-2xl border border-primary-100 bg-primary-50/70 px-4 py-3 md:mx-5">
+        <div className="mx-4 mt-4 shrink-0 rounded-field border border-primary-100 bg-primary-50/70 px-4 py-3 md:mx-5">
           <p className="text-ui-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase">
             Berikutnya
           </p>
@@ -515,7 +511,7 @@ function ReferenceGoalProgressRow({
 
   const isInteractive = Boolean(href);
   const classes = cn(
-    "flex min-w-0 items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3.5 py-3",
+    "flex min-w-0 items-center gap-3 rounded-field border border-primary-100 bg-primary-50/70 px-3.5 py-3",
     isInteractive &&
       "transition-[transform,border-color,box-shadow,background-color] duration-200 hover:border-primary-200 hover:bg-primary-50 motion-safe:hover:-translate-y-0.5 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
     className,
@@ -562,7 +558,7 @@ function ReferenceTaskCard({
       <div className="flex flex-wrap items-center gap-2">
         <ReferenceStatusBadge size="xs" status={status} />
         {createdByAi ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-primary-100 bg-primary-50 px-1.5 py-0.5 text-ui-xs font-semibold tracking-[0.05em] text-primary-800 uppercase">
+          <span className="inline-flex items-center gap-1 rounded-detail border border-primary-100 bg-primary-50 px-1.5 py-0.5 text-ui-xs font-semibold tracking-[0.05em] text-primary-800 uppercase">
             <Zap aria-hidden="true" className="size-3" />
             AI
           </span>

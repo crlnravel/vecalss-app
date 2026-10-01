@@ -17,13 +17,13 @@ function CsvTemplateDownload({
 }: CsvTemplateDownloadProps) {
   return (
     <div
-      className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-3"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-card border border-primary-100 bg-primary-50/45 px-4 py-3"
       data-csv-template-download="true"
     >
       <div
         className={description ? "flex min-w-0 items-start gap-3" : "flex min-w-0 items-center gap-3"}
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-primary-800 shadow-sm">
+        <span className="grid size-9 shrink-0 place-items-center rounded-control bg-white text-primary-800 shadow-sm">
           <FileText aria-hidden="true" className="size-4" />
         </span>
         <div className="min-w-0">
@@ -39,7 +39,7 @@ function CsvTemplateDownload({
         nativeButton={false}
         render={<a aria-label={title} download={fileName} href={href} />}
         size="sm"
-        variant="reference"
+        variant="outline"
       >
         <ArrowDownToLine aria-hidden="true" size={16} />
         Unduh templat

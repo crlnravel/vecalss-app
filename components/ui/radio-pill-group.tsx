@@ -40,10 +40,10 @@ function RadioPillGroup<TValue extends string>({
         >
           <Radio.Root
             aria-label={option.label}
-            className="inline-flex size-7 items-center justify-center rounded-full border border-primary-900 bg-white text-primary-900 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring/30"
+            className="inline-flex size-7 items-center justify-center rounded-pill border border-primary-900 bg-white text-primary-900 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring/30"
             value={option.value}
           >
-            <Radio.Indicator className="size-3 rounded-full bg-primary-200" />
+            <Radio.Indicator className="size-3 rounded-pill bg-primary-200" />
           </Radio.Root>
           <span>{option.label}</span>
         </div>

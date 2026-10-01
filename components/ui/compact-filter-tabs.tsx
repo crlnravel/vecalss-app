@@ -21,26 +21,21 @@ type CompactFilterTabsProps<TValue extends string> = {
   value: TValue;
 };
 
-type CompactTabsListProps = Omit<ComponentProps<typeof TabsList>, "variant">;
-type CompactTabsTriggerProps = ComponentProps<typeof TabsTrigger>;
+type CompactTabsListProps = Omit<ComponentProps<typeof TabsList>, "layout">;
+type CompactTabsTriggerProps = Omit<
+  ComponentProps<typeof TabsTrigger>,
+  "layout"
+>;
 
 function CompactTabsList({ className, ...props }: CompactTabsListProps) {
   return (
-    <SunkenTabsList
-      className={className}
-      layout="content"
-      {...props}
-    />
+    <SunkenTabsList {...props} className={className} layout="content" />
   );
 }
 
 function CompactTabsTrigger({ className, ...props }: CompactTabsTriggerProps) {
   return (
-    <SunkenTabsTrigger
-      className={className}
-      layout="content"
-      {...props}
-    />
+    <SunkenTabsTrigger {...props} className={className} layout="content" />
   );
 }
 

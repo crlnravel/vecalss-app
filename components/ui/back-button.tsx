@@ -19,7 +19,7 @@ function BackButton({
   href,
   label,
   size = "icon",
-  variant = "ghost",
+  variant = "outline",
   ...props
 }: BackButtonProps) {
   return (

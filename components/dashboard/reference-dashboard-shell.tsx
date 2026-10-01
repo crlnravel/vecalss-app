@@ -131,7 +131,7 @@ function ReferenceDashboardShell({
           />
 
           <div className="min-w-0">
-            <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
+            <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl lg:top-6 lg:rounded-card lg:border">
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-6">
                 <div className="md:hidden">
                   <ReferenceMenuButton
@@ -224,14 +224,14 @@ function ReferenceDesktopSidebar({
         <Link
           aria-label="Kembali ke beranda ruang kerja"
           className={cn(
-            "flex min-h-11 min-w-11 items-center rounded-2xl text-sm font-semibold text-secondary-900 transition-colors hover:bg-primary-50",
+            "flex min-h-11 min-w-11 items-center rounded-control text-sm font-semibold text-secondary-900 transition-colors hover:bg-primary-50",
             collapsed ? "justify-center" : "w-full gap-2 px-2",
           )}
           href={brandHref}
         >
           {collapsed
-            ? brandMark ?? <span aria-hidden="true" className="size-3 rounded-full bg-primary-700" />
-            : brand ?? <span aria-hidden="true" className="size-3 rounded-full bg-primary-700" />}
+            ? brandMark ?? <span aria-hidden="true" className="size-3 rounded-pill bg-primary-700" />
+            : brand ?? <span aria-hidden="true" className="size-3 rounded-pill bg-primary-700" />}
         </Link>
       </div>
 
@@ -250,7 +250,7 @@ function ReferenceDesktopSidebar({
       <button
         aria-label={collapsed ? "Buka navigasi" : "Ciutkan navigasi"}
         className={cn(
-          "mt-3 flex min-h-11 w-full items-center justify-center rounded-2xl border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,box-shadow,color] hover:bg-primary-50 hover:text-secondary-900 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+          "mt-3 flex min-h-11 w-full items-center justify-center rounded-control border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,box-shadow,color] hover:bg-primary-50 hover:text-secondary-900 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
           collapsed ? "" : "justify-end px-4",
         )}
         onClick={onToggle}
@@ -315,7 +315,7 @@ function ReferenceNavLink({
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? item.label : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-[background-color,color,box-shadow] focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+        "flex min-h-11 items-center gap-3 rounded-control px-3 text-sm font-medium transition-[background-color,color,box-shadow] focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-primary-300/35",
         collapsed ? "justify-center" : "justify-start",
         active ? REFERENCE_NAV_CLASS_NAMES.active : REFERENCE_NAV_CLASS_NAMES.base,
       )}
@@ -349,7 +349,7 @@ function ReferenceTabletNav({
   return (
     <nav
       aria-label="Navigasi ruang kerja"
-      className="fixed bottom-4 left-1/2 z-40 hidden max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-3xl border border-primary-100 bg-white/95 p-2 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)] backdrop-blur md:flex lg:hidden"
+      className="fixed bottom-4 left-1/2 z-40 hidden max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-card border border-primary-100 bg-white/95 p-2 shadow-[0_18px_42px_-30px_color-mix(in_oklab,var(--voyage-forest)_60%,transparent)] backdrop-blur md:flex lg:hidden"
     >
       {brand ? (
         <Link
@@ -393,7 +393,7 @@ function ReferenceMobileNav({
         aria-expanded={menuOpen}
         aria-label={hasHiddenActive ? "Buka navigasi lainnya (halaman aktif)" : "Buka navigasi lainnya"}
         className={cn(
-          "flex min-h-11 min-w-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-ui-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-primary-300/35",
+          "flex min-h-11 min-w-14 flex-1 flex-col items-center justify-center gap-1 rounded-control px-2 text-ui-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-primary-300/35",
           hasHiddenActive ? REFERENCE_NAV_CLASS_NAMES.active : REFERENCE_NAV_CLASS_NAMES.base,
         )}
         onClick={onMore}
@@ -418,7 +418,7 @@ function ReferenceCompactNavLink({
       aria-current={active ? "page" : undefined}
       aria-label={item.label}
       className={cn(
-        "flex min-h-11 min-w-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-ui-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-primary-300/35",
+        "flex min-h-11 min-w-14 flex-1 flex-col items-center justify-center gap-1 rounded-control px-2 text-ui-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-primary-300/35",
         active ? REFERENCE_NAV_CLASS_NAMES.active : REFERENCE_NAV_CLASS_NAMES.base,
       )}
       href={item.href}
@@ -468,12 +468,12 @@ function ReferenceMobileDrawer({
         aria-labelledby="reference-dashboard-mobile-nav-title"
         aria-modal="true"
         className={cn(
-          "absolute inset-x-0 bottom-0 translate-y-0 rounded-t-4xl border border-primary-100 bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_-38px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]",
+          "absolute inset-x-0 bottom-0 translate-y-0 rounded-t-card border border-primary-100 bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-[0_-24px_64px_-38px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)]",
         )}
         onKeyDown={handleDrawerKeyDown}
         role="dialog"
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-primary-200" />
+        <div className="mx-auto mb-5 h-1 w-10 rounded-pill bg-primary-200" />
         <div className="mb-5 flex items-center justify-between gap-3">
           <h2 className="sr-only" id="reference-dashboard-mobile-nav-title">
             Navigasi ruang kerja
@@ -488,7 +488,7 @@ function ReferenceMobileDrawer({
           </Link>
           <button
             aria-label="Tutup navigasi"
-            className="flex size-11 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-secondary-500 transition-colors hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35"
+            className="flex size-11 items-center justify-center rounded-control border border-primary-100 bg-primary-50 text-secondary-500 transition-colors hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35"
             autoFocus
             onClick={onClose}
             type="button"
@@ -554,7 +554,7 @@ function ReferenceMenuButton({
       aria-expanded={expanded}
       aria-controls={controls}
       aria-label="Buka navigasi ruang kerja"
-      className="flex size-11 items-center justify-center rounded-2xl border border-primary-100 bg-white text-secondary-500 transition-colors hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35"
+      className="flex size-11 items-center justify-center rounded-control border border-primary-100 bg-white text-secondary-500 transition-colors hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35"
       onClick={onClick}
       ref={buttonRef}
       type="button"
