@@ -12,6 +12,8 @@ import {
   type QuizDashboardRow,
 } from "@/modules/mentor/quiz-dashboard-contract";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
+import { getKaptenSettings } from "@/modules/mentor/settings-actions";
+import { applyTeachingSubjectDefault } from "@/modules/mentor/teaching-subject-default";
 
 export const metadata: Metadata = { title: "Kuis Kapten | Vecalss LMS" };
 
@@ -25,12 +27,16 @@ export default async function MentorQuizPage({
     searchParams,
   ]);
   let rows: QuizDashboardRow[];
+  let effectiveParams = params;
   try {
     rows = await getMentorQuizDashboardRows(session.user.id);
+    if (params.subject === undefined) {
+      effectiveParams = applyTeachingSubjectDefault(params, (await getKaptenSettings()).subjectCode);
+    }
   } catch {
     return <QuizDashboardUnavailable session={session} />;
   }
-  const query = parseQuizDashboardQuery(params);
+  const query = parseQuizDashboardQuery(effectiveParams);
   if (
     query.subject &&
     query.subject !== "all" &&
