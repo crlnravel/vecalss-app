@@ -15,6 +15,7 @@ import {
   Upload,
 } from "@/lib/icons";
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -1497,6 +1498,16 @@ function useQuestionBankCatalogueState({
   const [bankMoveId, setBankMoveId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(initialCreateDialogOpen);
 
+  useEffect(() => {
+    function syncCreateDialogWithHistory() {
+      const values = new URLSearchParams(window.location.search).getAll("create");
+      setCreateDialogOpen(values.length === 1 && values[0] === "1");
+    }
+
+    window.addEventListener("popstate", syncCreateDialogWithHistory);
+    return () => window.removeEventListener("popstate", syncCreateDialogWithHistory);
+  }, []);
+
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const {
     childFolders,
@@ -1797,14 +1808,13 @@ function QuestionBankCataloguePageContent({
     submitFolderDialog,
     visiblePage,
   } = state;
-  const router = useRouter();
   const lifecycleCopy = getQuestionBankLifecycleCopy(pendingLifecycle?.action);
   const pageTitle = questionBankNavigationLabel(initialPurpose);
 
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);
     if (!open && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("create")) {
-      router.replace(questionBankHref({
+      window.history.replaceState(null, "", questionBankHref({
         categories: selectedCategories,
         folder: selectedFolder,
         page: visiblePage,
@@ -1813,7 +1823,7 @@ function QuestionBankCataloguePageContent({
         sort: initialSort,
         status: statusFilter,
         subjects: selectedSubjects,
-      }), { scroll: false });
+      }));
     }
   }
 
@@ -1836,7 +1846,8 @@ function QuestionBankCataloguePageContent({
               aria-label="Buat Soal"
               onClick={() => {
                 setCreateDialogOpen(true);
-                router.push(questionBankCreateHref({
+                // Opening a local dialog must not remount the server catalogue.
+                window.history.pushState(null, "", questionBankCreateHref({
                   categories: selectedCategories,
                   folder: selectedFolder,
                   page: visiblePage,
@@ -1845,7 +1856,7 @@ function QuestionBankCataloguePageContent({
                   sort: initialSort,
                   status: statusFilter,
                   subjects: selectedSubjects,
-                }), { scroll: false });
+                }));
               }}
               size="sm"
               title="Buat Bank"

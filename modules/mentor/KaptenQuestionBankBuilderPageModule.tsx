@@ -4638,7 +4638,7 @@ function QuestionBankBuilderContent({
   const hasDisconnectedLock = mode === "edit" && editorState.hasUnsavedChanges && lockState !== "owned";
   const hasSaveError = Boolean(editorState.saveError) || hasDisconnectedLock;
   usePageStatusToast({
-    active: (presentation !== "modal" || open) && (editorState.hasUnsavedChanges || editorState.isSaving || Boolean(editorState.saveError)),
+    active: !(mode === "create" && presentation === "modal") && (presentation !== "modal" || open) && (editorState.hasUnsavedChanges || editorState.isSaving || Boolean(editorState.saveError)),
     description: !editorState.isSaving && hasSaveError
       ? hasDisconnectedLock ? "Akses edit terputus. Perubahan belum tersimpan." : editorState.saveError ?? undefined
       : undefined,
