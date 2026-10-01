@@ -2,6 +2,7 @@
 
 import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -477,31 +478,28 @@ export function KaptenQuizDashboardPageModule({
       sidebarAppearance="reference"
       mainClassName={styles.canvas}
     >
-      <section
-        className={styles.panel}
-        aria-labelledby="quiz-dashboard-title"
-        aria-busy={pending || saving}
-        data-quiz-dashboard
-      >
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title} id="quiz-dashboard-title">
-              Kuis
-            </h1>
-            <p className={styles.summary}>
-              <span>{result.total} kuis</span>
-            </p>
-          </div>
+      <ReferencePageHeader
+        className={styles.pageHeader}
+        title="Kuis"
+        titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
+        actions={
           <Button
             type="button"
-            size="sm"
+            size="default"
             variant="default"
             onClick={() => setCreateOpen(true)}
           >
             <Plus />
             Buat kuis
           </Button>
-        </div>
+        }
+      />
+      <section
+        className={styles.panel}
+        aria-label="Daftar kuis"
+        aria-busy={pending || saving}
+        data-quiz-dashboard
+      >
         <div className={styles.toolbar}>
           <div className={styles.filters}>
             <form
@@ -895,10 +893,12 @@ export function QuizDashboardUnavailable({
       sidebarAppearance="reference"
       mainClassName={styles.canvas}
     >
+      <ReferencePageHeader
+        className={styles.pageHeader}
+        title="Kuis"
+        titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
+      />
       <section className={styles.panel}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Kuis</h1>
-        </div>
         <div className={styles.empty} role="alert">
           <strong>Daftar kuis belum dapat dimuat</strong>
           <p>Coba lagi untuk membuka daftar kuis.</p>
