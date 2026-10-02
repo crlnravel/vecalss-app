@@ -1,6 +1,7 @@
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext } from "@/lib/auth/session";
 import { veraAiControlPlaneService } from "@/lib/admin/ai/service";
+import { serverLogger } from "@/lib/server-logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,8 @@ export async function GET(request: Request) {
   try {
     const data = await veraAiControlPlaneService.getUsage({ metric, groupBy, from, to, timezone });
     return Response.json(data, { headers: SECURE_HEADERS, status: 200 });
-  } catch {
+  } catch (error) {
+    serverLogger.error("admin.ai.usage.read.failed", error, { area: "admin.ai", operation: "read_usage" });
     return Response.json({ error: "usage_unavailable" }, { headers: SECURE_HEADERS, status: 503 });
   }
 }

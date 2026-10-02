@@ -14,6 +14,7 @@ import {
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { serverLogger } from "@/lib/server-logger";
 import {
   acquireDomainMutex,
   bankOrganizationFoldersMutexKey,
@@ -1184,7 +1185,10 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         try {
           await finalizeQuestionBankMediaFolderReservation(savedBank.id, actorId);
         } catch (error) {
-          console.error("Could not finalize the adopted Bank Media folder rename.", error);
+          serverLogger.error("mentor.question_bank.media_folder.rename.failed", error, {
+            area: "mentor.question_bank",
+            operation: "finalize_adopted_media_folder_rename",
+          });
         }
         return savedDto;
       }
@@ -1509,7 +1513,10 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     } catch (error) {
       // The Bank is already committed. Leave the reservation and provisional
       // folder intact so a later save can safely retry the conditional rename.
-      console.error("Could not finalize the adopted Bank Media folder rename.", error);
+      serverLogger.error("mentor.question_bank.media_folder.rename.failed", error, {
+        area: "mentor.question_bank",
+        operation: "finalize_adopted_media_folder_rename",
+      });
     }
   }
   return result;

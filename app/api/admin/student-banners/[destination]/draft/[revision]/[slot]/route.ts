@@ -2,6 +2,7 @@ import {
   AdminStudentPreviewUnavailableError,
   requireAdminStudentPreviewRouteContext,
 } from "@/lib/admin/student-preview";
+import { serverLogger } from "@/lib/server-logger";
 import {
   BANNER_DELIVERY_HEADERS,
   BannerDeliveryError,
@@ -27,7 +28,10 @@ function errorResponse(error: unknown) {
     );
   }
 
-  console.error("Unexpected admin banner delivery error", error);
+  serverLogger.error("admin.banner.draft_delivery.unexpected_failure", error, {
+    area: "admin.banner",
+    operation: "deliver_draft_banner",
+  });
   return Response.json(
     { error: "Gambar banner belum tersedia." },
     { headers: BANNER_DELIVERY_HEADERS, status: 503 },

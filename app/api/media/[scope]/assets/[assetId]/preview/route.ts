@@ -1,4 +1,5 @@
 import { parseMediaScope } from "@/lib/media/domain";
+import { serverLogger } from "@/lib/server-logger";
 import {
   MediaServiceError,
   getMediaAssetPreview,
@@ -21,7 +22,10 @@ export async function GET(
     if (error instanceof MediaServiceError) {
       return Response.json({ error: error.message }, { status: error.status });
     }
-    console.error("Unexpected media preview error", error);
+    serverLogger.error("media.preview.unexpected_failure", error, {
+      area: "media",
+      operation: "preview_asset",
+    });
     return Response.json({ error: "Pratinjau gambar belum tersedia." }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { EnrollmentHandoffMethod, UserStatus } from "@/generated/prisma/client";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import { requireAdminSession } from "@/lib/auth/access";
+import { serverLogger } from "@/lib/server-logger";
 import { ADMIN_STUDENT_DIRECTORY_CACHE_TAG } from "@/lib/admin/operations/directory-cache";
 import {
   EnrollmentHandoffStateError,
@@ -154,6 +155,24 @@ function enrollmentCreationErrorMessage(error: unknown, role: string) {
   return `Akun ${role} belum berhasil dibuat. Coba lagi.`;
 }
 
+function logEnrollmentCreationFailure(error: unknown, operation: "student" | "kapten" | "affiliator") {
+  if (error instanceof EnrollmentServiceError) return;
+
+  serverLogger.error(
+    `admin.enrollment.create_${operation}.failed`,
+    error,
+    { area: "admin.enrollment", operation: `create_${operation}` },
+  );
+}
+
+function isDuplicateEmailFailure(error: unknown) {
+  return (
+    (error instanceof EnrollmentServiceError
+      && (error.code === "duplicate_email" || error.code === "role_conflict"))
+    || (error instanceof Error && error.message.toLowerCase().includes("already exists"))
+  );
+}
+
 function buildDirectoryRedirect(
   path: string,
   {
@@ -297,6 +316,7 @@ async function createStudentEnrollmentAction(
       userId: result.userId,
     };
   } catch (error) {
+    logEnrollmentCreationFailure(error, "student");
     return {
       fields: {
         email,
@@ -371,6 +391,7 @@ async function createKaptenEnrollmentAction(
       userId: result.userId,
     };
   } catch (error) {
+    logEnrollmentCreationFailure(error, "kapten");
     return {
       fields: { bio: bio ?? "", email, fullName, handoffMethod, headline: headline ?? "", phone: phone ?? "" },
       message: enrollmentCreationErrorMessage(error, "Kapten"),
@@ -443,6 +464,7 @@ async function createAffiliatorEnrollmentAction(
       userId: result.userId,
     };
   } catch (error) {
+    logEnrollmentCreationFailure(error, "affiliator");
     return {
       fields,
       message: enrollmentCreationErrorMessage(error, "Affiliator"),
@@ -503,6 +525,11 @@ async function sendKelasNotificationAction(
       };
     }
 
+    serverLogger.error("admin.notifications.send.failed", error, {
+      area: "admin.notifications",
+      operation: "send_to_class",
+    });
+
     return {
       fields,
       message: "Notifikasi kelas belum dapat dikirim. Coba lagi.",
@@ -551,6 +578,12 @@ async function updateStudentEnrollmentAction(formData: FormData) {
     });
   } catch (error) {
     unstable_rethrow(error);
+    if (!isDuplicateEmailFailure(error)) {
+      serverLogger.error("admin.enrollment.update_student.failed", error, {
+        area: "admin.enrollment",
+        operation: "update_student",
+      });
+    }
     updateError = error instanceof Error && error.message.includes("already exists")
       ? "duplicate-email"
       : "update-failed";
@@ -633,6 +666,13 @@ async function changeStudentEnrollmentPasswordAction(
           : "Kata sandi siswa belum berhasil diperbarui. Coba lagi."
       : "Kata sandi siswa belum berhasil diperbarui. Periksa koneksi lalu coba lagi.";
 
+    if (!(error instanceof EnrollmentServiceError)) {
+      serverLogger.error("admin.enrollment.password_update.failed", error, {
+        area: "admin.enrollment",
+        operation: "change_student_password",
+      });
+    }
+
     return {
       message,
       status: "error",
@@ -685,6 +725,12 @@ async function updateKaptenEnrollmentAction(formData: FormData) {
     });
   } catch (error) {
     unstable_rethrow(error);
+    if (!isDuplicateEmailFailure(error)) {
+      serverLogger.error("admin.enrollment.update_kapten.failed", error, {
+        area: "admin.enrollment",
+        operation: "update_kapten",
+      });
+    }
     redirect(buildKaptenRedirect({ error: error instanceof Error && error.message.includes("already exists") ? "duplicate-email" : "update-failed", focus: userId, query: directoryQuery }));
   }
 
@@ -781,6 +827,12 @@ async function deleteStudentEnrollmentAction(formData: FormData) {
     });
   } catch (error) {
     unstable_rethrow(error);
+    if (!(error instanceof EnrollmentServiceError)) {
+      serverLogger.error("admin.enrollment.delete_student.failed", error, {
+        area: "admin.enrollment",
+        operation: "delete_student",
+      });
+    }
     redirect(buildEnrollmentRedirect({ error: "delete-failed", path: "/admin/enrollment", query: directoryQuery }));
   }
 
@@ -821,6 +873,12 @@ async function bulkUpdateStudentEnrollmentStatusAction(formData: FormData) {
     });
   } catch (error) {
     unstable_rethrow(error);
+    if (!(error instanceof EnrollmentServiceError)) {
+      serverLogger.error("admin.enrollment.bulk_status_update.failed", error, {
+        area: "admin.enrollment",
+        operation: "bulk_update_student_status",
+      });
+    }
     redirect(buildEnrollmentRedirect({ error: "bulk-status-failed", query: directoryQuery }));
   }
 
@@ -912,7 +970,13 @@ async function acknowledgeEnrollmentHandoffAction(
       message: "Konfirmasi bahwa informasi akses sudah dibagikan berhasil dicatat.",
       status: "success",
     };
-  } catch {
+  } catch (error) {
+    if (!(error instanceof EnrollmentHandoffStateError)) {
+      serverLogger.error("admin.enrollment.handoff_acknowledgement.failed", error, {
+        area: "admin.enrollment.handoff",
+        operation: "acknowledge",
+      });
+    }
     return {
       handoffId,
       message: "Informasi akses ini tidak lagi menunggu konfirmasi. Segarkan halaman untuk melihat status terbaru.",
@@ -963,6 +1027,12 @@ async function reissueEnrollmentHandoffAction(
       userId: result.userId,
     };
   } catch (error) {
+    if (!(error instanceof EnrollmentHandoffStateError)) {
+      serverLogger.error("admin.enrollment.handoff_reissue.failed", error, {
+        area: "admin.enrollment.handoff",
+        operation: "reissue",
+      });
+    }
     return {
       handoffId,
       message: handoffErrorMessage(error),

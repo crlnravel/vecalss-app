@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { serverLogger } from "@/lib/server-logger";
 import {
   VideoGalleryValidationError,
   type SaveKaptenVideoInput,
@@ -35,7 +36,10 @@ function failedVideoAction(error: unknown, fallbackMessage: string): VideoAction
     return { message: error.message, ok: false };
   }
 
-  console.error("Kapten video mutation failed", error);
+  serverLogger.error("mentor.video.mutation.failed", error, {
+    area: "mentor.video",
+    operation: "mutate_video",
+  });
   return { message: fallbackMessage, ok: false };
 }
 

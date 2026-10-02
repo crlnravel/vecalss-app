@@ -1,5 +1,6 @@
 import { RoleName } from "@/generated/prisma/client";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
+import { serverLogger } from "@/lib/server-logger";
 import {
   MateriDocumentDeliveryError,
   resolvePublishedMateriDocument,
@@ -21,7 +22,10 @@ const errorResponse = (error: unknown) => {
     );
   }
 
-  console.error("Unexpected Materi document delivery error", error);
+  serverLogger.error("materi.document_delivery.unexpected_failure", error, {
+    area: "materi.document_delivery",
+    operation: "serve_document_route",
+  });
   return Response.json(
     { code: "unavailable", error: "Dokumen PDF belum dapat dibuka. Coba lagi." },
     {

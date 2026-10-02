@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { serverLogger } from "@/lib/server-logger";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   archiveMateriLesson,
@@ -46,13 +47,19 @@ function failedResult(error: unknown): Extract<MateriActionResult, { ok: false }
     return { fieldErrors: error.fieldErrors, message: error.message, ok: false };
   }
 
-  console.error("Materi mutation failed", error);
+  serverLogger.error("mentor.materi.mutation.failed", error, {
+    area: "mentor.materi",
+    operation: "mutate_materi",
+  });
   return { message: "Materi belum berhasil disimpan. Coba lagi.", ok: false };
 }
 
 function failedBulkResult(error: unknown): Extract<MateriBulkActionResult, { ok: false }> {
   if (error instanceof MateriValidationError) return { message: error.message, ok: false };
-  console.error("Materi bulk lifecycle mutation failed", error);
+  serverLogger.error("mentor.materi.bulk_lifecycle.failed", error, {
+    area: "mentor.materi",
+    operation: "bulk_lifecycle",
+  });
   return { message: "Status materi belum berhasil diubah. Coba lagi.", ok: false };
 }
 
