@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   SidebarInset,
   SidebarProvider,
@@ -301,7 +302,7 @@ function MentorWorkspaceHeader({
   isRootPage: boolean;
   rootHref: string;
   searchPlaceholder: string;
-  session: SessionContext;
+  session: SessionContext | null;
   showBreadcrumb: boolean;
   showSearch: boolean;
   sidebarAppearance: "default" | "reference";
@@ -374,7 +375,14 @@ function MentorWorkspaceHeader({
           </div>
         ) : <div className="ml-auto" />}
 
-        <StudentAccountMenu audience="tutor" session={session} />
+        {session ? (
+          <StudentAccountMenu audience="tutor" session={session} />
+        ) : (
+          <Skeleton
+            aria-hidden="true"
+            className="size-[40px] shrink-0 rounded-pill motion-reduce:animate-none"
+          />
+        )}
       </div>
     </header>
   );
@@ -405,7 +413,7 @@ function MentorWorkspaceShell({
   navigationConfirmCopy?: Partial<NavigationConfirmCopy>;
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
-  session: SessionContext;
+  session: SessionContext | null;
   sidebarAppearance?: "default" | "reference";
   showBreadcrumb?: boolean;
   showSearch?: boolean;
