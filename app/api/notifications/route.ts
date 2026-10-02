@@ -1,6 +1,7 @@
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
+import { serverLogger } from "@/lib/server-logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,7 +42,11 @@ export async function GET(request: Request) {
   try {
     const feed = await getStudentNotificationFeed({ limit, page, userId: session.user.id });
     return Response.json(feed, { headers: responseHeaders });
-  } catch {
+  } catch (error) {
+    serverLogger.error("notifications.feed.read.failed", error, {
+      area: "notifications",
+      operation: "read_student_feed",
+    });
     return Response.json(
       { error: "Notifikasi belum dapat dimuat. Coba lagi." },
       { headers: responseHeaders, status: 503 },

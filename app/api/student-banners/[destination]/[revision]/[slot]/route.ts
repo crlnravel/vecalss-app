@@ -5,6 +5,7 @@ import {
   deliverBannerImage,
   resolveBannerDeliverySession,
 } from "@/lib/banner/delivery";
+import { serverLogger } from "@/lib/server-logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,7 +18,10 @@ function errorResponse(error: unknown) {
     );
   }
 
-  console.error("Unexpected student banner delivery error", error);
+  serverLogger.error("student.banner.delivery.unexpected_failure", error, {
+    area: "student.banner",
+    operation: "deliver_banner",
+  });
   return Response.json(
     { error: "Gambar banner belum tersedia." },
     { headers: BANNER_DELIVERY_HEADERS, status: 503 },

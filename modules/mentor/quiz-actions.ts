@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { serverLogger } from "@/lib/server-logger";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   acceptStandaloneQuizQuestionUpdate,
@@ -43,7 +44,10 @@ async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {
     };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz mutation failed", error);
+    serverLogger.error("mentor.quiz.mutation.failed", error, {
+      area: "mentor.quiz",
+      operation: "save_quiz",
+    });
     return { message: "Quiz tidak dapat disimpan saat ini. Coba lagi.", ok: false as const };
   }
 }
@@ -58,7 +62,10 @@ async function acceptStandaloneQuizQuestionUpdateAction(input: AcceptStandaloneQ
     return { ok: true as const, ...result };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz question update acceptance failed", error);
+    serverLogger.error("mentor.quiz.question_update_acceptance.failed", error, {
+      area: "mentor.quiz",
+      operation: "accept_question_update",
+    });
     return { message: "Revisi soal tidak dapat diterapkan saat ini. Coba lagi.", ok: false as const };
   }
 }
@@ -76,7 +83,10 @@ async function importStandaloneQuizBankQuestionSnapshotsAction(
   } catch (error) {
     if (error instanceof QuizValidationError)
       return { message: error.message, ok: false as const };
-    console.error("Standalone quiz bank snapshot import failed", error);
+    serverLogger.error("mentor.quiz.bank_snapshot_import.failed", error, {
+      area: "mentor.quiz",
+      operation: "import_bank_snapshots",
+    });
     return {
       message: "Soal dari Bank Soal Kuis tidak dapat disiapkan saat ini. Coba lagi.",
       ok: false as const,
@@ -94,7 +104,10 @@ async function transitionStandaloneQuizSourceModeAction(input: TransitionStandal
     return { ok: true as const, ...result };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz source mode transition failed", error);
+    serverLogger.error("mentor.quiz.source_mode_transition.failed", error, {
+      area: "mentor.quiz",
+      operation: "transition_source_mode",
+    });
     return { message: "Mode sumber Kuis tidak dapat diubah saat ini.", ok: false as const };
   }
 }
@@ -111,7 +124,10 @@ async function updateStandaloneQuizLifecycleAction(
     return { ok: true as const, quiz };
   } catch (error) {
     if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
-    console.error("Standalone quiz lifecycle mutation failed", error);
+    serverLogger.error("mentor.quiz.lifecycle_mutation.failed", error, {
+      area: "mentor.quiz",
+      operation: "update_lifecycle",
+    });
     return { message: "Kuis tidak dapat diarsipkan saat ini. Coba lagi.", ok: false as const };
   }
 }
@@ -135,7 +151,10 @@ async function setStandaloneQuizHiddenAction(
   } catch (error) {
     if (error instanceof QuizValidationError)
       return { message: error.message, ok: false as const };
-    console.error("Standalone quiz visibility mutation failed", error);
+    serverLogger.error("mentor.quiz.visibility_mutation.failed", error, {
+      area: "mentor.quiz",
+      operation: "set_visibility",
+    });
     return {
       message: "Kuis belum dapat disembunyikan atau ditampilkan lagi saat ini. Coba lagi.",
       ok: false as const,

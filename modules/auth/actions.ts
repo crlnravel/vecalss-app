@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
+import { serverLogger } from "@/lib/server-logger";
 import {
   getDefaultHomePath,
   getLoginPathForAudience,
@@ -66,6 +67,13 @@ function getResetPasswordErrorMessage(error: unknown) {
   }
 
   return getChangePasswordErrorMessage(error);
+}
+
+function isExpectedPasswordActionError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message === "This reset link is invalid or has already expired."
+    || error.message === "Password must include uppercase, lowercase, and number characters."
+    || error.message === `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`;
 }
 
 async function handleLoginAction(
@@ -154,7 +162,10 @@ async function forgotPasswordAction(
       status: "success",
     };
   } catch (error) {
-    console.error("Failed to request password reset", error);
+    serverLogger.error("auth.password_reset.request.failed", error, {
+      area: "auth",
+      operation: "password_reset_request",
+    });
 
     return {
       fields: { email },
@@ -202,6 +213,12 @@ async function resetPasswordAction(
   try {
     await completePasswordReset(token, password);
   } catch (error) {
+    if (!isExpectedPasswordActionError(error)) {
+      serverLogger.error("auth.password_reset.complete.failed", error, {
+        area: "auth",
+        operation: "complete_password_reset",
+      });
+    }
     return {
       message: getResetPasswordErrorMessage(error),
       status: "error",
@@ -241,6 +258,12 @@ async function changePasswordAction(
   try {
     await changePasswordForUser(session.user.id, session.sessionId, password);
   } catch (error) {
+    if (!isExpectedPasswordActionError(error)) {
+      serverLogger.error("auth.password_change.failed", error, {
+        area: "auth",
+        operation: "change_password",
+      });
+    }
     return {
       message: getChangePasswordErrorMessage(error),
       status: "error",

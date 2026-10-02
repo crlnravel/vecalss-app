@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "55mb",
     },
   },
+  // sharp resolves its native addon and libvips through optional platform
+  // packages at runtime. Keep the Vercel Linux x64 files in server traces.
+  outputFileTracingIncludes: {
+    "/*": [
+      "node_modules/sharp/**/*",
+      "node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-linux-x64/**/*",
+      "node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/**/*",
+    ],
+  },
   output: "standalone",
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   async redirects() {

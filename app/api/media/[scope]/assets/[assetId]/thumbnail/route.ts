@@ -1,4 +1,5 @@
 import { parseMediaScope } from "@/lib/media/domain";
+import { serverLogger } from "@/lib/server-logger";
 import {
   getMediaAssetThumbnail,
   MediaServiceError,
@@ -31,7 +32,10 @@ export async function GET(
     if (error instanceof MediaServiceError) {
       return Response.json({ error: error.message }, { status: error.status });
     }
-    console.error("Unexpected media thumbnail error", error);
+    serverLogger.error("media.thumbnail.unexpected_failure", error, {
+      area: "media",
+      operation: "load_thumbnail",
+    });
     return Response.json({ error: "Gambar pratinjau belum tersedia." }, { status: 500 });
   }
 }

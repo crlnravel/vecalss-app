@@ -9,6 +9,7 @@ import {
 } from "@/generated/prisma/client";
 import { getAppBaseUrl, isProduction } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
+import { serverLogger } from "@/lib/server-logger";
 
 import {
   ACCOUNT_LOCK_WINDOW_MINUTES,
@@ -336,7 +337,10 @@ async function authenticateUser(
       user: mapAuthenticatedUser(user),
     };
   } catch (error) {
-    console.error("Failed to authenticate user", error);
+    serverLogger.error("auth.authenticate.failed", error, {
+      area: "auth",
+      operation: "authenticate_user",
+    });
 
     return {
       code: "service_unavailable",

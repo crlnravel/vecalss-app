@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import pg from "pg";
 import { seedMateriCatalogue } from "./materi-seed.mjs";
 import { seedAssessmentDemo } from "./seed-assessment.mjs";
+import { seedStaging } from "./seed-staging.mjs";
 
 const { Client } = pg;
 
@@ -55,6 +56,7 @@ const FIRST_LOGIN_TUTORS = [
   { email: "nauvferry@gmail.com", fullName: "Nauval" },
   { email: "nicholassaputratjandra@gmail.com", fullName: "Nicho" },
   { email: "berliantheresiart@gmail.com", fullName: "Berli" },
+  { email: "carleanoravel@gmail.com", fullName: "Carleano" },
 ];
 
 const DEFAULT_AFFILIATOR = {
@@ -112,6 +114,26 @@ function requireDatabaseUrl() {
   }
 
   return databaseUrl;
+}
+
+export function isStagingTarget(databaseUrl) {
+  if (
+    process.env.SEED_TARGET === "staging" ||
+    process.env.APP_ENV === "staging" ||
+    process.argv.includes("--staging")
+  ) {
+    return true;
+  }
+
+  if (
+    process.env.SEED_TARGET === "demo" ||
+    process.argv.includes("--full") ||
+    process.argv.includes("--demo")
+  ) {
+    return false;
+  }
+
+  return Boolean(databaseUrl && databaseUrl.includes("neon.tech"));
 }
 
 async function hashPassword(password) {
@@ -1029,11 +1051,39 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
 }
 
 async function main() {
+  const databaseUrl = requireDatabaseUrl();
   const client = new Client({
-    connectionString: requireDatabaseUrl(),
+    connectionString: databaseUrl,
   });
 
   await client.connect();
+
+  if (isStagingTarget(databaseUrl)) {
+    console.log("🌱 Detected staging environment target. Seeding mentor accounts only (all other tables empty)...");
+    try {
+      await client.query("BEGIN");
+      const seeded = await seedStaging(client);
+      await client.query("COMMIT");
+
+      console.log(`\nSuccessfully seeded ${seeded.length} mentor accounts on staging (all other tables empty):\n`);
+      console.table(
+        seeded.map((m) => ({
+          "Full Name": m.fullName,
+          Email: m.email,
+          Role: m.role,
+          "Temporary Password": m.temporaryPassword,
+          "Must Change Password": m.mustChangePassword ? "YES (First Login)" : "NO",
+          "Login Path": m.loginPath,
+        })),
+      );
+      return;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      await client.end();
+    }
+  }
 
   try {
     await client.query("BEGIN");

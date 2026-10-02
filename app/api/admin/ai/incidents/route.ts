@@ -1,6 +1,7 @@
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext } from "@/lib/auth/session";
 import { veraAiControlPlaneService } from "@/lib/admin/ai/service";
+import { serverLogger } from "@/lib/server-logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,8 @@ export async function GET() {
   try {
     const data = await veraAiControlPlaneService.getReliability();
     return Response.json({ incidentTaxonomy: data.incidentTaxonomy }, { headers: SECURE_HEADERS, status: 200 });
-  } catch {
+  } catch (error) {
+    serverLogger.error("admin.ai.incidents.read.failed", error, { area: "admin.ai", operation: "read_incidents" });
     return Response.json({ error: "incidents_unavailable" }, { headers: SECURE_HEADERS, status: 503 });
   }
 }

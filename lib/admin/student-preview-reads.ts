@@ -22,6 +22,7 @@ import {
   R2ConfigurationError,
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
+import { serverLogger } from "@/lib/server-logger";
 import {
   getAdminStudentPreviewBannerSnapshot,
 } from "@/lib/student/banner-repository";
@@ -489,7 +490,10 @@ async function resolveAdminPreviewMateriDocument({
     if (error instanceof R2ConfigurationError) {
       throw new AdminStudentPreviewDocumentError("unavailable", "Penyimpanan dokumen PDF belum dikonfigurasi.", 503);
     }
-    console.error("Admin student preview document delivery failed", error);
+    serverLogger.error("admin.student_preview.document_delivery.failed", error, {
+      area: "admin.student_preview",
+      operation: "deliver_document",
+    });
     throw new AdminStudentPreviewDocumentError("unavailable", "Dokumen PDF belum dapat dibuka. Coba lagi.", 503);
   }
 }

@@ -2,6 +2,7 @@ import { RoleName } from "@/generated/prisma/client";
 import { getTrustedAppBaseUrl } from "@/lib/admin/handoffs/envelope";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { markAllStudentNotificationsRead } from "@/lib/notifications/service";
+import { serverLogger } from "@/lib/server-logger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +22,11 @@ function isSameOrigin(request: Request) {
 
   try {
     return origin === getTrustedAppBaseUrl();
-  } catch {
+  } catch (error) {
+    serverLogger.error("notifications.origin_validation.failed", error, {
+      area: "notifications",
+      operation: "validate_origin",
+    });
     return false;
   }
 }
@@ -52,7 +57,11 @@ export async function POST(request: Request) {
   try {
     const result = await markAllStudentNotificationsRead(session.user.id);
     return Response.json({ updatedCount: result.count }, { headers: responseHeaders });
-  } catch {
+  } catch (error) {
+    serverLogger.error("notifications.read_all.failed", error, {
+      area: "notifications",
+      operation: "mark_all_read",
+    });
     return Response.json(
       { error: "Notifikasi belum dapat diperbarui. Coba lagi." },
       { headers: responseHeaders, status: 503 },

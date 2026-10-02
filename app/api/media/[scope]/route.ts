@@ -1,4 +1,5 @@
 import { isPdfMimeType, isSupportedMediaMimeType, parseMediaScope } from "@/lib/media/domain";
+import { serverLogger } from "@/lib/server-logger";
 import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
@@ -29,7 +30,10 @@ const errorResponse = (error: unknown) => {
     return Response.json({ error: error.code }, { status: error.status });
   }
 
-  console.error("Unexpected media API error", error);
+  serverLogger.error("media.api.unexpected_failure", error, {
+    area: "media",
+    operation: "api_request",
+  });
   return Response.json({ error: "Permintaan media belum berhasil diproses. Periksa koneksi lalu coba lagi." }, { status: 500 });
 };
 

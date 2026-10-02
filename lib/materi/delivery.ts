@@ -14,6 +14,7 @@ import {
   R2ConfigurationError,
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
+import { serverLogger } from "@/lib/server-logger";
 
 import {
   MATERI_DOCUMENT_MIME_TYPE,
@@ -234,7 +235,10 @@ const resolvePublishedMateriDocument = async ({
     if (error instanceof R2ConfigurationError) {
       throw deliveryError("unavailable", "Penyimpanan dokumen PDF belum dikonfigurasi.", 503);
     }
-    console.error("Materi document delivery signing failed", error);
+    serverLogger.error("materi.document_delivery.signing.failed", error, {
+      area: "materi.document_delivery",
+      operation: "sign_document_urls",
+    });
     throw deliveryError("unavailable", "Dokumen PDF belum dapat dibuka. Coba lagi.", 503);
   }
 };
