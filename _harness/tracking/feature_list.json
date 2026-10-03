@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "bank-soal-kuis-table-style",
+      "name": "Bank Soal Kuis mentor quiz table styling",
+      "description": "Match mentor quiz table layout, compact density, typography, toolbar and pagination while preserving catalogue behavior.",
+      "dependencies": [],
+      "status": "in-progress",
+      "evidence": "0077ef0; baseline init, create-dialog regression, bank lock/CSV contracts, final lint/build and diff-check pass. Browser appearance unverified. Independent Luna/max Standards and Spec reviews pending."
+    },
+    {
       "id": "fix-bank-soal-create-dialog",
       "name": "Stable and quiet Bank Soal create dialog",
       "description": "Open the create dialog without catalogue navigation and suppress persistent page-status notices while filling it.",

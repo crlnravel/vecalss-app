@@ -1,5 +1,13 @@
 # Session Progress Log
 
+## Bank Soal Kuis table style (2026-10-03)
+
+- [x] `0077ef0` matches the mentor quiz canvas/panel, compact table density, header typography, toolbar spacing and in-panel pagination for quiz-purpose banks.
+- [x] Folder navigation, search/filter/context-menu/create wiring retained; Tryout bank presentation and other catalogue defaults retained.
+- [x] Baseline `./init.sh`, guarded create-dialog regression, `test:mentor-bank-soal-lock-csv-ui`, full `pnpm verify` and diff-check passed.
+- Browser appearance unverified. Independent Luna/max Standards (`6e8cd5f5`) and Spec (`f55d6b61`) reviews pending; replies resume the owner. Three composite guarded launch groups used and all exited.
+- Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
+
 ## Bank Soal create dialog (2026-10-01)
 
 - Independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings; browser verification is still unperformed.
