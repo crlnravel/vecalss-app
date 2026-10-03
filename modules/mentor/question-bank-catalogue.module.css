@@ -1,0 +1,68 @@
+.toolbar {
+  padding: 12px 20px !important;
+  border-bottom: 1px solid var(--voyage-soft-border);
+}
+
+.toolbar > div {
+  gap: 16px;
+}
+
+.toolbar form {
+  flex: 0 1 256px;
+  min-width: 0;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.table > thead > tr {
+  background: var(--voyage-surface);
+  border-bottom: 1px solid var(--voyage-soft-border);
+}
+
+.table > thead > tr > th {
+  height: 48px;
+  padding: 0 12px;
+  border-radius: 0;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: normal;
+  color: var(--secondary-600);
+}
+
+.table > tbody > tr > td {
+  padding-inline: 12px;
+}
+
+.table > tbody > tr > td[colspan] {
+  height: 200px;
+  padding: 32px !important;
+  white-space: normal;
+}
+
+.table > :is(thead, tbody) > tr > :is(th, td):first-child {
+  padding-left: 20px;
+}
+
+@media (max-width: 540px) {
+  .toolbar {
+    padding-inline: 16px !important;
+  }
+
+  .toolbar > div {
+    gap: 10px;
+  }
+
+  .toolbar form {
+    flex: 1;
+  }
+
+  .table > :is(thead, tbody) > tr > :is(th, td):first-child {
+    padding-left: 16px;
+  }
+}

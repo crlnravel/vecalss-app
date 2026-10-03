@@ -65,6 +65,13 @@ import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
@@ -80,6 +87,8 @@ import {
   renameQuestionBankFolderAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
+import quizStyles from "./quiz-dashboard.module.css";
+import catalogueStyles from "./question-bank-catalogue.module.css";
 
 type QuestionBankOrganization = {
   categories: Array<{ id: string; name: string }>;
@@ -1828,7 +1837,7 @@ function QuestionBankCataloguePageContent({
   }
 
   return (
-    <div className="space-y-8">
+    <div className={cn("space-y-8", initialPurpose === "quiz" && quizStyles.pageHeader)}>
       <ReferencePageHeader
         actions={
           <>
@@ -1952,6 +1961,22 @@ function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, init
     selectedFolder, selectedSubjects, setPage, setSelectedSubjects,
     setStatusFilter, statusFilter, totalPages, visiblePage,
   } = state;
+  const usesQuizTableStyle = initialPurpose === "quiz";
+  const pagination = usesQuizTableStyle && initialTotal ? (
+    <div className={quizStyles.footer}>
+      <span className={quizStyles.range}>Halaman {visiblePage} dari {totalPages}</span>
+      <Pagination aria-label="Paginasi bank soal" size="sm" className="mx-0 w-auto">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious minimal aria-label="Halaman sebelumnya" disabled={isCataloguePending || visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} />
+          </PaginationItem>
+          <PaginationItem>
+            <PaginationNext minimal aria-label="Halaman berikutnya" disabled={isCataloguePending || visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </div>
+  ) : null;
   return (
     <div className="min-w-0">
       <MentorCatalogueTable
@@ -1959,6 +1984,7 @@ function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, init
         caption="Daftar folder dan bank soal"
         clearFiltersHref={clearFiltersHref}
         columns={catalogueColumns}
+        density={usesQuizTableStyle ? "compact" : "default"}
         emptyState={
           <div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center">
             <LibraryBig className="size-7 text-primary-300" />
@@ -1968,6 +1994,7 @@ function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, init
         }
         filterPanel={<QuestionBankCatalogueFilterPanel navigateCatalogue={navigateCatalogue} resetPage={resetPage} selectedSubjects={selectedSubjects} setSelectedSubjects={setSelectedSubjects} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
         filters={activeFilters}
+        footer={usesQuizTableStyle ? pagination : undefined}
         getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
         isLoading={isCataloguePending}
         loadingLabel="Memuat bank soal…"
@@ -1989,10 +2016,11 @@ function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, init
           placeholder: "Cari judul, folder, subject, atau materi…",
           value: initialSearch,
         }}
-        tableClassName="min-w-0"
-        wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
+        tableClassName={cn("min-w-0", usesQuizTableStyle && catalogueStyles.table)}
+        toolbarClassName={usesQuizTableStyle ? catalogueStyles.toolbar : undefined}
+        wrapperClassName={cn(usesQuizTableStyle ? quizStyles.panel : REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
       />
-      {initialTotal ? (
+      {!usesQuizTableStyle && initialTotal ? (
         <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2">
           <Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button>
           <span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span>
@@ -2060,6 +2088,7 @@ function KaptenQuestionBankPageModule({
       session={session}
       showSearch={false}
       sidebarAppearance="reference"
+      mainClassName={initialPurpose === "quiz" ? quizStyles.canvas : undefined}
     >
       <QuestionBankCataloguePageContent
         session={session}
