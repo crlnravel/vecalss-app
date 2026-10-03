@@ -86,7 +86,6 @@ type DataTableSelection<T> = {
 
 type DataTableProps<T> = {
   caption: string;
-  density?: ComponentProps<typeof Table>["density"];
   columns: readonly DataTableColumn<T>[];
   filterPanel?: ReactNode;
   filters?: readonly DataTableFilter[];
@@ -108,7 +107,6 @@ type DataTableProps<T> = {
   selection?: boolean;
   selectionActions?: (selection: DataTableSelection<T>) => ReactNode;
   tableClassName?: string;
-  toolbarClassName?: string;
   emptyState?: ReactNode;
 };
 
@@ -162,7 +160,6 @@ function DataTableFilterChips({
 type DataTableGridProps<T> = {
   areAllVisibleSelected: boolean;
   caption: string;
-  density?: ComponentProps<typeof Table>["density"];
   emptyState?: ReactNode;
   getRowId: (row: T) => string;
   hasPartialSelection: boolean;
@@ -359,7 +356,6 @@ function DataTableBody<T>({
 function DataTableGrid<T>({
   areAllVisibleSelected,
   caption,
-  density,
   emptyState,
   getRowId,
   hasPartialSelection,
@@ -383,7 +379,7 @@ function DataTableGrid<T>({
   visibleColumns,
 }: DataTableGridProps<T>) {
   return (
-    <Table aria-busy={isLoading} density={density} className={resolveDataTableClassName({ hasRows: rows.length > 0, isLoading, tableClassName })}>
+    <Table aria-busy={isLoading} className={resolveDataTableClassName({ hasRows: rows.length > 0, isLoading, tableClassName })}>
       <caption className="sr-only">{caption}</caption>
       <DataTableHeader areAllVisibleSelected={areAllVisibleSelected} hasPartialSelection={hasPartialSelection} selection={selection} showRowNumbers={showRowNumbers} sort={sort} toggleAllVisible={toggleAllVisible} visibleColumnWidthTotal={visibleColumnWidthTotal} visibleColumns={visibleColumns} />
       <DataTableBody emptyState={emptyState} getRowId={getRowId} isLoading={isLoading} loadingLabel={loadingLabel} onRowClick={onRowClick} rowClassName={rowClassName} rowContextMenu={rowContextMenu} rowIsClickable={rowIsClickable} rowNumberOffset={rowNumberOffset} rowProps={rowProps} rows={rows} selectedIds={selectedIds} selection={selection} showRowNumbers={showRowNumbers} toggleSelected={toggleSelected} visibleColumns={visibleColumns} />
@@ -525,7 +521,6 @@ type DataTableToolbarFlags = {
 
 function DataTableToolbar({
   cancelPendingSearch,
-  className,
   filterPanel,
   filters,
   flags,
@@ -540,7 +535,6 @@ function DataTableToolbar({
   toolbarBelowSearch,
 }: {
   cancelPendingSearch: () => void;
-  className?: string;
   filterPanel?: ReactNode;
   filters: readonly DataTableFilter[];
   flags: DataTableToolbarFlags;
@@ -567,7 +561,6 @@ function DataTableToolbar({
       className={cn(
         "flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5",
         toolbarBelowSearch && "flex-col items-stretch",
-        className,
       )}
     >
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3">
@@ -630,7 +623,6 @@ function DataTableToolbar({
 
 function DataTable<T>({
   caption,
-  density,
   clearFiltersHref,
   columns,
   emptyState,
@@ -652,7 +644,6 @@ function DataTable<T>({
   selection = false,
   selectionActions,
   tableClassName,
-  toolbarClassName,
   toolbarBelowSearch,
 }: DataTableProps<T>) {
   const router = useRouter();
@@ -777,7 +768,6 @@ function DataTable<T>({
     <>
       <DataTableToolbar
         cancelPendingSearch={cancelPendingSearch}
-        className={toolbarClassName}
         filterPanel={filterPanel}
         filters={filters}
         flags={{
@@ -803,7 +793,6 @@ function DataTable<T>({
       <DataTableGrid
         areAllVisibleSelected={areAllVisibleSelected}
         caption={caption}
-        density={density}
         emptyState={emptyState}
         getRowId={getRowId}
         hasPartialSelection={hasPartialSelection}

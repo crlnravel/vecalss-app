@@ -20,6 +20,7 @@ export type CanonicalContextField =
   | "direction"
   | "folder"
   | "page"
+  | "pageSize"
   | "parent"
   | "participant"
   | "preview"
@@ -367,6 +368,13 @@ export function parseQuestionBankQuery(input: NavigationQueryInput) {
     }
   }
 
+  const pageSizeParam = singleValue(input, "pageSize");
+  const requestedPageSize = Number(pageSizeParam.value ?? 6);
+  const pageSize = [6, 10, 20, 50].includes(requestedPageSize) ? requestedPageSize : 6;
+  if (pageSizeParam.invalid || (pageSizeParam.value !== undefined && !["6", "10", "20", "50"].includes(pageSizeParam.value))) {
+    issues.push(issue("pageSize", pageSizeParam.value, "Pilih jumlah baris: 6, 10, 20, atau 50."));
+  }
+
   const queryParam = singleValue(input, "q");
   if (queryParam.invalid) issues.push(issue("q", queryParam.value, "Pencarian Bank Soal hanya boleh memiliki satu nilai."));
   const q = queryParam.value?.trim() ?? "";
@@ -377,10 +385,12 @@ export function parseQuestionBankQuery(input: NavigationQueryInput) {
     folder,
     issues,
     page,
+    pageSize,
     present: {
       category: hasValue(input, "category"),
       folder: folderParam.present,
       page: pageParam.present,
+      pageSize: pageSizeParam.present,
       purpose: purposeParam.present,
       q: queryParam.present,
       sort: sortParam.present,
@@ -405,6 +415,7 @@ export function buildQuestionBankHref(query: Partial<QuestionBankQuery> = {}) {
   if (query.folder !== undefined) params.set("folder", query.folder === "root" ? "root" : query.folder);
   if (query.status !== undefined && query.status !== "") params.set("status", query.status);
   if (query.page !== undefined) params.set("page", String(query.page));
+  if (query.pageSize !== undefined && query.pageSize !== 6) params.set("pageSize", String(query.pageSize));
   if (query.q !== undefined) params.set("q", query.q);
   if (query.sort !== undefined) params.set("sort", query.sort);
   return appendQuery("/mentor/quiz/question-bank", params);

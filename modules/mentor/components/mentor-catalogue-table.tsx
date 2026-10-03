@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 
 type MentorCatalogueTableProps<T> = DataTableProps<T> & {
   breadcrumb?: ReactNode;
-  footer?: ReactNode;
   headerActions?: ReactNode;
   headingIcon?: ReactNode;
   wrapperClassName?: string;
@@ -15,7 +14,6 @@ type MentorCatalogueTableProps<T> = DataTableProps<T> & {
 
 function MentorCatalogueTable<T>({
   breadcrumb,
-  footer,
   headerActions,
   headingIcon,
   wrapperClassName,
@@ -41,7 +39,6 @@ function MentorCatalogueTable<T>({
         </div>
       ) : null}
       <DataTable {...tableProps} />
-      {footer}
     </section>
   );
 }

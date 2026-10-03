@@ -42,6 +42,8 @@ let onPopState: (() => void) | undefined;
 const context = vm.createContext({
   URLSearchParams,
   ROOT_FOLDER: "root",
+  BANKS_PER_PAGE: 6,
+  state: { initialPageSize: 20 },
   initialPurpose: "tryout",
   selectedFolder: "folder-1",
   selectedCategories: [],
@@ -77,9 +79,11 @@ assert.equal(url.searchParams.get("purpose"), "tryout");
 assert.equal(url.searchParams.get("subtest"), "PU");
 assert.equal(url.searchParams.get("q"), "aljabar");
 assert.equal(url.searchParams.get("page"), "2");
+assert.equal(url.searchParams.get("pageSize"), "20", "opening create preserves the server-backed page size");
 vm.runInContext("handleCreateDialogOpenChange(false)", context);
 assert.equal(open, false);
 assert.equal(url.searchParams.has("create"), false);
+assert.equal(url.searchParams.get("pageSize"), "20", "closing create preserves the server-backed page size");
 assert.deepEqual(navigations, [], "closing create must not refresh the catalogue either");
 assert.equal(history.length, 1, "closing the dialog must not add another history entry");
 
