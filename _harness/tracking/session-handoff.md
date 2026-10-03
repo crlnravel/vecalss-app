@@ -5,7 +5,7 @@
 - User requested the mentor quiz table style on Bank Soal Kuis and explicitly authorized `gpt-6.1-sol` for this task.
 - Source commit `0077ef0` on `dev` reuses quiz panel/canvas/footer styles and scopes compact density, header and toolbar geometry to quiz-purpose banks. Shared DataTable density/toolbar props and MentorCatalogueTable footer are optional, preserving existing defaults. Folders, search/filters, context menus and creation dialogs retain their wiring; Tryout banks retain their presentation.
 - Baseline `./init.sh`, guarded `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`, `pnpm test:mentor-bank-soal-lock-csv-ui`, final `pnpm verify`, and `git diff --check` all passed. Browser appearance unverified; no browser or agent-owned server was started. All three composite launch groups exited.
-- Independent exact Luna/max Standards (`6e8cd5f5`) and Spec (`f55d6b61`) reviews requested; replies resume the owner for findings and completion. Artifact: epic `bank-soal-kuis-table-style`.
+- Independent exact Luna/max Spec (`f55d6b61`) review is complete with no actionable findings. Standards (`6e8cd5f5`) review remains pending; its reply resumes the owner for findings and completion. Artifact: epic `bank-soal-kuis-table-style`.
 - Existing catalogue context-menu test was not rerun because its column-visibility assertion is already stale in the baseline (prior handoff). No unrelated source changes were present or staged.
 
 ## Bank Soal create dialog (2026-10-01)

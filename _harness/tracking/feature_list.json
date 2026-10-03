@@ -6,7 +6,7 @@
       "description": "Match mentor quiz table layout, compact density, typography, toolbar and pagination while preserving catalogue behavior.",
       "dependencies": [],
       "status": "in-progress",
-      "evidence": "0077ef0; baseline init, create-dialog regression, bank lock/CSV contracts, final lint/build and diff-check pass. Browser appearance unverified. Independent Luna/max Standards and Spec reviews pending."
+      "evidence": "0077ef0; baseline init, create-dialog regression, bank lock/CSV contracts, final lint/build and diff-check pass. Browser appearance unverified. Independent Luna/max Spec review has no actionable findings; Standards review pending."
     },
     {
       "id": "fix-bank-soal-create-dialog",
