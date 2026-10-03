@@ -1,12 +1,13 @@
 # Session Progress Log
 
-## Bank Soal Kuis table style (2026-10-03)
+## Both Bank Soal TanStack tables (2026-10-03)
 
-- [x] `0077ef0` matches the mentor quiz canvas/panel, compact table density, header typography, toolbar spacing and in-panel pagination for quiz-purpose banks.
-- [x] Folder navigation, search/filter/context-menu/create wiring retained; Tryout bank presentation and other catalogue defaults retained.
-- [x] Baseline `./init.sh`, guarded create-dialog regression, `test:mentor-bank-soal-lock-csv-ui`, full `pnpm verify` and diff-check passed.
-- Browser appearance unverified. Independent Luna/max Spec (`f55d6b61`) review completed with no actionable findings; Standards (`6e8cd5f5`) review pending. Replies resume the owner. Three composite guarded launch groups used and all exited.
-- Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
+- [x] User correction requires the actual quiz table implementation for both purposes; `f0b5483` supersedes styling-only `0077ef0`.
+- [x] Shared quiz grid, menus, compact markup and pagination now serve mentor Kuis and both banks; bank-specific columns replace the old catalogue cells.
+- [x] Server page sizes 6/10/20/50, current-page bank selection, confirmed archive/restore with revisions and partial failures; folders, filtering, context actions and create history retained.
+- [x] Guarded TypeScript, pagination/quiz contracts, create-dialog history, bank lock/CSV contracts, bulk selection regression and full `pnpm verify` pass; diff-check passes.
+- Automated Obscura comparison attempted twice but timed out on `/login`; no visual or responsive result is claimed. Script cleaned up its engine and preserved the shared dev server. All three additional user-approved normal guarded groups exited; budget exhausted.
+- Renewed Luna/max Spec (`f55d6b61`) has no code findings; its stale parent-scope finding is addressed. Renewed Standards (`6e8cd5f5`) remains pending; reply resumes the owner. Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
 
 ## Bank Soal create dialog (2026-10-01)
 

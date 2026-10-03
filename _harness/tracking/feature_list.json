@@ -2,11 +2,11 @@
   "features": [
     {
       "id": "bank-soal-kuis-table-style",
-      "name": "Bank Soal Kuis mentor quiz table styling",
-      "description": "Match mentor quiz table layout, compact density, typography, toolbar and pagination while preserving catalogue behavior.",
+      "name": "Both Bank Soal pages use the mentor quiz TanStack table",
+      "description": "Share the actual mentor quiz TanStack grid, controls and pagination for quiz and tryout banks, with bank-specific columns and preserved catalogue behavior.",
       "dependencies": [],
       "status": "in-progress",
-      "evidence": "0077ef0; baseline init, create-dialog regression, bank lock/CSV contracts, final lint/build and diff-check pass. Browser appearance unverified. Independent Luna/max Spec review has no actionable findings; Standards review pending."
+      "evidence": "f0b5483 supersedes styling-only 0077ef0. Typecheck, full verify, quiz/query contracts, page-size regression, create-dialog history, bank lock/CSV contracts, bulk partial-failure/duplicate-submit regression and diff-check pass. Obscura comparison blocked on login; appearance remains unverified. Renewed Luna/max Spec review has no code findings; stale scope finding resolved. Renewed Standards pending."
     },
     {
       "id": "fix-bank-soal-create-dialog",

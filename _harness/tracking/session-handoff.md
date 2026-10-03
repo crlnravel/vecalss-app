@@ -1,12 +1,14 @@
 # Session Handoff
 
-## Bank Soal Kuis table style (2026-10-03)
+## Both Bank Soal TanStack tables (2026-10-03)
 
-- User requested the mentor quiz table style on Bank Soal Kuis and explicitly authorized `gpt-6.1-sol` for this task.
-- Source commit `0077ef0` on `dev` reuses quiz panel/canvas/footer styles and scopes compact density, header and toolbar geometry to quiz-purpose banks. Shared DataTable density/toolbar props and MentorCatalogueTable footer are optional, preserving existing defaults. Folders, search/filters, context menus and creation dialogs retain their wiring; Tryout banks retain their presentation.
-- Baseline `./init.sh`, guarded `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`, `pnpm test:mentor-bank-soal-lock-csv-ui`, final `pnpm verify`, and `git diff --check` all passed. Browser appearance unverified; no browser or agent-owned server was started. All three composite launch groups exited.
-- Independent exact Luna/max Spec (`f55d6b61`) review is complete with no actionable findings. Standards (`6e8cd5f5`) review remains pending; its reply resumes the owner for findings and completion. Artifact: epic `bank-soal-kuis-table-style`.
-- Existing catalogue context-menu test was not rerun because its column-visibility assertion is already stale in the baseline (prior handoff). No unrelated source changes were present or staged.
+- User corrected the initial styling-only scope: exact mentor quiz table implementation, TanStack and controls, for both quiz and tryout banks. `gpt-6.1-sol` explicitly authorized for this task.
+- Source commit `f0b5483` on `dev` extracts the quiz grid/menu/footer into `mentor-assessment-table.tsx`; both banks use `question-bank-assessment-table.tsx`, original quiz CSS and bank-specific columns. Initial shared DataTable/catalogue opt-in props and bank-only CSS are removed.
+- Canonical query and server fetch support 6/10/20/50 rows, preserve size through modal history, clamp stale pages. Current-page selection excludes folders and uses existing authorized lifecycle actions with revisions, duplicate protection and partial-failure feedback. Original navigation, folders and right-click actions retained.
+- Passed guarded `pnpm exec tsc --noEmit`, `test:question-bank-pagination`, `test:mentor-quiz-dashboard`, `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`, `test:mentor-bank-soal-lock-csv-ui`, `test:question-bank-table-selection`, full `pnpm verify` and diff-check. Final verify log: `/tmp/vecalss-bank-tanstack-approved2.log`.
+- Automated Obscura comparison failed twice during seeded Kapten login; URL remained `/login`, no alerts, and the diagnostic screenshot showed blank fields. Bank routes were not reached, so visual/responsive matching is unverified. Scratch browser script cleans its spawned engine; existing shared dev server untouched. No emergency mode used. All three extra user-approved guarded groups consumed and exited; further launches require a budget extension.
+- Renewed exact Luna/max Spec (`f55d6b61`) found no code behavior issues; stale ticket-scope finding resolved in parent artifact. Renewed Standards (`6e8cd5f5`) pending; its asynchronous reply resumes the owner. Artifact: epic `bank-soal-kuis-table-style`.
+- Existing catalogue context-menu source-pattern test remains stale in baseline and was not rerun. No unrelated files staged. Normal dev commit hook ran, no bypass. If a browser rerun is authorized, investigate hydration resetting the filled login fields before asserting bank desktop/mobile styles; do not infer credential failure from the timeout.
 
 ## Bank Soal create dialog (2026-10-01)
 
