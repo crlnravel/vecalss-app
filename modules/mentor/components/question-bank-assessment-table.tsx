@@ -180,7 +180,7 @@ export function QuestionBankAssessmentTable({
             </MentorGridMenu>
           </div>}
         </div>
-        {state.activeFilters.length > 0 && <div className={styles.chips} aria-label="Filter aktif">
+        {state.activeFilters.length > 0 && <div className={styles.chips} role="group" aria-label="Filter aktif">
           {state.activeFilters.map((filter) => <Button key={filter.id} type="button" size="sm" variant="quiet" className="px-0" aria-label={`Hapus filter ${filter.label}`} onClick={() => {
             if (filter.id === "subjects") { state.setSelectedSubjects([]); navigate({ subjects: [] }); }
             else { state.setStatusFilter(""); navigate({ status: "" }); }
@@ -191,7 +191,7 @@ export function QuestionBankAssessmentTable({
         <MentorAssessmentGrid table={table} caption="Daftar folder dan bank soal" label="Tabel bank soal, geser untuk melihat semua kolom" numericColumns={["questionCount"]} onRowOpen={busy ? undefined : state.openCatalogueRow}
           wrapRow={(row, element) => <ContextMenu key={row.kind === "bank" ? row.bank.id : row.folder.id ?? row.folder.name}><ContextMenuTrigger render={element as ReactElement} />{state.catalogueRowContextMenu(row)}</ContextMenu>}
           loadingState={state.isCataloguePending ? <span role="status" aria-live="polite">Memuat bank soal…</span> : undefined}
-          emptyState={<div className="flex flex-col items-center whitespace-normal text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{state.isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p></div>}
+          emptyState={<div className="mx-auto flex w-full min-w-0 max-w-[calc(100vw-2rem)] flex-col items-center whitespace-normal text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{state.isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p></div>}
         />
         <MentorAssessmentPagination page={state.visiblePage} pageSize={state.initialPageSize} pageCount={state.totalPages} total={initialTotal} disabled={busy} label="Halaman bank soal" onPageChange={(page) => navigate({ page })} onPageSizeChange={(pageSize) => navigate({ pageSize })} />
       </section>

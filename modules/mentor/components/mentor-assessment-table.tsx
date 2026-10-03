@@ -92,7 +92,7 @@ export function MentorAssessmentGrid<T>({
           ))}
         </TableHeader>
         <TableBody>
-          {loadingState ? <TableRow><TableCell className={styles.empty} colSpan={table.getVisibleLeafColumns().length}>{loadingState}</TableCell></TableRow> :
+          {loadingState ? <TableRow className="hover:bg-transparent"><TableCell className={styles.empty} colSpan={table.getVisibleLeafColumns().length}>{loadingState}</TableCell></TableRow> :
             table.getRowModel().rows.map((row) => {
               const element = (
                 <TableRow key={row.id} {...rowProps(row.original)} aria-haspopup={wrapRow ? "menu" : undefined} data-state={row.getIsSelected() ? "selected" : undefined}>
@@ -105,7 +105,7 @@ export function MentorAssessmentGrid<T>({
               );
               return wrapRow ? wrapRow(row.original, element) : element;
             })}
-          {!loadingState && !table.getRowModel().rows.length && <TableRow><TableCell className={styles.empty} colSpan={table.getVisibleLeafColumns().length}>{emptyState}</TableCell></TableRow>}
+          {!loadingState && !table.getRowModel().rows.length && <TableRow className="hover:bg-transparent"><TableCell className={styles.empty} colSpan={table.getVisibleLeafColumns().length}>{emptyState}</TableCell></TableRow>}
         </TableBody>
       </Table>
     </div>
