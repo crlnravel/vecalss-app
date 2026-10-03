@@ -11,6 +11,7 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
+import { UserCardPopover } from "@/components/ui/user-card-popover";
 import { Archive, Check, ChevronDown, Folder, LibraryBig, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from "@/lib/icons";
 import type { QuestionBankCatalogueRow, QuestionBankCatalogueState, QuestionBankHrefOptions } from "../KaptenQuestionBankCataloguePageModules";
 import { kaptenSubjects } from "../mock-data";
@@ -48,13 +49,19 @@ export function QuestionBankAssessmentTable({
     {
       id: "title", header: "Nama", size: 350, enableHiding: false,
       cell: ({ row }) => row.original.kind === "bank" ? (
-        <Link className={styles.quizTitle} href={row.original.bank.href} title={row.original.bank.title}>{row.original.bank.title}</Link>
+        <div className="flex min-w-0 items-center gap-2">
+          <LibraryBig aria-hidden="true" size={16} className="shrink-0" />
+          <Link className={`${styles.quizTitle} min-w-0`} href={row.original.bank.href} title={row.original.bank.title}>{row.original.bank.title}</Link>
+        </div>
       ) : (
-        <div>
-          <button className={`${styles.quizTitle} flex items-center gap-2 max-w-full`} type="button" onClick={() => state.openCatalogueRow(row.original)} disabled={busy}>
-            <Folder aria-hidden="true" size={16} className="shrink-0" /><span className="truncate">{row.original.folder.name}</span>
-          </button>
-          <span className={styles.secondary}>{row.original.folder.bankCount} bank{row.original.folder.children?.length ? ` · ${row.original.folder.children.length} subfolder` : ""}</span>
+        <div className="flex min-w-0 items-start gap-2">
+          <Folder aria-hidden="true" size={16} className="mt-px shrink-0" />
+          <div className="min-w-0">
+            <button className={`${styles.quizTitle} max-w-full text-left`} type="button" onClick={() => state.openCatalogueRow(row.original)} disabled={busy} title={row.original.folder.name}>
+              {row.original.folder.name}
+            </button>
+            <span className={styles.secondary}>{row.original.folder.bankCount} bank{row.original.folder.children?.length ? ` · ${row.original.folder.children.length} subfolder` : ""}</span>
+          </div>
         </div>
       ),
     },
@@ -63,8 +70,11 @@ export function QuestionBankAssessmentTable({
       cell: ({ row }) => row.original.kind === "bank" ? <strong className="block truncate font-bold text-xs" title={row.original.bank.subjectCoverage.join(" · ")}>{row.original.bank.subjectCoverage.join(", ") || "—"}</strong> : "—",
     },
     {
-      id: "materi", header: "Materi", size: 200,
-      cell: ({ row }) => row.original.kind === "bank" ? <span className="block truncate" title={(row.original.bank.materiCoverage ?? []).join(" · ")}>{(row.original.bank.materiCoverage ?? []).join(", ") || "—"}</span> : "—",
+      id: "creator", header: "Pembuat", size: 88,
+      cell: ({ row }) => {
+        const creator = row.original.kind === "bank" ? row.original.bank.creator : row.original.folder.creator;
+        return creator ? <UserCardPopover {...creator} /> : "—";
+      },
     },
     {
       id: "questionCount", header: "Soal", size: 115,

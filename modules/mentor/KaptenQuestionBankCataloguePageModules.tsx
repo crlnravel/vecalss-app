@@ -56,6 +56,7 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
+import type { QuestionBankCreator } from "@/lib/question-bank/creator";
 import { cn } from "@/lib/utils";
 import { QuestionBankAssessmentTable } from "./components/question-bank-assessment-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -83,10 +84,11 @@ type QuestionBankOrganization = {
 };
 
 type BankEntry = {
-  bank: KaptenQuestionBank & QuestionBankOrganization;
+  bank: KaptenQuestionBank & QuestionBankOrganization & { creator?: QuestionBankCreator };
 };
 
 type FolderNode = {
+  creator?: QuestionBankCreator;
   bankCount: number;
   children?: FolderNode[];
   createdAt: string;

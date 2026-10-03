@@ -14,6 +14,7 @@ import {
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { questionBankCreatorSelect, toQuestionBankCreator, type QuestionBankCreator } from "@/lib/question-bank/creator";
 import { serverLogger } from "@/lib/server-logger";
 import {
   acquireDomainMutex,
@@ -164,7 +165,7 @@ type QuestionBankDto = QuestionBankOrganization & QuestionBankDiscovery & {
 };
 type QuestionBankEditDto = { bank: QuestionBankDto; questions: BankQuestionDto[]; readiness: QuestionBankReadiness };
 type QuestionBankEntry = QuestionBankEditDto;
-type QuestionBankCatalogEntry = { bank: QuestionBankDto };
+type QuestionBankCatalogEntry = { bank: QuestionBankDto & { creator: QuestionBankCreator } };
 type QuestionBankSourceEntry = { bank: QuestionBankDto };
 
 type QuestionBankSort = "updated" | "name" | "questions";
@@ -211,6 +212,7 @@ type QuestionBankSourcePage = {
 };
 
 const bankInclude = {
+  createdBy: { select: questionBankCreatorSelect },
   categories: { include: { category: { select: { id: true, name: true } } } },
   folder: { select: { id: true, name: true } },
   questions: {
@@ -232,6 +234,7 @@ const bankInclude = {
 } satisfies Prisma.QuestionBankInclude;
 
 const bankCatalogInclude = {
+  createdBy: { select: questionBankCreatorSelect },
   categories: { include: { category: { select: { id: true, name: true } } } },
   folder: { select: { id: true, name: true } },
 } satisfies Prisma.QuestionBankInclude;
@@ -342,6 +345,7 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
   const status = bank.status === ContentStatus.archived ? ContentStatus.archived : ContentStatus.published;
   return {
     bank: {
+      creator: toQuestionBankCreator(bank.createdBy),
       categories: bank.categories
         .map(({ category }) => category)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id.localeCompare(b.id)),
@@ -365,7 +369,7 @@ function toCatalogDto(bank: BankCatalogRecord, folderRows: readonly FolderRow[],
       subjectCoverage: metrics.subjectCoverage,
       title: bank.name,
       updatedAt: bank.updatedAt.toISOString(),
-    } satisfies QuestionBankDto,
+    } satisfies QuestionBankCatalogEntry["bank"],
   };
 }
 

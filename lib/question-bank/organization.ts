@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { questionBankCreatorSelect, toQuestionBankCreator, type QuestionBankCreator } from "@/lib/question-bank/creator";
 import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
 import {
   LOCK_LEVEL,
@@ -78,6 +79,7 @@ type BankMoveMutationOptions = {
 };
 
 type QuestionBankFolderDto = {
+  creator?: QuestionBankCreator;
   bankCount: number;
   children?: QuestionBankFolderDto[];
   createdAt: string;
@@ -386,6 +388,7 @@ function folderSubtreeHeight(
 
 function folderDto(row: {
   _count: { banks: number };
+  createdBy?: Prisma.UserGetPayload<{ select: typeof questionBankCreatorSelect }>;
   createdAt: Date;
   id: string;
   name: string;
@@ -395,6 +398,7 @@ function folderDto(row: {
 }): QuestionBankFolderDto {
   return {
     bankCount: row._count.banks,
+    ...(row.createdBy ? { creator: toQuestionBankCreator(row.createdBy) } : {}),
     createdAt: row.createdAt.toISOString(),
     id: row.id,
     name: row.name,
@@ -463,6 +467,7 @@ async function listQuestionBankFolders(purpose: QuestionBankPurpose) {
   const [rows, counts] = await Promise.all([
     prisma.questionBankFolder.findMany({
       select: {
+        createdBy: { select: questionBankCreatorSelect },
         createdAt: true,
         id: true,
         name: true,
@@ -564,7 +569,7 @@ async function createQuestionBankFolder(
           purpose: normalizedPurpose,
           updatedByUserId: actorId,
         },
-        include: { _count: { select: { banks: true } } },
+        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(created);
     });
@@ -599,7 +604,7 @@ async function renameQuestionBankFolder(
       const updated = await tx.questionBankFolder.update({
         where: { id },
         data: { name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } } },
+        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(updated);
     });
@@ -669,7 +674,7 @@ async function moveQuestionBankFolder(
       const updated = await tx.questionBankFolder.update({
         where: { id },
         data: { parentId, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } } },
+        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(updated);
     });
