@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## Bank Soal inline icons and creator avatars (2026-10-03)
+
+- [x] `f87fde2`: both purposes show folder/Bank Soal icons before titles in separate flex wrappers, avoiding quizTitle's block display; replace Materi with Pembuat using the shared avatar/profile popover.
+- [x] Bank catalog/editor and folder read/create/rename/move select the actual creator's name, image and optional teaching subject. Synthetic unfiled folder has no fabricated creator; missing photos use shared initials fallback.
+- [x] Independent Luna/max Standards and Spec/behavior reviews are clear. Selection and pagination regressions, full `pnpm verify`, and diff-check pass; one unrelated settings-page lint warning. Log: `/tmp/vecalss-bank-identity-verify.log`.
+- One of two user-approved additional normal guarded groups used and exited. No owned process remains; no browser verification claimed. Intent/evidence: epic `bank-soal-kuis-table-style/row-identity`.
+
 ## Both Bank Soal TanStack tables (2026-10-03)
 
 - [x] User correction requires the actual quiz table implementation for both purposes; `f0b5483` supersedes styling-only `0077ef0`.

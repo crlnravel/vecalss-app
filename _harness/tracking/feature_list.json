@@ -3,10 +3,10 @@
     {
       "id": "bank-soal-kuis-table-style",
       "name": "Both Bank Soal pages use the mentor quiz TanStack table",
-      "description": "Share the actual mentor quiz TanStack grid, controls and pagination for quiz and tryout banks, with bank-specific columns and preserved catalogue behavior.",
+      "description": "Share the actual mentor quiz TanStack grid, controls and pagination for quiz and tryout banks, with inline title icons, real creator avatars, bank-specific columns and preserved catalogue behavior.",
       "dependencies": [],
       "status": "complete",
-      "evidence": "f0b5483 supersedes styling-only 0077ef0; 845b0f6 resolves all three Standards findings (filter group role, empty message width, neutral empty-row hover). Typecheck, full verify, quiz/query contracts, page-size regression, create-dialog history, bank lock/CSV contracts, bulk partial-failure/duplicate-submit regression and diff-check pass. Full verify passes again after review fixes, with one unrelated settings-page lint warning. Obscura comparison blocked on login; appearance remains unverified. Renewed Luna/max reviews complete and findings addressed."
+      "evidence": "f0b5483 supersedes styling-only 0077ef0; 845b0f6 resolves all three Standards findings. f87fde2 adds inline folder/bank title icons and actual creator avatars, removes Materi. Independent Luna/max follow-up reviews clear; selection and pagination regressions, full verify and diff-check pass. Earlier typecheck, quiz contracts, create history and lock/CSV checks pass. One unrelated settings-page lint warning. Obscura comparison blocked on login; appearance remains unverified."
     },
     {
       "id": "fix-bank-soal-create-dialog",

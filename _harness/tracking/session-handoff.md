@@ -1,5 +1,13 @@
 # Session Handoff
 
+## Bank Soal row identity follow-up (2026-10-03)
+
+- User requested icons before folder/bank titles, creator avatars, and removal of Materi for both banks. `f87fde2` on `dev` implements this in the shared bank table; the icons sit outside the block-styled title control in a flex wrapper.
+- Creator column reuses quiz UserCardPopover. New limited creator select/mapper flows through bank catalog and editor mapping, folder reads and folder mutation responses. Actual creator name/avatar/teaching subject only; synthetic folder shows no invented author.
+- Passed `test:question-bank-table-selection`, `test:question-bank-pagination`, full `pnpm verify` and diff-check. One unrelated unused-Badge warning in KaptenSettingsPageModule. Log `/tmp/vecalss-bank-identity-verify.log`. No browser run; earlier login blocker remains.
+- Independent Luna/max Standards and Spec/behavior reviews have no actionable findings. Artifact `bank-soal-kuis-table-style/row-identity` complete, sibling reviews `standards-row-identity` and `spec-row-identity`.
+- User approved up to two further normal guarded groups; one used and exited, one unused. No agent-owned process remains. Previous model authorization for gpt-6.1-sol continues for this follow-up.
+
 ## Both Bank Soal TanStack tables (2026-10-03)
 
 - User corrected the initial styling-only scope: exact mentor quiz table implementation, TanStack and controls, for both quiz and tryout banks. `gpt-6.1-sol` explicitly authorized for this task.
