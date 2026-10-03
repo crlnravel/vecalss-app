@@ -7,7 +7,8 @@
 - [x] Server page sizes 6/10/20/50, current-page bank selection, confirmed archive/restore with revisions and partial failures; folders, filtering, context actions and create history retained.
 - [x] Guarded TypeScript, pagination/quiz contracts, create-dialog history, bank lock/CSV contracts, bulk selection regression and full `pnpm verify` pass; diff-check passes.
 - Automated Obscura comparison attempted twice but timed out on `/login`; no visual or responsive result is claimed. Script cleaned up its engine and preserved the shared dev server. All three additional user-approved normal guarded groups exited; budget exhausted.
-- Renewed Luna/max Spec (`f55d6b61`) has no code findings; its stale parent-scope finding is addressed. Renewed Standards (`6e8cd5f5`) remains pending; reply resumes the owner. Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
+- [x] Renewed Luna/max Spec (`f55d6b61`) has no code findings; its stale parent-scope finding is addressed. Standards (`6e8cd5f5`) completed with three findings, all fixed in `845b0f6`: filter group role, viewport-safe empty message width and neutral empty/loading-row hover.
+- [x] User approved one more normal guarded group; full `pnpm verify` passes after the review fixes (one unrelated unused-Badge warning in mentor settings). Final log: `/tmp/vecalss-bank-review-verify.log`. Group exited, no owned process remains. Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
 
 ## Bank Soal create dialog (2026-10-01)
 
