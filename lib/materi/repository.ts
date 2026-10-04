@@ -968,27 +968,44 @@ function getMateriLifecycleTopicWhere(subject: (typeof materiSubjects)[number]) 
   };
 }
 
+// Delete touches many lesson-owned tables in one transaction. Over a remote
+// pooled connection (Neon) Prisma's 5s default is too tight once lock waits
+// are included, so give it an explicit budget.
+const MATERI_DELETE_TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 15_000 } as const;
+
+async function readMateriDeleteIdentity(tx: Prisma.TransactionClient, code: string) {
+  const identity = await tx.module.findUnique({
+    where: { code },
+    select: { id: true, topic: { select: { code: true, parentTopicId: true, subtest: { select: { code: true } } } } },
+  });
+  const subject = identity && getSubjectByCode(identity.topic.subtest.code);
+  if (!identity || !subject || identity.topic.parentTopicId !== null || !isCanonicalTopicForSubject(subject.slug, identity.topic.code)) {
+    return null;
+  }
+  return { id: identity.id, subject };
+}
+
 async function deleteMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   return prisma.$transaction(async (tx) => {
-    await lockMateriSubjectScopes(tx, materiSubjectCodes);
-    const identity = await tx.module.findUnique({
-      where: { code },
-      select: { id: true, topic: { select: { code: true, parentTopicId: true, subtest: { select: { code: true } } } } },
-    });
-    const subject = identity && getSubjectByCode(identity.topic.subtest.code);
-    if (!identity || !subject || identity.topic.parentTopicId !== null || !isCanonicalTopicForSubject(subject.slug, identity.topic.code)) {
-      throw new MateriValidationError("Materi tidak ditemukan.");
+    // Resolve the subject first so only that subject is serialized, then
+    // re-read under the lock: a concurrent save may have moved the lesson.
+    const candidate = await readMateriDeleteIdentity(tx, code);
+    if (!candidate) throw new MateriValidationError("Materi tidak ditemukan.");
+    await lockMateriSubjectScope(tx, candidate.subject.code);
+    const identity = await readMateriDeleteIdentity(tx, code);
+    if (!identity) throw new MateriValidationError("Materi tidak ditemukan.");
+    if (identity.subject.code !== candidate.subject.code) {
+      throw new MateriValidationError("Materi baru saja dipindahkan. Muat ulang halaman lalu coba lagi.");
     }
+    const { subject } = identity;
 
     const removeLesson = async () => {
       const topics = await tx.topic.findMany({ where: getMateriLifecycleTopicWhere(subject), select: { id: true } });
-      await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
-      const modules = await tx.module.findMany({
-        where: { topicId: { in: topics.map((topic) => topic.id) } },
-        orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
-        select: { id: true, sequenceNo: true },
-      });
-      await tx.$queryRaw`SELECT id FROM modules WHERE id = ANY(${modules.map((module) => module.id)}::uuid[]) ORDER BY id FOR UPDATE`;
+      const topicIds = topics.map((topic) => topic.id);
+      await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topicIds}::uuid[]) ORDER BY id FOR UPDATE`;
+      const lockedModules = await tx.$queryRaw<Array<{ sequence_no: number }>>`
+        SELECT sequence_no FROM modules WHERE topic_id = ANY(${topicIds}::uuid[]) ORDER BY id FOR UPDATE
+      `;
       // Remove lesson-owned records and detach optional recommendations. Shared
       // question-bank questions, canonical topics, and uploaded files remain.
       await tx.quizAttemptAnswer.deleteMany({ where: { attempt: { quiz: { moduleId: identity.id } } } });
@@ -1002,16 +1019,25 @@ async function deleteMateriLesson(code: string, tutorId: string, editLease?: Aut
       await tx.intervention.updateMany({ where: { recommendedModuleId: identity.id }, data: { recommendedModuleId: null } });
       await tx.moduleAsset.deleteMany({ where: { moduleId: identity.id } });
       await tx.module.delete({ where: { id: identity.id } });
-      const remaining = modules.filter((module) => module.id !== identity.id);
-      const offset = Math.max(0, ...modules.map((module) => module.sequenceNo)) + modules.length;
-      for (const [index, module] of remaining.entries()) {
-        // react-doctor-disable-next-line async-await-in-loop -- distinct temporary slots prevent sequence collisions.
-        await tx.module.update({ where: { id: module.id }, data: { sequenceNo: offset + index + 1 } });
-      }
-      for (const [index, module] of remaining.entries()) {
-        // react-doctor-disable-next-line async-await-in-loop -- assign contiguous positions in the existing relative order.
-        await tx.module.update({ where: { id: module.id }, data: { sequenceNo: index + 1 } });
-      }
+      // Compact the subject-wide order in two set-based statements. PostgreSQL
+      // checks the (topic_id, sequence_no) unique index per row, so first shift
+      // every row above the current maximum, then assign contiguous positions
+      // in the existing relative order.
+      const offset = Math.max(0, ...lockedModules.map((module) => module.sequence_no)) + lockedModules.length;
+      await tx.$executeRaw`
+        UPDATE modules SET sequence_no = sequence_no + ${offset}, updated_at = now()
+         WHERE topic_id = ANY(${topicIds}::uuid[])
+      `;
+      await tx.$executeRaw`
+        UPDATE modules AS target
+           SET sequence_no = ordered.position
+          FROM (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY sequence_no ASC, code ASC)::int AS position
+              FROM modules
+             WHERE topic_id = ANY(${topicIds}::uuid[])
+          ) AS ordered
+         WHERE target.id = ordered.id
+      `;
       await tx.editLease.deleteMany({ where: { resourceType: "materi", resourceId: code } });
       return { code, subjectSlug: subject.slug };
     };
@@ -1023,7 +1049,7 @@ async function deleteMateriLesson(code: string, tutorId: string, editLease?: Aut
     // Catalogue actions have no persistent editor proof; their temporary claim
     // still refuses every active editor lease, including another tab's lease.
     return withTransientAuthoringEditLeases(tx, [{ resourceId: code, resourceType: "materi" }], tutorId, removeLesson);
-  });
+  }, MATERI_DELETE_TRANSACTION_OPTIONS);
 }
 
 async function publishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {

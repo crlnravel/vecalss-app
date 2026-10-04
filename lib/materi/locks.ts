@@ -22,16 +22,17 @@ async function lockMateriSubjectScopes(
   tx: Prisma.TransactionClient,
   subjectCodes: readonly string[],
 ) {
-  const orderedSubjectCodes = [...new Set(subjectCodes)].sort();
-  if (orderedSubjectCodes.length === 0) return;
+  const orderedLockKeys = [...new Set(subjectCodes)].sort().map((subjectCode) => `${MATERI_SUBJECT_LOCK_PREFIX}${subjectCode}`);
+  if (orderedLockKeys.length === 0) return;
 
   // Keep the same deterministic order as the former loop, but let PostgreSQL
   // acquire the whole ordered set in one transaction command. This preserves
-  // the deadlock boundary without awaiting one lock statement at a time.
+  // the deadlock boundary without awaiting one lock statement at a time. Keys
+  // must match lockMateriSubjectScope exactly or the two never conflict.
   await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(hashtextextended(scope.subject_code, 0))
-      FROM unnest(ARRAY[${Prisma.join(orderedSubjectCodes)}]::text[])
-        WITH ORDINALITY AS scope(subject_code, lock_order)
+    SELECT pg_advisory_xact_lock(hashtextextended(scope.lock_key, 0))
+      FROM unnest(ARRAY[${Prisma.join(orderedLockKeys)}]::text[])
+        WITH ORDINALITY AS scope(lock_key, lock_order)
      ORDER BY scope.lock_order
   `;
 }

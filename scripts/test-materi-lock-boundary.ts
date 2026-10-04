@@ -49,6 +49,27 @@ assert.equal(
   4,
   "all individual lifecycle operations must revalidate under the locked transaction",
 );
+const multiLockStart = locksSource.indexOf("async function lockMateriSubjectScopes");
+const multiLockSource = locksSource.slice(multiLockStart, locksSource.indexOf("async function lockMateriProgressScope"));
+assert.ok(multiLockStart >= 0, "multi-subject lock helper must remain auditable");
+assert.match(
+  multiLockSource,
+  /MATERI_SUBJECT_LOCK_PREFIX/,
+  "multi-subject locks must use the same namespaced key as lockMateriSubjectScope, otherwise they never conflict with learner progression",
+);
+
+const deleteStart = repositorySource.indexOf("async function deleteMateriLesson");
+const deleteSource = repositorySource.slice(deleteStart, repositorySource.indexOf("async function publishMateriLesson"));
+assert.ok(deleteStart >= 0, "delete must remain separately auditable");
+assert.doesNotMatch(deleteSource, /lockMateriSubjectScopes\(tx, materiSubjectCodes\)/, "delete must not serialize against every subject");
+assert.match(deleteSource, /lockMateriSubjectScope\(tx, /, "delete must lock its own subject scope");
+assert.ok(
+  deleteSource.indexOf("lockMateriSubjectScope(tx, ") < deleteSource.lastIndexOf("readMateriDeleteIdentity(tx, code)"),
+  "delete must re-read the lesson identity after taking its subject lock",
+);
+assert.doesNotMatch(deleteSource, /for \(const \[index, module\] of remaining/, "delete must not reorder modules with one round trip per row");
+assert.match(deleteSource, /ROW_NUMBER\(\) OVER/, "delete must compact sequence numbers in a set-based statement");
+assert.match(deleteSource, /MATERI_DELETE_TRANSACTION_OPTIONS/, "delete must declare an explicit interactive transaction budget");
 assert.match(repositorySource, /assets: documentWhere/, "publish must condition its status update on the revalidated document resource");
 assert.match(repositorySource, /managedAsset: \{[\s\S]*?state: MediaAssetState\.ready/, "publish must fail closed when a managed PDF is trashed/replaced");
 
