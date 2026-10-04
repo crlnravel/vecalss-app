@@ -1,5 +1,13 @@
 # Session Handoff
 
+## Materi auto-publication/deletion completion checks (2026-10-04)
+
+- Implemented and landed externally in `eec7163`; current HEAD includes user follow-up `ee2b3a9` for deletion latency/subject lock keys. Fixture lint correction `bfab462` is ours. User approved this main model and additional normal guarded budgets; no emergency mode used.
+- All domain checks pass: test:materi-save-structure, builder validation, resource contract, lock boundary, PDF preview. The isolated schema includes real relevant FKs and tutor/student rows. No runtime DB mutation or owned server remains.
+- Full verify stopped on reserved local variable `module` in our regression; renamed/committed. No more launches requested. Peer `ecf0007a` already plans full verify for question-bank work and will send its current-HEAD result under response `098877d4-b750-4bf2-b5cf-d7bb4ed5ab2f`. Use that result to finish verification; do not duplicate the group.
+- Writer-registry regression fails unrelated stale package-script expectation: actual includes scripts/run-obscura.mjs and workers/vera-ai-reconciliation-worker.ts in addition to admin worker. No change made to that test.
+- Both Luna/max reviewers hit usage limits; resumed after cached provider health became ok. Pending threads `7e485188-acce-4223-86f9-4cc099bb4917` (Spec) and `4acb7571-4b6a-43c9-a328-ff16a7091fc3` (Standards). No polling or waiting on agents. Artifact materi-publish-delete records current intent/evidence; status in progress until pending checks/reviews resolved.
+
 ## Materi fullscreen follow-up (2026-10-04)
 
 - User requested removal of bottom widgets in fullscreen. `7fa63a3` on `dev` hides the PDF action/completion row and helper text in `modules/courses/StudentPdfPreview.tsx`, and preserves exit at top-right. Normal mode restores original controls; existing fullscreen event state remains authoritative.

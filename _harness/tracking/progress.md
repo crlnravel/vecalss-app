@@ -1167,3 +1167,13 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Final guarded focused ESLint and staged whitespace checks pass. Full TypeScript reports no errors in the catalogue or MentorBadge change.
 - [ ] Repository-wide verification remains blocked outside this scope: prior `pnpm verify` stopped on unrelated mentor lint errors; final TypeScript still reports unrelated assessment, upload-slot, and student-preview diagnostics. Production build is unverified.
 - [ ] Browser QA is unverified: Obscura CDP was unavailable, and interactive ego-browser inspection requires route/role/checklist approval. No agent-owned server remains.
+
+
+## Materi auto-publication, deletion, and fullscreen focus (2026-10-04)
+
+- [x] New valid Materi publish atomically on creation, with immediate student visibility. Existing lifecycle states remain intact during edits.
+- [x] Catalogue/editor confirmed deletion enforces ownership/edit leases, removes lesson-owned records, preserves media/questions/topics and compacts remaining order. Shared commits `eec7163`, `ee2b3a9`; lint fixture correction `bfab462`.
+- [x] Fullscreen entry/exit restores focus to the active control; bottom widgets remain hidden.
+- [x] Materi save/delete, builder, resource, ordering and PDF regressions passed.
+- [ ] Full lint/build result pending from the other agent's already-planned current-HEAD verify. Our lint-name failure is corrected; one existing settings warning remains. Writer-registry fails the unrelated stale script-entrypoint expectation.
+- [ ] Independent Luna/max Spec/Standards reviews re-requested after provider usage-limit errors; no browser check performed.
