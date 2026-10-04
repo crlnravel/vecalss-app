@@ -2,6 +2,8 @@
 
 ## Materi auto-publication/deletion completion checks (2026-10-04)
 
+- Standards review returned three P2 copy/lock/focus edges, all addressed in `562a689`; recheck requested under `8052dc78-3c74-4975-bd04-8ba58b866e7e`. Latest code needs verification. Peer question-bank agent is waiting on its user approval before its already-planned group and will share full verify under prior thread. No new guarded launches in this review-fix turn.
+
 - Implemented and landed externally in `eec7163`; current HEAD includes user follow-up `ee2b3a9` for deletion latency/subject lock keys. Fixture lint correction `bfab462` is ours. User approved this main model and additional normal guarded budgets; no emergency mode used.
 - All domain checks pass: test:materi-save-structure, builder validation, resource contract, lock boundary, PDF preview. The isolated schema includes real relevant FKs and tutor/student rows. No runtime DB mutation or owned server remains.
 - Full verify stopped on reserved local variable `module` in our regression; renamed/committed. No more launches requested. Peer `ecf0007a` already plans full verify for question-bank work and will send its current-HEAD result under response `098877d4-b750-4bf2-b5cf-d7bb4ed5ab2f`. Use that result to finish verification; do not duplicate the group.
