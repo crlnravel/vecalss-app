@@ -967,6 +967,9 @@ function textFromExcelContentCell(cell: ExcelJS.Cell, subjectCode: string | null
   if (subjectCode && ["PU", "PK", "PM"].includes(subjectCode) && /^(?:m{1,2}\/d{1,2}|d{1,2}\/m{1,2})$/u.test(format)) {
     return { invalid: false, text: `${value.getUTCMonth() + 1}/${value.getUTCDate()}` };
   }
+  if (subjectCode && ["PU", "PK", "PM"].includes(subjectCode) && /^m, d, y{2,4}$/u.test(format)) {
+    return { invalid: false, text: `${value.getUTCMonth() + 1}, ${value.getUTCDate()}, ${value.getUTCFullYear() % 100}` };
+  }
   const time = /^(h{1,2}):mm(?::ss)?$/u.exec(format);
   if (time) {
     const hours = String(value.getUTCHours()).padStart(time[1]!.length, "0");
@@ -1036,7 +1039,14 @@ function buildQuestionSheetLayout(
       imageUrlFieldByField.set(field, column);
     } else if (kind === "stakeholder" && !["source_question_id", "component", "status", "pic", "notes"].includes(field)) {
       importFieldColumns.set(column, field);
-      if (field === "prompt") imageFieldByColumn.set(column - 1, "prompt_image");
+      if (field === "prompt") {
+        imageFieldByColumn.set(column - 1, "prompt_image");
+        // Some source templates reserve an unlabeled picture column directly
+        // before the question text rather than anchoring pictures in the text.
+        if (index > 0 && !headerValues[index - 1]?.trim()) {
+          imageFieldByColumn.set(column - 2, "prompt_image");
+        }
+      }
       if (/^option_[a-e]$/u.test(field)) imageFieldByColumn.set(column - 1, `${field}_image`);
     }
   }
@@ -1201,6 +1211,26 @@ function normalizeXlsxOptionText(value: string) {
   return value.replace(/^\s*[A-E]\s*[.)]\s*/iu, "").trimStart();
 }
 
+const PBM_STAKEHOLDER_MATERI_ALIASES = new Map<string, string>([
+  ["Makna & Relas Makna", "Semantik: Makna dan Relasi Makna"],
+  ["Makna & Relasi Makna", "Semantik: Makna dan Relasi Makna"],
+  ["Kalimat Efektif", "Kalimat Efektif Konjungsi dan Hubungan Logis"],
+  ["Konjungsi & Hubungan Logis", "Kalimat Efektif Konjungsi dan Hubungan Logis"],
+  ["Kohesi & Koherensi Paragraf", "Koherensi & Kohesi Paragraf"],
+  ["Simpulan & Inferensi Teks", "Simpulan dan Inferensi Teks"],
+]);
+
+function isRepeatedStakeholderHeader(worksheet: ExcelJS.Worksheet, layout: XlsxQuestionSheetLayout, row: number) {
+  const sourceColumn = layout.columns.get("source_question_id");
+  if (sourceColumn === undefined || textFromExcelCell(worksheet.getCell(row, sourceColumn).value).text.trim()) return false;
+  return ["prompt", "option_a", "option_b", "correct_options"].every((field) => {
+    const column = layout.columns.get(field);
+    if (column === undefined) return false;
+    const value = textFromExcelCell(worksheet.getCell(row, column).value).text;
+    return STAKEHOLDER_HEADER_FIELDS.get(normalizeQuestionSheetHeader(value)) === field;
+  });
+}
+
 function isXlsxOptionField(field: string) {
   return /^option_[a-e]$/u.test(field);
 }
@@ -1224,6 +1254,7 @@ function xlsxToCsvRecords(
     if (layout.kind === "stakeholder") {
       const sourceQuestionIdColumn = layout.columns.get("source_question_id");
       if (sourceQuestionIdColumn && worksheet.getCell(row, sourceQuestionIdColumn).isMerged) continue;
+      if (isRepeatedStakeholderHeader(worksheet, layout, row)) continue;
     }
     const rawFields = new Map<string, string>();
     const sourceColumn = layout.columns.get("source_question_id");
@@ -1264,7 +1295,7 @@ function xlsxToCsvRecords(
       const answer = normalizeStakeholderAnswerKey(rawFields.get("correct_options") ?? "");
       const mappedFields: Record<string, string> = {
         subject_code: rowSubjectCode,
-        materi,
+        materi: rowSubjectCode === "PBM" ? PBM_STAKEHOLDER_MATERI_ALIASES.get(materi.trim()) ?? materi : materi,
         difficulty: normalizeStakeholderDifficulty(rawFields.get("difficulty") ?? ""),
         question_type: answer.questionType,
         prompt: rawFields.get("prompt") ?? "",

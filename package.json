@@ -149,6 +149,7 @@
     "test:question-bank-multiple-answer": "tsx scripts/test-question-bank-multiple-answer.ts",
     "test:question-bank-readiness": "tsx scripts/test-question-bank-readiness.ts",
     "test:question-bank-csv": "tsx scripts/test-question-bank-csv.ts",
+    "test:question-bank-xlsx": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-xlsx.ts",
     "test:question-bank-csv-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-csv-db.ts",
     "test:question-bank-csv-routes": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-csv-routes.ts",
     "test:question-bank-xlsx-upload-grant-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-question-bank-xlsx-upload-grant-db.ts",
