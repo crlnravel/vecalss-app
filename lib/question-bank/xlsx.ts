@@ -957,6 +957,31 @@ function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text:
   return { invalid: true, text: "" };
 }
 
+function textFromExcelContentCell(cell: ExcelJS.Cell, subjectCode: string | null) {
+  const value = cell.value;
+  if (!(value instanceof Date)) return textFromExcelCell(value);
+  if (!Number.isFinite(value.getTime())) return { invalid: true, text: "" };
+  const format = cell.numFmt.toLowerCase();
+  // Excel can coerce fractions into dates. For math options, restore the
+  // original month/day pair, including files using a day/month display format.
+  if (subjectCode && ["PU", "PK", "PM"].includes(subjectCode) && /^(?:m{1,2}\/d{1,2}|d{1,2}\/m{1,2})$/u.test(format)) {
+    return { invalid: false, text: `${value.getUTCMonth() + 1}/${value.getUTCDate()}` };
+  }
+  const time = /^(h{1,2}):mm(?::ss)?$/u.exec(format);
+  if (time) {
+    const hours = String(value.getUTCHours()).padStart(time[1]!.length, "0");
+    const minutes = String(value.getUTCMinutes()).padStart(2, "0");
+    const seconds = format.endsWith(":ss") ? `:${String(value.getUTCSeconds()).padStart(2, "0")}` : "";
+    return { invalid: false, text: `${hours}:${minutes}${seconds}` };
+  }
+  if (/^d{1,2} m{3,4} y{2,4}$/u.test(format)) {
+    return { invalid: false, text: new Intl.DateTimeFormat("id-ID", {
+      day: "numeric", month: format.includes("mmmm") ? "long" : "short", year: "numeric", timeZone: "UTC",
+    }).format(value) };
+  }
+  return { invalid: true, text: "" };
+}
+
 function normalizeQuestionSheetHeader(value: string) {
   return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLocaleLowerCase("id-ID");
 }
@@ -1201,9 +1226,16 @@ function xlsxToCsvRecords(
       if (sourceQuestionIdColumn && worksheet.getCell(row, sourceQuestionIdColumn).isMerged) continue;
     }
     const rawFields = new Map<string, string>();
+    const sourceColumn = layout.columns.get("source_question_id");
+    const rowSubject = sourceColumn === undefined ? null
+      : subjectCodeForSourceLabel(textFromExcelCell(worksheet.getCell(row, sourceColumn).value).text);
+    const contentSubject = rowSubject ?? subjectCodeForSheetName(layout.sheetName) ?? workbookSubjectCode;
     for (const [field, column] of layout.columns) {
       if (!layout.importFieldColumns.has(column) && field !== "source_question_id") continue;
-      const parsed = textFromExcelCell(worksheet.getCell(row, column).value);
+      const cell = worksheet.getCell(row, column);
+      const parsed = field === "prompt" || field === "explanation" || isXlsxOptionField(field)
+        ? textFromExcelContentCell(cell, contentSubject)
+        : textFromExcelCell(cell.value);
       if (parsed.invalid && layout.importFieldColumns.has(column)) {
         issues.push(structureIssue("xlsx_cell_value_invalid", row, field, layout.sheetName));
       }
