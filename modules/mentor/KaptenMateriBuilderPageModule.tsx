@@ -969,8 +969,11 @@ function useMateriLifecycleAction({
       router.refresh();
       return true;
     } catch {
-      toast.error(
-        "Status Materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
+      showToast(
+        operation === "delete"
+          ? "Materi belum dapat dihapus. Periksa koneksi lalu coba lagi."
+          : "Status Materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
+        { placement: "notification", variant: "error" },
       );
       return false;
     } finally {
