@@ -33,6 +33,15 @@ async function main() {
   const tupleResult = await parseQuestionBankXlsxWorkbook(new Uint8Array(await workbook.xlsx.writeBuffer()));
   assert.deepEqual(tupleResult.issues, [], "Excel-converted comma-separated math options should be restored");
   assert.equal(tupleResult.normalizedRows[3]?.options[0]?.content, "3, 4, 6");
+  tuple.getCell(4).value = new Date("2026-03-05T00:00:00Z");
+  tuple.getCell(4).numFmt = "m/d";
+  tuple.getCell(8).value = new Date("2006-03-04T00:00:00Z");
+  tuple.getCell(8).numFmt = "m, d, yy";
+  const bodyDates = await parseQuestionBankXlsxWorkbook(new Uint8Array(await workbook.xlsx.writeBuffer()));
+  for (const field of ["prompt", "explanation"]) {
+    assert.ok(bodyDates.issues.some((issue) => issue.code === "xlsx_cell_value_invalid" && issue.field === field), "math date recovery must be limited to answer options");
+  }
+  assert.equal(bodyDates.manifest, null);
 
   const pbm = new ExcelJS.Workbook();
   const pbmSheet = pbm.addWorksheet("PBM");

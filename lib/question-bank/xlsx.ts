@@ -957,17 +957,18 @@ function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text:
   return { invalid: true, text: "" };
 }
 
-function textFromExcelContentCell(cell: ExcelJS.Cell, subjectCode: string | null) {
+function textFromExcelContentCell(cell: ExcelJS.Cell, subjectCode: string | null, field: string) {
   const value = cell.value;
   if (!(value instanceof Date)) return textFromExcelCell(value);
   if (!Number.isFinite(value.getTime())) return { invalid: true, text: "" };
   const format = cell.numFmt.toLowerCase();
+  const isMathOption = isXlsxOptionField(field) && subjectCode !== null && ["PU", "PK", "PM"].includes(subjectCode);
   // Excel can coerce fractions into dates. For math options, restore the
   // original month/day pair, including files using a day/month display format.
-  if (subjectCode && ["PU", "PK", "PM"].includes(subjectCode) && /^(?:m{1,2}\/d{1,2}|d{1,2}\/m{1,2})$/u.test(format)) {
+  if (isMathOption && /^(?:m{1,2}\/d{1,2}|d{1,2}\/m{1,2})$/u.test(format)) {
     return { invalid: false, text: `${value.getUTCMonth() + 1}/${value.getUTCDate()}` };
   }
-  if (subjectCode && ["PU", "PK", "PM"].includes(subjectCode) && /^m, d, y{2,4}$/u.test(format)) {
+  if (isMathOption && /^m, d, y{2,4}$/u.test(format)) {
     return { invalid: false, text: `${value.getUTCMonth() + 1}, ${value.getUTCDate()}, ${value.getUTCFullYear() % 100}` };
   }
   const time = /^(h{1,2}):mm(?::ss)?$/u.exec(format);
@@ -1265,7 +1266,7 @@ function xlsxToCsvRecords(
       if (!layout.importFieldColumns.has(column) && field !== "source_question_id") continue;
       const cell = worksheet.getCell(row, column);
       const parsed = field === "prompt" || field === "explanation" || isXlsxOptionField(field)
-        ? textFromExcelContentCell(cell, contentSubject)
+        ? textFromExcelContentCell(cell, contentSubject, field)
         : textFromExcelCell(cell.value);
       if (parsed.invalid && layout.importFieldColumns.has(column)) {
         issues.push(structureIssue("xlsx_cell_value_invalid", row, field, layout.sheetName));
