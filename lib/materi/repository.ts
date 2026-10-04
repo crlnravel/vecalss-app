@@ -30,13 +30,13 @@ import {
 import { lockMateriSubjectScope, lockMateriSubjectScopes } from "./locks";
 
 const materiSubjects = [
-  { code: "PU", slug: "penalaran-umum" },
-  { code: "PPU", slug: "pengetahuan-pemahaman-umum" },
-  { code: "PBM", slug: "pemahaman-bacaan-menulis" },
-  { code: "PK", slug: "pengetahuan-kuantitatif" },
-  { code: "LBI", slug: "literasi-bahasa-indonesia" },
-  { code: "LBE", slug: "literasi-bahasa-inggris" },
-  { code: "PM", slug: "penalaran-matematika" },
+  { code: "PU", slug: "penalaran-umum", sectionNames: ["Pengenalan PU", "Konsep Inti", "Latihan"] },
+  { code: "PPU", slug: "pengetahuan-pemahaman-umum", sectionNames: ["Pengenalan PPU", "Konsep Inti", "Latihan"] },
+  { code: "PBM", slug: "pemahaman-bacaan-menulis", sectionNames: ["Pengenalan PBM", "Konsep Inti", "Latihan"] },
+  { code: "PK", slug: "pengetahuan-kuantitatif", sectionNames: ["Number Sense", "Konsep Inti", "Latihan"] },
+  { code: "LBI", slug: "literasi-bahasa-indonesia", sectionNames: ["Pengenalan LBI", "Konsep Inti", "Latihan"] },
+  { code: "LBE", slug: "literasi-bahasa-inggris", sectionNames: ["Reading Setup", "Konsep Inti", "Latihan"] },
+  { code: "PM", slug: "penalaran-matematika", sectionNames: ["Pengenalan PM", "Konsep Inti", "Latihan"] },
 ] as const;
 
 const materiSubjectCodes = materiSubjects.map((subject) => subject.code);
@@ -595,7 +595,39 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
 
     const subjectSlugs = [...new Set([subject.slug, source?.slug].filter(Boolean))] as string[];
-    const topics = await tx.topic.findMany({ where: { code: { in: subjectSlugs.flatMap(getCanonicalTopicCodes) }, parentTopicId: null }, orderBy: [{ subtestId: "asc" }, { code: "asc" }], select: { id: true, code: true, subtest: { select: { code: true } } } });
+    const affectedSubjects = materiSubjects.filter((candidate) => subjectSlugs.includes(candidate.slug));
+    const subtests = await tx.subtest.findMany({
+      where: { code: { in: affectedSubjects.map((candidate) => candidate.code) }, isActive: true },
+      select: { id: true, code: true },
+    });
+    if (subtests.length !== affectedSubjects.length) {
+      throw new MateriValidationError("Subtes ini belum tersedia. Pilih subtes lain atau coba lagi nanti.", { subjectSlug: "Subtes ini belum tersedia." });
+    }
+    // Internal storage must not depend on demo seeds. Subject scope locks above
+    // serialize initialization with other saves; preserve existing topic rows.
+    await tx.topic.createMany({
+      data: subtests.flatMap((subtest) => {
+        const canonical = affectedSubjects.find((candidate) => candidate.code === subtest.code)!;
+        return getCanonicalTopicCodes(canonical.slug).map((topicCode, index) => ({
+          code: topicCode,
+          name: canonical.sectionNames[index],
+          sortOrder: index + 1,
+          subtestId: subtest.id,
+        }));
+      }),
+      skipDuplicates: true,
+    });
+    const topics = await tx.topic.findMany({
+      where: {
+        OR: affectedSubjects.map((candidate) => ({
+          code: { in: getCanonicalTopicCodes(candidate.slug) },
+          subtest: { code: candidate.code },
+        })),
+        parentTopicId: null,
+      },
+      orderBy: [{ subtestId: "asc" }, { code: "asc" }],
+      select: { id: true, code: true, subtest: { select: { code: true } } },
+    });
     const expectedTopics = subjectSlugs.length * 3;
     if (topics.length !== expectedTopics) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
     await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
