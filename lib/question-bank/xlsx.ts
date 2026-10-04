@@ -952,7 +952,7 @@ function textFromExcelCell(value: ExcelJS.CellValue | undefined | null): { text:
   if (typeof value === "number" && Number.isFinite(value)) return { invalid: false, text: String(value) };
   if (typeof value === "boolean") return { invalid: true, text: "" };
   if (typeof value === "object" && "richText" in value && Array.isArray(value.richText)) {
-    return { invalid: true, text: "" };
+    return { invalid: false, text: value.richText.map((run) => run.text).join("") };
   }
   return { invalid: true, text: "" };
 }
