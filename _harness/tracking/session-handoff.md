@@ -1,5 +1,17 @@
 # Session Handoff
 
+## Materi save structure and modal feedback (2026-10-04)
+
+- Completed in `a9e3ddc` on `dev`; current user explicitly authorized this main agent's gpt-6.1-sol model for this task. Independent reviewers used exact gpt-6-luna/max.
+- Root failure: save required three internal canonical topics that were absent from the `.env` database. Reproduced exact message with valid PDF input in isolated local schema. `.env.local` already has the topics; the running server's inherited configuration was not directly observed.
+- Save now initializes missing topic rows inside the existing subject locks/transaction using canonical section names/sort orders. Existing topic identity and metadata remain intact. HTTP 200 is expected for the caught error returned as `{ ok: false }` from a Server Action.
+- Create modal suppresses persistent top unsaved/saving status; submit failures use shared bottom-center notification Sonner. Field errors, entered values, discard confirmation and navigation protection retained. Shared status hooks unchanged; status owner recorded the approved guideline exception separately.
+- Changed: `lib/materi/repository.ts`, `modules/mentor/KaptenMateriBuilderPageModule.tsx`, `scripts/test-materi-save-structure.ts`, and the corresponding package script only. Excel changes and shared feedback guideline edits are other owners' work.
+- Passed final guarded `test:materi-save-structure`, builder validation, resource contract, lock boundary, `pnpm verify`, and diff-check. Test covers supplied managed PDF, missing/partial topics, seed names, repeat/concurrent saves and validation. One pre-existing settings-page unused-Badge warning. Log `/tmp/materi-save-final-verify.log`.
+- Reviews: both clear after canonical-name compatibility fix. Fixture enum failures were corrected before final pass. No browser verification. No database reset, environment mutation, test schema residue or owned server.
+- Nine guarded attempts used including two refusals for the Excel agent's lock; user explicitly approved all extra normal budget. No emergency mode or bypass. No further commands needed for this fix.
+- Durable intent/evidence: epic `materi-save-fix`; optional next step is user retry or explicitly authorized visual verification of `/mentor/materi/subject/penalaran-umum` as Kapten.
+
 ## Bank Soal row identity follow-up (2026-10-03)
 
 - User requested icons before folder/bank titles, creator avatars, and removal of Materi for both banks. `f87fde2` on `dev` implements this in the shared bank table; the icons sit outside the block-styled title control in a flex wrapper.

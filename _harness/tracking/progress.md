@@ -1,5 +1,14 @@
 # Session Progress Log
 
+## Materi save structure and modal feedback (2026-10-04)
+
+- [x] `a9e3ddc` on `dev`: valid saves initialize missing canonical topics under existing locks/transaction, preserving existing rows and canonical seed names.
+- [x] Reproduced the exact reported structure error with a valid PDF in an isolated unseeded subject. `.env` database has zero canonical topics per subject; `.env.local` has three. The running server's inherited database configuration was not directly observed.
+- [x] Materi create modal omits persistent top unsaved/saving Sonner; all submit failures use explicit bottom-center notification placement. Form values, field errors, save controls, discard and navigation protection retained.
+- [x] Final `test:materi-save-structure` (managed PDF, partial setup, seed names, concurrent ordering), builder validation, resource contract, lock boundary, full verify and diff-check pass. One existing settings-page unused-Badge lint warning. Log `/tmp/materi-save-final-verify.log`.
+- [x] Independent Luna/max Standards and Spec reviews clear after fixing the Spec review's canonical-name finding. No browser run. Epic artifact `materi-save-fix` records decisions/evidence.
+- Nine guarded attempts including two shared-lock refusals; additional normal groups explicitly approved, no emergency/bypass. No owned long-lived process remains.
+
 ## Bank Soal inline icons and creator avatars (2026-10-03)
 
 - [x] `f87fde2`: both purposes show folder/Bank Soal icons before titles in separate flex wrappers, avoiding quizTitle's block display; replace Materi with Pembuat using the shared avatar/profile popover.

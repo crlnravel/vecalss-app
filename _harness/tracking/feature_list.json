@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "fix-materi-save-structure",
+      "name": "Save Materi without demo topics and quiet create-modal feedback",
+      "description": "Initialize missing canonical Materi topic rows during valid saves, omit persistent top status in the create modal, and show submit failures through bottom Sonner while preserving form state and guards.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "a9e3ddc on dev; exact structure-error repro red before fix, missing/partial topics and supplied managed PDF/concurrent-save regression green afterward. Builder validation, resource contract, lock boundary, full verify and diff-check pass. Independent Luna/max Standards and Spec reviews clear after canonical seed-name correction. One unrelated settings lint warning; no browser verification. Log /tmp/materi-save-final-verify.log; epic artifact materi-save-fix."
+    },
+    {
       "id": "bank-soal-kuis-table-style",
       "name": "Both Bank Soal pages use the mentor quiz TanStack table",
       "description": "Share the actual mentor quiz TanStack grid, controls and pagination for quiz and tryout banks, with inline title icons, real creator avatars, bank-specific columns and preserved catalogue behavior.",
