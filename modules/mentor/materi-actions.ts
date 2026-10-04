@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { serverLogger } from "@/lib/server-logger";
+import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
   archiveMateriLesson,
   bulkPublishMateriLessons,
   bulkUnpublishMateriLessons,
+  deleteMateriLesson,
   MateriValidationError,
   publishMateriLesson,
   returnMateriLessonToDraft,
@@ -73,9 +75,27 @@ async function saveMateriLessonAction(input: SaveMateriLessonInput): Promise<Mat
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Materi tersimpan, tetapi belum bisa dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: lesson.lifecycleStatus === "published" ? "Perubahan terbit telah disimpan." : "Draf tersimpan.", ok: true };
+    return { lesson: view, message: !input.code ? "Materi berhasil dibuat dan diterbitkan." : lesson.lifecycleStatus === "published" ? "Perubahan materi tersimpan." : "Draf tersimpan.", ok: true };
   } catch (error) {
     return failedResult(error);
+  }
+}
+
+async function deleteMateriLessonAction(code: string, editLease?: AuthoringEditLease): Promise<
+  { ok: true; code: string; subjectSlug: string; message: string } | { ok: false; message: string }
+> {
+  const session = await requireTutorSession();
+  try {
+    const result = await deleteMateriLesson(code, session.user.id, editLease);
+    revalidateMateriPaths(result.subjectSlug, code);
+    return { ...result, ok: true, message: "Materi berhasil dihapus." };
+  } catch (error) {
+    if (error instanceof MateriValidationError) return { ok: false, message: error.message };
+    if (error instanceof EditLeaseServiceError) {
+      return { ok: false, message: error.code === "resource_locked" ? "Materi sedang diedit. Tutup editor atau tunggu hingga selesai, lalu coba lagi." : "Materi belum dapat dihapus. Muat ulang halaman lalu coba lagi." };
+    }
+    serverLogger.error("mentor.materi.delete.failed", error, { area: "mentor.materi", operation: "delete_materi" });
+    return { ok: false, message: "Materi belum berhasil dihapus. Coba lagi." };
   }
 }
 
@@ -157,6 +177,7 @@ export {
   archiveMateriLessonAction,
   bulkPublishMateriLessonsAction,
   bulkUnpublishMateriLessonsAction,
+  deleteMateriLessonAction,
   publishMateriLessonAction,
   returnMateriLessonToDraftAction,
   saveMateriLessonAction,

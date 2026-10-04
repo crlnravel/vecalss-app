@@ -238,6 +238,7 @@ async function resourceExists(
         SELECT EXISTS (
           SELECT 1 FROM "question_banks"
           WHERE "id" = ${resource.resourceId}::uuid
+            AND "deleted_at" IS NULL
             ${owner}
         ) AS "exists"
       `;

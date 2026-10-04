@@ -13,6 +13,7 @@ import {
 } from "@/lib/icons";
 import { useReducer, useState, type ReactNode } from "react";
 
+import { MateriDeleteDialog } from "@/modules/mentor/components/materi-delete-dialog";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
@@ -45,6 +46,7 @@ import {
 } from "@/modules/mentor/components/kapten-ui";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
 import {
+  deleteMateriLessonAction,
   bulkPublishMateriLessonsAction,
   bulkUnpublishMateriLessonsAction,
   archiveMateriLessonAction,
@@ -366,11 +368,19 @@ function KaptenMateriSubjectPageModule({
   async function applyLessonAction(
     lesson: KaptenMateriView,
     action: "archive" | "delete" | "publish" | "restore" | "unpublish",
-  ) {
-    if (isBulkPending || action === "delete") return;
+  ): Promise<boolean> {
+    if (isBulkPending) return false;
     dispatch({ pending: true, type: "bulkPendingChanged" });
     try {
-      if (action === "publish" || action === "unpublish") {
+      if (action === "delete") {
+        const result = await deleteMateriLessonAction(lesson.code);
+        if (!result.ok) {
+          showToast(result.message, { placement: "notification", variant: "error" });
+          return false;
+        }
+        dispatch({ type: "lessonsChanged", lessons: lessons.filter((item) => item.code !== lesson.code).map((item, index) => ({ ...item, position: index + 1 })) });
+        showToast(result.message, { placement: "notification", variant: "success" });
+      } else if (action === "publish" || action === "unpublish") {
         const result =
           action === "publish"
             ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code])
@@ -379,7 +389,7 @@ function KaptenMateriSubjectPageModule({
               ]);
         if (!result.ok) {
           showToast(result.message, { variant: "error" });
-          return;
+          return false;
         }
         dispatch({
           lessons: lessons.map((item) =>
@@ -401,7 +411,7 @@ function KaptenMateriSubjectPageModule({
             : await returnMateriLessonToDraftAction(lesson.code);
         if (!result.ok) {
           showToast(result.message, { variant: "error" });
-          return;
+          return false;
         }
         dispatch({
           lessons: lessons.map((item) =>
@@ -413,11 +423,13 @@ function KaptenMateriSubjectPageModule({
       }
       dispatch({ type: "tableVersionChanged" });
       router.refresh();
+      return true;
     } catch {
       showToast(
         "Status materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
         { variant: "error" },
       );
+      return false;
     } finally {
       dispatch({ pending: false, type: "bulkPendingChanged" });
     }
@@ -426,9 +438,7 @@ function KaptenMateriSubjectPageModule({
   return (
     <MateriSubjectCatalogueScreen
       actions={{
-        onApplyLessonAction: (lesson, action) => {
-          void applyLessonAction(lesson, action);
-        },
+        onApplyLessonAction: applyLessonAction,
         onStatusFilterChange: (value) => navigateCatalogue({ status: value }),
       }}
       data={{
@@ -450,7 +460,7 @@ type MateriSubjectCatalogueActions = {
   onApplyLessonAction: (
     lesson: KaptenMateriView,
     action: "archive" | "delete" | "publish" | "restore" | "unpublish",
-  ) => void;
+  ) => Promise<boolean>;
   onStatusFilterChange: (value: MateriStatusFilter) => void;
 };
 
@@ -600,7 +610,9 @@ function MateriSubjectCatalogueScreen({
   subject: KaptenMateriSubjectView;
 }) {
   const router = useRouter();
+  const [deleteTarget, setDeleteTarget] = useState<KaptenMateriView | null>(null);
   const {
+    isBulkPending,
     lessons,
     query,
     sort,
@@ -696,7 +708,7 @@ function MateriSubjectCatalogueScreen({
           </ContextMenuItem>
         )}
         <ContextMenuSeparator />
-        <ContextMenuItem disabled variant="destructive">
+        <ContextMenuItem disabled={isBulkPending} onClick={() => setDeleteTarget(lesson)} variant="destructive">
           <Trash2 />
           Hapus
         </ContextMenuItem>
@@ -717,6 +729,10 @@ function MateriSubjectCatalogueScreen({
       session={session}
       sidebarAppearance="reference"
     >
+      <MateriDeleteDialog open={Boolean(deleteTarget)} pending={isBulkPending} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }} onConfirm={() => {
+        if (!deleteTarget) return;
+        void actions.onApplyLessonAction(deleteTarget, "delete").then((deleted) => { if (deleted) setDeleteTarget(null); });
+      }} />
       <div className="space-y-8">
         <ReferencePageHeader
           actions={

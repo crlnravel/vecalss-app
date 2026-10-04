@@ -654,7 +654,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const destinationTopicId = current && sourceCode === subject.code ? current.topicId : destinationTopics[0].id;
     if (!current) {
-      await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: video?.durationSeconds ? Math.ceil(video.durationSeconds / 60) : null, status: ContentStatus.draft, createdByUserId: tutorId, updatedByUserId: tutorId } });
+      await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: video?.durationSeconds ? Math.ceil(video.durationSeconds / 60) : null, status: ContentStatus.published, publishedAt: new Date(), createdByUserId: tutorId, updatedByUserId: tutorId } });
     } else {
       await tx.module.update({ where: { code }, data: { ...(sourceCode === subject.code ? {} : { topicId: destinationTopicId }), title, estimatedMinutes: video?.durationSeconds ? Math.ceil(video.durationSeconds / 60) : null, updatedByUserId: tutorId } });
     }
@@ -968,6 +968,64 @@ function getMateriLifecycleTopicWhere(subject: (typeof materiSubjects)[number]) 
   };
 }
 
+async function deleteMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
+  return prisma.$transaction(async (tx) => {
+    await lockMateriSubjectScopes(tx, materiSubjectCodes);
+    const identity = await tx.module.findUnique({
+      where: { code },
+      select: { id: true, topic: { select: { code: true, parentTopicId: true, subtest: { select: { code: true } } } } },
+    });
+    const subject = identity && getSubjectByCode(identity.topic.subtest.code);
+    if (!identity || !subject || identity.topic.parentTopicId !== null || !isCanonicalTopicForSubject(subject.slug, identity.topic.code)) {
+      throw new MateriValidationError("Materi tidak ditemukan.");
+    }
+
+    const removeLesson = async () => {
+      const topics = await tx.topic.findMany({ where: getMateriLifecycleTopicWhere(subject), select: { id: true } });
+      await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
+      const modules = await tx.module.findMany({
+        where: { topicId: { in: topics.map((topic) => topic.id) } },
+        orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
+        select: { id: true, sequenceNo: true },
+      });
+      await tx.$queryRaw`SELECT id FROM modules WHERE id = ANY(${modules.map((module) => module.id)}::uuid[]) ORDER BY id FOR UPDATE`;
+      // Remove lesson-owned records and detach optional recommendations. Shared
+      // question-bank questions, canonical topics, and uploaded files remain.
+      await tx.quizAttemptAnswer.deleteMany({ where: { attempt: { quiz: { moduleId: identity.id } } } });
+      await tx.quizAttempt.deleteMany({ where: { quiz: { moduleId: identity.id } } });
+      await tx.quizItem.deleteMany({ where: { quiz: { moduleId: identity.id } } });
+      await tx.moduleQuiz.deleteMany({ where: { moduleId: identity.id } });
+      await tx.moduleProgress.deleteMany({ where: { moduleId: identity.id } });
+      await tx.modulePrerequisite.deleteMany({ where: { OR: [{ moduleId: identity.id }, { prerequisiteModuleId: identity.id }] } });
+      await tx.learningRecommendation.updateMany({ where: { moduleId: identity.id }, data: { moduleId: null } });
+      await tx.weaknessAnalysisTopic.updateMany({ where: { moduleId: identity.id }, data: { moduleId: null } });
+      await tx.intervention.updateMany({ where: { recommendedModuleId: identity.id }, data: { recommendedModuleId: null } });
+      await tx.moduleAsset.deleteMany({ where: { moduleId: identity.id } });
+      await tx.module.delete({ where: { id: identity.id } });
+      const remaining = modules.filter((module) => module.id !== identity.id);
+      const offset = Math.max(0, ...modules.map((module) => module.sequenceNo)) + modules.length;
+      for (const [index, module] of remaining.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- distinct temporary slots prevent sequence collisions.
+        await tx.module.update({ where: { id: module.id }, data: { sequenceNo: offset + index + 1 } });
+      }
+      for (const [index, module] of remaining.entries()) {
+        // react-doctor-disable-next-line async-await-in-loop -- assign contiguous positions in the existing relative order.
+        await tx.module.update({ where: { id: module.id }, data: { sequenceNo: index + 1 } });
+      }
+      await tx.editLease.deleteMany({ where: { resourceType: "materi", resourceId: code } });
+      return { code, subjectSlug: subject.slug };
+    };
+
+    if (editLease) {
+      await assertAuthoringEditLease(tx, { resourceId: code, resourceType: "materi" }, tutorId, editLease);
+      return removeLesson();
+    }
+    // Catalogue actions have no persistent editor proof; their temporary claim
+    // still refuses every active editor lease, including another tab's lease.
+    return withTransientAuthoringEditLeases(tx, [{ resourceId: code, resourceType: "materi" }], tutorId, removeLesson);
+  });
+}
+
 async function publishMateriLesson(code: string, tutorId: string, editLease?: AuthoringEditLease) {
   await prisma.$transaction(async (tx) => {
     const locked = await readLockedMateriLifecycleRecord(tx, code, tutorId, editLease);
@@ -1180,6 +1238,7 @@ export {
   archiveMateriLesson,
   bulkPublishMateriLessons,
   bulkUnpublishMateriLessons,
+  deleteMateriLesson,
   getMentorMateriByCode,
   getMentorMateriCatalogue,
   getPublishedCourseCatalogue,

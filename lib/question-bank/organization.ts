@@ -272,7 +272,7 @@ async function revalidateFolderBankMembership(
   expectedBankIds: readonly string[],
 ) {
   const current = await tx.questionBank.findMany({
-    where: { folderId, purpose },
+    where: { deletedAt: null, folderId, purpose },
     orderBy: { id: "asc" },
     select: { id: true },
   });
@@ -285,7 +285,7 @@ async function revalidateCategoryBankMembership(
   expectedBankIds: readonly string[],
 ) {
   const current = await tx.questionBankCategoryAssignment.findMany({
-    where: { categoryId },
+    where: { categoryId, questionBank: { deletedAt: null } },
     orderBy: { questionBankId: "asc" },
     select: { questionBankId: true },
   });
@@ -480,7 +480,7 @@ async function listQuestionBankFolders(purpose: QuestionBankPurpose) {
     }),
     prisma.questionBank.groupBy({
       by: ["folderId"],
-      where: { purpose: normalizedPurpose },
+      where: { deletedAt: null, purpose: normalizedPurpose },
       _count: { _all: true },
     }),
   ]);
@@ -502,7 +502,7 @@ async function listQuestionBankFolderTree(purpose: QuestionBankPurpose) {
   const [folders, unfiledBankCount] = await Promise.all([
     listQuestionBankFolders(normalizedPurpose),
     prisma.questionBank.count({
-      where: { folderId: null, purpose: normalizedPurpose },
+      where: { deletedAt: null, folderId: null, purpose: normalizedPurpose },
     }),
   ]);
   return buildQuestionBankFolderTree(folders, {
@@ -569,7 +569,7 @@ async function createQuestionBankFolder(
           purpose: normalizedPurpose,
           updatedByUserId: actorId,
         },
-        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
+        include: { _count: { select: { banks: { where: { deletedAt: null } } } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(created);
     });
@@ -604,7 +604,7 @@ async function renameQuestionBankFolder(
       const updated = await tx.questionBankFolder.update({
         where: { id },
         data: { name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
+        include: { _count: { select: { banks: { where: { deletedAt: null } } } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(updated);
     });
@@ -674,7 +674,7 @@ async function moveQuestionBankFolder(
       const updated = await tx.questionBankFolder.update({
         where: { id },
         data: { parentId, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } }, createdBy: { select: questionBankCreatorSelect } },
+        include: { _count: { select: { banks: { where: { deletedAt: null } } } }, createdBy: { select: questionBankCreatorSelect } },
       });
       return folderDto(updated);
     });
@@ -697,7 +697,7 @@ async function removeQuestionBankFolder(
     return await prisma.$transaction(async (tx) => {
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationFoldersMutexKey(normalizedPurpose));
-      const affectedBanks = await tx.questionBank.findMany({ where: { folderId: id, purpose: normalizedPurpose }, select: { id: true }, orderBy: { id: "asc" } });
+      const affectedBanks = await tx.questionBank.findMany({ where: { deletedAt: null, folderId: id, purpose: normalizedPurpose }, select: { id: true }, orderBy: { id: "asc" } });
       const affectedBankIds = affectedBanks.map((bank) => bank.id);
       assertAffectedBankCount(affectedBankIds);
       return withBankClaims(tx, affectedBankIds, actorId, async () => {
@@ -737,7 +737,7 @@ async function listQuestionBankCategories(purpose: QuestionBankPurpose) {
     }),
     prisma.questionBankCategoryAssignment.groupBy({
       by: ["categoryId"],
-      where: { questionBank: { purpose: normalizedPurpose } },
+      where: { questionBank: { deletedAt: null, purpose: normalizedPurpose } },
       _count: { _all: true },
     }),
   ]);
@@ -765,7 +765,7 @@ async function createQuestionBankCategory(nameInput: string, actorId: string) {
       await lockAllCategories(tx);
       const created = await tx.questionBankCategory.create({
         data: { createdByUserId: actorId, name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } } },
+        include: { _count: { select: { banks: { where: { deletedAt: null } } } } },
       });
       return {
         bankCount: created._count.banks,
@@ -804,7 +804,7 @@ async function renameQuestionBankCategory(
       const updated = await tx.questionBankCategory.update({
         where: { id },
         data: { name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: true } } },
+        include: { _count: { select: { banks: { where: { deletedAt: null } } } } },
       });
       return {
         bankCount: updated._count.banks,
@@ -831,7 +831,7 @@ async function removeQuestionBankCategory(
     return await prisma.$transaction(async (tx) => {
       await prepareOrganizationTransaction(tx);
       await acquireDomainMutex(tx, bankOrganizationCategoriesMutexKey());
-      const affectedBanks = await tx.questionBankCategoryAssignment.findMany({ where: { categoryId: id }, select: { questionBankId: true }, orderBy: { questionBankId: "asc" } });
+      const affectedBanks = await tx.questionBankCategoryAssignment.findMany({ where: { categoryId: id, questionBank: { deletedAt: null } }, select: { questionBankId: true }, orderBy: { questionBankId: "asc" } });
       const affectedBankIds = affectedBanks.map((assignment) => assignment.questionBankId);
       assertAffectedBankCount(affectedBankIds);
       return withBankClaims(tx, affectedBankIds, actorId, async () => {

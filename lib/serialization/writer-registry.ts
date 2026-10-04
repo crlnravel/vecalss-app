@@ -31,6 +31,7 @@ type WriterDescriptor = {
 
 const AUTHORING_WRITER_REGISTRY = [
   // Materi
+  { name: "deleteMateriLesson", source: "lib/materi/repository.ts", classification: "leased", resource: "materi:{code}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 7] },
   { name: "saveMateriLesson", source: "lib/materi/repository.ts", classification: "leased", resource: "materi:{code}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },
   { name: "publishMateriLesson", source: "lib/materi/repository.ts", classification: "leased", resource: "materi:{code}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },
   { name: "unpublishMateriLesson", source: "lib/materi/repository.ts", classification: "leased", resource: "materi:{code}", resolver: "direct-aggregate", lockOrder: [1, 4, 7] },

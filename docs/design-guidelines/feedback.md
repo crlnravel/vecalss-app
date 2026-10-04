@@ -146,3 +146,12 @@ represent unsaved changes with a yellow dot and the shared tooltip
 show its persistent unsaved-status Sonner. Keep navigation guards, before-unload
 protection, field validation and action-failure/recovery feedback. This exception
 does not change the shared hook or the floating status behavior on other pages.
+
+### Materi modal exception
+
+The user explicitly approved omitting the persistent unsaved-status Sonner
+while filling Mentor Materi modals. Keep the modal's save controls, field
+validation and existing discard/navigation protection. Submit failures use a
+bottom-center notification toast (`placement="notification"`), preserving the
+entered values so the user can correct or retry. This exception does not alter
+the shared status hook or other authoring pages.

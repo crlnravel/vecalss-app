@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   FileText,
   Save,
+  Trash2,
   Upload,
 } from "@/lib/icons";
 import { useEffect, useReducer, useState, type ReactNode } from "react";
@@ -23,6 +24,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { MateriDeleteDialog } from "@/modules/mentor/components/materi-delete-dialog";
 import { Button } from "@/components/ui/button";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
@@ -76,6 +78,7 @@ import {
 } from "@/modules/mentor/resource-edit-lock-provider";
 import {
   archiveMateriLessonAction,
+  deleteMateriLessonAction,
   publishMateriLessonAction,
   returnMateriLessonToDraftAction,
   saveMateriLessonAction,
@@ -565,6 +568,7 @@ function MateriAdministrationSection({
   hasUnsavedChanges,
   isSaving,
   onArchive,
+  onDelete,
   onPublish,
   onRestore,
   readiness,
@@ -573,12 +577,14 @@ function MateriAdministrationSection({
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onPublish: () => void;
   onRestore: () => void;
   readiness: "ready" | "incomplete";
   status: KaptenMateriView["status"];
 }) {
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const isDraft = status === "draft";
   const isPublished = status === "published";
   const isArchived = status === "archived";
@@ -666,6 +672,9 @@ function MateriAdministrationSection({
               </Button>
             </AdministrationActionRow>
           ) : null}
+          <AdministrationActionRow action="Hapus materi" description="Hapus materi dan progres belajarnya secara permanen.">
+            <Button disabled={isLifecycleActionBlocked} onClick={() => setIsDeleteDialogOpen(true)} type="button" variant="destructive"><Trash2 />Hapus materi</Button>
+          </AdministrationActionRow>
         </div>
         {readiness !== "ready" && isDraft ? (
           <p className="text-sm leading-6 text-student-status-attention-fg">
@@ -673,6 +682,9 @@ function MateriAdministrationSection({
           </p>
         ) : null}
       </ReferenceSurface>
+      <MateriDeleteDialog open={isDeleteDialogOpen} pending={isSaving} onOpenChange={setIsDeleteDialogOpen} onConfirm={() => {
+        void onDelete().then((deleted) => { if (deleted) setIsDeleteDialogOpen(false); });
+      }} />
       <AlertDialog
         onOpenChange={setIsArchiveDialogOpen}
         open={isArchiveDialogOpen}
@@ -715,6 +727,7 @@ function MateriBuilderForm({
   mode,
   onFieldChange,
   onArchive,
+  onDelete,
   onOpenPicker,
   onPublish,
   onRestore,
@@ -732,6 +745,7 @@ function MateriBuilderForm({
   mode: "create" | "edit";
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onOpenPicker: () => void;
   onPublish: () => void;
   onRestore: () => void;
@@ -768,6 +782,7 @@ function MateriBuilderForm({
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSaving}
           onArchive={onArchive}
+          onDelete={onDelete}
           onPublish={onPublish}
           onRestore={onRestore}
           readiness={readiness}
@@ -798,6 +813,7 @@ function MateriBuilderEditor({
   mode,
   onFieldChange,
   onArchive,
+  onDelete,
   onOpenPicker,
   onPreviewChange,
   onPublish,
@@ -818,6 +834,7 @@ function MateriBuilderEditor({
   mode: "create" | "edit";
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onOpenPicker: () => void;
   onPreviewChange: (open: boolean) => void;
   onPublish: () => void;
@@ -846,6 +863,7 @@ function MateriBuilderEditor({
       mode={mode}
       onFieldChange={onFieldChange}
       onArchive={onArchive}
+      onDelete={onDelete}
       onOpenPicker={onOpenPicker}
       onPublish={onPublish}
       onRestore={onRestore}
@@ -888,6 +906,7 @@ function useMateriLifecycleAction({
   isEditLocked,
   resourceLock,
   router,
+  parentHref,
   savedMateri,
   updateEditor,
 }: {
@@ -895,15 +914,27 @@ function useMateriLifecycleAction({
   isEditLocked: boolean;
   resourceLock: ReturnType<typeof useResourceEditLock>;
   router: ReturnType<typeof useRouter>;
+  parentHref: string;
   savedMateri: KaptenMateriView | null;
   updateEditor: (patch: Partial<MateriEditorState>) => void;
 }) {
-  return async (operation: "archive" | "publish" | "restore") => {
+  return async (operation: "archive" | "delete" | "publish" | "restore") => {
     const code = savedMateri?.code;
-    if (!code || hasUnsavedChanges || isEditLocked) return;
+    if (!code || hasUnsavedChanges || isEditLocked || !resourceLock.proof) return false;
 
     updateEditor({ isLifecycleSaving: true });
     try {
+      if (operation === "delete") {
+        const result = await deleteMateriLessonAction(code, resourceLock.proof);
+        if (!result.ok) {
+          showToast(result.message, { placement: "notification", variant: "error" });
+          return false;
+        }
+        showToast(result.message, { placement: "notification", variant: "success" });
+        router.replace(parentHref);
+        router.refresh();
+        return true;
+      }
       const result =
         operation === "archive"
           ? await archiveMateriLessonAction(code, resourceLock.proof ?? undefined)
@@ -912,7 +943,7 @@ function useMateriLifecycleAction({
             : await returnMateriLessonToDraftAction(code, resourceLock.proof ?? undefined);
       if (!result.ok) {
         toast.error(result.message);
-        return;
+        return false;
       }
 
       updateEditor({
@@ -922,10 +953,12 @@ function useMateriLifecycleAction({
       });
       toast.success(result.message);
       router.refresh();
+      return true;
     } catch {
       toast.error(
         "Status Materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
       );
+      return false;
     } finally {
       updateEditor({ isLifecycleSaving: false });
     }
@@ -992,7 +1025,7 @@ function MateriBuilderContent({
     (initialMateri
       ? `/mentor/materi/subject/${initialMateri.subjectSlug}`
       : "/mentor/materi");
-  const materiStatus = savedMateri?.status ?? "draft";
+  const materiStatus = savedMateri?.status ?? "published";
   const isArchived = materiStatus === "archived";
   const lockState: AuthoringLockState = mode === "create" ? "owned" : resourceLock.state;
   const isEditLocked = mode === "edit" && !resourceLock.canEdit;
@@ -1080,6 +1113,7 @@ function MateriBuilderContent({
   }
 
   const updateLifecycle = useMateriLifecycleAction({
+    parentHref,
     hasUnsavedChanges,
     isEditLocked,
     resourceLock,
@@ -1176,6 +1210,7 @@ function MateriBuilderContent({
     lockState={lockState}
     mode={mode}
     onArchive={() => void updateLifecycle("archive")}
+    onDelete={() => updateLifecycle("delete")}
     onFieldChange={updateField}
     onOpenPicker={() => updateEditor({ isPickerOpen: true })}
     onPreviewChange={(open) => updateEditor({ isPreviewOpen: open })}
@@ -1244,7 +1279,7 @@ function MateriBuilderPresentation({ children, dialogOpen, discardConfirmationOp
 
 function MateriBuilderBody({
   builderState, errors, hasUnsavedChanges, isArchived, isCreateDialog, isEditLocked,
-  isLifecycleSaving, isPickerOpen, isPreviewOpen, isSaving, lockState, mode, onArchive,
+  isLifecycleSaving, isPickerOpen, isPreviewOpen, isSaving, lockState, mode, onArchive, onDelete,
   onFieldChange, onOpenPicker, onPreviewChange, onPublish, onReset, onRestore, onSave,
   onSelectDocument, onRetryLock, onPickerOpenChange, onUnsavedSave, parentHref,
   readiness, selectedDocumentName, selectedSubjectName, status, subjects,
@@ -1262,6 +1297,7 @@ function MateriBuilderBody({
   lockState: AuthoringLockState;
   mode: "create" | "edit";
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onOpenPicker: () => void;
   onPreviewChange: (open: boolean) => void;
@@ -1285,7 +1321,7 @@ function MateriBuilderBody({
       <div className={cn("flex w-full flex-col gap-6", isCreateDialog ? "gap-5" : "mx-auto max-w-[1180px]")}>
         {!isCreateDialog ? <MateriBuilderHeader builderState={builderState} isPreviewOpen={isPreviewOpen} mode={mode} parentHref={parentHref} /> : null}
         {mode === "edit" ? <ResourceAuthoringLockBanner hasLocalChanges={hasUnsavedChanges} onRetry={onRetryLock} resourceLabel="Materi" state={lockState} /> : null}
-        <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
+        <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onDelete={onDelete} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
       </div>
       <MediaPickerDialog allowedMimeTypes={["application/pdf"]} onOpenChange={onPickerOpenChange} onSelect={onSelectDocument} open={isPickerOpen && !isArchived && !isEditLocked} selectedAssetId={builderState.documentAssetId || null} title="Pilih PDF Materi" />
       {!isCreateDialog && (hasUnsavedChanges || isSaving) ? <MateriUnsavedChangesBar isArchived={isArchived || isEditLocked} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}

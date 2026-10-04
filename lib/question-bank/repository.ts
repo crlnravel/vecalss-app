@@ -555,7 +555,7 @@ function toDto(
 }
 
 function buildListWhere(options: ListQuestionBanksOptions = {}): Prisma.QuestionBankWhereInput {
-  const conditions: Prisma.QuestionBankWhereInput[] = [];
+  const conditions: Prisma.QuestionBankWhereInput[] = [{ deletedAt: null }];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
   if (options.purpose) conditions.push({ purpose: assertQuestionBankPurpose(options.purpose) });
   if (options.folderId !== undefined) conditions.push({ folderId: options.folderId });
@@ -620,7 +620,7 @@ async function listQuestionBankPage(options: ListQuestionBanksOptions & { page?:
 
 async function getQuestionBankForEdit(id: string) {
   const [bank, folderRows] = await Promise.all([
-    prisma.questionBank.findUnique({ where: { id }, include: bankInclude }),
+    prisma.questionBank.findUnique({ where: { id, deletedAt: null }, include: bankInclude }),
     getFolderRows(),
   ]);
   return bank ? toDto(bank, folderRows) : null;
@@ -1224,7 +1224,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const status: ContentStatus = ContentStatus.published;
     if (bankId) {
       const accessibleBank = await tx.questionBank.findUnique({
-        where: { id: bankId },
+        where: { id: bankId, deletedAt: null },
         select: { id: true },
       });
       if (!accessibleBank)
@@ -1236,7 +1236,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
         input.editLease,
       );
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
-      const current = await tx.questionBank.findUnique({ where: { id: bankId } });
+      const current = await tx.questionBank.findUnique({ where: { id: bankId, deletedAt: null } });
       if (!current) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
       if (input.revision === undefined || current.revision !== input.revision) {
         throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.", { code: "stale_revision" });
@@ -1548,7 +1548,7 @@ async function updateQuestionBankLifecycle(id: string, operation: "archive" | "r
       options.editLease,
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
+    const bank = await tx.questionBank.findUnique({ where: { id, deletedAt: null }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     if (bank.revision !== options.expectedRevision) {
       throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.", { code: "stale_revision" });
@@ -1779,7 +1779,7 @@ async function deleteQuestionBank(
       editLease,
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, revision: true, status: true, updatedByUserId: true } });
+    const bank = await tx.questionBank.findUnique({ where: { id, deletedAt: null }, select: { id: true, revision: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     const modifierId = actorId;
 
@@ -1815,20 +1815,11 @@ async function deleteQuestionBank(
       throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan dalam kuis, Tryout, atau sesi belajar.");
     }
 
-    const currentQuestions = await tx.question.findMany({
-      where: { questionBankId: id },
-      select: { currentRevision: { select: { status: true } }, status: true },
-    });
-    const changesCurrentBankState = bank.status !== ContentStatus.archived
-      || currentQuestions.some((question) =>
-        question.status !== ContentStatus.archived
-        || question.currentRevision.status !== QuestionRevisionStatus.retired,
-      );
-
     // Question identities and their revisions are historical authorities once
     // the physical revision boundary exists. Keep them addressable and
-    // archive the bank instead of attempting a cascading delete that would
-    // destroy or orphan revision/source references.
+    // mark the bank deleted instead of attempting a cascading delete that
+    // would destroy or orphan revision/source references. This marker keeps
+    // deletion distinct from a restorable archive.
     await tx.questionRevision.updateMany({
       where: { question: { questionBankId: id }, status: { not: QuestionRevisionStatus.retired } },
       data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: modifierId },
@@ -1837,7 +1828,8 @@ async function deleteQuestionBank(
     await tx.questionBank.update({
       where: { id },
       data: {
-        revision: bank.revision + (changesCurrentBankState ? 1 : 0),
+        deletedAt: new Date(),
+        revision: bank.revision + 1,
         status: ContentStatus.archived,
         updatedByUserId: modifierId,
       },
