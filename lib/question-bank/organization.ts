@@ -765,7 +765,7 @@ async function createQuestionBankCategory(nameInput: string, actorId: string) {
       await lockAllCategories(tx);
       const created = await tx.questionBankCategory.create({
         data: { createdByUserId: actorId, name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: { where: { deletedAt: null } } } } },
+        include: { _count: { select: { banks: { where: { questionBank: { deletedAt: null } } } } } },
       });
       return {
         bankCount: created._count.banks,
@@ -804,7 +804,7 @@ async function renameQuestionBankCategory(
       const updated = await tx.questionBankCategory.update({
         where: { id },
         data: { name, updatedByUserId: actorId },
-        include: { _count: { select: { banks: { where: { deletedAt: null } } } } },
+        include: { _count: { select: { banks: { where: { questionBank: { deletedAt: null } } } } } },
       });
       return {
         bankCount: updated._count.banks,
