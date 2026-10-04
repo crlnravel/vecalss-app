@@ -20,7 +20,7 @@ function MateriDeleteDialog({ open, pending, onOpenChange, onConfirm }: {
           <AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia>
           <AlertDialogTitle>Hapus materi?</AlertDialogTitle>
           <AlertDialogDescription>
-            Materi dan progres belajarnya akan dihapus permanen. File PDF tetap tersimpan di pustaka media.
+            Materi dan progres belajarnya akan dihapus permanen. File yang sudah diunggah ke pustaka media tidak ikut dihapus.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
