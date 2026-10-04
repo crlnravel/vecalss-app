@@ -1,5 +1,42 @@
 # Session Handoff
 
+## Materi fullscreen follow-up (2026-10-04)
+
+- User requested removal of bottom widgets in fullscreen. `7fa63a3` on `dev` hides the PDF action/completion row and helper text in `modules/courses/StudentPdfPreview.tsx`, and preserves exit at top-right. Normal mode restores original controls; existing fullscreen event state remains authoritative.
+- One normal guarded group ran full `pnpm verify`: pass with one existing settings unused-Badge warning. Diff-check passes. Log `/tmp/materi-fullscreen-verify.log`. No browser verification and no owned server/worker.
+- Independent Luna/max review pending from `8969cb11`; inspect commit `7fa63a3`, artifact `materi-save-fix/fullscreen-review`. Main save bug and both earlier reviews remain complete.
+
+## Materi save structure and modal feedback (2026-10-04)
+
+- Completed in `a9e3ddc` on `dev`; current user explicitly authorized this main agent's gpt-6.1-sol model for this task. Independent reviewers used exact gpt-6-luna/max.
+- Root failure: save required three internal canonical topics that were absent from the `.env` database. Reproduced exact message with valid PDF input in isolated local schema. `.env.local` already has the topics; the running server's inherited configuration was not directly observed.
+- Save now initializes missing topic rows inside the existing subject locks/transaction using canonical section names/sort orders. Existing topic identity and metadata remain intact. HTTP 200 is expected for the caught error returned as `{ ok: false }` from a Server Action.
+- Create modal suppresses persistent top unsaved/saving status; submit failures use shared bottom-center notification Sonner. Field errors, entered values, discard confirmation and navigation protection retained. Shared status hooks unchanged; status owner recorded the approved guideline exception separately.
+- Changed: `lib/materi/repository.ts`, `modules/mentor/KaptenMateriBuilderPageModule.tsx`, `scripts/test-materi-save-structure.ts`, and the corresponding package script only. Excel changes and shared feedback guideline edits are other owners' work.
+- Passed final guarded `test:materi-save-structure`, builder validation, resource contract, lock boundary, `pnpm verify`, and diff-check. Test covers supplied managed PDF, missing/partial topics, seed names, repeat/concurrent saves and validation. One pre-existing settings-page unused-Badge warning. Log `/tmp/materi-save-final-verify.log`.
+- Reviews: both clear after canonical-name compatibility fix. Fixture enum failures were corrected before final pass. No browser verification. No database reset, environment mutation, test schema residue or owned server.
+- Nine guarded attempts used including two refusals for the Excel agent's lock; user explicitly approved all extra normal budget. No emergency mode or bypass. No further commands needed for this fix.
+- Durable intent/evidence: epic `materi-save-fix`; optional next step is user retry or explicitly authorized visual verification of `/mentor/materi/subject/penalaran-umum` as Kapten.
+
+## Bank Soal row identity follow-up (2026-10-03)
+
+- User requested icons before folder/bank titles, creator avatars, and removal of Materi for both banks. `f87fde2` on `dev` implements this in the shared bank table; the icons sit outside the block-styled title control in a flex wrapper.
+- Creator column reuses quiz UserCardPopover. New limited creator select/mapper flows through bank catalog and editor mapping, folder reads and folder mutation responses. Actual creator name/avatar/teaching subject only; synthetic folder shows no invented author.
+- Passed `test:question-bank-table-selection`, `test:question-bank-pagination`, full `pnpm verify` and diff-check. One unrelated unused-Badge warning in KaptenSettingsPageModule. Log `/tmp/vecalss-bank-identity-verify.log`. No browser run; earlier login blocker remains.
+- Independent Luna/max Standards and Spec/behavior reviews have no actionable findings. Artifact `bank-soal-kuis-table-style/row-identity` complete, sibling reviews `standards-row-identity` and `spec-row-identity`.
+- User approved up to two further normal guarded groups; one used and exited, one unused. No agent-owned process remains. Previous model authorization for gpt-6.1-sol continues for this follow-up.
+
+## Both Bank Soal TanStack tables (2026-10-03)
+
+- User corrected the initial styling-only scope: exact mentor quiz table implementation, TanStack and controls, for both quiz and tryout banks. `gpt-6.1-sol` explicitly authorized for this task.
+- Source commit `f0b5483` on `dev` extracts the quiz grid/menu/footer into `mentor-assessment-table.tsx`; both banks use `question-bank-assessment-table.tsx`, original quiz CSS and bank-specific columns. Initial shared DataTable/catalogue opt-in props and bank-only CSS are removed.
+- Canonical query and server fetch support 6/10/20/50 rows, preserve size through modal history, clamp stale pages. Current-page selection excludes folders and uses existing authorized lifecycle actions with revisions, duplicate protection and partial-failure feedback. Original navigation, folders and right-click actions retained.
+- Passed guarded `pnpm exec tsc --noEmit`, `test:question-bank-pagination`, `test:mentor-quiz-dashboard`, `pnpm exec tsx scripts/test-mentor-bank-soal-create-dialog.ts`, `test:mentor-bank-soal-lock-csv-ui`, `test:question-bank-table-selection`, full `pnpm verify` and diff-check. Final verify log: `/tmp/vecalss-bank-tanstack-approved2.log`.
+- Automated Obscura comparison failed twice during seeded Kapten login; URL remained `/login`, no alerts, and the diagnostic screenshot showed blank fields. Bank routes were not reached, so visual/responsive matching is unverified. Scratch browser script cleans its spawned engine; existing shared dev server untouched. No emergency mode used. All three extra user-approved guarded groups consumed and exited; further launches require a budget extension.
+- Renewed exact Luna/max Spec (`f55d6b61`) found no code behavior issues; stale ticket-scope finding resolved in parent artifact. Standards (`6e8cd5f5`) completed with three findings. `845b0f6` resolves filter group semantics, viewport-safe empty text width and neutral empty/loading-row hover. Both reviews complete and all findings addressed; parent artifact complete.
+- User approved one final normal guarded group for review-fix verification. Full `pnpm verify` passed after `845b0f6`, with one unrelated unused-Badge warning in `KaptenSettingsPageModule.tsx`. Log: `/tmp/vecalss-bank-review-verify.log`. Group exited and no owned process remains. Browser limitation remains as documented; further launches need budget approval.
+- Existing catalogue context-menu source-pattern test remains stale in baseline and was not rerun. No unrelated files staged. Normal dev commit hook ran, no bypass. If a browser rerun is authorized, investigate hydration resetting the filled login fields before asserting bank desktop/mobile styles; do not infer credential failure from the timeout.
+
 ## Bank Soal create dialog (2026-10-01)
 
 - Follow-up: independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings. Review artifacts: epic `bank-soal-create-dialog/behavior-review` and `bank-soal-create-dialog/standards-review`.

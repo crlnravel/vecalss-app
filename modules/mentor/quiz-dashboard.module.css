@@ -191,12 +191,6 @@
   white-space: nowrap;
   border: 0;
 }
-.loading {
-  min-height: 430px;
-  display: grid;
-  place-content: center;
-  color: var(--voyage-muted-ink);
-}
 @media (max-width: 900px) {
   .canvas {
     padding: 24px 16px !important;

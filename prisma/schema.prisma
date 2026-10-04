@@ -2003,6 +2003,7 @@ model QuestionBank {
   updatedByUserId String        @map("updated_by_user_id") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz
 
   createdBy                                User                                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                                User                                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)

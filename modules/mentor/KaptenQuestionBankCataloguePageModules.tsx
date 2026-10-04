@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
   ChevronRight,
   CircleHelp,
-  Folder,
   FolderPlus,
-  LibraryBig,
   Pencil,
   Plus,
   Trash2,
@@ -28,7 +25,6 @@ import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
-  REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
@@ -42,10 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type {
-  DataTableColumn,
-  DataTableFilter,
-} from "@/components/ui/data-table";
+import type { DataTableFilter } from "@/components/ui/data-table";
 import {
   ContextMenuContent,
   ContextMenuGroup,
@@ -63,13 +56,12 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
+import type { QuestionBankCreator } from "@/lib/question-bank/creator";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
+import { QuestionBankAssessmentTable } from "./components/question-bank-assessment-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 import {
-  kaptenSubjects,
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
@@ -80,6 +72,7 @@ import {
   renameQuestionBankFolderAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
+import quizStyles from "./quiz-dashboard.module.css";
 
 type QuestionBankOrganization = {
   categories: Array<{ id: string; name: string }>;
@@ -91,10 +84,11 @@ type QuestionBankOrganization = {
 };
 
 type BankEntry = {
-  bank: KaptenQuestionBank & QuestionBankOrganization;
+  bank: KaptenQuestionBank & QuestionBankOrganization & { creator?: QuestionBankCreator };
 };
 
 type FolderNode = {
+  creator?: QuestionBankCreator;
   bankCount: number;
   children?: FolderNode[];
   createdAt: string;
@@ -105,7 +99,7 @@ type FolderNode = {
   updatedAt: string;
 };
 
-type QuestionBankCatalogueRow =
+export type QuestionBankCatalogueRow =
   | { bank: BankEntry["bank"]; kind: "bank" }
   | { folder: FolderNode; kind: "folder" };
 
@@ -124,13 +118,14 @@ type LifecycleAction = "archive" | "restore";
 type BankSortMode = "updated" | "name" | "questions";
 type QuestionBankPurpose = "quiz" | "tryout";
 
-const BANKS_PER_PAGE = 25;
+const BANKS_PER_PAGE = 6;
 const ROOT_FOLDER = "root" as const;
 
-type QuestionBankHrefOptions = {
+export type QuestionBankHrefOptions = {
   categories?: string[];
   folder?: FolderSelection;
   page?: number;
+  pageSize?: number;
   purpose?: QuestionBankPurpose;
   query?: string;
   sort?: BankSortMode;
@@ -142,6 +137,7 @@ function questionBankHref({
   categories = [],
   folder = ROOT_FOLDER,
   page = 1,
+  pageSize = BANKS_PER_PAGE,
   purpose = "quiz",
   query = "",
   sort = "updated",
@@ -158,6 +154,7 @@ function questionBankHref({
   if (status) params.set("status", status);
   if (sort !== "updated") params.set("sort", sort);
   if (page > 1) params.set("page", String(page));
+  if (pageSize !== BANKS_PER_PAGE) params.set("pageSize", String(pageSize));
   return `/mentor/quiz/question-bank${params.toString() ? `?${params.toString()}` : ""}`;
 }
 
@@ -165,6 +162,7 @@ function questionBankCreateHref({
   categories,
   folder = ROOT_FOLDER,
   page,
+  pageSize,
   purpose = "quiz",
   query,
   sort,
@@ -174,13 +172,14 @@ function questionBankCreateHref({
   categories?: string[];
   folder?: FolderSelection;
   page?: number;
+  pageSize?: number;
   purpose?: QuestionBankPurpose;
   query?: string;
   sort?: BankSortMode;
   status?: string;
   subjects?: string[];
 } = {}) {
-  return `${questionBankHref({ categories, folder, page, purpose, query, sort, status, subjects })}&create=1`;
+  return `${questionBankHref({ categories, folder, page, pageSize, purpose, query, sort, status, subjects })}&create=1`;
 }
 
 function flattenFolders(
@@ -341,143 +340,6 @@ function statusCopy(status: KaptenQuestionBank["status"]) {
   return status === "archived" ? "Diarsipkan" : "Diterbitkan";
 }
 
-function createQuestionBankCatalogueColumns({
-  onOpenFolder,
-}: {
-  onOpenFolder: (folder: FolderNode) => void;
-}): DataTableColumn<QuestionBankCatalogueRow>[] {
-  return [
-    {
-      cell: (row) =>
-        row.kind === "folder" ? (
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"
-              >
-                <Folder className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <button
-                  className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                  onClick={() => onOpenFolder(row.folder)}
-                  type="button"
-                >
-                  {row.folder.name}
-                </button>
-                <p className="mt-0.5 block truncate text-xs text-secondary-500">
-                  {row.folder.bankCount} bank
-                  {row.folder.children?.length
-                    ? ` · ${row.folder.children.length} subfolder`
-                    : ""}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"
-              >
-                <LibraryBig aria-hidden="true" className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <Link
-                  className="flex min-w-0 items-center gap-1.5 font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                  href={row.bank.href}
-                >
-                  {row.bank.status === "draft" ? (
-                    <>
-                      <Archive
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0 text-secondary-500"
-                      />
-                      <span className="shrink-0 text-xs font-normal text-secondary-500">
-                        (draf)
-                      </span>
-                    </>
-                  ) : null}
-                  <span className="min-w-0 truncate">{row.bank.title}</span>
-                </Link>
-                <p className="mt-0.5 block truncate text-xs text-secondary-500">
-                  {row.bank.questionCount} soal
-                </p>
-              </div>
-            </div>
-          </div>
-        ),
-      headerClassName: "min-w-0 xl:min-w-[18rem]",
-      id: "name",
-      label: "Nama",
-      width: 34,
-    },
-    {
-      cell: (row) =>
-        row.kind === "folder" ? (
-          <span className="text-sm text-secondary-400">—</span>
-        ) : (
-          <div
-            className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden"
-            title={row.bank.subjectCoverage.join(" · ")}
-          >
-            {row.bank.subjectCoverage.length ? (
-              row.bank.subjectCoverage.map((subject) => (
-                <Badge
-                  className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[8rem]"
-                  key={subject}
-                  size="xs"
-                  tone="category"
-                >
-                  {subject}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-sm text-secondary-400">—</span>
-            )}
-          </div>
-        ),
-      cellClassName: "max-xl:hidden",
-      headerClassName: "max-xl:hidden xl:min-w-[9rem]",
-      id: "subject",
-      label: "Subject",
-      width: 22,
-    },
-    {
-      cell: (row) =>
-        row.kind === "folder" ? (
-          <span className="text-sm text-secondary-400">—</span>
-        ) : (
-          <div
-            className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden"
-            title={(row.bank.materiCoverage ?? []).join(" · ")}
-          >
-            {(row.bank.materiCoverage ?? []).length ? (
-              (row.bank.materiCoverage ?? []).map((materi) => (
-                <Badge
-                  className="min-w-0 max-w-full shrink-0 truncate xl:max-w-[12rem]"
-                  key={materi}
-                  size="xs"
-                  tone="category"
-                >
-                  {materi}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-sm text-secondary-400">—</span>
-            )}
-          </div>
-        ),
-      headerClassName: "min-w-0 xl:min-w-[16rem]",
-      id: "materi",
-      label: "Materi",
-      width: 30,
-    },
-  ];
-}
-
 function QuestionBankCatalogueRowContextMenu({
   actions,
   row,
@@ -634,90 +496,6 @@ function getQuestionBankActiveFilters({
         ]
       : []),
   ];
-}
-
-function QuestionBankCatalogueFilterPanel({
-  navigateCatalogue,
-  resetPage,
-  selectedSubjects,
-  setSelectedSubjects,
-  setStatusFilter,
-  statusFilter,
-}: {
-  navigateCatalogue: (next?: {
-    categories?: string[];
-    folder?: FolderSelection;
-    page?: number;
-    query?: string;
-    sort?: BankSortMode;
-    status?: string;
-    subjects?: string[];
-  }) => void;
-  resetPage: () => void;
-  selectedSubjects: string[];
-  setSelectedSubjects: (subjects: string[]) => void;
-  setStatusFilter: (status: string) => void;
-  statusFilter: string;
-}) {
-  const selectedSubjectsSet = new Set(selectedSubjects);
-
-  return (
-    <div className="space-y-4 p-1">
-      <fieldset className="space-y-2">
-        <legend className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Subject</legend>
-        <div className="space-y-1">
-          {kaptenSubjects.map((subject) => (
-            <label
-              className={cn(
-                REFERENCE_CONTROL_CLASS_NAMES.choice,
-                "min-h-9 rounded-lg px-2 py-2 text-sm text-secondary-700 hover:bg-primary-50/60 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50",
-              )}
-              key={subject.code}
-            >
-              <input
-                checked={selectedSubjectsSet.has(subject.code)}
-                className="size-4 accent-primary-700"
-                onChange={(event) => {
-                  const next = event.target.checked
-                    ? [...selectedSubjects, subject.code]
-                    : selectedSubjects.filter((code) => code !== subject.code);
-                  setSelectedSubjects(next);
-                  resetPage();
-                  navigateCatalogue({ page: 1, subjects: next });
-                }}
-                type="checkbox"
-              />
-              <span>
-                {subject.code} · {subject.name}
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <label
-        className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block space-y-2")}
-        htmlFor="question-bank-status-filter"
-      >
-        <span>Status</span>
-        <ReferenceSelect
-          className="font-normal tracking-normal"
-          id="question-bank-status-filter"
-          onValueChange={(next) => {
-            setStatusFilter(next);
-            resetPage();
-            navigateCatalogue({ page: 1, status: next });
-          }}
-          options={[
-            { label: "Semua status", value: "" },
-            { label: "Diterbitkan", value: "published" },
-            { label: "Diarsipkan", value: "archived" },
-          ]}
-          placeholder="Semua status"
-          value={statusFilter}
-        />
-      </label>
-    </div>
-  );
 }
 
 function QuestionBankFolderDialog({
@@ -1532,35 +1310,30 @@ function useQuestionBankCatalogueState({
     : null;
 
   function navigateCatalogue(
-    next: {
-      categories?: string[];
-      folder?: FolderSelection;
-      page?: number;
-      query?: string;
-      sort?: BankSortMode;
-      status?: string;
-      subjects?: string[];
-    } = {},
+    next: QuestionBankHrefOptions = {},
   ) {
     const nextCategories = next.categories ?? selectedCategories;
-    const nextFolder = next.folder ?? selectedFolder;
+    const nextFolder = next.folder === undefined ? selectedFolder : next.folder;
     const nextQuery = next.query ?? initialSearch;
     const nextSort = next.sort ?? initialSort;
     const nextStatus = next.status ?? statusFilter;
     const nextSubjects = next.subjects ?? selectedSubjects;
     const nextPage = next.page ?? 1;
+    const nextPageSize = next.pageSize ?? initialPageSize;
     startCatalogueTransition(() =>
       router.push(
         questionBankHref({
           categories: nextCategories,
           folder: nextFolder,
           page: nextPage,
+          pageSize: nextPageSize,
           purpose: initialPurpose,
           query: nextQuery,
           sort: nextSort,
           status: nextStatus,
           subjects: nextSubjects,
         }),
+        { scroll: false },
       ),
     );
   }
@@ -1647,9 +1420,6 @@ function useQuestionBankCatalogueState({
   ) => {
     setPendingLifecycle({ action, bank });
   };
-  const catalogueColumns = createQuestionBankCatalogueColumns({
-    onOpenFolder: openCatalogueFolder,
-  });
   const catalogueRowContextMenu = (row: QuestionBankCatalogueRow) => (
     <QuestionBankCatalogueRowContextMenu
       actions={{
@@ -1690,7 +1460,10 @@ function useQuestionBankCatalogueState({
     activeFilters,
     applyLifecycle,
     bankMoveId,
-    catalogueColumns,
+    initialPageSize,
+    refreshFromServer,
+    setEntries,
+    setIsApplying,
     catalogueRowContextMenu,
     catalogueRows,
     clearFiltersHref,
@@ -1756,7 +1529,7 @@ function getQuestionBankLifecycleCopy(
   ];
 }
 
-type QuestionBankCatalogueState = ReturnType<
+export type QuestionBankCatalogueState = ReturnType<
   typeof useQuestionBankCatalogueState
 >;
 
@@ -1818,6 +1591,7 @@ function QuestionBankCataloguePageContent({
         categories: selectedCategories,
         folder: selectedFolder,
         page: visiblePage,
+        pageSize: state.initialPageSize,
         purpose: initialPurpose,
         query: initialSearch,
         sort: initialSort,
@@ -1828,7 +1602,7 @@ function QuestionBankCataloguePageContent({
   }
 
   return (
-    <div className="space-y-8">
+    <div className={cn("space-y-8", quizStyles.pageHeader)}>
       <ReferencePageHeader
         actions={
           <>
@@ -1851,6 +1625,7 @@ function QuestionBankCataloguePageContent({
                   categories: selectedCategories,
                   folder: selectedFolder,
                   page: visiblePage,
+                  pageSize: state.initialPageSize,
                   purpose: initialPurpose,
                   query: initialSearch,
                   sort: initialSort,
@@ -1938,69 +1713,14 @@ function QuestionBankCataloguePageContent({
   );
 }
 
-function QuestionBankCatalogueTableSection({ initialPurpose, initialSearch, initialSort, initialTotal, state }: {
+function QuestionBankCatalogueTableSection(props: {
   initialPurpose: QuestionBankPurpose;
   initialSearch: string;
   initialSort: BankSortMode;
   initialTotal: number;
   state: QuestionBankCatalogueState;
 }) {
-  const {
-    activeFilters, catalogueColumns, catalogueRowContextMenu, catalogueRows,
-    clearFiltersHref, folderBreadcrumb, isCataloguePending, isGlobalSearch,
-    navigateCatalogue, openCatalogueRow, resetPage, selectedCategories,
-    selectedFolder, selectedSubjects, setPage, setSelectedSubjects,
-    setStatusFilter, statusFilter, totalPages, visiblePage,
-  } = state;
-  return (
-    <div className="min-w-0">
-      <MentorCatalogueTable
-        breadcrumb={folderBreadcrumb}
-        caption="Daftar folder dan bank soal"
-        clearFiltersHref={clearFiltersHref}
-        columns={catalogueColumns}
-        emptyState={
-          <div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center">
-            <LibraryBig className="size-7 text-primary-300" />
-            <h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2>
-            <p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>
-          </div>
-        }
-        filterPanel={<QuestionBankCatalogueFilterPanel navigateCatalogue={navigateCatalogue} resetPage={resetPage} selectedSubjects={selectedSubjects} setSelectedSubjects={setSelectedSubjects} setStatusFilter={setStatusFilter} statusFilter={statusFilter} />}
-        filters={activeFilters}
-        getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
-        isLoading={isCataloguePending}
-        loadingLabel="Memuat bank soal…"
-        onRowClick={openCatalogueRow}
-        rowContextMenu={catalogueRowContextMenu}
-        rows={catalogueRows}
-        search={{
-          action: "/mentor/quiz/question-bank",
-          clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, purpose: initialPurpose, sort: initialSort, status: statusFilter, subjects: selectedSubjects }),
-          hiddenFields: {
-            purpose: initialPurpose,
-            ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}),
-            ...(selectedCategories.length ? { category: selectedCategories } : {}),
-            ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}),
-            ...(statusFilter ? { status: statusFilter } : {}),
-            ...(initialSort !== "updated" ? { sort: initialSort } : {}),
-          },
-          label: "Cari bank soal",
-          placeholder: "Cari judul, folder, subject, atau materi…",
-          value: initialSearch,
-        }}
-        tableClassName="min-w-0"
-        wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
-      />
-      {initialTotal ? (
-        <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2">
-          <Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight className="rotate-180" /></Button>
-          <span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span>
-          <Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="outline"><ChevronRight /></Button>
-        </nav>
-      ) : null}
-    </div>
-  );
+  return <QuestionBankAssessmentTable {...props} />;
 }
 
 function KaptenQuestionBankPageModule({
@@ -2060,6 +1780,7 @@ function KaptenQuestionBankPageModule({
       session={session}
       showSearch={false}
       sidebarAppearance="reference"
+      mainClassName={quizStyles.canvas}
     >
       <QuestionBankCataloguePageContent
         session={session}

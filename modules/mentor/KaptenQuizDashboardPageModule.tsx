@@ -3,34 +3,12 @@
 import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
-import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationPage,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
 import type { QuizDashboardMutation } from "@/lib/quiz/mentor-dashboard-repository";
 import { UserCardPopover } from "@/components/ui/user-card-popover";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableCell,
-  TableRow,
-  TableCaption,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -45,7 +23,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import {
-  flexRender,
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
@@ -53,7 +30,7 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   Archive,
   Trash2,
@@ -77,6 +54,7 @@ import {
   type QuizDashboardResult,
   type QuizDashboardRow,
 } from "@/modules/mentor/quiz-dashboard-contract";
+import { MentorGridMenu, MentorAssessmentGrid, MentorAssessmentPagination } from "./components/mentor-assessment-table";
 import styles from "./quiz-dashboard.module.css";
 
 const publicationLabels = {
@@ -95,38 +73,6 @@ const numberFormatter = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 1,
 });
 
-function GridMenu({
-  children,
-  trigger,
-  label,
-  className,
-  disabled = false,
-}: {
-  children: ReactNode;
-  trigger: ReactNode;
-  label?: string;
-  className?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant={className === styles.iconButton ? "quiet" : "outline"}
-            size={className === styles.iconButton ? "icon-sm" : "xs"}
-          />
-        }
-        className={className}
-        disabled={disabled}
-        aria-label={label}
-      >
-        {trigger}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">{children}</DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 export function KaptenQuizDashboardPageModule({
   session,
   result,
@@ -234,8 +180,6 @@ export function KaptenQuizDashboardPageModule({
       setSaving(false);
     }
   }
-  const isNumeric = (id: string) =>
-    ["completedAttempts", "averageScore"].includes(id);
   const columns: ColumnDef<QuizDashboardRow>[] = [
     {
       id: "select",
@@ -334,7 +278,7 @@ export function KaptenQuizDashboardPageModule({
       enableSorting: false,
       header: () => <span className={styles.srOnly}>Tindakan</span>,
       cell: ({ row }) => (
-        <GridMenu
+        <MentorGridMenu
           className={styles.iconButton}
           label={`Tindakan untuk ${row.original.title}`}
           trigger={<MoreHorizontal size={16} />}
@@ -386,7 +330,7 @@ export function KaptenQuizDashboardPageModule({
             <Trash2 />
             Hapus
           </DropdownMenuItem>
-        </GridMenu>
+        </MentorGridMenu>
       ),
     },
   ];
@@ -442,15 +386,6 @@ export function KaptenQuizDashboardPageModule({
       ? [{ key: "changed" as const, label: "Ada perubahan", reset: false }]
       : []),
   ];
-  const pages = Array.from(
-    new Set([
-      1,
-      ...Array.from({ length: 3 }, (_, index) => query.page - 1 + index).filter(
-        (page) => page > 0 && page <= result.pageCount,
-      ),
-      result.pageCount,
-    ]),
-  ).sort((a, b) => a - b);
   return (
     <MentorWorkspaceShell
       activeLabel="Kuis"
@@ -505,7 +440,7 @@ export function KaptenQuizDashboardPageModule({
             />
           </form>
           <div className={styles.filters}>
-            <GridMenu
+            <MentorGridMenu
               className={styles.subject}
               label="Filter subtes"
               trigger={
@@ -533,8 +468,8 @@ export function KaptenQuizDashboardPageModule({
                   {query.subject === subject.code && <Check />}
                 </DropdownMenuItem>
               ))}
-            </GridMenu>
-            <GridMenu
+            </MentorGridMenu>
+            <MentorGridMenu
               label="Filter status"
               trigger={
                 <>
@@ -577,11 +512,11 @@ export function KaptenQuizDashboardPageModule({
                   {query.status === value && <Check />}
                 </DropdownMenuItem>
               ))}
-            </GridMenu>
+            </MentorGridMenu>
           </div>
           {selectedIds.length > 0 && (
             <div className={styles.bulkTools}>
-              <GridMenu
+              <MentorGridMenu
                 className={styles.iconButton}
                 disabled={pending || saving}
                 label={`Tindakan ${selectedIds.length} kuis terpilih`}
@@ -625,7 +560,7 @@ export function KaptenQuizDashboardPageModule({
                   <Trash2 />
                   Hapus
                 </DropdownMenuItem>
-              </GridMenu>
+              </MentorGridMenu>
             </div>
           )}
         </div>
@@ -685,87 +620,17 @@ export function KaptenQuizDashboardPageModule({
             </Button>
           </div>
         )}
-        <div
-          className={styles.viewport}
-          tabIndex={0}
-          role="region"
-          aria-label="Tabel kuis, geser untuk melihat semua kolom"
-        >
-          <Table className={styles.table} density="compact">
-            <TableCaption className={styles.srOnly}>
-              Daftar kuis lintas subtes. Pengerjaan menghitung upaya selesai.
-              Rata-rata memakai nilai akhir setiap siswa sesuai aturan kuis.
-            </TableCaption>
-            <colgroup>
-              {table.getVisibleLeafColumns().map((column) => (
-                <col
-                  key={column.id}
-                  style={{
-                    width: column.id === "title" ? undefined : column.getSize(),
-                  }}
-                />
-              ))}
-            </colgroup>
-            <TableHeader>
-              {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id} className="bg-voyage-surface">
-                  {group.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      scope="col"
-                      className={`${fieldLabelClassName} text-[12px] ${header.column.id === "select" ? styles.selectionCell : header.column.id === "title" ? styles.titleCell : ""}`}
-                      data-numeric={isNumeric(header.column.id)}
-                      title={
-                        header.column.id === "completedAttempts"
-                          ? "Jumlah pengerjaan yang sudah selesai"
-                          : header.column.id === "averageScore"
-                            ? "Rata-rata nilai akhir siswa yang sudah selesai"
-                            : undefined
-                      }
-                    >
-                      {columnLabels[header.column.id] ??
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="bg-voyage-surface"
-                  data-state={row.getIsSelected() ? "selected" : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={
-                        cell.column.id === "select"
-                          ? styles.selectionCell
-                          : cell.column.id === "title"
-                            ? styles.titleCell
-                            : undefined
-                      }
-                      data-numeric={isNumeric(cell.column.id)}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-              {!result.rows.length && (
-                <TableRow>
-                  <TableCell
-                    className={styles.empty}
-                    colSpan={table.getVisibleLeafColumns().length}
-                  >
+        <MentorAssessmentGrid
+          table={table}
+          caption="Daftar kuis lintas subtes. Pengerjaan menghitung upaya selesai. Rata-rata memakai nilai akhir setiap siswa sesuai aturan kuis."
+          label="Tabel kuis, geser untuk melihat semua kolom"
+          columnLabels={columnLabels}
+          numericColumns={["completedAttempts", "averageScore"]}
+          headerTitles={{
+            completedAttempts: "Jumlah pengerjaan yang sudah selesai",
+            averageScore: "Rata-rata nilai akhir siswa yang sudah selesai",
+          }}
+          emptyState={<>
                     <strong>
                       {counts.total
                         ? "Tidak ada kuis yang cocok"
@@ -804,86 +669,19 @@ export function KaptenQuizDashboardPageModule({
                         </Button>
                       )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <div className={styles.footer}>
-          <div className={styles.pageSize}>
-            <span>Baris per halaman</span>
-            <GridMenu
-              label="Baris per halaman"
-              trigger={
-                <>
-                  {query.pageSize}
-                  <ChevronDown size={14} />
-                </>
-              }
-            >
-              {[6, 10, 20, 50].map((size) => (
-                <DropdownMenuItem
-                  size="sm"
-                  key={size}
-                  onClick={() => navigate({ pageSize: size })}
-                >
-                  {size}
-                  {query.pageSize === size && <Check />}
-                </DropdownMenuItem>
-              ))}
-            </GridMenu>
-          </div>
-          <div className={styles.pagination}>
-            <span className={styles.range}>
-              {result.total ? (query.page - 1) * query.pageSize + 1 : 0}–
-              {Math.min(query.page * query.pageSize, result.total)} dari{" "}
-              {result.total}
-            </span>
-            <Pagination
-              size="sm"
-              aria-label="Halaman kuis"
-              className="mx-0 w-auto"
-            >
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    minimal
-                    aria-label="Halaman sebelumnya"
-                    disabled={pending || saving || query.page === 1}
-                    onClick={() => navigate({ page: query.page - 1 })}
-                  />
-                </PaginationItem>
-                {pages.map((page, index) => (
-                  <PaginationItem key={page} className="flex items-center">
-                    {index > 0 && page - pages[index - 1] > 1 && (
-                      <PaginationEllipsis />
-                    )}
-                    <PaginationPage
-                      minimal
-                      isActive={query.page === page}
-                      aria-label={`Halaman ${page}`}
-                      disabled={pending || saving}
-                      onClick={() => navigate({ page })}
-                    >
-                      {page}
-                    </PaginationPage>
-                  </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <PaginationNext
-                    minimal
-                    aria-label="Halaman berikutnya"
-                    disabled={
-                      pending || saving || query.page === result.pageCount
-                    }
-                    onClick={() => navigate({ page: query.page + 1 })}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        </div>
+
+          </>}
+        />
+        <MentorAssessmentPagination
+          page={query.page}
+          pageSize={query.pageSize}
+          pageCount={result.pageCount}
+          total={result.total}
+          disabled={pending || saving}
+          label="Halaman kuis"
+          onPageChange={(page) => navigate({ page })}
+          onPageSizeChange={(pageSize) => navigate({ pageSize })}
+        />
       </section>
       <MentorQuizCreateDialog
         initialSubjectCode={

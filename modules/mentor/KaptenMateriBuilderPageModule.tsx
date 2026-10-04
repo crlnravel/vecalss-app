@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import {
-  AlertCircle,
   Archive,
   ChevronDown,
   ChevronLeft,
   FileText,
   Save,
+  Trash2,
   Upload,
 } from "@/lib/icons";
 import { useEffect, useReducer, useState, type ReactNode } from "react";
@@ -24,6 +24,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { MateriDeleteDialog } from "@/modules/mentor/components/materi-delete-dialog";
 import { Button } from "@/components/ui/button";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
@@ -32,7 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/toast";
+import { showToast, toast } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -77,6 +78,7 @@ import {
 } from "@/modules/mentor/resource-edit-lock-provider";
 import {
   archiveMateriLessonAction,
+  deleteMateriLessonAction,
   publishMateriLessonAction,
   returnMateriLessonToDraftAction,
   saveMateriLessonAction,
@@ -102,7 +104,6 @@ type MateriEditorState = {
   isPreviewOpen: boolean;
   isPickerOpen: boolean;
   isLifecycleSaving: boolean;
-  saveError: string | null;
   pendingRouteReplacement: string | null;
   isSaving: boolean;
 };
@@ -567,6 +568,7 @@ function MateriAdministrationSection({
   hasUnsavedChanges,
   isSaving,
   onArchive,
+  onDelete,
   onPublish,
   onRestore,
   readiness,
@@ -575,12 +577,14 @@ function MateriAdministrationSection({
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onPublish: () => void;
   onRestore: () => void;
   readiness: "ready" | "incomplete";
   status: KaptenMateriView["status"];
 }) {
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const isDraft = status === "draft";
   const isPublished = status === "published";
   const isArchived = status === "archived";
@@ -668,6 +672,9 @@ function MateriAdministrationSection({
               </Button>
             </AdministrationActionRow>
           ) : null}
+          <AdministrationActionRow action="Hapus materi" description="Hapus materi dan progres belajarnya secara permanen.">
+            <Button disabled={isLifecycleActionBlocked} onClick={() => setIsDeleteDialogOpen(true)} type="button" variant="destructive"><Trash2 />Hapus materi</Button>
+          </AdministrationActionRow>
         </div>
         {readiness !== "ready" && isDraft ? (
           <p className="text-sm leading-6 text-student-status-attention-fg">
@@ -675,6 +682,9 @@ function MateriAdministrationSection({
           </p>
         ) : null}
       </ReferenceSurface>
+      <MateriDeleteDialog open={isDeleteDialogOpen} pending={isSaving} onOpenChange={setIsDeleteDialogOpen} onConfirm={() => {
+        void onDelete().then((deleted) => { if (deleted) setIsDeleteDialogOpen(false); });
+      }} />
       <AlertDialog
         onOpenChange={setIsArchiveDialogOpen}
         open={isArchiveDialogOpen}
@@ -717,6 +727,7 @@ function MateriBuilderForm({
   mode,
   onFieldChange,
   onArchive,
+  onDelete,
   onOpenPicker,
   onPublish,
   onRestore,
@@ -734,6 +745,7 @@ function MateriBuilderForm({
   mode: "create" | "edit";
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onOpenPicker: () => void;
   onPublish: () => void;
   onRestore: () => void;
@@ -770,6 +782,7 @@ function MateriBuilderForm({
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSaving}
           onArchive={onArchive}
+          onDelete={onDelete}
           onPublish={onPublish}
           onRestore={onRestore}
           readiness={readiness}
@@ -800,6 +813,7 @@ function MateriBuilderEditor({
   mode,
   onFieldChange,
   onArchive,
+  onDelete,
   onOpenPicker,
   onPreviewChange,
   onPublish,
@@ -820,6 +834,7 @@ function MateriBuilderEditor({
   mode: "create" | "edit";
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onOpenPicker: () => void;
   onPreviewChange: (open: boolean) => void;
   onPublish: () => void;
@@ -848,6 +863,7 @@ function MateriBuilderEditor({
       mode={mode}
       onFieldChange={onFieldChange}
       onArchive={onArchive}
+      onDelete={onDelete}
       onOpenPicker={onOpenPicker}
       onPublish={onPublish}
       onRestore={onRestore}
@@ -890,6 +906,7 @@ function useMateriLifecycleAction({
   isEditLocked,
   resourceLock,
   router,
+  parentHref,
   savedMateri,
   updateEditor,
 }: {
@@ -897,15 +914,27 @@ function useMateriLifecycleAction({
   isEditLocked: boolean;
   resourceLock: ReturnType<typeof useResourceEditLock>;
   router: ReturnType<typeof useRouter>;
+  parentHref: string;
   savedMateri: KaptenMateriView | null;
   updateEditor: (patch: Partial<MateriEditorState>) => void;
 }) {
-  return async (operation: "archive" | "publish" | "restore") => {
+  return async (operation: "archive" | "delete" | "publish" | "restore") => {
     const code = savedMateri?.code;
-    if (!code || hasUnsavedChanges || isEditLocked) return;
+    if (!code || hasUnsavedChanges || isEditLocked || !resourceLock.proof) return false;
 
-    updateEditor({ isLifecycleSaving: true, saveError: null });
+    updateEditor({ isLifecycleSaving: true });
     try {
+      if (operation === "delete") {
+        const result = await deleteMateriLessonAction(code, resourceLock.proof);
+        if (!result.ok) {
+          showToast(result.message, { placement: "notification", variant: "error" });
+          return false;
+        }
+        showToast(result.message, { placement: "notification", variant: "success" });
+        router.replace(parentHref);
+        router.refresh();
+        return true;
+      }
       const result =
         operation === "archive"
           ? await archiveMateriLessonAction(code, resourceLock.proof ?? undefined)
@@ -914,21 +943,22 @@ function useMateriLifecycleAction({
             : await returnMateriLessonToDraftAction(code, resourceLock.proof ?? undefined);
       if (!result.ok) {
         toast.error(result.message);
-        return;
+        return false;
       }
 
       updateEditor({
         errors: {},
         hasUnsavedChanges: false,
-        saveError: null,
         savedMateri: result.lesson,
       });
       toast.success(result.message);
       router.refresh();
+      return true;
     } catch {
       toast.error(
         "Status Materi belum dapat diubah. Periksa koneksi lalu coba lagi.",
       );
+      return false;
     } finally {
       updateEditor({ isLifecycleSaving: false });
     }
@@ -973,7 +1003,6 @@ function MateriBuilderContent({
     isPreviewOpen: initialPreview,
     isSaving: false,
     pendingRouteReplacement: null,
-    saveError: null,
     savedMateri: initialMateri,
   });
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
@@ -985,7 +1014,6 @@ function MateriBuilderContent({
     isPreviewOpen,
     isSaving,
     pendingRouteReplacement,
-    saveError,
     savedMateri,
   } = editorState;
   const updateEditor = (patch: Partial<MateriEditorState>) =>
@@ -997,7 +1025,7 @@ function MateriBuilderContent({
     (initialMateri
       ? `/mentor/materi/subject/${initialMateri.subjectSlug}`
       : "/mentor/materi");
-  const materiStatus = savedMateri?.status ?? "draft";
+  const materiStatus = savedMateri?.status ?? "published";
   const isArchived = materiStatus === "archived";
   const lockState: AuthoringLockState = mode === "create" ? "owned" : resourceLock.state;
   const isEditLocked = mode === "edit" && !resourceLock.canEdit;
@@ -1017,7 +1045,6 @@ function MateriBuilderContent({
     updateEditor({
       errors: nextErrors ?? errors,
       hasUnsavedChanges: true,
-      saveError: null,
     });
   }
 
@@ -1063,7 +1090,7 @@ function MateriBuilderContent({
 
   function resetChanges() {
     setBuilderState(getInitialState(savedMateri, initialSubjectSlug, subjects));
-    updateEditor({ errors: {}, hasUnsavedChanges: false, saveError: null });
+    updateEditor({ errors: {}, hasUnsavedChanges: false });
   }
 
   function handleDialogOpenChange(open: boolean) {
@@ -1086,6 +1113,7 @@ function MateriBuilderContent({
   }
 
   const updateLifecycle = useMateriLifecycleAction({
+    parentHref,
     hasUnsavedChanges,
     isEditLocked,
     resourceLock,
@@ -1096,12 +1124,12 @@ function MateriBuilderContent({
 
   async function saveLesson() {
     if (isArchived || isEditLocked) {
-      updateEditor({
-        saveError:
-          isArchived
-            ? "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit."
-            : "Materi belum bisa diubah. Draf lokal tetap tersimpan.",
-      });
+      showToast(
+        isArchived
+          ? "Materi yang diarsipkan hanya dapat dipulihkan sebelum diedit."
+          : "Materi belum bisa diubah. Draf lokal tetap tersimpan.",
+        { placement: "notification", variant: "error" },
+      );
       return;
     }
 
@@ -1110,7 +1138,10 @@ function MateriBuilderContent({
       updateEditor({
         errors: nextErrors,
         hasUnsavedChanges: true,
-        saveError: "Lengkapi field yang ditandai sebelum menyimpan materi.",
+      });
+      showToast("Lengkapi bagian yang ditandai sebelum menyimpan materi.", {
+        placement: "notification",
+        variant: "error",
       });
       return;
     }
@@ -1133,15 +1164,14 @@ function MateriBuilderContent({
             builderState.documentSource,
           ),
           hasUnsavedChanges: true,
-          saveError: result.message,
         });
+        showToast(result.message, { placement: "notification", variant: "error" });
         return;
       }
 
       updateEditor({
         errors: {},
         hasUnsavedChanges: false,
-        saveError: null,
         savedMateri: result.lesson,
       });
       toast.success(result.message);
@@ -1156,8 +1186,10 @@ function MateriBuilderContent({
     } catch {
       updateEditor({
         hasUnsavedChanges: true,
-        saveError:
-          "Materi belum berhasil disimpan. Periksa koneksi lalu coba lagi.",
+      });
+      showToast("Materi belum berhasil disimpan. Periksa koneksi lalu coba lagi.", {
+        placement: "notification",
+        variant: "error",
       });
     } finally {
       updateEditor({ isSaving: false });
@@ -1178,6 +1210,7 @@ function MateriBuilderContent({
     lockState={lockState}
     mode={mode}
     onArchive={() => void updateLifecycle("archive")}
+    onDelete={() => updateLifecycle("delete")}
     onFieldChange={updateField}
     onOpenPicker={() => updateEditor({ isPickerOpen: true })}
     onPreviewChange={(open) => updateEditor({ isPreviewOpen: open })}
@@ -1191,7 +1224,6 @@ function MateriBuilderContent({
     onUnsavedSave={() => void saveLesson()}
     parentHref={parentHref}
     readiness={readiness}
-    saveError={saveError}
     selectedDocumentName={selectedDocumentName}
     selectedSubjectName={selectedSubject?.name ?? "Materi"}
     status={materiStatus}
@@ -1247,10 +1279,10 @@ function MateriBuilderPresentation({ children, dialogOpen, discardConfirmationOp
 
 function MateriBuilderBody({
   builderState, errors, hasUnsavedChanges, isArchived, isCreateDialog, isEditLocked,
-  isLifecycleSaving, isPickerOpen, isPreviewOpen, isSaving, lockState, mode, onArchive,
+  isLifecycleSaving, isPickerOpen, isPreviewOpen, isSaving, lockState, mode, onArchive, onDelete,
   onFieldChange, onOpenPicker, onPreviewChange, onPublish, onReset, onRestore, onSave,
   onSelectDocument, onRetryLock, onPickerOpenChange, onUnsavedSave, parentHref,
-  readiness, saveError, selectedDocumentName, selectedSubjectName, status, subjects,
+  readiness, selectedDocumentName, selectedSubjectName, status, subjects,
 }: {
   builderState: MateriBuilderState;
   errors: MateriBuilderErrors;
@@ -1265,6 +1297,7 @@ function MateriBuilderBody({
   lockState: AuthoringLockState;
   mode: "create" | "edit";
   onArchive: () => void;
+  onDelete: () => Promise<boolean>;
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
   onOpenPicker: () => void;
   onPreviewChange: (open: boolean) => void;
@@ -1278,7 +1311,6 @@ function MateriBuilderBody({
   onUnsavedSave: () => void;
   parentHref: string;
   readiness: "ready" | "incomplete";
-  saveError: string | null;
   selectedDocumentName: string;
   selectedSubjectName: string;
   status: KaptenMateriView["status"];
@@ -1289,11 +1321,10 @@ function MateriBuilderBody({
       <div className={cn("flex w-full flex-col gap-6", isCreateDialog ? "gap-5" : "mx-auto max-w-[1180px]")}>
         {!isCreateDialog ? <MateriBuilderHeader builderState={builderState} isPreviewOpen={isPreviewOpen} mode={mode} parentHref={parentHref} /> : null}
         {mode === "edit" ? <ResourceAuthoringLockBanner hasLocalChanges={hasUnsavedChanges} onRetry={onRetryLock} resourceLabel="Materi" state={lockState} /> : null}
-        {!isPreviewOpen && saveError ? <ReferenceSurface className="flex items-start gap-2 px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert" variant="inset"><AlertCircle className="mt-1 size-4 shrink-0" />{saveError}</ReferenceSurface> : null}
-        <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
+        <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onDelete={onDelete} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
       </div>
       <MediaPickerDialog allowedMimeTypes={["application/pdf"]} onOpenChange={onPickerOpenChange} onSelect={onSelectDocument} open={isPickerOpen && !isArchived && !isEditLocked} selectedAssetId={builderState.documentAssetId || null} title="Pilih PDF Materi" />
-      {hasUnsavedChanges || isSaving ? <MateriUnsavedChangesBar isArchived={isArchived || isEditLocked} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}
+      {!isCreateDialog && (hasUnsavedChanges || isSaving) ? <MateriUnsavedChangesBar isArchived={isArchived || isEditLocked} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}
     </>
   );
 }

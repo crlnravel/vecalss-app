@@ -354,8 +354,27 @@ async function ensureAdminStudentPreviewFixture(client, { adminUserId }) {
       ],
     );
   } else {
-    throw new Error(
-      "The original admin student preview fixture row is missing; restore the original UUID from backup before seeding.",
+    await client.query(
+      `
+        INSERT INTO users (
+          id,
+          email,
+          full_name,
+          password_hash,
+          password_updated_at,
+          must_change_password,
+          preview_purpose,
+          status
+        )
+        VALUES ($1::uuid, $2, $3, $4, NULL, TRUE, $5, 'active')
+      `,
+      [
+        ADMIN_STUDENT_PREVIEW_FIXTURE.id,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.email,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.fullName,
+        passwordHash,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.previewPurpose,
+      ],
     );
   }
 
@@ -1059,20 +1078,20 @@ async function main() {
   await client.connect();
 
   if (isStagingTarget(databaseUrl)) {
-    console.log("🌱 Detected staging environment target. Seeding mentor accounts only (all other tables empty)...");
+    console.log("🌱 Detected staging environment target. Seeding core baseline accounts & mentors (content tables empty)...");
     try {
       await client.query("BEGIN");
       const seeded = await seedStaging(client);
       await client.query("COMMIT");
 
-      console.log(`\nSuccessfully seeded ${seeded.length} mentor accounts on staging (all other tables empty):\n`);
+      console.log(`\nSuccessfully seeded ${seeded.length} accounts on staging (all content tables empty):\n`);
       console.table(
         seeded.map((m) => ({
           "Full Name": m.fullName,
           Email: m.email,
           Role: m.role,
-          "Temporary Password": m.temporaryPassword,
-          "Must Change Password": m.mustChangePassword ? "YES (First Login)" : "NO",
+          "Password / Temp Password": m.temporaryPassword,
+          "Must Change Password": m.mustChangePassword ? "YES" : "NO",
           "Login Path": m.loginPath,
         })),
       );

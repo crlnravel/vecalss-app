@@ -85,16 +85,22 @@ export default async function MentorQuestionBankPage({
   const folderId = getQuestionBankFolderId(requestedFolder);
   const status = parsedQuery.status ? parsedQuery.status as "published" | "archived" : undefined;
   const page = parsedQuery.page;
+  const pageSize = parsedQuery.pageSize;
   const search = parsedQuery.q;
   const requestedSort = parsedQuery.sort as QuestionBankSort;
   const [banks, folderTree] = await Promise.all([
-    listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize: 25, purpose: requestedPurpose, search, sort: requestedSort, status, subjectCoverage: requestedSubjects }),
+    listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize, purpose: requestedPurpose, search, sort: requestedSort, status, subjectCoverage: requestedSubjects }),
     listQuestionBankFolderTree(requestedPurpose),
   ]);
+  const lastPage = Math.max(1, Math.ceil(banks.total / pageSize));
+  if (page > lastPage) {
+    const availablePageHref = buildQuestionBankHref({ ...parsedQuery, page: lastPage });
+    redirect(initialCreateDialogOpen ? `${availablePageHref}&create=1` : availablePageHref);
+  }
 
   return (
     <KaptenQuestionBankPageModule
-      key={JSON.stringify({ category: requestedCategories, create: initialCreateDialogOpen, folder: requestedFolder, page, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
+      key={JSON.stringify({ category: requestedCategories, create: initialCreateDialogOpen, folder: requestedFolder, page, pageSize, purpose: requestedPurpose, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
       initialEntries={banks.items}
       initialFolderTree={folderTree}
       initialCreateDialogOpen={initialCreateDialogOpen}

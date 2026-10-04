@@ -3,7 +3,7 @@
 import { Download, Expand, ExternalLink, FileText, LoaderCircle, Minimize2, RefreshCw } from "@/lib/icons";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import {
   isValidHostedPdfUrl,
@@ -122,6 +122,8 @@ function useStudentPdfPreviewController({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const fullscreenControlRef = useRef<HTMLButtonElement>(null);
+  const previousFullscreenRef = useRef(false);
   const model = getStudentPdfPreviewModel({ document, documentDeliveryUrl, failedKey, requestVersion });
 
   useEffect(() => {
@@ -138,6 +140,13 @@ function useStudentPdfPreviewController({
     return () => globalThis.document.removeEventListener("fullscreenchange", updateFullscreenState);
   }, []);
 
+  useEffect(() => {
+    if (isFullscreen !== previousFullscreenRef.current) {
+      fullscreenControlRef.current?.focus();
+    }
+    previousFullscreenRef.current = isFullscreen;
+  }, [isFullscreen]);
+
   const handleToggleFullscreen = async () => {
     await toggleDocumentFullscreen(previewRef.current, fullscreenAvailable, () => setIsFullscreen(false));
   };
@@ -147,6 +156,7 @@ function useStudentPdfPreviewController({
     completionReady: model.completionReady && renderedKey === model.requestKey,
     failedKey,
     fullscreenAvailable,
+    fullscreenControlRef,
     handleToggleFullscreen,
     isFullscreen,
     onPreviewError: () => { setFailedKey(model.requestKey); setRenderedKey(null); },
@@ -206,6 +216,7 @@ function StudentPdfPreviewActions({
   documentName,
   downloadUrl,
   fullscreenAvailable,
+  fullscreenControlRef,
   handleToggleFullscreen,
   isFullscreen,
   previewUrl,
@@ -217,6 +228,7 @@ function StudentPdfPreviewActions({
   documentName: string;
   downloadUrl: string | null;
   fullscreenAvailable: boolean;
+  fullscreenControlRef: RefObject<HTMLButtonElement | null>;
   handleToggleFullscreen: () => void;
   isFullscreen: boolean;
   previewUrl: string | null;
@@ -240,7 +252,7 @@ function StudentPdfPreviewActions({
           <TooltipContent>Unduh PDF</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="outline" />}>
+          <TooltipTrigger render={<Button ref={fullscreenControlRef} aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} disabled={!fullscreenAvailable} onClick={handleToggleFullscreen} size="icon-lg" title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"} variant="outline" />}>
             {isFullscreen ? <Minimize2 aria-hidden="true" className="size-5" /> : <Expand aria-hidden="true" className="size-5" />}
           </TooltipTrigger>
           <TooltipContent>{isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}</TooltipContent>
@@ -269,6 +281,7 @@ function StudentPdfPreview({
     documentName,
     downloadUrl,
     fullscreenAvailable,
+    fullscreenControlRef,
     handleToggleFullscreen,
     isFullscreen,
     isManaged,
@@ -299,11 +312,22 @@ function StudentPdfPreview({
         )}
       >
         <StudentPdfPreviewCanvas fullscreen={isFullscreen} isManaged={isManaged} onError={onPreviewError} onReady={onPreviewReady} onRetry={onRetry} previewTitle={previewTitle} previewUrl={previewUrl} requestKey={requestKey} state={state} unavailableMessage={unavailableMessage} />
+        {isFullscreen ? (
+          <Tooltip>
+            <TooltipTrigger render={<Button ref={fullscreenControlRef} aria-label="Keluar layar penuh" className="absolute top-3 right-3 z-10" onClick={handleToggleFullscreen} size="icon-lg" title="Keluar layar penuh" variant="outline" />}>
+              <Minimize2 aria-hidden="true" className="size-5" />
+            </TooltipTrigger>
+            <TooltipContent>Keluar layar penuh</TooltipContent>
+          </Tooltip>
+        ) : null}
       </div>
 
-      <StudentPdfPreviewActions actions={actions} completionAction={completionAction} completionReady={completionReady} documentActionsReady={documentActionsReady} documentName={documentName} downloadUrl={downloadUrl} fullscreenAvailable={fullscreenAvailable} handleToggleFullscreen={handleToggleFullscreen} isFullscreen={isFullscreen} previewUrl={previewUrl} />
-
-      <StudentPdfPreviewFooterMessage state={state} />
+      {!isFullscreen ? (
+        <>
+          <StudentPdfPreviewActions actions={actions} completionAction={completionAction} completionReady={completionReady} documentActionsReady={documentActionsReady} documentName={documentName} downloadUrl={downloadUrl} fullscreenAvailable={fullscreenAvailable} fullscreenControlRef={fullscreenControlRef} handleToggleFullscreen={handleToggleFullscreen} isFullscreen={isFullscreen} previewUrl={previewUrl} />
+          <StudentPdfPreviewFooterMessage state={state} />
+        </>
+      ) : null}
     </div>
   );
 }

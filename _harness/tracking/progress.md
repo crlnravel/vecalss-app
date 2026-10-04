@@ -1,5 +1,37 @@
 # Session Progress Log
 
+## Materi fullscreen footer widgets (2026-10-04)
+
+- [x] `7fa63a3`: omit the PDF action/completion row and helper text in fullscreen; keep exit at top-right and restore all normal-mode controls when fullscreen ends.
+- [x] Guarded `pnpm verify` and diff-check pass; one existing settings unused-Badge lint warning. Log `/tmp/materi-fullscreen-verify.log`; no browser inspection or owned long-lived process.
+- Independent Luna/max review pending; epic `materi-save-fix/fullscreen-review`. No additional product change is planned absent a review finding.
+
+## Materi save structure and modal feedback (2026-10-04)
+
+- [x] `a9e3ddc` on `dev`: valid saves initialize missing canonical topics under existing locks/transaction, preserving existing rows and canonical seed names.
+- [x] Reproduced the exact reported structure error with a valid PDF in an isolated unseeded subject. `.env` database has zero canonical topics per subject; `.env.local` has three. The running server's inherited database configuration was not directly observed.
+- [x] Materi create modal omits persistent top unsaved/saving Sonner; all submit failures use explicit bottom-center notification placement. Form values, field errors, save controls, discard and navigation protection retained.
+- [x] Final `test:materi-save-structure` (managed PDF, partial setup, seed names, concurrent ordering), builder validation, resource contract, lock boundary, full verify and diff-check pass. One existing settings-page unused-Badge lint warning. Log `/tmp/materi-save-final-verify.log`.
+- [x] Independent Luna/max Standards and Spec reviews clear after fixing the Spec review's canonical-name finding. No browser run. Epic artifact `materi-save-fix` records decisions/evidence.
+- Nine guarded attempts including two shared-lock refusals; additional normal groups explicitly approved, no emergency/bypass. No owned long-lived process remains.
+
+## Bank Soal inline icons and creator avatars (2026-10-03)
+
+- [x] `f87fde2`: both purposes show folder/Bank Soal icons before titles in separate flex wrappers, avoiding quizTitle's block display; replace Materi with Pembuat using the shared avatar/profile popover.
+- [x] Bank catalog/editor and folder read/create/rename/move select the actual creator's name, image and optional teaching subject. Synthetic unfiled folder has no fabricated creator; missing photos use shared initials fallback.
+- [x] Independent Luna/max Standards and Spec/behavior reviews are clear. Selection and pagination regressions, full `pnpm verify`, and diff-check pass; one unrelated settings-page lint warning. Log: `/tmp/vecalss-bank-identity-verify.log`.
+- One of two user-approved additional normal guarded groups used and exited. No owned process remains; no browser verification claimed. Intent/evidence: epic `bank-soal-kuis-table-style/row-identity`.
+
+## Both Bank Soal TanStack tables (2026-10-03)
+
+- [x] User correction requires the actual quiz table implementation for both purposes; `f0b5483` supersedes styling-only `0077ef0`.
+- [x] Shared quiz grid, menus, compact markup and pagination now serve mentor Kuis and both banks; bank-specific columns replace the old catalogue cells.
+- [x] Server page sizes 6/10/20/50, current-page bank selection, confirmed archive/restore with revisions and partial failures; folders, filtering, context actions and create history retained.
+- [x] Guarded TypeScript, pagination/quiz contracts, create-dialog history, bank lock/CSV contracts, bulk selection regression and full `pnpm verify` pass; diff-check passes.
+- Automated Obscura comparison attempted twice but timed out on `/login`; no visual or responsive result is claimed. Script cleaned up its engine and preserved the shared dev server. All three additional user-approved normal guarded groups exited; budget exhausted.
+- [x] Renewed Luna/max Spec (`f55d6b61`) has no code findings; its stale parent-scope finding is addressed. Standards (`6e8cd5f5`) completed with three findings, all fixed in `845b0f6`: filter group role, viewport-safe empty message width and neutral empty/loading-row hover.
+- [x] User approved one more normal guarded group; full `pnpm verify` passes after the review fixes (one unrelated unused-Badge warning in mentor settings). Final log: `/tmp/vecalss-bank-review-verify.log`. Group exited, no owned process remains. Intent and evidence: epic artifact `bank-soal-kuis-table-style`.
+
 ## Bank Soal create dialog (2026-10-01)
 
 - Independent behavior (`ae268ded`) and standards (`5b918078`) reviews are complete with no actionable findings; browser verification is still unperformed.
