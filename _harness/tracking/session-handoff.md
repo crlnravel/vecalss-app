@@ -1,5 +1,11 @@
 # Session Handoff
 
+## Materi fullscreen follow-up (2026-10-04)
+
+- User requested removal of bottom widgets in fullscreen. `7fa63a3` on `dev` hides the PDF action/completion row and helper text in `modules/courses/StudentPdfPreview.tsx`, and preserves exit at top-right. Normal mode restores original controls; existing fullscreen event state remains authoritative.
+- One normal guarded group ran full `pnpm verify`: pass with one existing settings unused-Badge warning. Diff-check passes. Log `/tmp/materi-fullscreen-verify.log`. No browser verification and no owned server/worker.
+- Independent Luna/max review pending from `8969cb11`; inspect commit `7fa63a3`, artifact `materi-save-fix/fullscreen-review`. Main save bug and both earlier reviews remain complete.
+
 ## Materi save structure and modal feedback (2026-10-04)
 
 - Completed in `a9e3ddc` on `dev`; current user explicitly authorized this main agent's gpt-6.1-sol model for this task. Independent reviewers used exact gpt-6-luna/max.

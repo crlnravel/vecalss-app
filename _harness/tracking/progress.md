@@ -1,5 +1,11 @@
 # Session Progress Log
 
+## Materi fullscreen footer widgets (2026-10-04)
+
+- [x] `7fa63a3`: omit the PDF action/completion row and helper text in fullscreen; keep exit at top-right and restore all normal-mode controls when fullscreen ends.
+- [x] Guarded `pnpm verify` and diff-check pass; one existing settings unused-Badge lint warning. Log `/tmp/materi-fullscreen-verify.log`; no browser inspection or owned long-lived process.
+- Independent Luna/max review pending; epic `materi-save-fix/fullscreen-review`. No additional product change is planned absent a review finding.
+
 ## Materi save structure and modal feedback (2026-10-04)
 
 - [x] `a9e3ddc` on `dev`: valid saves initialize missing canonical topics under existing locks/transaction, preserving existing rows and canonical seed names.
