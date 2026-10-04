@@ -46,9 +46,7 @@
       "id": "feat-002",
       "name": "Admin Student Preview",
       "description": "Provide a fixed-subject, admin-only student-shaped preview with safe reads, banner editing, and guarded Tryout restart",
-      "dependencies": [
-        "feat-001"
-      ],
+      "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "c46fb98; preview route/surface/security contracts pass"
     },
@@ -56,9 +54,7 @@
       "id": "feat-003",
       "name": "Preview Verification Coverage",
       "description": "Confirm contracts, type checks, linting, and production build for admin student preview",
-      "dependencies": [
-        "feat-002"
-      ],
+      "dependencies": ["feat-002"],
       "status": "complete",
       "evidence": "focused preview contracts, tsc, focused ESLint, and pnpm verify pass; runtime fixture pending"
     },
@@ -66,9 +62,7 @@
       "id": "feat-004",
       "name": "Runtime QA Documentation",
       "description": "Record the seeded browser/DB verification status and operational handoff",
-      "dependencies": [
-        "feat-003"
-      ],
+      "dependencies": ["feat-003"],
       "status": "in-progress",
       "evidence": "Handoff records runtime fixture as pending"
     },
@@ -76,9 +70,7 @@
       "id": "feat-005",
       "name": "Cleanup and Handoff",
       "description": "Record verification evidence and leave a clear next-session path",
-      "dependencies": [
-        "feat-004"
-      ],
+      "dependencies": ["feat-004"],
       "status": "complete",
       "evidence": "progress.md and session-handoff.md updated"
     },
@@ -86,9 +78,7 @@
       "id": "feat-006",
       "name": "AS-03 Scoring and Result Release States",
       "description": "Materialize snapshot-backed scoring and independent attempt/scoring/release states for Kuis and Tryout",
-      "dependencies": [
-        "feat-001"
-      ],
+      "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "cb1eb8f + 7f60c43; snapshot-backed materialization, session-level release hardening, seed runtime provenance fixes, all 29 migrations applied, configured-database reset/reseed, db:verify-demo, Kuis result smoke (67), seven-section Tryout scoring/release smoke (68.68 with 7 runs/7 typed breakdowns), focused invariants, and full lint/build"
     },
@@ -96,9 +86,7 @@
       "id": "feat-007",
       "name": "AS-09 Durable AssessmentRelease",
       "description": "Pin published Tryout content, CAT calibration, scoring configuration, and runtime provenance to immutable AssessmentRelease records",
-      "dependencies": [
-        "feat-006"
-      ],
+      "dependencies": ["feat-006"],
       "status": "complete",
       "evidence": "43dec31; pre-migration pg_dump at /tmp/vecalss-as09-pre-migration-20260822.dump; 20260822120000_add_assessment_release_boundary applied; all 30 migrations up to date; clean reset/reseed; db:verify-demo; DB-backed Kuis smoke 3 scored/released frozen attempts; seven-section Tryout smoke 3 scored/released attempts with 21 runs and 21 typed breakdowns; AssessmentRelease invariants and Prisma validate pass"
     },
@@ -106,9 +94,7 @@
       "id": "feat-008",
       "name": "AS-04 ParticipantView and Atomic Access Transitions",
       "description": "Expose a canonical mentor participant projection and serialize registration, approval, invitation, assignment, and revoke transitions with shared locking and audit preservation",
-      "dependencies": [
-        "feat-007"
-      ],
+      "dependencies": ["feat-007"],
       "status": "complete",
       "evidence": "ae64528; ParticipantView/access-transition contract, participant UX contract, AssessmentRelease/package/release/scoring invariants, Tryout scoring, tsc, full lint (0 errors), production build, migration status, and diff-check pass; no migration required"
     },
@@ -116,9 +102,7 @@
       "id": "feat-009",
       "name": "AS-05 One Tryout Authoring Workspace",
       "description": "Provide one mentor Tryout workspace for basics, fixed sections, direct question-source readiness, schedule/access, results, review, and publish",
-      "dependencies": [
-        "feat-008"
-      ],
+      "dependencies": ["feat-008"],
       "status": "complete",
       "evidence": "1ea7b3d + c22ecb2 + 17a9d53 + a1bca11 + 72b95e9 + 848fd78 + 82733ee + bdb44a4 + 8884f20 + 9befe2a; eight-area builder, legacy workspace query compatibility, explicit draft-vs-publish save boundary with no-argument regression guard, mode-scoped lifecycle roadmap (draft: Overview/Build/Review & Publish; published: Delivery/Operations/Results), single-action draft progression with auto-save, stripped workspace title/status/mode header with icon-only chevron back control, removed phase-intro and inline dirty-status chrome with no action dividers, title-only Informasi dasar block with vertically stacked fields above direct question-source selection, mounted Schedule & akses state, Build gating readiness checks, summary-only Review & Publish with no Readiness/Published versions inner tabs and one Terbitkan Tryout action, shell-owned main landmark with route composition contract coverage, valid section-button semantics, historical release labeling, focused workspace contract, tsc, diff-check, pnpm verify, impeccable detector [], authenticated desktop browser QA, and fresh final review PASS"
     },
@@ -126,9 +110,7 @@
       "id": "feat-010",
       "name": "AS-06 Direct Question Picks",
       "description": "Let Tryout mentors choose a Bank Soal and checklist direct questions per Section, with randomized delivery and immutable server snapshots",
-      "dependencies": [
-        "feat-009"
-      ],
+      "dependencies": ["feat-009"],
       "status": "complete",
       "evidence": "9e0fafe + 61abfbb + c8a6d05 + f21d058 + f5bad7b; direct-only checklist source flow, CAT/assembly authoring controls removed, randomized section payloads, single-action Configure Sections footer without preview/icon actions, direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, browser semantic check, and git diff --check; no migration required"
     },
@@ -136,9 +118,7 @@
       "id": "feat-011",
       "name": "AS-06 Random Assembly Schema Boundaries",
       "description": "Add durable Pool, Blueprint, and CAT Pool assembly modes, version-owned definitions, release provenance, and immutable Ready revision guards",
-      "dependencies": [
-        "feat-010"
-      ],
+      "dependencies": ["feat-010"],
       "status": "complete",
       "evidence": "4f2dbd0; forward-only 20260822130000_add_random_assembly_schema migration with fixed-Set backfill, derived legacy provenance, normalized scopes/rules, Ready metadata digest transition, release readiness/provenance guards, static contract, opt-in disposable PostgreSQL contract, 31-migration replay, Prisma validate/generate, TypeScript, focused ESLint, diff-check, and pnpm verify; migration not deployed to configured database"
     },
@@ -146,9 +126,7 @@
       "id": "feat-012",
       "name": "AS-06 Assembly Repository and Preview",
       "description": "Implement creator-owned assembly drafts, immutable Ready revisions, shared Ready reads, source/CAT readiness validation, and read-only Pool/Blueprint preview",
-      "dependencies": [
-        "feat-011"
-      ],
+      "dependencies": ["feat-011"],
       "status": "complete",
       "evidence": "9a1e306; server-only assembly repository/actions, aggregate and deterministic source locks, structured stale/duplicate/scope/quota/shortage/calibration errors, candidate snapshots and Blueprint scope-only Ready revisions, shared Kapten Ready binding, temporary-seed read-only preview, focused repository/schema/direct/AS-05/package/release/AssessmentRelease contracts, TypeScript, focused ESLint, diff-check, and pnpm verify; migration remains unapplied to configured database"
     },
@@ -156,9 +134,7 @@
       "id": "feat-013",
       "name": "AS-06 Seeded Pool and Blueprint Release Resolution",
       "description": "Resolve immutable seeded CBT forms for random Pool and Blueprint assemblies at AssessmentRelease creation",
-      "dependencies": [
-        "feat-012"
-      ],
+      "dependencies": ["feat-012"],
       "status": "complete",
       "evidence": "5311eda + 2e0915c; aggregate/Ready-version/source lock order, seeded-fisher-yates-v1 Pool draws, stale/shortage/duplicate/content/media/mode blockers, exact Blueprint difficulty quotas and scope resolution, Blueprint publish materialization, per-section release provenance, publication-intent seed handling, active-session guard, focused random-assembly/repository/schema/direct/AS-05/package/release contracts, TypeScript, focused ESLint, git diff --check, and pnpm verify; migration remains unapplied to configured database"
     },
@@ -166,9 +142,7 @@
       "id": "feat-014",
       "name": "AS-06 CAT Pool Release Pinning",
       "description": "Pin explicit CAT Pool candidates and canonical 2PL calibration parameters in immutable Tryout AssessmentReleases",
-      "dependencies": [
-        "feat-013"
-      ],
+      "dependencies": ["feat-013"],
       "status": "complete",
       "evidence": "347cc37 + e4bb17c + 1ef8e85; deterministic aggregate/Ready-version/source/Subtest/calibration locks, stale revision/digest/provenance and active-scope/content/media/canonical-2PL blockers, exact-size candidate acceptance and shortage rejection, release-owned candidate/calibration payloads, immutable runtime parameters, mixed CAT Pool/direct-CAT old-release reuse fix, focused CAT/random/repository/schema/direct/package/release contracts, TypeScript, focused ESLint, git diff --check, and pnpm verify; migration remains unapplied to configured database; fresh review PASS"
     },
@@ -176,9 +150,7 @@
       "id": "feat-015",
       "name": "AS-06 Tryout Assembly Attachment and E2E Verification",
       "description": "Attach Ready Set/Pool/Blueprint/CAT Pool sources to Tryout Sections with Review wiring and verify random assembly end to end; Kuis assembly binding deferred",
-      "dependencies": [
-        "feat-014"
-      ],
+      "dependencies": ["feat-014"],
       "status": "complete",
       "evidence": "4c85278 + 617735f + 01e4078 + cb49aac; final Ticket 6 PASS review; focused attachment/random/CAT/direct/AS-05/package/release contracts, TypeScript, focused ESLint, pnpm verify, approved migration 31 reset/reseed, db:verify-demo, and authenticated ego-browser task 20 desktop/mobile QA. Kuis assembly remains explicitly deferred; assessment-release invariant baseline fails only on protected admin-preview dirty source; schema DB contract skipped without RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL"
     },
@@ -186,9 +158,7 @@
       "id": "feat-016",
       "name": "AS-07 Live Delivery and Result Workspaces",
       "description": "Add Live, Attempts, and Results projections inside the mentor Tryout workspace with actionable participant/run navigation and human-review-only integrity signals",
-      "dependencies": [
-        "feat-015"
-      ],
+      "dependencies": ["feat-015"],
       "status": "complete",
       "evidence": "ea0d296 + d437043 + 6fd1794; final fixup review PASS at artifacts/reviews/as07-live-delivery-result-workspaces-final-fixup-review-20260823; Live/Attempts/Results projections reuse ParticipantView, AssessmentRelease, delivery, attempt, scoring, and result boundaries; client score/release sanitization, human-review-only integrity signals, actionable participant/attempt links, mobile active-tab scrolling, and single-landmark detail routes verified; Impeccable audit 18/20 with no P0/P1 findings; focused contracts, participant view, TypeScript, focused ESLint, detector [], diff-check, pnpm verify, and authenticated ego-browser desktop/mobile QA pass; disconnected lifecycle telemetry and expiry reconciliation remain explicit later-slice deviations; assessment-release invariant baseline remains blocked only by preserved dirty admin-preview source"
     },
@@ -196,9 +166,7 @@
       "id": "feat-017",
       "name": "Durable Kuis Assembly Binding",
       "description": "Persist Set/Pool/Blueprint assembly identity on StandaloneQuiz with server-owned Ready revision validation and CAT Pool rejection",
-      "dependencies": [
-        "feat-016"
-      ],
+      "dependencies": ["feat-016"],
       "status": "complete",
       "evidence": "047d5d7 + 331b7c7 + 4791020 + a892ec4 + 394e240; Prisma migrations 20260823100000_add_standalone_quiz_assembly_binding and 20260823110000_pin_kuis_assembly_version_identity applied to the authorized development database; durable Set/Pool/Blueprint identity, version-owned lifecycle checks, immutable fixed-set snapshots, CAT/multi-Bank/wrong-Subtest/stale revision-digest rejection, server-persisted detach with dirty-editor preservation, direct/fixed compatibility, Kuis contract, TypeScript, focused ESLint, Prisma validate/migrate status, diff-check, pnpm verify, authenticated ego-browser desktop/mobile QA, Impeccable detector [], and final independent review PASS at artifacts/reviews/as06-kuis-assembly-binding-final-review-394e240-20260823; protected admin-preview files preserved; broad assessment-release invariant remains a known unrelated baseline failure"
     },
@@ -206,9 +174,7 @@
       "id": "feat-018",
       "name": "AS-07 Realtime Delivery State Hardening",
       "description": "Add authoritative disconnect/reconcile transitions, deadline-expiry synchronization, and bounded Live refresh/polling without changing scoring or release semantics",
-      "dependencies": [
-        "feat-017"
-      ],
+      "dependencies": ["feat-017"],
       "status": "complete",
       "evidence": "d8eb288 + 59d090e + ba1291c; authenticated/idempotent disconnect start/reconcile with origin-run audit binding, fail-closed legacy/cross-run guards, exactly-once bounded terminal closure on authoritative expiry, terminal Live projection ordering, owner-scoped per-candidate short transactions preventing refresh/start/revoke deadlocks, visibility-aware 15s Live polling with in-flight guard/3-failure cap/manual retry, sanitized DTO and release/score boundaries, focused realtime/live/authoring/participant contracts, TypeScript, focused ESLint, diff-check, pnpm verify, authenticated ego-browser 1512/390px QA, Impeccable detector [], and final independent review PASS at artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823; protected admin-preview files preserved; assessment-release-invariants remains a known unrelated baseline failure"
     },
@@ -216,10 +182,7 @@
       "id": "feat-019",
       "name": "AS-04 Dedicated Invitation Picker UI",
       "description": "Add an owner-scoped Kapten student picker that selects a session, records an audit reason, and refreshes sanitized participant state after invitation",
-      "dependencies": [
-        "feat-008",
-        "feat-018"
-      ],
+      "dependencies": ["feat-008", "feat-018"],
       "status": "complete",
       "evidence": "a72d5fd + 5c422ac; owner-scoped safe student search, selected-session/idempotent invite wiring, required audit reason, sanitized authoritative refresh through toTryoutWorkspaceView, hidden scores/session attempts protection, busy-result race guards, accessible combobox/listbox semantics, focused invitation/participant/live contracts, TypeScript separation, focused ESLint, diff-check, pnpm lint/build, authenticated ego-browser desktop/mobile QA, Impeccable detector [], and fresh independent review PASS at artifacts/reviews/as04-invitation-picker-ui-followup-review-20260823; full verify remains blocked only by concurrent admin-preview ProcessEnv fixtures"
     },
@@ -227,11 +190,9 @@
       "id": "feat-020",
       "name": "Tryout Gated Lifecycle Workspace",
       "description": "Expose draft authoring and published operations as separate gated lifecycle modes with canonical workflow projection, contextual actions, and session-aware Live/Results routing",
-      "dependencies": [
-        "feat-019"
-      ],
+      "dependencies": ["feat-019"],
       "status": "complete",
-      "evidence": "1001677 + 697d360 + 9b6f37a; draft Overview \u2192 Configure Sections \u2192 Readiness & Publish and published Delivery \u2192 Operations \u2192 Results navigation, pure workflow projection with monotonic legacy gates, sticky contextual actions and dirty navigation guard, published metadata allowlist, draft lineage, ?session normalization, selected-session Live/Results projections, focused workflow/authoring/live-result contracts, focused ESLint, and TypeScript; authenticated browser QA and full verify remain follow-up due unrelated concurrent admin-preview edits"
+      "evidence": "1001677 + 697d360 + 9b6f37a; draft Overview → Configure Sections → Readiness & Publish and published Delivery → Operations → Results navigation, pure workflow projection with monotonic legacy gates, sticky contextual actions and dirty navigation guard, published metadata allowlist, draft lineage, ?session normalization, selected-session Live/Results projections, focused workflow/authoring/live-result contracts, focused ESLint, and TypeScript; authenticated browser QA and full verify remain follow-up due unrelated concurrent admin-preview edits"
     },
     {
       "id": "feat-021",
@@ -245,9 +206,7 @@
       "id": "feat-022",
       "name": "Vera AI Control Plane Contracts & Metric Engine",
       "description": "Define unified domain models, semantic metric states (available, partial, suppressed, unavailable), admitted vs rejected request classification, privacy suppression (k>=5), capacity gauges, and incident taxonomy",
-      "dependencies": [
-        "feat-001"
-      ],
+      "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "lib/admin/ai/contracts.ts, lib/admin/ai/aggregators.ts, lib/admin/ai/service.ts; mathematically precise formulas for execution success, effective completion, fallback recovery, admission rejection; privacy threshold suppression (k>=5) and complement suppression; verified with test:admin-ai-control-plane 30/30 checks passing"
     },
@@ -255,9 +214,7 @@
       "id": "feat-023",
       "name": "Vera AI Admin API Surface & Async Report Service",
       "description": "Implement domain-oriented REST endpoints for overview, usage, quota-health, reliability, incidents, providers, routing, and cost with async reservations and zero student data leaks",
-      "dependencies": [
-        "feat-022"
-      ],
+      "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "app/api/admin/ai/overview, usage, quota-health, reliability, incidents, providers, routing, cost endpoints; authenticated admin access with security headers, privacy threshold guards, and projection exclusion of student conversation texts"
     },
@@ -265,9 +222,7 @@
       "id": "feat-024",
       "name": "Vera AI Admin Portal Shell & UI Primitives",
       "description": "Update portal navigation and provide tokenized design system components for KPI cards, quota/capacity meters, routing chains, incident badges, and privacy suppression notices",
-      "dependencies": [
-        "feat-022"
-      ],
+      "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "modules/portal/components/admin-portal-nav.tsx, portal-shell.tsx, modules/admin/ai/components/ (AiControlPlaneNav, AiMetricCard, AiQuotaGauge, AiCapacityMeter, AiRoutingChainVisualizer, AiHourlyLockChart, AiFreshnessBanner, AiPrivacyNotice); full adherence to DESIGN.md tokens and Phosphor icons"
     },
@@ -275,10 +230,7 @@
       "id": "feat-025",
       "name": "Vera AI Admin Overview & Usage Screens",
       "description": "Implement Screen 1 (AI Overview command center) and Screen 2 (Usage & Capacity, Quota Health, Cost dashboard with metric switchers)",
-      "dependencies": [
-        "feat-023",
-        "feat-024"
-      ],
+      "dependencies": ["feat-023", "feat-024"],
       "status": "complete",
       "evidence": "app/admin/ai/page.tsx, modules/admin/ai/AiOverviewPageModule.tsx, app/admin/ai/usage/page.tsx, modules/admin/ai/AiUsagePageModule.tsx; 6 KPI top-level grid, requests over time, quota health gauge, feature breakdown, open incidents, metric toggle switchers (quota units, requests, tokens, cost), privacy-suppressed table, hourly lock distribution, and spend/cost efficiency dashboard"
     },
@@ -286,10 +238,7 @@
       "id": "feat-026",
       "name": "Vera AI Admin Reliability & Providers Screens",
       "description": "Implement Screen 3 (Reliability & Incidents with request classification and domain taxonomy) and Screen 4 (Providers & Routing with capability chains and capacity metrics)",
-      "dependencies": [
-        "feat-023",
-        "feat-024"
-      ],
+      "dependencies": ["feat-023", "feat-024"],
       "status": "complete",
       "evidence": "app/admin/ai/reliability/page.tsx, modules/admin/ai/AiReliabilityPageModule.tsx, app/admin/ai/providers/page.tsx, modules/admin/ai/AiProvidersPageModule.tsx; admitted vs rejected request classification, domain-grouped incident taxonomy (admission, infrastructure, upstream, application), privacy-safe cohort drilldown, graceful degradation breakdown, gateway health cards with masked credential fingerprints, AI capacity headroom, and capability routing intention vs 24h observed behavior"
     },
@@ -297,10 +246,7 @@
       "id": "feat-027",
       "name": "Vera AI Admin Policy Governance & Impact Preview",
       "description": "Implement Screen 5 (Immutable Policy Bundle lifecycle, diff editor, 7-day impact preview, dual approval UX, and deployment-style activation)",
-      "dependencies": [
-        "feat-023",
-        "feat-024"
-      ],
+      "dependencies": ["feat-023", "feat-024"],
       "status": "complete",
       "evidence": "Backend/API policy lifecycle is implemented under lib/admin/ai-policy/ and /api/admin/ai-policy/*, including immutable bundles, validation, preview, dual approval, scheduling, activation, rollback, and audit paths. The canonical app/admin/ai/policies/page.tsx now loads actor-scoped metadata server-side and renders modules/admin/AiPolicyPageModule.tsx inside PortalShell; its lifecycle controls call the backend policy endpoints. Verified with pnpm test:vera-http-sprint4 and guarded TypeScript. Browser verification remains permission-gated."
     },
@@ -308,11 +254,7 @@
       "id": "feat-028",
       "name": "Vera AI Admin Verification, Redirects & Test Suite",
       "description": "Add legacy route redirects, automated contract test suite in scripts/, and full verification across TypeScript, lint, and build",
-      "dependencies": [
-        "feat-025",
-        "feat-026",
-        "feat-027"
-      ],
+      "dependencies": ["feat-025", "feat-026", "feat-027"],
       "status": "complete",
       "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts and scripts/test-vera-http-sprint4.ts contract coverage; TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh. The Vera HTTP contract now asserts that the canonical policy route renders the backend mutation module and calls its lifecycle endpoints."
     },
@@ -320,9 +262,7 @@
       "id": "feat-029",
       "name": "Kuis Versioning Contract Foundation",
       "description": "Define semantic Kuis assessment identity, monotonic version lifecycle, learner/editor/catalogue/results projections, and post-close schedule transitions",
-      "dependencies": [
-        "feat-017"
-      ],
+      "dependencies": ["feat-017"],
       "status": "complete",
       "evidence": "13497c9; lib/quiz/versioning-digest.ts, versioning-lifecycle.ts, versioning-projections.ts, and versioning-schedule.ts; pnpm test:kuis-versioning, guarded TypeScript, focused ESLint, and git diff --check pass. Persistence, runtime participation, and historical-results cutover remain separate follow-up work."
     },
@@ -330,9 +270,7 @@
       "id": "feat-030",
       "name": "Operational UI Primitive Migration",
       "description": "Consolidate operational selects, tables, field wrappers, tabs, badges, and mode-card controls around shared primitives while preserving dense data and form behavior",
-      "dependencies": [
-        "feat-021"
-      ],
+      "dependencies": ["feat-021"],
       "status": "complete",
       "evidence": "Design Consistency Review P1/P2 completion confirmed by the user; seven P1 selects, two raw tables, onboarding selectors, shared field wrappers, compact/full-width tab compositions, semantic operational badges, and ModeCardTabs are implemented. Guarded TypeScript, targeted ESLint, focused media/mentor/authoring/form contracts, static sweeps, and git diff --check pass. Broader admin-import verification stops at a pre-existing English-copy assertion; browser QA was not run. Rich searchable selectors and other custom chips remain deferred."
     },
@@ -340,10 +278,7 @@
       "id": "feat-031",
       "name": "Kuis Editor Reference Parity",
       "description": "Align the Kuis editor inventory, issue markers, add control, preview switch, and primary editor actions with the Bank Soal workspace language",
-      "dependencies": [
-        "feat-017",
-        "feat-021"
-      ],
+      "dependencies": ["feat-017", "feat-021"],
       "status": "complete",
       "evidence": "4eaae2a + d8ed50b; Kuis editor reference parity plus versioned Bank Soal revision acceptance for draft/published records, archived lockout, and multi-answer detail preview. Guarded test:kuis-ui-first-workspace, test:quiz-question-updates, strict TypeScript, focused ESLint, and scoped diff-check pass; repository-wide verify remains blocked by an unrelated Tryout workspace jsx-key error, and browser QA remains a separately gated follow-up."
     },
@@ -351,9 +286,7 @@
       "id": "feat-032",
       "name": "Contract Test Suite Manifest",
       "description": "Keep every scripts/test-* file discoverable through a package test command and validate the repository test-surface manifest",
-      "dependencies": [
-        "feat-001"
-      ],
+      "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "c47d620 and 5f18555; scripts/test-suite-manifest.ts checks missing references and unregistered test files, and package scripts expose the current contract suites."
     },
@@ -361,12 +294,7 @@
       "id": "feat-033",
       "name": "Project Wiki and Harness Context Refresh",
       "description": "Publish a navigable project wiki and refresh durable harness memory, feature tracking, progress, and session handoff with the current repository baseline",
-      "dependencies": [
-        "feat-029",
-        "feat-030",
-        "feat-031",
-        "feat-032"
-      ],
+      "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
       "status": "complete",
       "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, follow-up queue, stale-handoff labeling, and Vera tracker boundary recorded without staging unrelated product changes."
     },
@@ -374,9 +302,7 @@
       "id": "feat-034",
       "name": "Vecalss Palette Standardization",
       "description": "Migrate UI color usage to the existing Vecalss palette and semantic status tokens while preserving visual meaning, behavior, layout, and accessibility contracts",
-      "dependencies": [
-        "feat-030"
-      ],
+      "dependencies": ["feat-030"],
       "status": "complete",
       "evidence": "c836589, 3b67d69, 7c57433, c2fe59b, 5af4342, and 91bbceb; learner/public, assessment, mentor/Tryout, admin, dashboard, portal, media, and Vera surfaces tokenized; guarded targeted ESLint, repository-wide pnpm lint (0 errors; 474 warnings), git diff --check, and full pnpm build pass. Browser verification was not run because explicit permission was not granted; protected and active-owner color boundaries remain documented."
     },
@@ -384,9 +310,7 @@
       "id": "feat-035",
       "name": "Vera AI End-to-End SSE Streaming",
       "description": "Stream real OpenRouter provider deltas through Vera's existing request SSE channel while preserving durable validation, accounting, and failure semantics",
-      "dependencies": [
-        "feat-022"
-      ],
+      "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "5d8270a; upstream OpenRouter SSE parsing and incremental message.delta forwarding, final usage/model/provider evidence, bounded malformed and partial-failure handling, and inert provisional Prisma deltas. Guarded test:vera-openrouter-poc, test:vera-openrouter-free-provider, test:vera-sprint2, focused ESLint, git diff --check, and full pnpm verify pass. Real-provider and browser smoke checks remain explicitly gated."
     },
@@ -394,9 +318,7 @@
       "id": "feat-036",
       "name": "Vera AI First-Message Session Creation",
       "description": "Create a backend chat session automatically when a learner sends their first message without an active session",
-      "dependencies": [
-        "feat-022"
-      ],
+      "dependencies": ["feat-022"],
       "status": "complete",
       "evidence": "5fd4071; first message dispatches to the newly created conversation; the new-session button and first-send path share single-flight creation, with duplicate-submit protection. Guarded test:vera-auto-context-ui, test:vera-auto-context-operations, test:vera-auto-context-orchestrator, test:vera-paid-provider, focused ESLint, TypeScript, and git diff --check pass; browser checks were not run as requested."
     },
@@ -404,9 +326,7 @@
       "id": "feat-037",
       "name": "Vera AI Streaming Answer Reveal",
       "description": "Polish live Vera answer streaming with a reduced-motion-aware word reveal while preserving server-owned context gating",
-      "dependencies": [
-        "feat-035"
-      ],
+      "dependencies": ["feat-035"],
       "status": "complete",
       "evidence": "4444d77; live provisional answer words resolve from a soft blur with a quiet caret; final answers and SSE behavior remain unchanged, and reduced-motion disables the animation. Automatic-context-enabled learners continue to see committed source summaries instead of manual context selection; free development keeps the manual Konteks fallback because its automatic retrieval gate is off. Guarded test:vera-auto-context-ui, focused ESLint, full ./init.sh, and git diff --check pass; browser verification was not run as requested."
     },
@@ -414,9 +334,7 @@
       "id": "feat-038",
       "name": "Mentor Report and Developer Inbox",
       "description": "Save Mentor bug reports with optional private attachments and provide a separate Developer report table and full detail view",
-      "dependencies": [
-        "feat-001"
-      ],
+      "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "3856e1d; explicit-local migration and Prisma generation, guarded test:mentor-report and focused ESLint pass. Approved local browser QA passed form submissions, table/detail navigation, byte-identical attachment download, role restrictions, and 390px layout. Staging migration/account provisioning and repository-wide build remain pending."
     },
@@ -434,9 +352,7 @@
       "id": "feat-040",
       "name": "Developer Component and Token Catalogue",
       "description": "Provide a Developer-only searchable catalogue of existing shared primitives, variants, source references, and live computed design tokens.",
-      "dependencies": [
-        "feat-038"
-      ],
+      "dependencies": ["feat-038"],
       "status": "complete",
       "evidence": "d2fe796 established the catalogue; primitive standardization reduces the supported inventory to 60 sources. Luna extraction and independent coverage review completed. Focused catalogue ESLint and diff-check pass; full TypeScript has no catalogue diagnostics but fails outside scope. Full verify stops on unrelated lint errors; production build and browser QA remain unverified."
     },
@@ -444,9 +360,7 @@
       "id": "feat-041",
       "name": "Canonical Primitives and ReUI Avatars",
       "description": "Standardize semantic radii, tactile Buttons, app-wide Badge, specialty Tabs, Sonner notification outcomes and ReUI Avatar composition across the app and developer catalogue.",
-      "dependencies": [
-        "feat-040"
-      ],
+      "dependencies": ["feat-040"],
       "status": "complete",
       "evidence": "2f11bd1 design contract; a64f5ba shared primitives; 778adf6 app consumers; 9a9457d agreed report primitive hunks; b4297f6 catalogue and Avatar guidelines. SSR state/disabled-anchor contract and shared/catalogue focused lint pass; independent standards and coverage reviews clear. Exact 20px audit correction is reviewed and applied in its owner's pending redesign. Global lint/types remain blocked by baseline errors; browser/build unverified."
     }
