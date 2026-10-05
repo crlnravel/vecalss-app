@@ -6,7 +6,7 @@
 - Source/schema initially included externally in `eec7163`/`c551937`; migration `5198842` applied local/staging. `5fb1e56` resolves independent review findings for package references and adopted Media-reservation create replay, with expanded real-repository tests.
 - Passed guarded deletion regression, pagination, resource-edit-lock and `pnpm verify`. One existing settings unused-Badge warning. Authoring-lock-family fails its unrelated Kuis `withTransientAuthoringEditLeases` source assertion; do not treat that as deletion regression evidence.
 - Reported bank was found empty/archived in staging; completed its requested deletion using the real repository and a new lease, then verified catalogue absence and detail null. Logs `/tmp/question-bank-delete-{green,verify,repair}.log`; epic artifact `question-bank-delete`.
-- Main `gpt-6.1-sol` explicitly authorized for this task; extra normal guarded groups explicitly approved, no emergency mode. No owned server or browser verification. Final Luna/max resolution review pending from `36337b9c`; its reply may resume this agent for any remaining findings.
+- Main `gpt-6.1-sol` explicitly authorized for this task; extra normal guarded groups explicitly approved, no emergency mode. No owned server or browser verification. Final Luna/max review from `36337b9c` is clear; bank/package lock serialization confirmed. Option-only package-version references have no separate regression fixture, a non-blocking coverage note. No required work remains.
 
 ## Materi auto-publication/deletion complete (2026-10-05)
 

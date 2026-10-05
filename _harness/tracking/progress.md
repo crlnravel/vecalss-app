@@ -5,7 +5,7 @@
 - [x] Confirmed deletion previously archived the bank and a fresh catalogue still returned it. Nullable deletion marker now separates deletion from restoration; historical question identities remain intact.
 - [x] Migration `5198842` applied to local/staging. `5fb1e56` adds reusable-package dependency guards and rejects adopted-create replay after deletion. Initial source changes were included externally in `eec7163`/`c551937`.
 - [x] Expanded deletion regression, pagination, resource-edit-lock and full `pnpm verify` pass; exact reported Tutor bank deleted and verified absent from staging catalogue/detail. Existing settings Badge warning only; unrelated Kuis static assertion still fails in authoring-lock-family.
-- Epic `question-bank-delete` holds intent and evidence. Final independent Luna/max review confirmation pending; no owned server or browser verification. Log `/tmp/question-bank-delete-verify.log`.
+- Epic `question-bank-delete` holds intent and evidence. Final independent Luna/max review is clear; option-only package-version reference coverage remains a non-blocking note. No owned server or browser verification. Log `/tmp/question-bank-delete-verify.log`.
 
 ## Materi fullscreen footer widgets (2026-10-04)
 
