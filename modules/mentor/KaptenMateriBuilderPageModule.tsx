@@ -10,7 +10,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useEffect, useReducer, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -1009,6 +1009,8 @@ function MateriBuilderContent({
 }) {
   const router = useRouter();
   const resourceLock = useResourceEditLock();
+  const saveInFlightRef = useRef(false);
+  const creationRequestIdRef = useRef<string | null>(null);
   const [builderState, setBuilderState] = useState(() =>
     getInitialState(initialMateri, initialSubjectSlug, subjects),
   );
@@ -1140,6 +1142,8 @@ function MateriBuilderContent({
   });
 
   async function saveLesson() {
+    // This changes immediately, before React paints the disabled submit button.
+    if (saveInFlightRef.current || isSaving || isLifecycleSaving) return;
     if (isArchived || isEditLocked) {
       showToast(
         isArchived
@@ -1163,10 +1167,14 @@ function MateriBuilderContent({
       return;
     }
 
+    saveInFlightRef.current = true;
+    let created = false;
     updateEditor({ isSaving: true });
     try {
+      if (mode === "create") creationRequestIdRef.current ??= crypto.randomUUID();
       const result = await saveMateriLessonAction({
         code: savedMateri?.code,
+        creationRequestId: mode === "create" ? creationRequestIdRef.current ?? undefined : undefined,
         document: toDocumentInput(builderState),
         editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
         subjectSlug: builderState.subjectSlug,
@@ -1186,6 +1194,7 @@ function MateriBuilderContent({
         return;
       }
 
+      created = mode === "create";
       updateEditor({
         errors: {},
         hasUnsavedChanges: false,
@@ -1209,7 +1218,12 @@ function MateriBuilderContent({
         variant: "error",
       });
     } finally {
-      updateEditor({ isSaving: false });
+      // A successful create stays blocked until navigation unmounts this form.
+      // Failed requests unlock for retry while retaining the request identity.
+      if (!created) {
+        saveInFlightRef.current = false;
+        updateEditor({ isSaving: false });
+      }
     }
   }
 

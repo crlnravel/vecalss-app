@@ -185,6 +185,21 @@ try {
   await deleteMateriLesson(remaining[0].code, tutorId);
   assert.equal(await getMentorMateriByCode(remaining[0].code), undefined, "Catalogue deletion succeeds without an active editor");
   assert.equal((await getMentorMateriByCode(remaining[1].code))?.sequenceNo, 1);
+  const repeatedInput = { ...managedInput, title: "PU satu kali", creationRequestId: randomUUID() };
+  const repeated = await Promise.all([
+    saveMateriLesson(repeatedInput, tutorId),
+    saveMateriLesson(repeatedInput, tutorId),
+    saveMateriLesson(repeatedInput, tutorId),
+  ]);
+  assert.equal(new Set(repeated.map((saved) => saved?.code)).size, 1, "Repeated submissions of one create request must return one record");
+  assert.equal((await saveMateriLesson(repeatedInput, tutorId))?.code, repeated[0]?.code, "A later retry returns the same saved record");
+  assert.equal((await getMentorMateriCatalogue()).find((subject) => subject.code === "PU")?.lessons.length, 2, "Replays must not append another lesson");
+  await assert.rejects(saveMateriLesson({ ...repeatedInput, title: "PU berubah" }, tutorId), MateriValidationError, "A changed replay must not overwrite the original without an edit lease");
+  assert.equal((await getMentorMateriByCode(repeated[0]!.code))?.title, "PU satu kali");
+  await assert.rejects(saveMateriLesson({ ...repeatedInput, creationRequestId: "invalid" }, tutorId), MateriValidationError);
+  const separateCreate = await saveMateriLesson({ ...repeatedInput, creationRequestId: randomUUID() }, tutorId);
+  assert.notEqual(separateCreate?.code, repeated[0]?.code, "Separate create sessions may intentionally use the same title and PDF");
+  assert.equal((await getMentorMateriCatalogue()).find((subject) => subject.code === "PU")?.lessons.length, 3);
   console.log("Materi auto-publication, safe deletion, ownership/edit locks, missing/partial topics, managed PDF, ordering, and validation passed.");
 } finally {
   await prisma?.$disconnect();

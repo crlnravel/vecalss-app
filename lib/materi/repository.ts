@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import {
   ContentStatus,
   MediaAssetState,
@@ -9,6 +11,7 @@ import {
 } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isUuid } from "@/lib/resource-edit-lock/canonical";
 import {
   assertAuthoringEditLease,
   withTransientAuthoringEditLeases,
@@ -93,6 +96,8 @@ type PublishedMateriCourse = {
 
 type SaveMateriLessonInput = {
   code?: string;
+  /** Stable for one create form, including concurrent submissions and retries. */
+  creationRequestId?: string;
   /** Legacy alias retained so the current editor remains type-safe during cutover. */
   duration?: string;
   document?: MateriDocumentInput;
@@ -546,6 +551,15 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
   const document = documentValidation.document;
   const video = videoValidation.video;
   let code = input.code?.trim();
+  const creationRequestId = !code ? input.creationRequestId : undefined;
+  if (creationRequestId !== undefined) {
+    if (typeof creationRequestId !== "string" || !isUuid(creationRequestId)) {
+      throw new MateriValidationError("Permintaan pembuatan materi tidak valid. Tutup formulir lalu buka kembali.");
+    }
+    // The existing unique module code is the durable request identity. Scope
+    // it to its creator so another tutor cannot replay this person's request.
+    code = `materi-${createHash("sha256").update(`${tutorId}:${creationRequestId}`).digest("hex").slice(0, 40)}`;
+  }
 
   await prisma.$transaction(async (tx) => {
     // The current topic determines the source subject, so acquire the
@@ -553,12 +567,33 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     // concurrent cross-subject save from changing the source while this
     // transaction is waiting for its ordering boundary.
     await lockMateriSubjectScopes(tx, materiSubjectCodes);
-    let current = code ? await tx.module.findUnique({ where: { code }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
-    if (code && !current) throw new MateriValidationError("Materi tidak ditemukan.");
+    let current = code ? await tx.module.findUnique({ where: { code }, select: { createdByUserId: true, title: true, estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
+    if (creationRequestId && current) {
+      const resources = toMateriResourceRead(await tx.moduleAsset.findMany({
+        where: { moduleId: current.id },
+        orderBy: [{ assetType: "asc" }, { sortOrder: "asc" }],
+        select: {
+          assetType: true, durationSeconds: true, managedAssetId: true, mediaUrl: true, mimeType: true, originalName: true, sourceKind: true,
+          managedAsset: { select: { libraryScope: true, mimeType: true, objectKey: true, originalName: true, state: true, trashedAt: true, url: true } },
+        },
+      }));
+      const sameDocument = resources.document?.sourceKind === document.sourceKind
+        && (document.sourceKind === "managed" ? resources.document.managedAssetId === document.managedAssetId : resources.document.url === document.url);
+      if (current.createdByUserId !== tutorId || current.title !== title || current.topic.subtest.code !== subject.code
+        || !isCanonicalTopicForSubject(subject.slug, current.topic.code) || !sameDocument
+        || (resources.video?.mediaUrl ?? null) !== (video?.mediaUrl ?? null)
+        || (resources.video?.durationSeconds ?? null) !== (video?.durationSeconds ?? null)) {
+        throw new MateriValidationError("Materi ini sudah dibuat. Muat ulang halaman untuk mengeditnya.");
+      }
+      // Return the original record without writes, ordering changes, or an
+      // editor lease. A create retry must never become an unleased edit.
+      return;
+    }
+    if (code && !current && !creationRequestId) throw new MateriValidationError("Materi tidak ditemukan.");
     if (current) {
       await assertAuthoringEditLease(tx, { resourceId: current.code, resourceType: "materi" }, tutorId, input.editLease);
       await tx.$queryRaw`SELECT id FROM modules WHERE id = ${current.id}::uuid FOR UPDATE`;
-      current = await tx.module.findUnique({ where: { id: current.id }, select: { estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } });
+      current = await tx.module.findUnique({ where: { id: current.id }, select: { createdByUserId: true, title: true, estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } });
       if (!current) throw new MateriValidationError("Materi tidak ditemukan.");
     }
     if (current?.status === ContentStatus.archived) {
