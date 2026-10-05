@@ -3,8 +3,8 @@
 ## Materi duplicate creation review (2026-10-05)
 
 - User explicitly approved main gpt-6.1-sol for this follow-up. Fix `921dfb0`, baseline `3c21f5131fbccf082be1aa3fe88222fb70e93e40`, adds synchronous submit guard and stable per-create identity hashed with tutor into existing unique code. Replays return original without writes; changed payload conflicts; separate forms create separately. No schema/dependency change.
-- Two normal groups used: public save regression red (three records), then updated concurrency/replay/conflict/validation regression + builder/locks/full verify green. Existing settings unused-Badge warning. Log `/tmp/materi-duplicate-verify.log`. No owned server or remaining fixture schema, no browser verification.
-- Only independent reviews pending: exact Luna/max Spec `06337117` thread `73d48df2-e6e2-4204-8295-b7236224a2e7`, Standards `8969cb11` thread `28a2b4aa-18cf-407d-a8b7-349d46a2eff9`. Both use artifact `materi-duplicate-create`. Address actionable findings then use the remaining normal launch budget only if changes warrant checks. Do not wait or poll peers.
+- Three normal groups used: red reproduction, green concurrency/replay/conflict/validation + builder/locks/full verify, and pending-form follow-up save regression/full verify. `a58c356` freezes fields/picker and guards queued mutations during saving. Logs `/tmp/materi-duplicate-{verify,followup}.log`; existing settings unused-Badge warning. No owned server or remaining fixture schema, no browser verification.
+- Only independent reviews pending: exact Luna/max Spec `06337117` recheck thread `6a5cb3b2-044b-498a-ad3a-afe8fd28d300`, Standards `8969cb11` thread `28a2b4aa-18cf-407d-a8b7-349d46a2eff9`. Both use artifact `materi-duplicate-create`. Address actionable findings then use the remaining normal launch budget only if changes warrant checks. Do not wait or poll peers.
 
 ## Bank Soal deletion complete (2026-10-05)
 
