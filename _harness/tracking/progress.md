@@ -1192,4 +1192,5 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Committed `921dfb0`: immediate form guard, pending through create navigation, stable tutor-scoped request identity with replay/conflict detection under subject locks.
 - [x] Concurrency/retry/separate-session/malformed-key/changed-input regression, builder validation, lock boundary and full lint/build pass; one existing settings warning.
 - [x] Addressed Spec pending-form finding in `a58c356`: disable fields/picker and reject queued changes while saving; public save regression and full verify pass (`/tmp/materi-duplicate-followup.log`).
-- [ ] Independent exact Luna/max Spec recheck and Standards review pending. No browser verification.
+- [x] Independent exact Luna/max Spec recheck clear after `a58c356`; pending-form finding resolved.
+- [ ] Independent exact Luna/max Standards review pending. No browser verification.
