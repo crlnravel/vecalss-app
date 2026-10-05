@@ -5,8 +5,8 @@
       "name": "One Materi per repeated create submission",
       "description": "Immediately fence repeated form submissions and reuse a tutor-scoped server request identity across concurrent creates and retries, without turning a replay into an unleased edit.",
       "dependencies": ["materi-auto-publish-delete"],
-      "status": "in_progress",
-      "evidence": "921dfb0; concurrent three-record repro red, replay/separate-create/changed-input/malformed-key regression green; builder/locks and full verify pass. Independent Luna/max reviews pending. One pre-existing settings warning, no browser verification. Log /tmp/materi-duplicate-verify.log; epic artifact materi-duplicate-create."
+      "status": "complete",
+      "evidence": "921dfb0/a58c356; concurrent three-record repro red, replay/separate-create/changed-input/malformed-key regression green; builder/locks and full verify pass. Pending fields/picker frozen, follow-up public save regression/full verify pass. Independent Luna/max Spec/Standards reviews clear. One pre-existing settings warning, no browser verification. Logs /tmp/materi-duplicate-{verify,followup}.log; epic artifact materi-duplicate-create."
     },
     {
       "id": "question-bank-delete",
