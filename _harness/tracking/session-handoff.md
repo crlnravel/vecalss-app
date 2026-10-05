@@ -1,5 +1,13 @@
 # Session Handoff
 
+## Bank Soal deletion complete (2026-10-05)
+
+- User's exact quiz bank Tutor (`282fc969-0677-43fd-b309-b108ae091117`) was archived by delete, then remained in an unfiltered catalogue. Added a distinct deletion marker while retaining historic question/revision rows.
+- Source/schema initially included externally in `eec7163`/`c551937`; migration `5198842` applied local/staging. `5fb1e56` resolves independent review findings for package references and adopted Media-reservation create replay, with expanded real-repository tests.
+- Passed guarded deletion regression, pagination, resource-edit-lock and `pnpm verify`. One existing settings unused-Badge warning. Authoring-lock-family fails its unrelated Kuis `withTransientAuthoringEditLeases` source assertion; do not treat that as deletion regression evidence.
+- Reported bank was found empty/archived in staging; completed its requested deletion using the real repository and a new lease, then verified catalogue absence and detail null. Logs `/tmp/question-bank-delete-{green,verify,repair}.log`; epic artifact `question-bank-delete`.
+- Main `gpt-6.1-sol` explicitly authorized for this task; extra normal guarded groups explicitly approved, no emergency mode. No owned server or browser verification. Final Luna/max resolution review pending from `36337b9c`; its reply may resume this agent for any remaining findings.
+
 ## Materi auto-publication/deletion complete (2026-10-05)
 
 - Complete in shared `eec7163`/`ee2b3a9` plus `bfab462`, `562a689`, `3e8292e`. New Materi publish atomically; catalogue/editor confirmed deletion enforces current leases and ownership, removes lesson-owned records, preserves media/topics/questions and retained history, and compacts order. Fullscreen controls restore focus, including error fallback; bottom widgets remain absent.

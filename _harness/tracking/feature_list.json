@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "question-bank-delete",
+      "name": "Remove deleted Bank Soal from authoring surfaces",
+      "description": "Distinguish deletion from restorable archival while preserving question history and package references; prevent tombstone edits and adopted-create replay.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "Real repository red reproduction; migration 5198842 applied local/staging; 5fb1e56 protects package bank/question/version/scope references and deleted create replay. Expanded deletion, pagination, resource-edit-lock and full verify pass on 2026-10-05. Reported Tutor bank deleted through a fresh lease and verified absent from staging catalogue/detail. Existing settings warning and unrelated authoring-lock-family Kuis static assertion recorded. Final independent resolution review pending. Epic artifact question-bank-delete; logs /tmp/question-bank-delete-{green,verify,repair}.log."
+    },
+    {
       "id": "materi-auto-publish-delete",
       "name": "Publish new Materi and support confirmed deletion",
       "description": "New Materi are immediately published; catalogue and editor offer lease-protected deletion while preserving shared media and remaining order. Fullscreen focus follows the active control.",
