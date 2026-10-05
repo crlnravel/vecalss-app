@@ -7,8 +7,8 @@
       "dependencies": [
         "fix-materi-save-structure"
       ],
-      "status": "in_progress",
-      "evidence": "Domain regressions passed against shared commits eec7163/ee2b3a9; bfab462 corrects regression lint name. Full verification pending peer planned group; independent Luna/max reviews resumed after usage limits. No browser verification; epic artifact materi-publish-delete."
+      "status": "complete",
+      "evidence": "eec7163/ee2b3a9 implement publication and deletion; 562a689/3e8292e resolve review recovery/copy/history coverage. Expanded deletion regression and full verify pass on 2026-10-05; earlier builder/resource/ordering/PDF checks pass. Independent Luna/max Standards and Spec reviews clear. One pre-existing settings warning; broader writer-registry script-list assertion fails independently. No browser verification. Log /tmp/materi-review-final-verify.log; epic artifact materi-publish-delete."
     },
     {
       "id": "fix-materi-save-structure",

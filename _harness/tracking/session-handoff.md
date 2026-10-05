@@ -1,20 +1,17 @@
 # Session Handoff
 
-## Materi auto-publication/deletion completion checks (2026-10-04)
+## Materi auto-publication/deletion complete (2026-10-05)
 
-- Standards review returned three P2 copy/lock/focus edges, all addressed in `562a689`; recheck requested under `8052dc78-3c74-4975-bd04-8ba58b866e7e`. Latest code needs verification. Peer question-bank agent is waiting on its user approval before its already-planned group and will share full verify under prior thread. No new guarded launches in this review-fix turn.
-
-- Implemented and landed externally in `eec7163`; current HEAD includes user follow-up `ee2b3a9` for deletion latency/subject lock keys. Fixture lint correction `bfab462` is ours. User approved this main model and additional normal guarded budgets; no emergency mode used.
-- All domain checks pass: test:materi-save-structure, builder validation, resource contract, lock boundary, PDF preview. The isolated schema includes real relevant FKs and tutor/student rows. No runtime DB mutation or owned server remains.
-- Full verify stopped on reserved local variable `module` in our regression; renamed/committed. No more launches requested. Peer `ecf0007a` already plans full verify for question-bank work and will send its current-HEAD result under response `098877d4-b750-4bf2-b5cf-d7bb4ed5ab2f`. Use that result to finish verification; do not duplicate the group.
-- Writer-registry regression fails unrelated stale package-script expectation: actual includes scripts/run-obscura.mjs and workers/vera-ai-reconciliation-worker.ts in addition to admin worker. No change made to that test.
-- Both Luna/max reviewers hit usage limits; resumed after cached provider health became ok. Pending threads `7e485188-acce-4223-86f9-4cc099bb4917` (Spec) and `4acb7571-4b6a-43c9-a328-ff16a7091fc3` (Standards). No polling or waiting on agents. Artifact materi-publish-delete records current intent/evidence; status in progress until pending checks/reviews resolved.
+- Complete in shared `eec7163`/`ee2b3a9` plus `bfab462`, `562a689`, `3e8292e`. New Materi publish atomically; catalogue/editor confirmed deletion enforces current leases and ownership, removes lesson-owned records, preserves media/topics/questions and retained history, and compacts order. Fullscreen controls restore focus, including error fallback; bottom widgets remain absent.
+- Expanded save/delete regression and full `pnpm verify` passed through normal guard against `3e8292e`. Earlier builder/resource/ordering/PDF checks passed. One pre-existing unused-Badge settings warning. Log `/tmp/materi-review-final-verify.log`.
+- Both exact Luna/max reviews clear after copy/lock/focus and history-coverage corrections. Artifacts under `materi-publish-delete/{standards-review,spec-review}`. No browser verification, runtime DB mutation, remaining test schema or owned server.
+- Broader writer-registry regression failed unrelated stale package-script expectation (Obscura/reconciliation-worker entrypoints). No further Materi work required. User explicitly approved the main model and extra normal launch budgets; no emergency mode/bypass used.
 
 ## Materi fullscreen follow-up (2026-10-04)
 
 - User requested removal of bottom widgets in fullscreen. `7fa63a3` on `dev` hides the PDF action/completion row and helper text in `modules/courses/StudentPdfPreview.tsx`, and preserves exit at top-right. Normal mode restores original controls; existing fullscreen event state remains authoritative.
 - One normal guarded group ran full `pnpm verify`: pass with one existing settings unused-Badge warning. Diff-check passes. Log `/tmp/materi-fullscreen-verify.log`. No browser verification and no owned server/worker.
-- Independent Luna/max review pending from `8969cb11`; inspect commit `7fa63a3`, artifact `materi-save-fix/fullscreen-review`. Main save bug and both earlier reviews remain complete.
+- Independent review identified focus transfer/recovery gaps; `562a689` resolves them and the follow-up Standards recheck is clear. See `materi-publish-delete/standards-review`. Main save bug and both earlier reviews remain complete.
 
 ## Materi save structure and modal feedback (2026-10-04)
 
