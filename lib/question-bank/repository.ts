@@ -1178,7 +1178,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
       if (adoptedBankId) {
         const savedBank = await prisma.questionBank.findUnique({
           include: bankInclude,
-          where: { id: adoptedBankId },
+          where: { id: adoptedBankId, deletedAt: null },
         });
         if (!savedBank) {
           throw new QuestionBankError("Bank Soal yang memakai folder Media ini tidak ditemukan.", {
@@ -1783,7 +1783,7 @@ async function deleteQuestionBank(
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
     const modifierId = actorId;
 
-    const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([
+    const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount, sourcePackageCount, sourcePackageVersionCount, scopedPackageVersionCount] = await Promise.all([
       tx.standaloneQuiz.count({ where: { sourceBankId: id } }),
       tx.adaptivePracticeSession.count({ where: { fallbackQuestionBankId: id } }),
       tx.question.count({
@@ -1796,6 +1796,8 @@ async function deleteQuestionBank(
             { quizAnswers: { some: {} } },
             { dailyMissionQuestion: { some: {} } },
             { adaptivePracticeAnswers: { some: {} } },
+            { reusablePackageItems: { some: {} } },
+            { reusablePackageVersionItems: { some: {} } },
           ],
         },
       }),
@@ -1806,12 +1808,16 @@ async function deleteQuestionBank(
             { quizAnswers: { some: {} } },
             { standaloneQuizItemOptions: { some: {} } },
             { tryoutItemOptions: { some: {} } },
+            { reusablePackageVersionOptions: { some: {} } },
           ],
         },
       }),
+      tx.reusableQuestionPackage.count({ where: { sourceBankId: id } }),
+      tx.reusableQuestionPackageVersion.count({ where: { sourceBankId: id } }),
+      tx.reusableQuestionPackageVersionBankScope.count({ where: { questionBankId: id } }),
     ]);
 
-    if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount) {
+    if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount || sourcePackageCount || sourcePackageVersionCount || scopedPackageVersionCount) {
       throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan dalam kuis, Tryout, atau sesi belajar.");
     }
 
