@@ -1184,3 +1184,11 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Materi save/delete, builder, resource, ordering and PDF regressions passed.
 - [x] Expanded deletion regression and full lint/production build passed on 2026-10-05 against `3e8292e`; one existing settings warning remains. Separately, writer-registry fails the unrelated stale script-entrypoint expectation.
 - [x] Independent Luna/max Spec/Standards reviews clear after copy/lock/focus and history-coverage fixes (`562a689`, `3e8292e`); no browser check performed.
+
+
+## Materi repeated create submissions (2026-10-05)
+
+- [x] Reproduced three records from concurrent submissions of one create request.
+- [x] Committed `921dfb0`: immediate form guard, pending through create navigation, stable tutor-scoped request identity with replay/conflict detection under subject locks.
+- [x] Concurrency/retry/separate-session/malformed-key/changed-input regression, builder validation, lock boundary and full lint/build pass; one existing settings warning.
+- [ ] Independent exact Luna/max Spec and Standards reviews pending. No browser verification.
