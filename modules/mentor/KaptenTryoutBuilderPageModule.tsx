@@ -77,6 +77,7 @@ import {
 } from "@/lib/tryout/cbt-scoring-policy";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { TryoutBannerUploadDialog } from "@/modules/mentor/components/tryout-banner-upload-dialog";
+import { questionAnswerModeLabel } from "@/modules/mentor/question-answer-mode-label";
 import {
   QuestionEditorHeader,
   QuestionEditorPageShell,
@@ -1209,10 +1210,7 @@ function TryoutSavedQuestionList({
                   : difficulty === "adaptive"
                     ? "Adaptif"
                     : "Sedang";
-            const questionTypeLabel =
-              question.questionType === "multiple_choice"
-                ? "Pilihan ganda kompleks"
-                : "Pilihan ganda";
+            const questionTypeLabel = questionAnswerModeLabel(question.questionType);
             const options = question.options ?? [];
 
             return (

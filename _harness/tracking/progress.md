@@ -6,8 +6,8 @@
 - [x] Added purpose-aware Bank Soal error recovery; retained Kuis recovery, archived-route auth/notFound, legacy package guards, source revision checks and edit locks.
 - [x] Added explicit Prisma generation at dev startup/reset, documented full dev-process restart, and registered a read-only local catalogue/folder/category-count/editor smoke check.
 - [x] Eight focused regressions and full lint/production build pass in `/tmp/mentor-qa-final.log`. Eight sequential normal guard groups used with explicit user approval. No DB writes, resets, reseeds, migrations or browser saves.
-- Extra suite-manifest check fails on 15 pre-existing unregistered test files; Settings still has its pre-existing unused-Badge warning. Tryout import-row answer-mode expectation remains a product question; current saved-list/editor coverage is explicit.
-- Independent Luna/max Standards is clear after the 44px recovery-action correction and source recheck. Spec records one P2 remaining acceptance gap: Tryout import-row answer mode requires a product decision. Native workers substituted after Traycer routing/access failure. Artifact: `mentor-qa-fixes-20261007` in epic `788a92f9-1c5a-4fc5-b873-76ac11c9949c`. No owned server or listener on port 5023.
+- Extra suite-manifest check fails on 15 pre-existing unregistered test files; Settings still has its pre-existing unused-Badge warning. User clarified that Tryout Bank Soal import rows must show answer mode, the new Bank Soal question default remains single-answer, and multi-answer CSV/XLSX template delivery is later work. `test:tryout-direct-question-picks` passed in one separately approved additional guarded group.
+- Independent Luna/max Standards is clear after the 44px recovery-action correction and source recheck. Spec's Tryout import-row P2 is resolved by the user decision and the focused regression pass. The prior lint/build pass predates this small UI follow-up. Native workers substituted after Traycer routing/access failure. Artifact: `mentor-qa-fixes-20261007` in epic `788a92f9-1c5a-4fc5-b873-76ac11c9949c`. No owned server or listener on port 5023.
 
 ## Bank Soal deletion (2026-10-05)
 

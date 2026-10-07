@@ -5,8 +5,8 @@
       "name": "Mentor QA source attribution and recovery fixes",
       "description": "Restore bank-mode Kuis source attribution, scope Bank Soal recovery, refresh Prisma client workflow and align extracted UI contracts without removing archive or ownership guards.",
       "dependencies": [],
-      "status": "in_progress",
-      "evidence": "Implementation through d094291; eight focused checks plus lint/production build pass via normal guard before size-only review correction. Read-only local editor/catalogue/folder/category-count queries pass. Luna/max Standards clear after source recheck; Spec flags P2 unresolved Tryout import-row answer-mode expectation. No DB/browser mutations. Open product question and pre-existing suite-manifest omissions documented in epic artifact mentor-qa-fixes-20261007."
+      "status": "complete",
+      "evidence": "Implementation through d094291; eight focused checks plus lint/production build pass via normal guard before size-only review correction. User clarified that Tryout Bank Soal import rows show answer mode, new Bank Soal questions remain single-answer by default, and multi-answer CSV/XLSX templates are later work. The focused follow-up test:tryout-direct-question-picks passes in one additional approved guarded group. Read-only local editor/catalogue/folder/category-count queries pass. Luna/max Standards clear after source recheck; Spec P2 decision is resolved. No DB/browser mutations. Pre-existing suite-manifest omissions and the follow-up verification evidence are documented in epic artifact mentor-qa-fixes-20261007. Full lint/build was not rerun after the UI-only follow-up."
     },
     {
       "id": "materi-duplicate-create",

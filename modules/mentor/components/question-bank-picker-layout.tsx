@@ -1,4 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { questionAnswerModeLabel, type QuestionAnswerMode } from "@/modules/mentor/question-answer-mode-label";
 
 /** Shared modal frame for importing questions into Kuis and Tryout. */
 export const QUESTION_BANK_PICKER_DIALOG_CLASS_NAME =
@@ -9,6 +11,7 @@ export const QUESTION_BANK_PICKER_FOOTER_CLASS_NAME =
 
 export function QuestionBankPickerRow({
   allInBank,
+  answerMode,
   checkboxId,
   difficulty,
   disabled,
@@ -18,6 +21,7 @@ export function QuestionBankPickerRow({
   subjectCode,
 }: {
   allInBank: boolean;
+  answerMode?: QuestionAnswerMode;
   checkboxId: string;
   difficulty: string;
   disabled: boolean;
@@ -58,6 +62,11 @@ export function QuestionBankPickerRow({
               <span className="rounded-full border border-secondary-200 bg-secondary-50 px-2 py-1 font-semibold text-secondary-600">
                 {difficulty}
               </span>
+              {answerMode ? (
+                <Badge size="xs" tone="category">
+                  {questionAnswerModeLabel(answerMode)}
+                </Badge>
+              ) : null}
             </div>
             <p className="mt-2 line-clamp-2 break-words text-sm leading-6 text-secondary-900">
               {label}
