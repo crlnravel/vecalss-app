@@ -16,9 +16,13 @@ assert.match(questionManager, /Pilih Bank Soal/u, "Tryout Questions must expose 
 assert.doesNotMatch(builder, /Set Ready|Pool Soal|Blueprint|CAT Pool/u, "Tryout Questions must expose only direct selection");
 assert.doesNotMatch(builder, /Behavior &amp; rules|question-selection-mode|DropdownMenuRadioGroup|<Switch/u, "authoring must not expose CAT or source-mode controls");
 assert.match(questionManager, /<Checkbox/u, "direct selection must use a checklist");
-assert.match(questionManager, /questionTypeLabel/u, "direct selection must communicate the answer mode");
+// Import rows share the subject/difficulty layout with Kuis. Answer mode is
+// communicated in the saved-question list and question editor controls.
+assert.match(builder, /question\.questionType === "multiple_choice"[\s\S]*?"Pilihan ganda kompleks"[\s\S]*?\{questionTypeLabel\}/u, "saved direct questions must communicate the answer mode");
+assert.match(questionManager, /value=\{question\.questionType\}[\s\S]*?Pilihan ganda/u, "question editor controls must retain answer-mode selection");
+assert.match(questionManager, /<QuestionBankPickerRow[\s\S]*?difficulty=\{difficultyLabel\(question\.difficulty\)\}[\s\S]*?subjectCode=\{question\.subjectCode\}/u, "import rows must retain subject and difficulty context");
 assert.match(questionManager, /correctChoiceIds/u, "question preview must expose the authored answer key");
-assert.match(questionManager, /\$\{selectionCount\} soal dipilih/u, "direct selection must keep the selected count visible");
+assert.match(questionManager, /\$\{selectedCount\} soal dipilih/u, "direct selection must keep the selected count visible");
 assert.match(questionManager, /aria-label=\{`Pindah soal \$\{index \+ 1\} ke atas`\}/u, "direct selection must expose keyboard-accessible ordering");
 assert.match(questionManager, /aria-label=\{`Pindah soal \$\{index \+ 1\} ke bawah`\}/u, "direct selection must support keyboard-accessible downward movement");
 assert.match(questionManager, /questionIds:\s*Array\.from\(selectedRevisions\.keys\(\)\)/u, "checking a source question must add or remove it from the selected request");
@@ -43,7 +47,7 @@ assert.match(repository, /!selection\.sourceContentDigest[\s\S]*?selection\.sour
 assert.match(repository, /FOR SHARE OF q, b/u, "direct source reads must share-lock Question and Bank rows");
 assert.match(repository, /packageCode: "direct"/u, "direct snapshots must not require a saved package");
 assert.match(repository, /questionCount: directSources\.length/u, "direct selections must determine the Section question count");
-assert.match(repository, /Paket Soal sudah diarsipkan/u, "legacy package bindings must be rejected at the save boundary");
+assert.match(repository, /if \(legacySection\.packageVersionId\) throw new TryoutValidationError\("Paket Soal ini sudah diarsipkan/u, "legacy package bindings must be rejected at the save boundary");
 assert.doesNotMatch(repository, /sectionInput\.packageVersionId/u, "Tryout authoring must not resolve package versions");
 assert.match(assessmentRelease, /if \(section\.packageVersionId\)\s*\{[\s\S]*?section\.packageVersion\?\.status/u, "release eligibility must retain the published package branch for historical releases");
 assert.match(assessmentRelease, /item\.packageVersionId !== null[\s\S]*?item\.sourceRevisionProvenance === QuestionRevisionProvenance\.legacy_unknown/u, "release eligibility must validate direct snapshot provenance");
