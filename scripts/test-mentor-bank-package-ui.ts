@@ -13,6 +13,7 @@ const workspaceShell = read("modules/mentor/components/mentor-workspace-shell.ts
 const packageActions = read("modules/mentor/tryout-actions.ts");
 const assemblyActions = read("modules/mentor/assembly-actions.ts");
 const packageUseRoute = read("app/mentor/packages/[packageId]/use/page.tsx");
+const bankCataloguePage = read("app/mentor/quiz/question-bank/page.tsx");
 
 assert.match(bankCatalogue, /\{row\.bank\.questionCount\} soal/u, "Bank rows should show the question count as their primary metadata");
 assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.progress\}% siap(?: · \{bank\.difficultyMix\})?/u, "Bank rows should not append readiness metadata to the visible question count");
@@ -42,9 +43,9 @@ assert.match(bankCatalogue, /kind: "bank"/u, "The integrated Bank Soal table sho
 assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
 assert.match(bankCatalogue, /initialSort = "updated"/u, "Bank Soal should hydrate sort from the URL");
 assert.match(bankCatalogue, /search=\{\{ action: "\/mentor\/quiz\/question-bank"/u, "Bank Soal should use the table search control");
-assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
-assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /const folderId = requestedFolder === undefined \? null/u, "The root catalogue should list only unfiled banks");
-assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /sort: requestedSort/u, "Question bank sorting should be server-side");
+assert.match(bankCataloguePage, /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
+assert.match(bankCataloguePage, /function getQuestionBankFolderId\(folder: string \| undefined\) \{\s*if \(!folder \|\| folder === "root" \|\| folder === "unfiled"\) return null;/u, "The root and unfiled catalogue selection should resolve to the no-folder query");
+assert.match(bankCataloguePage, /sort: requestedSort/u, "Question bank sorting should be server-side");
 assert.match(read("lib/question-bank/repository.ts"), /questions: \{ _count: "desc"/u, "Question-count sorting should be collection-wide");
 
 assert.match(packageLayout, /requireTutorSession/u, "Archived Paket Soal routes must still authenticate before returning a not-found response");
