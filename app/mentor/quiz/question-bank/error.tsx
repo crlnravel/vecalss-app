@@ -18,9 +18,9 @@ function QuestionBankRecovery({ purpose, reset }: { purpose?: QuestionBankPurpos
         </div>
         <div className={styles.empty} role="alert">
           <p>Coba lagi atau kembali ke daftar Bank Soal.</p>
-          <Button onClick={reset} size="sm" type="button" variant="default">Coba lagi</Button>{" "}
+          <Button onClick={reset} size="default" type="button" variant="default">Coba lagi</Button>{" "}
           {purposes.map((bankPurpose) => (
-            <Link className={buttonVariants({ size: "sm", variant: "outline" })} href={`/mentor/quiz/question-bank?purpose=${bankPurpose}`} key={bankPurpose}>
+            <Link className={buttonVariants({ size: "default", variant: "outline" })} href={`/mentor/quiz/question-bank?purpose=${bankPurpose}`} key={bankPurpose}>
               Kembali ke {questionBankNavigationLabel(bankPurpose)}
             </Link>
           ))}
