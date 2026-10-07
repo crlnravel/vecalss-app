@@ -77,6 +77,34 @@ VERA_DISPOSABLE_DB_ACK=1
 
 ---
 
+### Refreshing Prisma Client and the development process
+
+Prisma 7 requires explicit client generation after schema changes. `pnpm db:reset`
+now generates the client after resetting migrations, so `pnpm db:seed` and
+`just local-reset` use the current client before seeding. `pnpm dev` also generates
+the client before starting Next. Generation does not replace code already loaded
+by an existing Next process or its development Prisma singleton.
+
+After a reset, schema migration, client generation, or datasource switch:
+
+1. Fully stop the Next development process you own. Coordinate with its owner
+   if another agent started it; hot reload or a browser refresh is insufficient.
+2. If migrations were applied without a reset (including `just local-migrate`),
+   run `./_harness/resource-guard.sh status`, then
+   `./_harness/resource-guard.sh run -- rtk pnpm db:generate`.
+3. Start a fresh guarded `pnpm dev` process. For agents, check guard status and
+   use `./_harness/resource-guard.sh run -- rtk pnpm dev` via a managed shell.
+4. As the seeded Tutor, check both Bank Soal workspaces and their category
+   counts on the datasource used by Next. Browser checks follow the repository's
+   approval policy. Confirm the server log has no `Unknown argument deletedAt`.
+
+The recorded Bank Soal incident recovered after generation **and** a full process
+restart. Neither step alone was isolated. Keep the `deletedAt` filters and Prisma
+singleton; removing them would conceal the stale-client symptom or lose soft-delete
+and connection-reuse behavior. Prisma CLI reads `.env` by default, while Next also
+loads `.env.local`; pass the intended datasource explicitly for migrations rather
+than assuming those commands use the same database.
+
 ## 3. Staging Environment (`staging`)
 
 The staging environment uses **Neon** (Serverless PostgreSQL at `neon.tech`) for cloud-hosted evaluation and multi-user pre-release testing.
