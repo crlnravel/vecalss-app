@@ -169,6 +169,7 @@
     "test:kuis-ui-first-workspace": "tsx scripts/test-kuis-ui-first-workspace.ts",
     "test:quiz-bank-source-attribution": "tsx scripts/test-quiz-bank-source-attribution.ts",
     "test:question-bank-error-recovery": "tsx scripts/test-question-bank-error-recovery.ts",
+    "test:mentor-bank-read-runtime": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-mentor-bank-read-runtime.ts",
     "test:kuis-versioning": "tsx scripts/test-kuis-versioning.ts",
     "test:assessment-answer-contract": "tsx scripts/test-assessment-answer-contract.ts",
     "test:quiz-question-updates": "tsx scripts/test-quiz-question-updates.ts",
