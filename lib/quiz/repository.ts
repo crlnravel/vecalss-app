@@ -182,6 +182,8 @@ const quizContentInclude = {
     include: { options: { orderBy: { sortOrder: "asc" as const } } },
     orderBy: { sortOrder: "asc" as const },
   },
+  // Attribution metadata only: question content remains in Kuis-owned snapshots.
+  sourceBank: { select: { name: true } },
   subtest: true,
 } satisfies Prisma.StandaloneQuizInclude;
 const quizVersionItemsInclude = {
