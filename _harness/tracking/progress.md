@@ -1,5 +1,14 @@
 # Session Progress Log
 
+## Mentor QA fixes (2026-10-07)
+
+- [x] Confirmed the reported Kuis is bank mode, with active same-owner quiz-purpose source Bank Soal Kuis UTBK. Added canonical bank-name read and shared desktop/mobile source context; regression reproduced missing title/link before the fix.
+- [x] Added purpose-aware Bank Soal error recovery; retained Kuis recovery, archived-route auth/notFound, legacy package guards, source revision checks and edit locks.
+- [x] Added explicit Prisma generation at dev startup/reset, documented full dev-process restart, and registered a read-only local catalogue/folder/category-count/editor smoke check.
+- [x] Eight focused regressions and full lint/production build pass in `/tmp/mentor-qa-final.log`. Eight sequential normal guard groups used with explicit user approval. No DB writes, resets, reseeds, migrations or browser saves.
+- Extra suite-manifest check fails on 15 pre-existing unregistered test files; Settings still has its pre-existing unused-Badge warning. Tryout import-row answer-mode expectation remains a product question; current saved-list/editor coverage is explicit.
+- Independent Luna/max Standards and Spec review pending; native workers substituted after Traycer routing/access failure. Artifact: `mentor-qa-fixes-20261007` in epic `788a92f9-1c5a-4fc5-b873-76ac11c9949c`. No owned server or listener on port 5023.
+
 ## Bank Soal deletion (2026-10-05)
 
 - [x] Confirmed deletion previously archived the bank and a fresh catalogue still returned it. Nullable deletion marker now separates deletion from restoration; historical question identities remain intact.

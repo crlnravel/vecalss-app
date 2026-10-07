@@ -1,5 +1,15 @@
 # Session Handoff
 
+## Mentor QA fixes implemented and verified (2026-10-07)
+
+- Branch `dev`; baseline `9311b154cb55ac02c4752ca9ae58fef7816eb18e`; implementation commits through `5767c7f`. Intent, evidence, limits and open product question: epic artifact `mentor-qa-fixes-20261007/index.md`.
+- Bank-mode Kuis attribution now uses the correct name and specific quiz-purpose link in shared inventories. Bank Soal has its own purpose-aware recovery boundary. Prisma reset/startup explicitly generates; the supported recovery sequence requires a full dev-process restart.
+- Eight focused scripts plus `pnpm verify` pass via the normal shared guard; final log `/tmp/mentor-qa-final.log`. User authorized up to eight sequential launch groups; all eight used. No emergency mode, browser or DB mutations, resets, reseeds or migrations. No owned persistent process or 5023 listener.
+- Extra test-suite-manifest check fails on 15 unchanged unregistered scripts; Settings unused-Badge lint warning remains. The three new regressions are registered. Do not weaken the manifest to conceal unrelated omissions.
+- Tryout answer mode in import rows remains unspecified. Tests explicitly cover current saved-list/editor answer mode and import-row subject/difficulty rather than claiming those are the same interaction. Intentional independent Kuis question editing is supported by prior commit `b296dcb` and the inspected ownership regression; that DB-mutating regression was not run.
+- Fresh exact Luna/max Standards and Spec reviews remain pending in provider-native workers after Traycer child routing/cloud-access failed. Next phase: address any actionable review feedback, then optional approved read-only browser verification of source attribution and recovery. No post-fix browser claim is made.
+
+
 ## Materi duplicate creation complete (2026-10-05)
 
 - User explicitly approved main gpt-6.1-sol for this follow-up. Fix `921dfb0`, baseline `3c21f5131fbccf082be1aa3fe88222fb70e93e40`, adds synchronous submit guard and stable per-create identity hashed with tutor into existing unique code. Replays return original without writes; changed payload conflicts; separate forms create separately. No schema/dependency change.
