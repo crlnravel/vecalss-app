@@ -22,6 +22,7 @@ assert.match(detail, /returnTo: returnHref/u, "tab navigation preserves dashboar
 assert.match(quizCatalogue, /useReactTable/u, "the quiz dashboard uses the headless grid");
 const inventory = await readFile(`${root}/modules/mentor/components/quiz-question-inventory.tsx`, "utf8");
 const actions = await readFile(`${root}/modules/mentor/quiz-actions.ts`, "utf8");
+const workspace = await readFile(`${root}/modules/mentor/components/question-editor-workspace.tsx`, "utf8");
 
 // Guard client-visible Kuis surfaces. Legacy source identifiers may remain in
 // server-owned persistence compatibility, and future import actions stay
@@ -47,46 +48,51 @@ assert.match(inventory, /Bank Soal:/u, "inventory must label its source Bank Soa
 assert.match(inventory, /<Link href=\{sourceBankHref\} title=\{sourceBankTitle\}>\{sourceBankTitle/u, "inventory must link the selected Bank Soal title");
 assert.match(editor, /getQuizQuestionBankContext\(state\.savedQuiz\)/u, "editor must supply canonical source-bank context to its inventory");
 assert.doesNotMatch(editor, /Konten dikelola di Bank Soal/u, "the removed Bank Soal snapshot banner must not render in the Kuis editor");
-assert.match(editor, /data-quiz-question-content-editor="disabled"/u, "bank-sourced question content must be read-only in the Kuis editor");
+// Imported questions became independently editable Kuis copies in b296dcb.
+// Permission and lease protection still apply to editing and snapshot saves.
+assert.match(editor, /<QuizQuestionEditor disabled=\{state\.editorDisabled\}/u, "question editing must obey the editor permission and lease state");
+assert.match(editor, /savedQuiz\?\.status === "archived"[\s\S]*?mode === "edit" && !resourceLock\.canEdit/u, "archived and unowned editors must remain disabled");
+assert.match(editor, /questionOwnership: "quiz"/u, "question saves must persist independent Kuis-owned copies");
 assert.match(editor, /data-quiz-question-empty/u, "editor must expose an empty state when no questions are selected");
 assert.match(editor, /Belum ada soal di Kuis ini/u, "empty editor state must explain that no questions are selected");
 assert.match(editor, /Tambah soal dari Bank Soal/u, "empty editor state must offer the Bank Soal picker");
 assert.doesNotMatch(editor, /data-source-update-review|Tinjau perubahan|Terima ke draf|Perlu ditinjau/u, "published Bank Soal revisions must not render a manual review card");
-assert.match(editor, /autoAppliedUpdateKeysRef/u, "published Bank Soal revisions must be applied automatically");
+assert.match(editor, /appendImportedQuestions/u, "Bank Soal imports must append independent question copies");
 assert.match(editor, /reorderQuestion/u, "editor must reorder questions");
 assert.match(inventory, /aria-label=\{`Pindah soal \$\{index \+ 1\}`\}/u, "inventory must name its accessible reorder handle");
 assert.match(editor, /Hapus soal/u, "editor must delete questions");
-assert.doesNotMatch(editor, /function QuestionForm|Edit soal|quiz-preview-toggle|MediaPickerDialog|Tampilan penulis/u, "Kuis must not expose a local question editor or preview toggle");
+assert.doesNotMatch(editor, /function QuestionForm|quiz-preview-toggle|Tampilan penulis/u, "Kuis must use the shared content editor without a duplicate local form or preview toggle");
 assert.match(editor, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u, "editor must guard unsaved navigation");
 assert.match(editor, /function hasQuizDraftContent\(/u, "quiz exit guarding must recognize an empty create scaffold");
 assert.match(editor, /useState\(\s*mode === "create" && hasQuizDraftContent\(initialForm, pristineSubjectCode\)\s*,?\s*\)/u, "empty create quizzes must not start with an unsaved-change guard");
 assert.match(editor, /setHasUnsavedChanges\(\s*mode === "create"\s*\? hasQuizDraftContent\(nextForm, pristineSubjectCode\)\s*: true\s*,?\s*\)/u, "create-mode exit guarding must clear when its fields are emptied");
 assert.match(editor, /isSaving \? "Membuat…" : "Buat"/u, "create quiz action must use creation copy");
 assert.match(editor, /aria-label="Buat"[\s\S]*?variant="default"/u, "create quiz action must use the primary button variant");
-assert.match(editor, /<ChevronLeft\s*\/>\s*Kembali ke daftar/u, "create quiz back action must return to the Kuis catalogue");
-assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
+assert.match(editor, /aria-label="Kembali ke daftar Kuis"[\s\S]*?<Link href="\/mentor\/quiz"/u, "create quiz back action must return to the Kuis catalogue");
+assert.match(editor, /<QuestionEditorPageShell marker="quiz">/u, "quiz editing must use the shared full-page shell");
+assert.match(workspace, /data-quiz-editor-shell=\{marker === "quiz" \? "full-page"/u, "shared shell must retain its Kuis full-page marker");
 assert.match(editor, /data-quiz-editor-header="true"/u, "full-page editor must expose the Bank Soal-style top header");
 assert.doesNotMatch(editor, /const metadata =|>\{metadata\}/u, "full-page editor must not render the removed quiz metadata card");
 assert.match(inventory, /function QuizMobileInventory\(/u, "quiz editor must use the Bank Soal-style mobile inventory");
 assert.match(inventory, /id=\{`\$\{idPrefix\}-inventory-title`\}>Inventori soal/u, "quiz inventory must use a unique Bank Soal inventory heading");
-assert.match(editor, /QuestionPreview/u, "quiz editor must show a read-only question preview");
+assert.match(editor, /QuestionContentEditor as QuizQuestionEditor/u, "quiz editor must use the shared independent-question editor");
 assert.doesNotMatch(editor, /<div className="h-5 w-px bg-primary-100" \/>/u, "quiz header must not render a divider beside the title");
 assert.match(editor, /aria-label="Simpan"[\s\S]*?variant="default"/u, "quiz save must remain a primary action");
-assert.match(editor, /Preview Soal/u, "editor must label the read-only question preview");
+assert.match(detail, /QuizQuestionCard/u, "quiz detail must retain question previews outside the editor");
 assert.match(editor, /Perubahan Kuis tersimpan/u, "editor must provide save feedback");
 assert.match(picker, /selectedQuestions/u, "Bank Soal picker must retain pending selection across server pages");
-assert.match(picker, /selectedOnly/u, "Bank Soal picker must expose selected-only review");
+assert.match(picker, /selectedQuestions\.has\(question\.id\)/u, "Bank Soal picker must show pending checklist selections");
 assert.doesNotMatch(picker, /QuestionPreview|Pratinjau soal|Lihat pratinjau|onPreview/u, "Tambah bank soal modal must not render soal preview UI");
-assert.match(picker, /expectedSources/u, "Bank Soal picker must submit revision expectations");
-assert.match(picker, /Tambah(?:kan)? \$\{selectedCount\} soal/u, "Bank Soal picker must show a persistent selected count action");
+assert.match(picker, /expectedSourceRevisions: revisionBackedSelected\.map/u, "Bank Soal picker must submit revision expectations");
+assert.match(picker, /\{selectedCount\} soal dipilih/u, "Bank Soal picker must show a persistent selected count beside the add action");
 assert.doesNotMatch(picker, /lockedBankId/u, "Bank Soal picker must allow changing the source bank");
-assert.match(picker, /pendingBankId/u, "changing the source bank must wait for confirmation");
-assert.match(picker, /Ganti Bank Soal\?/u, "source-bank confirmation must identify the change");
-assert.match(picker, /Semua soal yang saat ini dipilih di Kuis akan dibatalkan/u, "source-bank confirmation must warn that current selections will be unselected");
-assert.match(picker, /effectiveExistingQuestionIds/u, "source-bank changes must exclude the previous selections from the next import");
+assert.match(picker, /setSelectedQuestions\(new Map\(\)\)/u, "changing banks must clear pending picker selections");
+assert.match(picker, /importStandaloneQuizBankQuestionSnapshotsAction/u, "changing banks must import snapshots rather than replace the Kuis source binding");
+assert.match(editor, /onImported=\{state\.appendImportedQuestions\}/u, "bank imports must preserve existing Kuis questions");
 assert.doesNotMatch(picker, /Sudah ditambahkan/u, "question picker must not render the removed added-status badge");
-assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");
-assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil/u, "legacy results route must redirect to Hasil");
+assert.match(createRoute, /new URLSearchParams\(\{ create: "1" \}\)/u, "legacy create flow must request the catalogue create dialog");
+assert.match(createRoute, /redirect\(`\/mentor\/quiz\?\$\{params\.toString\(\)\}`\)/u, "legacy create flow must return to the Kuis catalogue");
+assert.match(resultsRoute, /redirect\(\s*`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil/u, "legacy results route must redirect to Hasil");
 assert.match(results, /function KaptenQuizResultsContent/u, "results must have embeddable content");
 assert.doesNotMatch(results, /Bagian hasil Kuis|Peserta|Statistik|StatisticsPanel|Distribusi nilai|Peta skor|recharts/u, "Hasil must remain one results view without participant/statistics tabs or aggregate statistics");
 assert.doesNotMatch(results, /Lihat pengiriman jawaban dan buka detail submisi tanpa meninggalkan detail Kuis/u, "Hasil must not include the removed helper copy");
@@ -122,7 +128,7 @@ assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description meta
 assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
 assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untuk\s+menambahkan\./u, "Kuis metadata must show the editable empty-description copy");
 assert.match(detail, /<strong className="text-sm font-bold text-voyage-ink">[\s\S]*?\{subject\s*\?[\s\S]*?:\s*value\}[\s\S]*?<\/strong>/u, "Kuis metadata must show its subject as bold text");
-assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
+assert.doesNotMatch(detail, /value="(?:preview|hasil)"[^>]*>\s*<(?:Eye|ListChecks)/u, "Soal and Hasil tabs must not show their former icons");
 assert.match(detail, /Arsipkan Kuis[\s\S]*updateStandaloneQuizLifecycleAction/u, "Kuis detail must expose its archive lifecycle action");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
