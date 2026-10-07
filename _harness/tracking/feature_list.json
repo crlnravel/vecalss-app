@@ -6,7 +6,7 @@
       "description": "Restore bank-mode Kuis source attribution, scope Bank Soal recovery, refresh Prisma client workflow and align extracted UI contracts without removing archive or ownership guards.",
       "dependencies": [],
       "status": "in_progress",
-      "evidence": "Implementation through 5767c7f; eight focused checks plus lint/production build pass via normal guard. Read-only local editor/catalogue/folder/category-count queries pass. Independent Luna/max reviews pending. No DB/browser mutations. Open import-row answer-mode product question and pre-existing suite-manifest omissions documented in epic artifact mentor-qa-fixes-20261007."
+      "evidence": "Implementation through d094291; eight focused checks plus lint/production build pass via normal guard before size-only review correction. Read-only local editor/catalogue/folder/category-count queries pass. Luna/max Standards clear after source recheck; Spec flags P2 unresolved Tryout import-row answer-mode expectation. No DB/browser mutations. Open product question and pre-existing suite-manifest omissions documented in epic artifact mentor-qa-fixes-20261007."
     },
     {
       "id": "materi-duplicate-create",
