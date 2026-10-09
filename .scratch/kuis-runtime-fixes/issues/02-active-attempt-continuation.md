@@ -4,45 +4,40 @@
 
 **Blocked by:** 01 — Move pending result releases with quiz close.
 
-**Status:** in-progress
+**Status:** complete
 
-- [ ] A fresh Start/resume after close or archive returns the student's existing active attempt before new-admission checks. It does not allocate another attempt or activate a newer snapshot for that work.
-- [ ] The authenticated quiz route without an attempt ID recovers the student's owned active attempt. Valid known attempt-ID routes continue to work; malformed or foreign IDs fail closed.
-- [ ] Existing attempts remain in progress after close/archive and can load, save, change, clear, and submit answers, including at and after close-time equality. Close/archive do not create or shorten the attempt's own duration deadline.
-- [ ] New admissions remain blocked by close/archive/visibility/opening rules. Attempt limits and retry delays block only new attempts, not continuation.
-- [ ] Accepted Start-command replay remains idempotent. Existing work keeps its original form, saved answers, and attempt number; terminal attempts are never reopened.
-- [ ] Both mentor archive entry points preserve active attempt rows and saved answers. Archive copy explains that new access is unavailable while existing work can continue.
-- [ ] Pinned scoring and disclosure rules remain intact. Submission after the current close follows the `after_close` policy wired in ticket 01.
-- [ ] Registered route/action and DB tests cover close boundaries, both archive paths, fresh resume, replay, no-ID recovery, known attempt IDs, answer changes/clears, submission, no-active admission, ownership, retries, pending drafts, and races with answer/save/submit.
-- [ ] Register the existing quiz-start availability check in the package test suite and add behavior-level server assertions; pure helper/source-shape assertions alone are insufficient.
+- [x] A fresh Start/resume after close or archive returns the student's existing active attempt before new-admission checks. It does not allocate another attempt or activate a newer snapshot for that work.
+- [x] The authenticated quiz route without an attempt ID recovers the student's owned active attempt. Valid known attempt-ID routes continue to work; malformed or foreign IDs fail closed.
+- [x] Existing attempts remain in progress after close/archive and can load, save, change, clear, and submit answers, including at and after close-time equality. Close/archive do not create or shorten the attempt's own duration deadline.
+- [x] New admissions remain blocked by close/archive/visibility/opening rules. Attempt limits and retry delays block only new attempts, not continuation.
+- [x] Accepted Start-command replay remains idempotent. Existing work keeps its original form, saved answers, and attempt number; terminal attempts are never reopened.
+- [x] Both mentor archive entry points preserve active attempt rows and saved answers. Archive copy explains that new access is unavailable while existing work can continue.
+- [x] Pinned scoring and disclosure rules remain intact. Submission after the current close follows the `after_close` policy wired in ticket 01.
+- [x] Registered route/action and DB tests cover close boundaries, both archive paths, fresh resume, replay, no-ID recovery, known attempt IDs, answer changes/clears, submission, no-active admission, ownership, retries, pending drafts, and races with answer/save/submit.
+- [x] Register the existing quiz-start availability check in the package test suite and add behavior-level server assertions; pure helper/source-shape assertions alone are insufficient.
 
-**Verification:** Run availability, versioning/runtime/storage, owned-editing, dashboard lifecycle, and serialization contracts, plus the repository verification gate. Browser verification follows the project's Obscura/Ego approval policy.
+**Verification completed:** Registered lifecycle DB and route behavior suite, Prisma generation, TypeScript, lint, and the repository `pnpm verify` all passed sequentially in the final approved integration group; log `/tmp/krf02-main-integration-checks.log`. Earlier related availability, versioning/storage, owned-editing, pending-release, dashboard, and lock suites are recorded in the evidence artifact. Browser verification follows the project's Obscura/Ego approval policy and was not run here.
 
-## Implementation evidence (2026-10-09, partial)
+## Completion evidence (2026-10-10)
 
-**Review correction gate:** Spec/Standards reviews cleared the mobile verb and
-real route-outcome corrections. The seventh user-approved guarded group failed
-at Next client-navigation import, before fixtures/assertions; subsequent checks
-were skipped (`/tmp/krf02-review-checks.log`). Coordinator-directed correction
-injects actual Next notFound from the page and a throwing test 404 sentinel in
-the script, keeping Next navigation outside the test-imported route seam.
-The separately approved eighth and final group completed: continuation DB exit 0,
-TypeScript exit 2 only on unchanged Materi `parentHref`, lint exit 0 with existing
-Settings warning, verify exit 1 after successful production compilation on the
-same Materi error. Logs: `/tmp/krf02-review-final-checks.log`, guard snapshot
-`/tmp/krf02-review-final-status.log`. No new correction or further launch needed
-in scope; ticket remains in progress pending coordinator integration/final gate.
+**Integrated:** The six scoped commits from the reviewed implementation branch
+are cherry-picked onto local `dev`, ending at `fd21155` before this tracking
+update. This includes the forward migration and mobile/route-test corrections.
+Both fresh Luna/max Spec and Standards reviews are clear.
 
-**Latest:** implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`.
-Final registered continuation DB suite passes (including multiple accepted keys,
-terminal replay, both archive/submit races and deterministic submit-before-replay)
-in `/tmp/krf02-final.log`. Local migration applied and regenerated client; related
-DB/storage/availability checks pass in `/tmp/krf02-migrated.log`. Six approved
-normal launch groups used. Lint passes; full verify compiles then fails baseline
-Materi `parentHref` prop typing. The three disclosed static checks still fail.
-Fresh independent Spec/Standards reviews are clear; integration gate remains
-open, so this ticket is not marked complete. The paragraphs below are phase-one
-history and are superseded by this latest result.
+**Integrated verification:** In one approved guarded group, `pnpm db:generate`,
+`pnpm test:quiz-active-continuation-db`, `pnpm exec tsc --noEmit --pretty false`,
+`pnpm lint`, and `pnpm verify` all exited 0 sequentially. The DB suite covered
+the updated route seam, real loaders, and the available-preview negative control,
+alongside the lifecycle, admission, disclosure, replay, and race cases. Log:
+`/tmp/krf02-main-integration-checks.log`. The shared worktree contained unrelated
+uncommitted Materi/quiz-editor changes during this run; they were not staged or
+modified by KRF-02. No browser or rendered-page check was run. The local migration
+is applied only to disposable `vecalss_dev`.
+
+The following implementation notes record earlier isolated-branch phases and
+are retained as history; the integrated verification above supersedes their
+pending-gate status.
 
 Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`.
 Fresh Start at exact close reproduced red, then passed after removing the

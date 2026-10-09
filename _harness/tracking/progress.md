@@ -1,6 +1,14 @@
 # Session Progress Log
 
-## KRF-02 continuation implemented; integration verification open (2026-10-09)
+## KRF-02 active-attempt continuation complete (2026-10-10)
+
+- Integrated the reviewed six-commit KRF-02 series onto local `dev`, ending at `fd21155` before this tracking update. This includes `20261009090000_allow_quiz_resume_commands` and the route/mobile-label correction.
+- The approved policy is implemented: close/archive block discovery and new admission, while existing owned attempts remain resumable and can save, clear, change, and submit. Accepted Start keys stay tied to the same attempt, including after terminal submission; no duration deadline is added here.
+- Final guarded integration group passed `pnpm db:generate`, `pnpm test:quiz-active-continuation-db`, `pnpm exec tsc --noEmit --pretty false`, `pnpm lint`, and `pnpm verify` sequentially. Log: `/tmp/krf02-main-integration-checks.log`. Spec and Standards reviews are clear.
+- Verification ran with unrelated uncommitted Materi/quiz-editor changes present in the shared worktree; those changes were not staged or modified. The migration and test fixtures are local to disposable `vecalss_dev`. No browser/rendered UI verification was performed.
+- Full details: `.scratch/kuis-runtime-fixes/issues/02-active-attempt-continuation.md` and epic artifact `krf02-implementation-evidence`. KRF-03 is now unblocked.
+
+## KRF-02 continuation implementation checkpoint (2026-10-09; superseded by completion below)
 
 - Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`, implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`. Fresh Start and no-ID loader were each reproduced red; final continuation DB suite passes across close -1/equal/+1 ms, both archive paths, hide/opening, legacy/versioned runtime, pins, valid pending/newer active assessments, ownership, answer changes/clears, results, caps/delays, distinct/repeated resume keys and bounded races.
 - Migration `20261009090000_allow_quiz_resume_commands` applied only to disposable local `vecalss_dev`: several accepted request keys can share an attempt; request uniqueness, legacy key and FKs remain. `migrate dev --create-only` failed on the historical guarded CBT shadow migration; the new two-statement forward SQL was reviewed and applied with `migrate deploy`, then local Prisma regenerated. Migration status: 85 migrations, up to date.
