@@ -75,8 +75,17 @@ import {
   CBT_FIXED_POINTS_METHOD,
   CBT_IRT_2PL_METHOD,
 } from "@/lib/tryout/cbt-scoring-policy";
+import {
+  isImageMimeType,
+  validateMediaUpload,
+} from "@/lib/media/domain";
+import type { MediaUploadTicket } from "@/lib/media/types";
 import { MediaAssetPreview } from "@/modules/media/media-library";
-import { TryoutBannerUploadDialog } from "@/modules/mentor/components/tryout-banner-upload-dialog";
+import {
+  postMediaAction,
+  putFile,
+  readImageDimensions,
+} from "@/modules/media/helpers";
 import { questionAnswerModeLabel } from "@/modules/mentor/question-answer-mode-label";
 import {
   QuestionEditorHeader,
@@ -383,22 +392,91 @@ function TryoutBannerHero({
   disabled,
   onSave,
   onChange,
+  onUploadStateChange,
   presentation,
 }: {
   bannerMediaId?: string | null;
   disabled: boolean;
   onSave?: () => void;
   onChange: (bannerMediaId: string | null) => void;
+  onUploadStateChange: (uploading: boolean) => void;
   presentation: "dialog" | "page";
 }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInFlightRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadFileName, setUploadFileName] = useState<string | null>(null);
 
   const handleBannerChange = (nextBannerMediaId: string | null) => {
     onChange(nextBannerMediaId);
     onSave?.();
   };
-  const openPicker = () => setPickerOpen(true);
+  const openPicker = () => {
+    if (disabled || uploading) return;
+    bannerInputRef.current?.click();
+  };
+  const uploadBanner = async (nextFile: File) => {
+    if (uploadInFlightRef.current) return;
+
+    if (!isImageMimeType(nextFile.type)) {
+      showToast("Pilih gambar berformat JPG, PNG, WebP, atau GIF.", {
+        variant: "error",
+      });
+      return;
+    }
+
+    const validation = validateMediaUpload({
+      fileName: nextFile.name,
+      mimeType: nextFile.type,
+      sizeBytes: nextFile.size,
+    });
+    if (!validation.isValid) {
+      showToast(validation.error, { variant: "error" });
+      return;
+    }
+
+    uploadInFlightRef.current = true;
+    onUploadStateChange(true);
+    setUploading(true);
+    setUploadFileName(nextFile.name);
+    setUploadProgress(null);
+
+    try {
+      const ticket = await postMediaAction<MediaUploadTicket>("kapten", {
+        action: "request-upload",
+        fileName: nextFile.name,
+        folderId: null,
+        mimeType: nextFile.type,
+        sizeBytes: nextFile.size,
+      });
+      const dimensions = await readImageDimensions(nextFile);
+      setUploadProgress(0);
+      await putFile(nextFile, ticket.uploadUrl, setUploadProgress);
+      await postMediaAction("kapten", {
+        action: "finalize-upload",
+        assetId: ticket.assetId,
+        height: dimensions.height,
+        width: dimensions.width,
+      });
+
+      handleBannerChange(ticket.assetId);
+      showToast("Banner Tryout berhasil diunggah.", { variant: "success" });
+    } catch {
+      showToast(
+        "Banner belum dapat diunggah. Periksa format dan ukuran file, lalu coba lagi.",
+        { variant: "error" },
+      );
+    } finally {
+      uploadInFlightRef.current = false;
+      onUploadStateChange(false);
+      setUploading(false);
+      setUploadFileName(null);
+      setUploadProgress(null);
+    }
+  };
   const hasBanner = Boolean(bannerMediaId);
+  const bannerDisabled = disabled || uploading;
 
   return (
     <section
@@ -408,6 +486,19 @@ function TryoutBannerHero({
       }
       className={`grid min-w-0 max-w-full ${presentation === "dialog" ? "gap-2 sm:gap-3" : "gap-2"}`}
     >
+      <input
+        accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+        aria-label="Pilih gambar banner Tryout"
+        className="sr-only"
+        disabled={bannerDisabled}
+        onChange={(event) => {
+          const nextFile = event.currentTarget.files?.[0] ?? null;
+          event.currentTarget.value = "";
+          if (nextFile) void uploadBanner(nextFile);
+        }}
+        ref={bannerInputRef}
+        type="file"
+      />
       {presentation === "dialog" ? (
         <p
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -427,25 +518,78 @@ function TryoutBannerHero({
           />
         ) : (
           <TryoutBannerPlaceholder
-            disabled={disabled}
+            disabled={bannerDisabled}
             onOpenPicker={openPicker}
             presentation={presentation}
           />
         )}
         <TryoutBannerActions
           bannerMediaId={bannerMediaId}
-          disabled={disabled}
+          disabled={bannerDisabled}
           onChange={handleBannerChange}
           onOpenPicker={openPicker}
           presentation={presentation}
         />
+        {uploading ? (
+          <TryoutBannerUploadStatus
+            fileName={uploadFileName}
+            progress={uploadProgress}
+          />
+        ) : null}
       </div>
-      <TryoutBannerUploadDialog
-        onOpenChange={setPickerOpen}
-        onSelect={handleBannerChange}
-        open={pickerOpen && !disabled}
-      />
     </section>
+  );
+}
+
+function TryoutBannerUploadStatus({
+  fileName,
+  progress,
+}: {
+  fileName: string | null;
+  progress: number | null;
+}) {
+  const progressValue =
+    typeof progress === "number" ? Math.min(100, Math.max(0, progress)) : null;
+
+  return (
+    <div
+      aria-live="polite"
+      className="absolute inset-0 z-30 grid place-items-center bg-secondary-950/70 px-5 text-center text-white"
+      role="status"
+    >
+      <div className="w-full max-w-sm">
+        <p className="text-sm font-semibold">Mengunggah banner</p>
+        {fileName ? (
+          <p className="mt-1 truncate text-xs text-white/85" title={fileName}>
+            {fileName}
+          </p>
+        ) : null}
+        <div
+          aria-label={
+            progressValue === null
+              ? "Banner sedang diproses"
+              : `${progressValue}% selesai`
+          }
+          aria-valuemax={progressValue === null ? undefined : 100}
+          aria-valuemin={progressValue === null ? undefined : 0}
+          aria-valuenow={progressValue ?? undefined}
+          className="mt-3 h-1.5 overflow-hidden rounded-pill bg-white/30"
+          role="progressbar"
+        >
+          <span
+            className="block h-full rounded-pill bg-white transition-[width]"
+            style={{
+              width: progressValue === null ? "40%" : `${progressValue}%`,
+            }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-white/85">
+          {progressValue === null
+            ? "File sedang disiapkan"
+            : `${progressValue}% selesai`}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -979,6 +1123,7 @@ function TryoutIdentityPanel({
   metadataSaving,
   mode,
   onBannerChange,
+  onBannerUploadStateChange,
   onCreate,
   onDescriptionChange,
   onSaveMetadata,
@@ -990,6 +1135,7 @@ function TryoutIdentityPanel({
   metadataSaving: boolean;
   mode: WorkflowMode;
   onBannerChange: (bannerMediaId: string | null) => void;
+  onBannerUploadStateChange: (uploading: boolean) => void;
   onCreate?: () => void;
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
@@ -1006,6 +1152,7 @@ function TryoutIdentityPanel({
       disabled={identityDisabled}
       onChange={onBannerChange}
       onSave={onSaveMetadata}
+      onUploadStateChange={onBannerUploadStateChange}
       presentation={presentation}
     />
   );
@@ -3634,6 +3781,7 @@ function TryoutBuilderContent({
   };
 }) {
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
   const createDialogDirtyRef = useRef(false);
   const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
     initialSubtest ? "subtests" : (initialWorkspace ?? "subtests"),
@@ -3697,7 +3845,7 @@ function TryoutBuilderContent({
       onDialogOpenChange?.(true);
       return;
     }
-    if (viewSaving) return;
+    if (viewSaving || bannerUploading) return;
     if (createDialogDirtyRef.current) {
       setDiscardConfirmationOpen(true);
       return;
@@ -3718,6 +3866,7 @@ function TryoutBuilderContent({
       onBannerChange={(bannerMediaId) =>
         updateIdentityDraft((current) => ({ ...current, bannerMediaId }))
       }
+      onBannerUploadStateChange={setBannerUploading}
       onCreate={!id ? () => void save("draft") : undefined}
       onDescriptionChange={(description) =>
         updateIdentityDraft((current) => ({ ...current, description }))
@@ -3727,7 +3876,7 @@ function TryoutBuilderContent({
         updateIdentityDraft((current) => ({ ...current, title }))
       }
       presentation={isCreateDialog ? "dialog" : "page"}
-      saving={viewSaving}
+      saving={viewSaving || bannerUploading}
     />
   );
 
@@ -3819,7 +3968,7 @@ function TryoutBuilderContent({
         onCloseAfterDiscard={closeCreateDialogAfterDiscard}
         onDiscardOpenChange={setDiscardConfirmationOpen}
         onOpenChange={handleCreateDialogOpenChange}
-        saving={viewSaving}
+        saving={viewSaving || bannerUploading}
       />
     );
   }
