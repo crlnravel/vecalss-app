@@ -15,7 +15,6 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
-  FilePenLine,
   MoreHorizontal,
   Plus,
   RotateCcw,
@@ -126,11 +125,16 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
   const [thumbnailErrorUrl, setThumbnailErrorUrl] = useState<string | null>(null);
 
   return (
-    <div
+    <a
+      aria-label={`Lihat ${video.title} di YouTube`}
       className={cn(
-        "relative aspect-video w-24 shrink-0 overflow-hidden rounded-control",
+        "group relative block aspect-video w-24 shrink-0 overflow-hidden rounded-control focus-visible:outline-2 focus-visible:outline-primary-700/30 focus-visible:outline-offset-2",
         thumbnailToneClasses[video.thumbnailTone],
       )}
+      href={video.youtubeUrl}
+      rel="noreferrer"
+      target="_blank"
+      title="Buka di YouTube"
     >
       {thumbnailUrl && thumbnailErrorUrl !== thumbnailUrl ? (
         <Image
@@ -157,7 +161,10 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-1/2 bg-secondary-950/25"
       />
-    </div>
+      <span className="pointer-events-none absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-detail border border-white/20 bg-secondary-950/75 text-white opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+        <ArrowUpRight aria-hidden="true" className="size-4" />
+      </span>
+    </a>
   );
 }
 
@@ -361,13 +368,11 @@ function VideoRowActions({
   isPending,
   onArchive,
   onDelete,
-  onEdit,
   video,
 }: {
   isPending: boolean;
   onArchive: (video: VideoGalleryItem, archived: boolean) => void;
   onDelete: (video: VideoGalleryItem) => void;
-  onEdit: (video: VideoGalleryItem) => void;
   video: VideoGalleryItem;
 }) {
   return (
@@ -377,14 +382,6 @@ function VideoRowActions({
       label={`Tindakan untuk ${video.title}`}
       trigger={<MoreHorizontal aria-hidden="true" size={16} />}
     >
-      <DropdownMenuItem
-        disabled={isPending}
-        onClick={() => onEdit(video)}
-        size="sm"
-      >
-        <FilePenLine aria-hidden="true" />
-        Edit video
-      </DropdownMenuItem>
       <DropdownMenuItem
         render={
           <a
@@ -670,12 +667,18 @@ function KaptenVideoGalleryPageModule({
       size: 350,
       enableHiding: false,
       cell: ({ row }) => (
-        <span
-          className={styles.quizTitle}
+        <button
+          className={cn(
+            styles.quizTitle,
+            "w-full cursor-pointer border-0 bg-transparent p-0 text-left focus-visible:rounded-detail focus-visible:outline-2 focus-visible:outline-primary-700/30 focus-visible:outline-offset-2",
+          )}
+          disabled={isPending}
+          onClick={() => openEdit(row.original)}
+          type="button"
           title={row.original.title}
         >
           {row.original.title}
-        </span>
+        </button>
       ),
     },
     {
@@ -706,7 +709,6 @@ function KaptenVideoGalleryPageModule({
           isPending={isPending}
           onArchive={updateArchivedState}
           onDelete={setVideoPendingDeletion}
-          onEdit={openEdit}
           video={row.original}
         />
       ),
