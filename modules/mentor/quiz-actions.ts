@@ -26,6 +26,7 @@ function revalidateQuizPaths() {
   revalidatePath("/quiz");
   revalidatePath("/quiz/[slug]", "page");
   revalidatePath("/quiz/[slug]/[quizSlug]", "page");
+  revalidatePath("/quiz/[slug]/[quizSlug]/result", "page");
 }
 
 async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {

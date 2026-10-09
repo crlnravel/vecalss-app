@@ -174,6 +174,7 @@
     "test:assessment-answer-contract": "tsx scripts/test-assessment-answer-contract.ts",
     "test:quiz-question-updates": "tsx scripts/test-quiz-question-updates.ts",
     "test:quiz-owned-editing": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-quiz-owned-editing.ts",
+    "test:quiz-pending-release-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-quiz-pending-release-db.ts",
     "test:standalone-quiz-version-runtime": "tsx scripts/test-standalone-quiz-version-runtime.ts",
     "test:standalone-quiz-version-storage": "tsx scripts/test-standalone-quiz-version-storage.ts",
     "test:random-assembly-release": "tsx scripts/test-random-assembly-release.ts",
