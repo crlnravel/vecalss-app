@@ -1,27 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
+import {
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type RowSelectionState,
+} from "@tanstack/react-table";
 
 import {
   Archive,
   ArrowUpRight,
+  Check,
   ChevronDown,
   FilePenLine,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Search,
   Trash2,
-  Video,
 } from "@/lib/icons";
 import {
-  ReferenceEmptyState,
   ReferencePageHeader,
-  ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
-  REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,8 +49,10 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -55,11 +62,11 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { Badge } from "@/components/ui/badge";
-import { SunkenTabButton } from "@/components/ui/sunken-tabs";
+import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import {
+  getYouTubeThumbnailUrl,
   isYouTubeVideoUrl,
   VIDEO_DESCRIPTION_MAX_LENGTH,
   VIDEO_TITLE_MAX_LENGTH,
@@ -76,7 +83,12 @@ import {
   type VideoGalleryItem,
   type VideoSubtest,
 } from "@/modules/video/video-gallery-data";
+import {
+  MentorAssessmentGrid,
+  MentorGridMenu,
+} from "@/modules/mentor/components/mentor-assessment-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import styles from "./quiz-dashboard.module.css";
 
 type VideoDraft = Pick<
   VideoGalleryItem,
@@ -97,134 +109,60 @@ const thumbnailToneClasses = {
   leaf: "bg-voyage-leaf",
 } as const;
 
+const numberFormatter = new Intl.NumberFormat("id-ID");
+
 function VideoPreview({ video }: { video: VideoGalleryItem }) {
+  const thumbnailUrl = getYouTubeThumbnailUrl(video.youtubeUrl);
+  const [thumbnailErrorUrl, setThumbnailErrorUrl] = useState<string | null>(null);
+
   return (
     <div
       className={cn(
-        "relative aspect-video w-full shrink-0 overflow-hidden rounded-3xl text-white sm:w-56",
+        "relative aspect-video w-24 shrink-0 overflow-hidden rounded-control text-white",
         thumbnailToneClasses[video.thumbnailTone],
       )}
     >
+      {thumbnailUrl && thumbnailErrorUrl !== thumbnailUrl ? (
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="object-cover"
+          fill
+          loading="lazy"
+          onError={() => setThumbnailErrorUrl(thumbnailUrl)}
+          sizes="96px"
+          src={thumbnailUrl}
+          unoptimized
+        />
+      ) : null}
       <div
         aria-hidden="true"
-        className="absolute -right-10 -top-14 size-44 rounded-full border-[18px] border-voyage-sea-glass/20"
+        className="absolute -right-8 -top-10 size-28 rounded-full border-[12px] border-voyage-sea-glass/20"
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-14 -left-8 size-44 rounded-full bg-voyage-deep/45 blur-2xl"
+        className="absolute -bottom-10 -left-6 size-28 rounded-full bg-voyage-deep/45 blur-2xl"
       />
       <div
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-1/2 bg-secondary-950/25"
       />
-      <div className="absolute inset-0 flex flex-col justify-between p-4">
+      <div className="absolute inset-0 flex flex-col justify-between p-2">
         <div className="flex items-start justify-between gap-2">
-          <span className="rounded-xl border border-white/15 bg-secondary-950/45 px-2 py-1 text-ui-xs font-bold tracking-[0.1em] text-white uppercase backdrop-blur-sm">
+          <span className="rounded-detail border border-white/15 bg-secondary-950/45 px-1.5 py-0.5 text-ui-xs leading-4 font-bold tracking-[0.08em] text-white uppercase backdrop-blur-sm">
             {video.subtest}
           </span>
           {video.duration ? (
-            <span className="rounded-lg bg-secondary-950/75 px-2 py-1 text-xs font-bold tabular-nums text-white">
+            <span className="rounded-detail bg-secondary-950/75 px-1 py-0.5 text-ui-xs leading-4 font-bold tabular-nums text-white">
               {video.duration}
             </span>
           ) : null}
         </div>
-        <p className="relative z-10 max-w-[15ch] whitespace-pre-line font-display text-xl leading-[0.95] font-extrabold tracking-[-0.04em] text-white">
+        <p className="relative z-10 max-w-[10ch] truncate font-display text-xs leading-tight font-extrabold tracking-[-0.02em] text-white">
           {video.thumbnailTitle}
         </p>
       </div>
     </div>
-  );
-}
-
-function KaptenVideoCard({
-  isPending,
-  onArchive,
-  onDelete,
-  onEdit,
-  video,
-}: {
-  isPending: boolean;
-  onArchive: (video: VideoGalleryItem, archived: boolean) => void;
-  onDelete: (video: VideoGalleryItem) => void;
-  onEdit: (video: VideoGalleryItem) => void;
-  video: VideoGalleryItem;
-}) {
-  return (
-    <article className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "p-4 sm:p-5")}>
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
-        <VideoPreview video={video} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge size="sm" tone="category">
-              {video.subtest}
-            </Badge>
-            <span className="text-xs font-medium text-secondary-500">
-              {video.subject}
-            </span>
-          </div>
-          <h3 className="mt-3 text-lg leading-tight font-semibold tracking-[-0.02em] text-secondary-900">
-            {video.title}
-          </h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600">
-            {video.description}
-          </p>
-          <p
-            className="mt-3 truncate text-xs text-secondary-400"
-            title={video.youtubeUrl}
-          >
-            {video.youtubeUrl}
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-auto sm:pt-4">
-            <Button
-              disabled={isPending}
-              onClick={() => onEdit(video)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <FilePenLine aria-hidden="true" />
-              Edit video
-            </Button>
-            <Button
-              nativeButton={false}
-              render={
-                <a aria-label="Lihat di YouTube" href={video.youtubeUrl} rel="noreferrer" target="_blank" />
-              }
-              size="sm"
-              variant="outline"
-            >
-              <ArrowUpRight aria-hidden="true" />
-              Lihat di YouTube
-            </Button>
-            <Button
-              disabled={isPending}
-              onClick={() => onArchive(video, !video.isArchived)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {video.isArchived ? (
-                <RotateCcw aria-hidden="true" />
-              ) : (
-                <Archive aria-hidden="true" />
-              )}
-              {video.isArchived ? "Pulihkan" : "Arsipkan"}
-            </Button>
-            <Button
-              className="text-destructive hover:text-destructive"
-              disabled={isPending}
-              onClick={() => onDelete(video)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trash2 aria-hidden="true" />
-              Hapus
-            </Button>
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }
 
@@ -424,6 +362,74 @@ function VideoDeleteDialog({
   );
 }
 
+function VideoRowActions({
+  isPending,
+  onArchive,
+  onDelete,
+  onEdit,
+  video,
+}: {
+  isPending: boolean;
+  onArchive: (video: VideoGalleryItem, archived: boolean) => void;
+  onDelete: (video: VideoGalleryItem) => void;
+  onEdit: (video: VideoGalleryItem) => void;
+  video: VideoGalleryItem;
+}) {
+  return (
+    <MentorGridMenu
+      className={styles.iconButton}
+      disabled={isPending}
+      label={`Tindakan untuk ${video.title}`}
+      trigger={<MoreHorizontal aria-hidden="true" size={16} />}
+    >
+      <DropdownMenuItem
+        disabled={isPending}
+        onClick={() => onEdit(video)}
+        size="sm"
+      >
+        <FilePenLine aria-hidden="true" />
+        Edit video
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        render={
+          <a
+            aria-label={`Lihat ${video.title} di YouTube`}
+            href={video.youtubeUrl}
+            rel="noreferrer"
+            target="_blank"
+          />
+        }
+        size="sm"
+      >
+        <ArrowUpRight aria-hidden="true" />
+        Lihat di YouTube
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        disabled={isPending}
+        onClick={() => onArchive(video, !video.isArchived)}
+        size="sm"
+      >
+        {video.isArchived ? (
+          <RotateCcw aria-hidden="true" />
+        ) : (
+          <Archive aria-hidden="true" />
+        )}
+        {video.isArchived ? "Pulihkan" : "Arsipkan"}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={isPending}
+        onClick={() => onDelete(video)}
+        size="sm"
+        variant="destructive"
+      >
+        <Trash2 aria-hidden="true" />
+        Hapus
+      </DropdownMenuItem>
+    </MentorGridMenu>
+  );
+}
+
 function KaptenVideoGalleryPageModule({
   session,
   videos: initialVideos,
@@ -431,6 +437,8 @@ function KaptenVideoGalleryPageModule({
   session: SessionContext;
   videos: VideoGalleryItem[];
 }) {
+  "use no memo";
+
   const [activeSubtest, setActiveSubtest] =
     useState<(typeof videoFilters)[number]>("Semua");
   const [draft, setDraft] = useState<VideoDraft>(emptyVideoDraft);
@@ -439,6 +447,7 @@ function KaptenVideoGalleryPageModule({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [selection, setSelection] = useState<RowSelectionState>({});
   const [showArchivedVideos, setShowArchivedVideos] = useState(false);
   const [videoPendingDeletion, setVideoPendingDeletion] =
     useState<VideoGalleryItem | null>(null);
@@ -514,10 +523,50 @@ function KaptenVideoGalleryPageModule({
       setVideos((current) =>
         current.map((item) => (item.id === video.id ? result.video : item)),
       );
+      setSelection({});
       showToast(
         archived ? "Video diarsipkan." : "Video dipulihkan dan kembali tampil kepada siswa.",
         { variant: "success" },
       );
+    });
+  }
+
+  function updateArchivedVideos(
+    selectedVideos: VideoGalleryItem[],
+    archived: boolean,
+  ) {
+    if (!selectedVideos.length) return;
+
+    startTransition(async () => {
+      const results = await Promise.all(
+        selectedVideos.map((video) =>
+          setKaptenVideoArchivedAction(video.id, archived),
+        ),
+      );
+      const succeeded = results.filter((result) => result.ok);
+      const failed = results.length - succeeded.length;
+      const updatedById = new Map(
+        succeeded.map((result) => [result.video.id, result.video]),
+      );
+
+      if (succeeded.length) {
+        setVideos((current) =>
+          current.map((item) => updatedById.get(item.id) ?? item),
+        );
+      }
+      setSelection({});
+
+      if (failed) {
+        showToast(
+          `${succeeded.length} video berhasil diperbarui; ${failed} belum berhasil.`,
+          { variant: "warning" },
+        );
+      } else {
+        showToast(
+          `${succeeded.length} video berhasil ${archived ? "diarsipkan" : "dipulihkan"}.`,
+          { variant: "success" },
+        );
+      }
     });
   }
 
@@ -533,6 +582,7 @@ function KaptenVideoGalleryPageModule({
       }
 
       setVideos((current) => current.filter((video) => video.id !== videoId));
+      setSelection({});
       setVideoPendingDeletion(null);
       showToast(result.message, { variant: "success" });
     });
@@ -586,44 +636,271 @@ function KaptenVideoGalleryPageModule({
     });
   }
 
+  const columns: ColumnDef<VideoGalleryItem>[] = [
+    {
+      id: "select",
+      size: 40,
+      header: ({ table }) => (
+        <Checkbox
+          aria-label="Pilih semua video di halaman ini"
+          checked={table.getIsAllPageRowsSelected()}
+          disabled={isPending || !filteredVideos.length}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          onCheckedChange={(checked) =>
+            table.toggleAllPageRowsSelected(checked)
+          }
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={`Pilih ${row.original.title}`}
+          checked={row.getIsSelected()}
+          disabled={isPending}
+          onCheckedChange={(checked) => row.toggleSelected(checked)}
+        />
+      ),
+    },
+    {
+      id: "thumbnail",
+      size: 120,
+      enableHiding: false,
+      enableSorting: false,
+      header: () => <span className={styles.srOnly}>Thumbnail</span>,
+      cell: ({ row }) => <VideoPreview video={row.original} />,
+    },
+    {
+      accessorKey: "title",
+      size: 350,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <span
+          className={styles.quizTitle}
+          title={row.original.title}
+        >
+          {row.original.title}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "subject",
+      size: 220,
+      cell: ({ row }) => (
+        <span className="font-medium text-secondary-900" title={row.original.subject}>
+          {row.original.subject}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "views",
+      size: 100,
+      cell: ({ getValue }) => {
+        const views = getValue<number | null>();
+        return views === null ? "—" : numberFormatter.format(views);
+      },
+    },
+    {
+      id: "actions",
+      size: 60,
+      enableHiding: false,
+      enableSorting: false,
+      header: () => <span className={styles.srOnly}>Tindakan</span>,
+      cell: ({ row }) => (
+        <VideoRowActions
+          isPending={isPending}
+          onArchive={updateArchivedState}
+          onDelete={setVideoPendingDeletion}
+          onEdit={openEdit}
+          video={row.original}
+        />
+      ),
+    },
+  ];
+
+  // TanStack's mutable table API intentionally opts out of React Compiler memoization.
+  // eslint-disable-next-line react-hooks/incompatible-library -- The compiler skips this supported TanStack integration.
+  const table = useReactTable({
+    data: filteredVideos,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
+    state: { rowSelection: selection },
+    enableRowSelection: true,
+    onRowSelectionChange: setSelection,
+    enableSorting: false,
+    autoResetPageIndex: false,
+  });
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedVideos = selectedRows.map((row) => row.original);
+  const canArchiveSelection = selectedVideos.some((video) => !video.isArchived);
+  const canRestoreSelection = selectedVideos.some((video) => video.isArchived);
+  const emptyState = getVideoEmptyState(
+    hasVideosInCurrentCollection,
+    hasArchivedVideos,
+    showArchivedVideos,
+  );
+
   return (
     <MentorWorkspaceShell
       activeLabel="Video"
       breadcrumbLabel="Video"
-      searchPlaceholder="Cari video..."
       session={session}
+      showSearch={false}
       sidebarAppearance="reference"
+      mainClassName={styles.canvas}
     >
-      <div className="space-y-8">
-        <ReferencePageHeader
-          actions={
-            <Button
-              disabled={isPending}
-              onClick={openCreate}
-              type="button"
-              variant="default"
-            >
-              <Plus aria-hidden="true" />
-              Tambah video
-            </Button>
-          }
-          title="Video"
-          titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
-        />
+      <ReferencePageHeader
+        actions={
+          <Button
+            disabled={isPending}
+            onClick={openCreate}
+            type="button"
+            variant="default"
+          >
+            <Plus aria-hidden="true" />
+            Tambah video
+          </Button>
+        }
+        className={styles.pageHeader}
+        title="Video"
+        titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
+      />
 
-        <VideoLibraryToolbar activeSubtest={activeSubtest} onQueryChange={setQuery} onSubtestChange={setActiveSubtest} onShowArchivedChange={setShowArchivedVideos} query={query} showArchivedVideos={showArchivedVideos} />
-        <VideoCollection
-          hasArchivedVideos={hasArchivedVideos}
-          hasVideosInCurrentCollection={hasVideosInCurrentCollection}
-          isPending={isPending}
-          onArchive={updateArchivedState}
-          onCreate={openCreate}
-          onDelete={setVideoPendingDeletion}
-          onEdit={openEdit}
-          showArchivedVideos={showArchivedVideos}
-          videos={filteredVideos}
+      <section
+        aria-busy={isPending}
+        aria-label="Daftar video"
+        className={styles.panel}
+      >
+        <div className={styles.toolbar} data-selected={selectedVideos.length > 0}>
+          <form
+            className={styles.search}
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <Search aria-hidden="true" />
+            <Input
+              aria-label="Cari video berdasarkan judul atau subjek"
+              className="pl-9"
+              disabled={isPending}
+              onChange={(event) => {
+                setSelection({});
+                setQuery(event.target.value);
+              }}
+              placeholder="Cari video…"
+              type="search"
+              value={query}
+            />
+          </form>
+          <div className={styles.filters}>
+            <MentorGridMenu
+              className={styles.subject}
+              label="Filter subtes video"
+              trigger={
+                <>
+                  {activeSubtest === "Semua" ? "Semua subtes" : activeSubtest}
+                  <ChevronDown aria-hidden="true" />
+                </>
+              }
+            >
+              {videoFilters.map((filter) => (
+                <DropdownMenuItem
+                  key={filter}
+                  onClick={() => {
+                    setSelection({});
+                    setActiveSubtest(filter);
+                  }}
+                  size="sm"
+                >
+                  {filter === "Semua" ? "Semua subtes" : filter}
+                  {activeSubtest === filter ? <Check aria-hidden="true" /> : null}
+                </DropdownMenuItem>
+              ))}
+            </MentorGridMenu>
+            <label
+              className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700"
+              htmlFor="kapten-video-show-archived"
+            >
+              <Checkbox
+                checked={showArchivedVideos}
+                disabled={isPending}
+                id="kapten-video-show-archived"
+                onCheckedChange={(checked) => {
+                  setSelection({});
+                  setShowArchivedVideos(checked === true);
+                }}
+              />
+              <span>Tampilkan arsip</span>
+            </label>
+          </div>
+          {selectedVideos.length > 0 ? (
+            <div className={styles.bulkTools}>
+              <MentorGridMenu
+                className={styles.iconButton}
+                disabled={isPending}
+                label={`Tindakan ${selectedVideos.length} video terpilih`}
+                trigger={<MoreHorizontal aria-hidden="true" size={16} />}
+              >
+                <DropdownMenuItem
+                  disabled={!canArchiveSelection || isPending}
+                  onClick={() =>
+                    updateArchivedVideos(
+                      selectedVideos.filter((video) => !video.isArchived),
+                      true,
+                    )
+                  }
+                  size="sm"
+                >
+                  <Archive aria-hidden="true" />
+                  Arsipkan
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!canRestoreSelection || isPending}
+                  onClick={() =>
+                    updateArchivedVideos(
+                      selectedVideos.filter((video) => video.isArchived),
+                      false,
+                    )
+                  }
+                  size="sm"
+                >
+                  <RotateCcw aria-hidden="true" />
+                  Pulihkan
+                </DropdownMenuItem>
+              </MentorGridMenu>
+            </div>
+          ) : null}
+        </div>
+
+        <MentorAssessmentGrid
+          caption="Daftar video YouTube Kapten dengan subjek dan jumlah views."
+          columnLabels={{
+            subject: "Subjek",
+            title: "Judul",
+            views: "Views",
+          }}
+          emptyState={
+            <>
+              <strong>{emptyState.title}</strong>
+              {emptyState.description}
+              {!hasVideosInCurrentCollection ? (
+                <div>
+                  <Button
+                    disabled={isPending}
+                    onClick={openCreate}
+                    size="sm"
+                    type="button"
+                    variant="default"
+                  >
+                    <Plus aria-hidden="true" />
+                    Tambah video
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          }
+          label="Tabel video, geser untuk melihat semua kolom"
+          numericColumns={["views"]}
+          table={table}
         />
-      </div>
+      </section>
 
       <VideoEditorDialog
         draft={draft}
@@ -647,66 +924,10 @@ function KaptenVideoGalleryPageModule({
   );
 }
 
-function VideoLibraryToolbar({ activeSubtest, onQueryChange, onShowArchivedChange, onSubtestChange, query, showArchivedVideos }: {
-  activeSubtest: (typeof videoFilters)[number];
-  onQueryChange: (value: string) => void;
-  onShowArchivedChange: (value: boolean) => void;
-  onSubtestChange: (value: (typeof videoFilters)[number]) => void;
-  query: string;
-  showArchivedVideos: boolean;
-}) {
-  return (
-    <div className="grid gap-3">
-      <div className="relative min-w-0 sm:max-w-[30rem]">
-        <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
-        <input aria-label="Cari video Kapten" className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")} onChange={(event) => onQueryChange(event.target.value)} placeholder="Cari judul atau topik..." type="search" value={query} />
-      </div>
-      <div aria-label="Filter subtes video Kapten" className="flex max-w-full gap-2 overflow-x-auto pb-1" role="tablist">
-        {videoFilters.map((filter) => <VideoFilterTab activeSubtest={activeSubtest} filter={filter} key={filter} onSubtestChange={onSubtestChange} />)}
-      </div>
-      <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700" htmlFor="kapten-video-show-archived">
-        <Checkbox checked={showArchivedVideos} id="kapten-video-show-archived" onCheckedChange={(checked) => onShowArchivedChange(checked === true)} />
-        <span>Tampilkan arsip</span>
-      </label>
-    </div>
-  );
-}
-
-function VideoFilterTab({ activeSubtest, filter, onSubtestChange }: {
-  activeSubtest: (typeof videoFilters)[number];
-  filter: (typeof videoFilters)[number];
-  onSubtestChange: (value: (typeof videoFilters)[number]) => void;
-}) {
-  const isActive = activeSubtest === filter;
-  return <SunkenTabButton aria-selected={isActive} layout="content" onClick={() => onSubtestChange(filter)} role="tab" selected={isActive} type="button">{filter}</SunkenTabButton>;
-}
-
 function getVideoEmptyState(hasVideosInCurrentCollection: boolean, hasArchivedVideos: boolean, showArchivedVideos: boolean) {
   if (hasVideosInCurrentCollection) return { description: "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia.", title: "Video tidak ditemukan" };
   if (!showArchivedVideos && hasArchivedVideos) return { description: "Centang Tampilkan arsip untuk melihat video yang diarsipkan.", title: "Belum ada video aktif" };
   return { description: "Tambahkan tautan YouTube pertama untuk koleksi video siswa.", title: "Belum ada video" };
-}
-
-function VideoCollection({ hasArchivedVideos, hasVideosInCurrentCollection, isPending, onArchive, onCreate, onDelete, onEdit, showArchivedVideos, videos }: {
-  hasArchivedVideos: boolean;
-  hasVideosInCurrentCollection: boolean;
-  isPending: boolean;
-  onArchive: (video: VideoGalleryItem, archived: boolean) => void;
-  onCreate: () => void;
-  onDelete: (video: VideoGalleryItem) => void;
-  onEdit: (video: VideoGalleryItem) => void;
-  showArchivedVideos: boolean;
-  videos: VideoGalleryItem[];
-}) {
-  if (videos.length) {
-    return <div className="grid gap-4" id="kapten-video-list">{videos.map((video) => <KaptenVideoCard isPending={isPending} key={video.id} onArchive={onArchive} onDelete={onDelete} onEdit={onEdit} video={video} />)}</div>;
-  }
-  const emptyState = getVideoEmptyState(hasVideosInCurrentCollection, hasArchivedVideos, showArchivedVideos);
-  return (
-    <ReferenceSurface className="border-learning-card-border" variant="raised">
-      <ReferenceEmptyState action={!hasVideosInCurrentCollection ? <Button disabled={isPending} onClick={onCreate} size="sm" variant="default">Tambah video</Button> : undefined} description={emptyState.description} icon={Video} title={emptyState.title} />
-    </ReferenceSurface>
-  );
 }
 
 export { KaptenVideoGalleryPageModule };
