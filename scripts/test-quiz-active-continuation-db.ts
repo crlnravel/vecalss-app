@@ -217,6 +217,7 @@ async function run() {
 
     const admission = await fixture();
     try {
+      await prisma.standaloneQuizItem.deleteMany({ where: { quizId: admission.quiz.id, quizVersion: { state: "draft" } } });
       await prisma.standaloneQuizVersion.deleteMany({ where: { quizId: admission.quiz.id, state: "draft" } });
       await submitStandaloneQuiz(admission.id, student.id);
       await assert.rejects(admission.start(), /Batas percobaan/);
