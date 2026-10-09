@@ -3597,7 +3597,7 @@ function TryoutBuilderPageWorkspace({
   viewSaving: boolean;
 }) {
   return (
-    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto min-w-0 w-full max-w-[1420px] px-4 py-6 sm:px-6 lg:px-8">
       {initialSubtest ? (
         <TryoutBuilderNotices error={error} />
       ) : (
