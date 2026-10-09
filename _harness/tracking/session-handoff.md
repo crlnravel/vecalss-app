@@ -1,5 +1,12 @@
 # Session Handoff
 
+## KRF-01 pending result releases complete (2026-10-09)
+
+- `e45c355` on `dev`, baseline `4e056e8`; exact gpt-6.1-sol/high explicitly approved for this task. Stable-close save/result synchronization uses the existing scheduled-only transition across pinned policies; released and hidden results remain unchanged, and close removal is rejected atomically for pinned after-close dependents. Active work keeps its form/policy/start and can save/submit after close/archive.
+- Shared quiz locks for learner operations and exclusive mentor schedule lock precede deterministic participation/attempt locks; no learner lease requirement. Independent fresh exact Luna/max Standards and Spec reviews have no open findings after shared-lock/barrier and hidden-state/helper corrections.
+- Guarded DB regression, TypeScript, versioning/schedule, storage, resource lock and full `pnpm verify` pass. Six stale structural suites fail on baseline expectations; see epic `krf01-implementation/index.md` for exact commands/results. Existing Settings unused-Badge warning; pg concurrent-query deprecation comes from existing authoring writes.
+- Six normal sequential groups total (three original plus three of six additionally approved); no emergency mode, owned server/worker, migration/reset/account registration/dependency or browser work. Disposable local `vecalss_dev` test-owned fixtures cleaned in finally. Browser QA belongs to the coordinator after explicit route/role/checklist permission; KRF-02 can follow KRF-01. Unrelated Tryout source/test/package hunk preserved.
+
 ## Mentor QA fixes implemented and verified (2026-10-07)
 
 - Branch `dev`; baseline `9311b154cb55ac02c4752ca9ae58fef7816eb18e`; implementation commits through `d094291`, with the Tryout answer-mode follow-up included in the current handoff commit. Intent, evidence and limits: epic artifact `mentor-qa-fixes-20261007/index.md`.

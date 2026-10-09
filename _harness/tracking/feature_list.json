@@ -387,6 +387,16 @@
       "dependencies": ["feat-040"],
       "status": "complete",
       "evidence": "2f11bd1 design contract; a64f5ba shared primitives; 778adf6 app consumers; 9a9457d agreed report primitive hunks; b4297f6 catalogue and Avatar guidelines. SSR state/disabled-anchor contract and shared/catalogue focused lint pass; independent standards and coverage reviews clear. Exact 20px audit correction is reviewed and applied in its owner's pending redesign. Global lint/types remain blocked by baseline errors; browser/build unverified."
+    },
+    {
+      "id": "krf-01",
+      "name": "Kuis Pending Result Release Schedule",
+      "description": "Move scheduled pinned after-close results atomically with the stable close while preserving active work and rejecting undefined release timing.",
+      "dependencies": [
+        "feat-029"
+      ],
+      "status": "complete",
+      "evidence": "e45c355; registered local DB edge/lock/race coverage, TypeScript and full verify pass; independent Luna/max reviews clear; six baseline structural-suite failures recorded in epic krf01-implementation evidence; browser QA delegated separately."
     }
   ]
 }
