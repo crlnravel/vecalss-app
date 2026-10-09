@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { Funnel } from "@phosphor-icons/react";
 import {
@@ -22,13 +23,7 @@ import {
   Trash2,
   X,
 } from "@/lib/icons";
-import {
-  ReferencePageHeader,
-} from "@/components/dashboard/reference-dashboard-primitives";
-import {
-  REFERENCE_CONTROL_CLASS_NAMES,
-  REFERENCE_FIELD_LABEL_CLASS_NAME,
-} from "@/components/dashboard/reference-dashboard-tokens";
+import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,29 +44,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Field,
-  FieldError,
-  FieldInput,
-  FieldLabel,
-  FieldTextarea,
-} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   getYouTubeThumbnailUrl,
   isYouTubeVideoUrl,
-  VIDEO_DESCRIPTION_MAX_LENGTH,
-  VIDEO_TITLE_MAX_LENGTH,
   type SaveKaptenVideoInput,
 } from "@/lib/video/contract";
 import { cn } from "@/lib/utils";
@@ -89,21 +70,14 @@ import {
   MentorAssessmentGrid,
   MentorGridMenu,
 } from "@/modules/mentor/components/mentor-assessment-table";
+import {
+  emptyVideoDraft,
+  VideoEditorForm,
+  type VideoDraft,
+  type VideoDraftTextField,
+} from "@/modules/mentor/components/video-editor-form";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import styles from "./quiz-dashboard.module.css";
-
-type VideoDraft = Pick<
-  VideoGalleryItem,
-  "description" | "subtest" | "title" | "youtubeUrl"
->;
-type VideoDraftTextField = "description" | "subtest" | "title" | "youtubeUrl";
-
-const emptyVideoDraft: VideoDraft = {
-  description: "",
-  subtest: "PK",
-  title: "",
-  youtubeUrl: "",
-};
 
 const thumbnailToneClasses = {
   forest: "bg-voyage-forest",
@@ -172,7 +146,6 @@ function VideoEditorDialog({
   draft,
   error,
   isPending,
-  isEditing,
   onChange,
   onOpenChange,
   onSubmit,
@@ -181,7 +154,6 @@ function VideoEditorDialog({
   draft: VideoDraft;
   error: string | null;
   isPending: boolean;
-  isEditing: boolean;
   onChange: (field: VideoDraftTextField, value: string) => void;
   onOpenChange: (open: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -192,131 +164,17 @@ function VideoEditorDialog({
       <DialogContent className="max-h-[min(86vh,760px)] w-[calc(100vw-2rem)] overflow-y-auto p-6 sm:max-w-2xl sm:p-8">
         <DialogHeader className="pr-8">
           <DialogTitle className="font-display text-3xl font-semibold tracking-[-0.03em] text-voyage-ink">
-            {isEditing ? "Edit video" : "Tambah video"}
+            Tambah video
           </DialogTitle>
         </DialogHeader>
-
-        <form className="grid gap-6" onSubmit={onSubmit}>
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="kapten-video-title"
-              required
-            >
-              Judul video
-            </FieldLabel>
-            <FieldInput
-              aria-describedby={error ? "kapten-video-form-error" : undefined}
-              aria-invalid={Boolean(error?.includes("judul"))}
-              className={REFERENCE_CONTROL_CLASS_NAMES.input}
-              disabled={isPending}
-              id="kapten-video-title"
-              maxLength={VIDEO_TITLE_MAX_LENGTH}
-              onChange={(event) => onChange("title", event.target.value)}
-              placeholder="Contoh: Strategi Cepat Menjawab Soal PU"
-              required
-              value={draft.title}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="kapten-video-url"
-              required
-            >
-              Tautan YouTube
-            </FieldLabel>
-            <FieldInput
-              aria-describedby={error ? "kapten-video-form-error" : undefined}
-              aria-invalid={Boolean(error?.includes("YouTube"))}
-              className={REFERENCE_CONTROL_CLASS_NAMES.input}
-              disabled={isPending}
-              id="kapten-video-url"
-              onChange={(event) => onChange("youtubeUrl", event.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
-              required
-              type="url"
-              value={draft.youtubeUrl}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="kapten-video-subtest"
-              required
-            >
-              Subtes
-            </FieldLabel>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label="Pilih subtes video"
-                className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")}
-                disabled={isPending}
-                id="kapten-video-subtest"
-                render={<Button type="button" variant="outline" />}
-              >
-                <span>{draft.subtest}</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-secondary-500"
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="min-w-(--anchor-width)"
-              >
-                <DropdownMenuRadioGroup
-                  onValueChange={(value) => onChange("subtest", value)}
-                  value={draft.subtest}
-                >
-                  {videoFilters.slice(1).map((subtest) => (
-                    <DropdownMenuRadioItem key={subtest} value={subtest}>
-                      {subtest}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </Field>
-
-          <Field>
-            <FieldLabel
-              className={REFERENCE_FIELD_LABEL_CLASS_NAME}
-              htmlFor="kapten-video-description"
-            >
-              Deskripsi singkat
-            </FieldLabel>
-            <FieldTextarea
-              className={cn(
-                REFERENCE_CONTROL_CLASS_NAMES.input,
-                "min-h-28 resize-y",
-              )}
-              disabled={isPending}
-              id="kapten-video-description"
-              maxLength={VIDEO_DESCRIPTION_MAX_LENGTH}
-              onChange={(event) => onChange("description", event.target.value)}
-              placeholder="Jelaskan isi video secara singkat untuk membantu siswa memilih materi."
-              value={draft.description}
-            />
-          </Field>
-
-          {error ? (
-            <FieldError error={error} id="kapten-video-form-error" />
-          ) : null}
-
-          <div>
-            <Button
-              className="min-h-14 w-full"
-              disabled={isPending}
-              type="submit"
-              variant="default"
-            >
-              {isPending ? "Menyimpan…" : isEditing ? "Simpan perubahan" : "Tambah video"}
-            </Button>
-          </div>
-        </form>
+        <VideoEditorForm
+          draft={draft}
+          error={error}
+          isPending={isPending}
+          onChange={onChange}
+          onSubmit={onSubmit}
+          submitLabel={isPending ? "Menyimpan…" : "Tambah video"}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -434,7 +292,6 @@ function KaptenVideoGalleryPageModule({
   const [activeSubtest, setActiveSubtest] =
     useState<(typeof videoFilters)[number]>("Semua");
   const [draft, setDraft] = useState<VideoDraft>(emptyVideoDraft);
-  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -461,9 +318,6 @@ function KaptenVideoGalleryPageModule({
     });
   }, [activeSubtest, query, statusFilter, videos]);
 
-  const editingVideo = editingVideoId
-    ? videos.find((video) => video.id === editingVideoId)
-    : undefined;
   const hasVideosInCurrentCollection = videos.some(
     (video) =>
       statusFilter === "" ||
@@ -472,27 +326,13 @@ function KaptenVideoGalleryPageModule({
 
   function closeEditor() {
     setIsEditorOpen(false);
-    setEditingVideoId(null);
     setFormError(null);
     setDraft(emptyVideoDraft);
   }
 
   function openCreate() {
-    setEditingVideoId(null);
     setFormError(null);
     setDraft(emptyVideoDraft);
-    setIsEditorOpen(true);
-  }
-
-  function openEdit(video: VideoGalleryItem) {
-    setEditingVideoId(video.id);
-    setFormError(null);
-    setDraft({
-      description: video.description,
-      subtest: video.subtest,
-      title: video.title,
-      youtubeUrl: video.youtubeUrl,
-    });
     setIsEditorOpen(true);
   }
 
@@ -597,7 +437,6 @@ function KaptenVideoGalleryPageModule({
     }
 
     const input: SaveKaptenVideoInput = {
-      ...(editingVideo ? { id: editingVideo.id } : {}),
       description: draft.description,
       subtest: draft.subtest,
       title,
@@ -667,18 +506,16 @@ function KaptenVideoGalleryPageModule({
       size: 350,
       enableHiding: false,
       cell: ({ row }) => (
-        <button
+        <Link
           className={cn(
             styles.quizTitle,
-            "w-full cursor-pointer border-0 bg-transparent p-0 text-left focus-visible:rounded-detail focus-visible:outline-2 focus-visible:outline-primary-700/30 focus-visible:outline-offset-2",
+            "block w-full focus-visible:rounded-detail focus-visible:outline-2 focus-visible:outline-primary-700/30 focus-visible:outline-offset-2",
           )}
-          disabled={isPending}
-          onClick={() => openEdit(row.original)}
-          type="button"
+          href={`/mentor/videos/${row.original.id}`}
           title={row.original.title}
         >
           {row.original.title}
-        </button>
+        </Link>
       ),
     },
     {
@@ -982,7 +819,6 @@ function KaptenVideoGalleryPageModule({
         draft={draft}
         error={formError}
         isPending={isPending}
-        isEditing={Boolean(editingVideo)}
         onChange={updateDraft}
         onOpenChange={(open) => {
           if (!open) closeEditor();

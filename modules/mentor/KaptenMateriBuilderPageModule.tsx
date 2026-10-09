@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Archive,
   ChevronDown,
@@ -183,37 +182,20 @@ function MateriBuilderHeader({
   builderState,
   isPreviewOpen,
   mode,
-  parentHref,
 }: {
   builderState: MateriBuilderState;
   isPreviewOpen: boolean;
   mode: "create" | "edit";
-  parentHref: string;
 }) {
   if (isPreviewOpen) return null;
 
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <Button
-        aria-label="Kembali ke materi"
-        className="mt-1 shrink-0"
-        nativeButton={false}
-        render={<Link href={parentHref} />}
-        size="icon"
-        title="Kembali ke materi"
-        variant="outline"
-      >
-        <ChevronLeft aria-hidden="true" className="size-5" />
-      </Button>
-      <ReferencePageHeader
-        className="min-w-0 flex-1"
-        title={
-          mode === "create"
-            ? "Buat Materi"
-            : builderState.title || "Edit Materi"
-        }
-      />
-    </div>
+    <ReferencePageHeader
+      className="min-w-0"
+      title={
+        mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"
+      }
+    />
   );
 }
 
@@ -1319,7 +1301,7 @@ function MateriBuilderBody({
   builderState, errors, hasUnsavedChanges, isArchived, isCreateDialog, isEditLocked,
   isLifecycleSaving, isPickerOpen, isPreviewOpen, isSaving, lockState, mode, onArchive, onDelete,
   onFieldChange, onOpenPicker, onPreviewChange, onPublish, onReset, onRestore, onSave,
-  onSelectDocument, onRetryLock, onPickerOpenChange, onUnsavedSave, parentHref,
+  onSelectDocument, onRetryLock, onPickerOpenChange, onUnsavedSave,
   readiness, selectedDocumentName, selectedSubjectName, status, subjects,
 }: {
   builderState: MateriBuilderState;
@@ -1347,7 +1329,6 @@ function MateriBuilderBody({
   onRetryLock: () => void;
   onPickerOpenChange: (open: boolean) => void;
   onUnsavedSave: () => void;
-  parentHref: string;
   readiness: "ready" | "incomplete";
   selectedDocumentName: string;
   selectedSubjectName: string;
@@ -1357,7 +1338,7 @@ function MateriBuilderBody({
   return (
     <>
       <div className={cn("flex w-full flex-col gap-6", isCreateDialog ? "gap-5" : "mx-auto max-w-[1180px]")}>
-        {!isCreateDialog ? <MateriBuilderHeader builderState={builderState} isPreviewOpen={isPreviewOpen} mode={mode} parentHref={parentHref} /> : null}
+        {!isCreateDialog ? <MateriBuilderHeader builderState={builderState} isPreviewOpen={isPreviewOpen} mode={mode} /> : null}
         {mode === "edit" ? <ResourceAuthoringLockBanner hasLocalChanges={hasUnsavedChanges} onRetry={onRetryLock} resourceLabel="Materi" state={lockState} /> : null}
         <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} isEditLocked={isEditLocked} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onDelete={onDelete} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
       </div>
