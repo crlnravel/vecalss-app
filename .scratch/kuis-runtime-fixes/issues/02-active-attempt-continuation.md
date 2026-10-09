@@ -20,6 +20,17 @@
 
 ## Implementation evidence (2026-10-09, partial)
 
+**Latest:** implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`.
+Final registered continuation DB suite passes (including multiple accepted keys,
+terminal replay, both archive/submit races and deterministic submit-before-replay)
+in `/tmp/krf02-final.log`. Local migration applied and regenerated client; related
+DB/storage/availability checks pass in `/tmp/krf02-migrated.log`. Six approved
+normal launch groups used. Lint passes; full verify compiles then fails baseline
+Materi `parentHref` prop typing. The three disclosed static checks still fail.
+Fresh independent Spec/Standards reviews are pending; integration gate remains
+open, so this ticket is not marked complete. The paragraphs below are phase-one
+history and are superseded by this latest result.
+
 Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`.
 Fresh Start at exact close reproduced red, then passed after removing the
 continuation availability gate. No-ID route loader then reproduced red; recovery,

@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## KRF-02 continuation implemented; integration verification open (2026-10-09)
+
+- Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`, implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`. Fresh Start and no-ID loader were each reproduced red; final continuation DB suite passes across close -1/equal/+1 ms, both archive paths, hide/opening, legacy/versioned runtime, pins, valid pending/newer active assessments, ownership, answer changes/clears, results, caps/delays, distinct/repeated resume keys and bounded races.
+- Migration `20261009090000_allow_quiz_resume_commands` applied only to disposable local `vecalss_dev`: several accepted request keys can share an attempt; request uniqueness, legacy key and FKs remain. `migrate dev --create-only` failed on the historical guarded CBT shadow migration; the new two-statement forward SQL was reviewed and applied with `migrate deploy`, then local Prisma regenerated. Migration status: 85 migrations, up to date.
+- Availability, Kuis versioning/storage, owned editing, pending-release DB, dashboard pure/DB and resource-lock checks pass. Three source-shape checks retain baseline failures. Lint passes with one existing Settings warning. Full verify compiles successfully but fails existing Materi `parentHref` prop typing; final tsc has only that baseline error.
+- Six normal guarded groups used, no emergency, browser, new accounts, dependency changes or owned server. Dependencies APFS-cloned locally; generated Prisma copied/regenerated locally. Fresh Luna/max Spec/Standards reviews pending. Full evidence: epic `krf02-implementation-evidence`, `/tmp/krf02-{migrated,final}.log`. Ticket remains in progress pending review/integration checks.
+
 ## KRF-01 pending result releases complete (2026-10-09)
 
 - `e45c355` on `dev`, baseline `4e056e8`; exact gpt-6.1-sol/high explicitly approved for this task. Stable-close save/result synchronization uses the existing scheduled-only transition across pinned policies; released and hidden results remain unchanged, and close removal is rejected atomically for pinned after-close dependents. Active work keeps its form/policy/start and can save/submit after close/archive.
