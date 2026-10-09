@@ -129,9 +129,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.change {
-  color: var(--warning-700);
-}
 .footer {
   display: flex;
   flex-wrap: wrap;

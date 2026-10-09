@@ -263,11 +263,6 @@ export function KaptenQuizDashboardPageModule({
           {row.original.isHidden && (
             <span className={styles.secondary}>Disembunyikan</span>
           )}
-          {row.original.hasUnpublishedChanges && (
-            <span className={`${styles.secondary} ${styles.change}`}>
-              Ada perubahan
-            </span>
-          )}
         </>
       ),
     },
