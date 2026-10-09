@@ -89,6 +89,13 @@ async function run() {
       quizId: quiz.id, title: "Pending changed assessment", state: "draft", baseVersionId: version.id,
       attemptsAllowed: 5, reviewTiming: "immediate", draftRevision: 1,
     } }) : null;
+    if (draft) await prisma.standaloneQuizItem.create({ data: {
+      quizId: quiz.id, quizVersionId: draft.id, subtestId: subtest.id, sortOrder: 1,
+      prompt: "Pertanyaan draft berbeda", questionType: "single_choice", options: { create: [
+        { choiceKey: "A", content: "Baru benar", isCorrect: true, sortOrder: 0 },
+        { choiceKey: "B", content: "Baru salah", isCorrect: false, sortOrder: 1 },
+      ] },
+    } });
     async function archiveDetail() {
       const token = randomBytes(32).toString("base64url");
       const lease = await acquireEditLease({ resourceType: "quiz", resourceId: quiz.id, holderUserId: tutor.id, newToken: token });
@@ -109,6 +116,7 @@ async function run() {
       assert.equal(resumed?.attempt.createdAt.toISOString(), before.createdAt.toISOString());
       assert.equal((await start(student.id, requestId))?.state, "replayed");
       assert.equal((await start(student.id, freshKey))?.attempt.id, id);
+      assert.equal(await prisma.standaloneQuizStartCommand.count({ where: { attemptId: id } }), 2, "Distinct accepted request keys share one attempt");
       const recovered = await load();
       assert.equal(recovered?.attemptId, id, "No-ID route recovers owned active work before preview filtering");
       assert.equal((await load(id))?.attemptId, id);
@@ -167,7 +175,8 @@ async function run() {
             assert.equal(await getAvailableQuizPreview(subjectSlug, f.quiz.slug, other.id), null);
             await assert.rejects(f.start(other.id), /ditutup/);
           }
-          await assert.rejects(f.start(), boundary >= 60_000 ? /ditutup/ : /Batas percobaan/);
+          if (boundary >= 60_000) await assert.rejects(f.start(), /ditutup/);
+          // At -1 ms, a genuinely new Start may activate the valid newer draft.
           console.log(`${cutover}: close ${boundary - 60_000} ms passed`);
         } finally { await f.cleanup(); }
       }
@@ -195,6 +204,17 @@ async function run() {
       assert.equal((await hiddenResult.result())?.reviewAvailable, false);
     } finally { await hiddenResult.cleanup(); }
 
+    const newer = await fixture();
+    try {
+      await prisma.standaloneQuizVersion.updateMany({ where: { quizId: newer.quiz.id, state: "active" }, data: { state: "superseded" } });
+      await prisma.standaloneQuizVersion.updateMany({ where: { quizId: newer.quiz.id, state: "draft" }, data: { state: "active", versionNo: 2, draftRevision: null } });
+      const resumed = await newer.start();
+      assert.equal(resumed?.attempt.id, newer.id);
+      assert.equal(resumed?.quiz.items[0].prompt, "Pertanyaan awal", "A newer active release cannot replace the pinned form");
+      assert.deepEqual(resumed?.attempt.formSnapshot, newer.before.formSnapshot);
+      assert.equal((await newer.load())?.attempt.questions[0].prompt, "Pertanyaan awal");
+    } finally { await newer.cleanup(); }
+
     const admission = await fixture();
     try {
       await prisma.standaloneQuizVersion.deleteMany({ where: { quizId: admission.quiz.id, state: "draft" } });
@@ -211,6 +231,17 @@ async function run() {
     } finally { await admission.cleanup(); }
 
     for (const path of ["detail", "dashboard"] as const) {
+      const submittingArchive = await fixture();
+      try {
+        clock = base + 60_000;
+        await bounded(Promise.all([
+          path === "detail" ? submittingArchive.archiveDetail() : manageMentorDashboardQuiz(tutor.id, submittingArchive.quiz.id, "archive"),
+          submitStandaloneQuiz(submittingArchive.id, student.id),
+        ]));
+        assert.equal((await submittingArchive.stored()).status, "submitted");
+        assert.equal((await submittingArchive.result())?.attemptScore, 100);
+        assert.equal((await prisma.standaloneQuiz.findUniqueOrThrow({ where: { id: submittingArchive.quiz.id } })).status, "archived");
+      } finally { await submittingArchive.cleanup(); }
       const f = await fixture();
       try {
         clock = base + 60_000;

@@ -2516,7 +2516,7 @@ model StandaloneQuizAttempt {
 
   participation StandaloneQuizParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
   answers       StandaloneQuizAnswer[]
-  startCommand  StandaloneQuizStartCommand? @relation("StandaloneQuizStartCommandAttempt")
+  startCommands StandaloneQuizStartCommand[] @relation("StandaloneQuizStartCommandAttempt")
 
   @@unique([participationId, attemptNo])
   @@unique([participationId, startRequestId])
@@ -2554,7 +2554,7 @@ model StandaloneQuizStartCommand {
   quizVersionId String?                 @map("quiz_version_id") @db.Uuid
   studentId     String                  @map("student_id") @db.Uuid
   requestId     String                  @map("request_id") @db.Uuid
-  attemptId     String?                 @unique @map("attempt_id") @db.Uuid
+  attemptId     String?                 @map("attempt_id") @db.Uuid
   createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz
 
   quiz        StandaloneQuiz          @relation(fields: [quizId], references: [id], onDelete: Restrict)
@@ -2563,6 +2563,7 @@ model StandaloneQuizStartCommand {
   attempt     StandaloneQuizAttempt?  @relation("StandaloneQuizStartCommandAttempt", fields: [attemptId], references: [id], onDelete: Restrict)
 
   @@unique([quizId, studentId, requestId])
+  @@index([attemptId])
   @@index([quizId, studentId, createdAt])
   @@map("standalone_quiz_start_commands")
 }
