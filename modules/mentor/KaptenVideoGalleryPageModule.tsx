@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { Funnel } from "@phosphor-icons/react";
 import {
   getCoreRowModel,
   useReactTable,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   Search,
   Trash2,
+  X,
 } from "@/lib/icons";
 import {
   ReferencePageHeader,
@@ -29,6 +31,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +114,13 @@ const thumbnailToneClasses = {
 
 const numberFormatter = new Intl.NumberFormat("id-ID");
 
+const videoStatusLabels = {
+  published: "Terbit",
+  archived: "Arsip",
+} as const;
+
+type VideoStatusFilter = "" | keyof typeof videoStatusLabels;
+
 function VideoPreview({ video }: { video: VideoGalleryItem }) {
   const thumbnailUrl = getYouTubeThumbnailUrl(video.youtubeUrl);
   const [thumbnailErrorUrl, setThumbnailErrorUrl] = useState<string | null>(null);
@@ -118,7 +128,7 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
   return (
     <div
       className={cn(
-        "relative aspect-video w-24 shrink-0 overflow-hidden rounded-control text-white",
+        "relative aspect-video w-24 shrink-0 overflow-hidden rounded-control",
         thumbnailToneClasses[video.thumbnailTone],
       )}
     >
@@ -147,21 +157,6 @@ function VideoPreview({ video }: { video: VideoGalleryItem }) {
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-1/2 bg-secondary-950/25"
       />
-      <div className="absolute inset-0 flex flex-col justify-between p-2">
-        <div className="flex items-start justify-between gap-2">
-          <span className="rounded-detail border border-white/15 bg-secondary-950/45 px-1.5 py-0.5 text-ui-xs leading-4 font-bold tracking-[0.08em] text-white uppercase backdrop-blur-sm">
-            {video.subtest}
-          </span>
-          {video.duration ? (
-            <span className="rounded-detail bg-secondary-950/75 px-1 py-0.5 text-ui-xs leading-4 font-bold tabular-nums text-white">
-              {video.duration}
-            </span>
-          ) : null}
-        </div>
-        <p className="relative z-10 max-w-[10ch] truncate font-display text-xs leading-tight font-extrabold tracking-[-0.02em] text-white">
-          {video.thumbnailTitle}
-        </p>
-      </div>
     </div>
   );
 }
@@ -448,7 +443,7 @@ function KaptenVideoGalleryPageModule({
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<RowSelectionState>({});
-  const [showArchivedVideos, setShowArchivedVideos] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<VideoStatusFilter>("");
   const [videoPendingDeletion, setVideoPendingDeletion] =
     useState<VideoGalleryItem | null>(null);
   const [videos, setVideos] = useState<VideoGalleryItem[]>(initialVideos);
@@ -457,7 +452,8 @@ function KaptenVideoGalleryPageModule({
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
 
     return videos.filter((video) => {
-      if (video.isArchived && !showArchivedVideos) return false;
+      if (statusFilter === "published" && video.isArchived) return false;
+      if (statusFilter === "archived" && !video.isArchived) return false;
       if (activeSubtest !== "Semua" && video.subtest !== activeSubtest)
         return false;
       if (!normalizedQuery) return true;
@@ -466,15 +462,16 @@ function KaptenVideoGalleryPageModule({
         .toLocaleLowerCase("id-ID")
         .includes(normalizedQuery);
     });
-  }, [activeSubtest, query, showArchivedVideos, videos]);
+  }, [activeSubtest, query, statusFilter, videos]);
 
   const editingVideo = editingVideoId
     ? videos.find((video) => video.id === editingVideoId)
     : undefined;
   const hasVideosInCurrentCollection = videos.some(
-    (video) => !video.isArchived || showArchivedVideos,
+    (video) =>
+      statusFilter === "" ||
+      (statusFilter === "archived" ? video.isArchived : !video.isArchived),
   );
-  const hasArchivedVideos = videos.some((video) => video.isArchived);
 
   function closeEditor() {
     setIsEditorOpen(false);
@@ -733,10 +730,20 @@ function KaptenVideoGalleryPageModule({
   const selectedVideos = selectedRows.map((row) => row.original);
   const canArchiveSelection = selectedVideos.some((video) => !video.isArchived);
   const canRestoreSelection = selectedVideos.some((video) => video.isArchived);
+  const activeFilters: Array<{
+    key: "status" | "subtest";
+    label: string;
+  }> = [
+    ...(activeSubtest !== "Semua"
+      ? [{ key: "subtest" as const, label: activeSubtest }]
+      : []),
+    ...(statusFilter
+      ? [{ key: "status" as const, label: videoStatusLabels[statusFilter] }]
+      : []),
+  ];
   const emptyState = getVideoEmptyState(
     hasVideosInCurrentCollection,
-    hasArchivedVideos,
-    showArchivedVideos,
+    statusFilter,
   );
 
   return (
@@ -814,21 +821,51 @@ function KaptenVideoGalleryPageModule({
                 </DropdownMenuItem>
               ))}
             </MentorGridMenu>
-            <label
-              className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-secondary-700"
-              htmlFor="kapten-video-show-archived"
+            <MentorGridMenu
+              label="Filter status"
+              trigger={
+                <>
+                  <Funnel aria-hidden="true" />
+                  Status
+                  {statusFilter ? (
+                    <Badge size="xs" tone="neutral">
+                      1
+                    </Badge>
+                  ) : null}
+                </>
+              }
             >
-              <Checkbox
-                checked={showArchivedVideos}
+              <DropdownMenuItem
                 disabled={isPending}
-                id="kapten-video-show-archived"
-                onCheckedChange={(checked) => {
+                onClick={() => {
                   setSelection({});
-                  setShowArchivedVideos(checked === true);
+                  setStatusFilter("");
                 }}
-              />
-              <span>Tampilkan arsip</span>
-            </label>
+                size="sm"
+              >
+                Semua
+                {!statusFilter ? <Check aria-hidden="true" /> : null}
+              </DropdownMenuItem>
+              {(Object.entries(videoStatusLabels) as Array<[
+                keyof typeof videoStatusLabels,
+                string,
+              ]>).map(([value, label]) => (
+                <DropdownMenuItem
+                  disabled={isPending}
+                  key={value}
+                  onClick={() => {
+                    setSelection({});
+                    setStatusFilter(value);
+                  }}
+                  size="sm"
+                >
+                  {label}
+                  {statusFilter === value ? (
+                    <Check aria-hidden="true" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </MentorGridMenu>
           </div>
           {selectedVideos.length > 0 ? (
             <div className={styles.bulkTools}>
@@ -868,6 +905,43 @@ function KaptenVideoGalleryPageModule({
             </div>
           ) : null}
         </div>
+
+        {activeFilters.length > 0 ? (
+          <div aria-label="Filter aktif" className={styles.chips}>
+            {activeFilters.map((filter) => (
+              <Button
+                aria-label={`Hapus filter ${filter.label}`}
+                className="px-0"
+                key={filter.key}
+                onClick={() => {
+                  setSelection({});
+                  if (filter.key === "subtest") setActiveSubtest("Semua");
+                  if (filter.key === "status") setStatusFilter("");
+                }}
+                size="sm"
+                type="button"
+                variant="quiet"
+              >
+                <Badge size="sm" tone="category">
+                  {filter.label}
+                  <X aria-hidden="true" className="size-3" />
+                </Badge>
+              </Button>
+            ))}
+            <Button
+              onClick={() => {
+                setSelection({});
+                setActiveSubtest("Semua");
+                setStatusFilter("");
+              }}
+              size="sm"
+              type="button"
+              variant="quiet"
+            >
+              Hapus semua
+            </Button>
+          </div>
+        ) : null}
 
         <MentorAssessmentGrid
           caption="Daftar video YouTube Kapten dengan subjek dan jumlah views."
@@ -924,9 +998,13 @@ function KaptenVideoGalleryPageModule({
   );
 }
 
-function getVideoEmptyState(hasVideosInCurrentCollection: boolean, hasArchivedVideos: boolean, showArchivedVideos: boolean) {
+function getVideoEmptyState(
+  hasVideosInCurrentCollection: boolean,
+  statusFilter: VideoStatusFilter,
+) {
   if (hasVideosInCurrentCollection) return { description: "Coba kata kunci lain atau pilih Semua untuk melihat koleksi yang tersedia.", title: "Video tidak ditemukan" };
-  if (!showArchivedVideos && hasArchivedVideos) return { description: "Centang Tampilkan arsip untuk melihat video yang diarsipkan.", title: "Belum ada video aktif" };
+  if (statusFilter === "published") return { description: "Belum ada video terbit untuk ditampilkan.", title: "Belum ada video terbit" };
+  if (statusFilter === "archived") return { description: "Video yang diarsipkan akan muncul di sini.", title: "Belum ada video arsip" };
   return { description: "Tambahkan tautan YouTube pertama untuk koleksi video siswa.", title: "Belum ada video" };
 }
 
