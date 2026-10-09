@@ -18,6 +18,7 @@ export default async function QuizOngoingPage({
   ]);
   const result = await getAvailableQuizAttempt(slug, quizSlug, session.user.id, searchParams.attemptId);
   if (!result) {
+    if (searchParams.attemptId !== undefined) notFound();
     const preview = await getAvailableQuizPreview(slug, quizSlug, session.user.id);
     if (!preview) notFound();
     return <QuizStartPageModule policy={preview.policy} quiz={preview.quiz} startAvailability={preview.startAvailability} subjectCode={preview.subject.title} subjectSlug={slug} subjectTitle={preview.subject.title} />;

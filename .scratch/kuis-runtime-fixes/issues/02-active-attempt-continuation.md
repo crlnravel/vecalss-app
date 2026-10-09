@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Move pending result releases with quiz close.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] A fresh Start/resume after close or archive returns the student's existing active attempt before new-admission checks. It does not allocate another attempt or activate a newer snapshot for that work.
 - [ ] The authenticated quiz route without an attempt ID recovers the student's owned active attempt. Valid known attempt-ID routes continue to work; malformed or foreign IDs fail closed.
@@ -17,5 +17,27 @@
 - [ ] Register the existing quiz-start availability check in the package test suite and add behavior-level server assertions; pure helper/source-shape assertions alone are insufficient.
 
 **Verification:** Run availability, versioning/runtime/storage, owned-editing, dashboard lifecycle, and serialization contracts, plus the repository verification gate. Browser verification follows the project's Obscura/Ego approval policy.
+
+## Implementation evidence (2026-10-09, partial)
+
+Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`.
+Fresh Start at exact close reproduced red, then passed after removing the
+continuation availability gate. No-ID route loader then reproduced red; recovery,
+explicit-ID failure, locked replay, resume request binding and truthful archive
+copy are implemented. The expanded registered DB regression found the original
+one-command-per-attempt constraint: multiple accepted resume keys require a
+forward migration to a one-to-many Start-command relation. Coordinator approved
+that migration and local dependency cloning; work remains in progress.
+
+Three normal guarded groups used. In `/tmp/krf02-green.log`, availability,
+Kuis versioning, storage, owned editing, pending release DB, dashboard pure/DB,
+and resource edit-lock checks pass. Runtime/source-shape checks fail on pre-existing
+`bulkUpdateStandaloneQuizLifecycleVersioned` and `withTransientAuthoringEditLeases`
+expectations; writer-registry fails its obsolete production script list. No tests
+were weakened. Lint passes with one existing settings warning. Verify build is
+blocked by Turbopack refusing the external node_modules symlink. Early tsc reports
+missing generated Next route types and an unrelated Materi builder prop mismatch.
+Continuation suite is not green yet (P2002 on unique Start-command attempt ID).
+No browser, schema migration, or nonlocal database action performed in this phase.
 
 **Planning source:** Approved ticket artifact `kuis-runtime-fix-tickets/tickets/02-active-attempt-continuation` in epic `788a92f9-1c5a-4fc5-b873-76ac11c9949c`.

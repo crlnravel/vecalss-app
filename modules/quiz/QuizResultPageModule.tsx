@@ -31,6 +31,7 @@ type QuizResult = {
   aggregateScore: number | null;
   answeredCount: number;
   canRestart: boolean;
+  resumeAttemptId?: string | null;
   correctCount: number | null;
   correctnessAvailable: boolean;
   isSubmitted: boolean;
@@ -160,11 +161,13 @@ function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
 
 function QuizResultHeaderActions({
   canRestart,
+  canResume,
   isAttemptLimitReached,
   isRestarting,
   onRestart,
 }: {
   canRestart: boolean;
+  canResume: boolean;
   isAttemptLimitReached: boolean;
   isRestarting: boolean;
   onRestart: () => void;
@@ -174,7 +177,7 @@ function QuizResultHeaderActions({
       <>
         {canRestart && !isAttemptLimitReached ? (
           <Button
-            aria-label="Ulangi kuis"
+            aria-label={canResume ? "Lanjutkan kuis" : "Ulangi kuis"}
             aria-busy={isRestarting}
             className="inline-flex"
             disabled={isRestarting}
@@ -183,7 +186,7 @@ function QuizResultHeaderActions({
           >
             <RefreshCw />
             <span className="hidden sm:inline">
-              {isRestarting ? "Memulai…" : "Ulangi"}
+              {isRestarting ? "Memulai…" : canResume ? "Lanjutkan" : "Ulangi"}
             </span>
           </Button>
         ) : null}
@@ -452,6 +455,7 @@ function QuizResultPageModule({
       headerActions={
         <QuizResultHeaderActions
           canRestart={result.canRestart}
+          canResume={Boolean(result.resumeAttemptId)}
           isAttemptLimitReached={isAttemptLimitReached}
           isRestarting={isRestarting}
           onRestart={() => void restartQuiz()}

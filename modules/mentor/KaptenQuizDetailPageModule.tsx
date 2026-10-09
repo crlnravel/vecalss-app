@@ -913,7 +913,7 @@ function QuizArchiveAction({
   return (
     <AdministrationActionRow
       action="Arsipkan Kuis"
-      description="Pindahkan Kuis ke arsip dan hentikan akses pengerjaan siswa."
+      description="Hentikan pengerjaan baru. Siswa yang sudah mulai tetap bisa melanjutkan."
     >
       <Button
         aria-busy={isSaving}
@@ -955,8 +955,10 @@ function QuizArchiveConfirmation({
           </AlertDialogMedia>
           <AlertDialogTitle>Arsipkan Kuis?</AlertDialogTitle>
           <AlertDialogDescription>
-            Kuis ini tidak lagi bisa dikerjakan siswa. Riwayat pengerjaan tetap
-            tersimpan. Kuis yang diarsipkan tidak dapat dipulihkan.
+            Kuis ini tidak lagi muncul di daftar siswa atau menerima pengerjaan
+            baru. Siswa yang sudah mulai tetap bisa melanjutkan dan mengirim
+            jawaban. Riwayat pengerjaan tetap tersimpan. Kuis yang diarsipkan
+            tidak dapat dipulihkan.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

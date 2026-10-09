@@ -4802,7 +4802,7 @@ async function startStandaloneQuiz(
     // The quiz row is the shared content/policy boundary. Lock it before
     // creating the first participation so concurrent Start calls cannot both
     // observe the same next attempt number or stale availability policy.
-    await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${identity.id}::uuid FOR UPDATE`;
+    await lockStandaloneQuizAggregate(tx, identity.id);
     let versionedQuizRecord = isStandaloneQuizVersioningCutoverEnabled()
       ? await tx.standaloneQuiz.findUnique({
           where: { id: identity.id },
@@ -4825,12 +4825,17 @@ async function startStandaloneQuiz(
     // Replay an accepted command before checking the current open window. The
     // command is the idempotency authority even after a later lazy snapshot
     // has become active for the same quiz.
-    const replayedCommand = await findStandaloneQuizStartCommand(
+    let replayedCommand = await findStandaloneQuizStartCommand(
       tx,
       identity.id,
       studentId,
       effectiveStartRequestId,
     );
+    if (replayedCommand?.attempt) {
+      if (!await lockOwnedStandaloneQuizAttempt(tx, replayedCommand.attempt.id, studentId))
+        throw new QuizAttemptValidationError("Sesi kuis tidak ditemukan.");
+      replayedCommand = await findStandaloneQuizStartCommand(tx, identity.id, studentId, effectiveStartRequestId);
+    }
     if (replayedCommand?.attempt) {
       const replayedQuiz = versionedQuizRecord
         ? await findStandaloneQuizForRuntime(
@@ -4876,11 +4881,14 @@ async function startStandaloneQuiz(
         },
       });
     if (inProgressParticipation?.attempts[0]) {
-      await tx.$queryRaw`SELECT id FROM standalone_quiz_participations WHERE id = ${inProgressParticipation.id}::uuid FOR UPDATE`;
+      if (!await lockOwnedStandaloneQuizAttempt(tx, inProgressParticipation.attempts[0].id, studentId))
+        throw new QuizAttemptValidationError("Sesi kuis tidak ditemukan.");
       const resumedAttempt = await tx.standaloneQuizAttempt.findUniqueOrThrow({
         where: { id: inProgressParticipation.attempts[0].id },
         include: { answers: true },
       });
+      if (resumedAttempt.status !== "in_progress")
+        throw new QuizAttemptValidationError("Kuis ini sudah dikirim. Buka hasil untuk melihat pengerjaanmu.");
       const resumedQuiz = versionedQuizRecord
         ? await findStandaloneQuizForRuntime(
             tx,
@@ -4888,8 +4896,7 @@ async function startStandaloneQuiz(
             inProgressParticipation.quizVersionId,
           )
         : loadedQuizRecord;
-      const checkNow = requestedNow ?? new Date();
-      if (!resumedQuiz || !isStandaloneQuizAvailableAt(resumedQuiz, checkNow)) {
+      if (!resumedQuiz) {
         throw new QuizAttemptValidationError(
           "Quiz belum tersedia atau sudah ditutup.",
         );
@@ -4901,14 +4908,16 @@ async function startStandaloneQuiz(
           data: { startRequestId: effectiveStartRequestId },
           include: { answers: true },
         });
-        await linkStandaloneQuizStartCommand(tx, {
-          attemptId: attempt.id,
-          quizId: resumedQuiz.id,
-          quizVersionId: inProgressParticipation.quizVersionId,
-          requestId: effectiveStartRequestId,
-          studentId,
-        });
       }
+      // Every accepted fresh resume key stays bound to this work even after
+      // submission; replay must never turn that key into a new admission.
+      await linkStandaloneQuizStartCommand(tx, {
+        attemptId: attempt.id,
+        quizId: resumedQuiz.id,
+        quizVersionId: inProgressParticipation.quizVersionId,
+        requestId: effectiveStartRequestId,
+        studentId,
+      });
       const resumedAttemptQuiz = buildAttemptQuiz(resumedQuiz, attempt);
       return {
         attempt,
@@ -5143,44 +5152,55 @@ async function getStandaloneQuizAttempt(
   attemptId?: string,
   now = new Date(),
 ) {
-  if (!attemptId || !isUuid(attemptId)) return null;
+  if (attemptId !== undefined && !isUuid(attemptId)) return null;
   void now;
-  const attempt = await prisma.standaloneQuizAttempt.findFirst({
-    where: {
-      id: attemptId,
-      participation: {
-        quiz: { slug, subtest: { code: subjectCode } },
-        studentId,
+  return prisma.$transaction(async (tx) => {
+    const identity = await tx.standaloneQuizAttempt.findFirst({
+      where: {
+        ...(attemptId === undefined ? { status: "in_progress" } : { id: attemptId }),
+        participation: { quiz: { slug, subtest: { code: subjectCode } }, studentId },
       },
-    },
-    include: {
-      answers: true,
-      participation: { include: { quiz: { include: quizInclude } } },
-    },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    if (!identity || !await lockOwnedStandaloneQuizAttempt(tx, identity.id, studentId)) return null;
+    const attempt = await tx.standaloneQuizAttempt.findFirst({
+      where: {
+        id: identity.id,
+        participation: {
+          quiz: { slug, subtest: { code: subjectCode } },
+          studentId,
+        },
+      },
+      include: {
+        answers: true,
+        participation: { include: { quiz: { include: quizInclude } } },
+      },
+    });
+    if (!attempt) return null;
+    if (
+      attempt.status !== "in_progress" &&
+      !isReviewableStandaloneQuizAttemptStatus(attempt.status)
+    )
+      return null;
+    const versionedQuiz = await resolveStandaloneQuizForAttempt(
+      tx,
+      attempt.participation.quiz,
+      attempt.participation.quizVersionId,
+    );
+    const quiz = buildAttemptQuiz(versionedQuiz, attempt);
+    const policy = policyFromAttemptSnapshot(
+      attempt.participation.policySnapshot,
+      toQuizAttemptPolicy(quiz),
+    );
+    return {
+      attempt,
+      attemptId: attempt.id,
+      attemptNo: attempt.attemptNo,
+      policy,
+      quiz: { ...quiz, ...policy },
+    };
   });
-  if (!attempt) return null;
-  if (
-    attempt.status !== "in_progress" &&
-    !isReviewableStandaloneQuizAttemptStatus(attempt.status)
-  )
-    return null;
-  const versionedQuiz = await resolveStandaloneQuizForAttempt(
-    prisma,
-    attempt.participation.quiz,
-    attempt.participation.quizVersionId,
-  );
-  const quiz = buildAttemptQuiz(versionedQuiz, attempt);
-  const policy = policyFromAttemptSnapshot(
-    attempt.participation.policySnapshot,
-    toQuizAttemptPolicy(quiz),
-  );
-  return {
-    attempt,
-    attemptId: attempt.id,
-    attemptNo: attempt.attemptNo,
-    policy,
-    quiz: { ...quiz, ...policy },
-  };
 }
 
 async function saveStandaloneQuizAnswer(
@@ -5589,9 +5609,11 @@ async function getStandaloneQuizResult(
       (policy.reviewTiming === "immediate" || policy.reviewTiming === "after_close");
     const correctnessAvailable =
       reviewAvailable && policy.correctAnswerVisibility === "show";
-    const activeAttempt = attempt.participation.attempts.some(
-      (candidate) => candidate.status === "in_progress",
-    );
+    const activeAttempt = await tx.standaloneQuizAttempt.findFirst({
+      where: { status: "in_progress", participation: { quizId: quiz.id, studentId } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
     const terminalAttempts = attempt.participation.attempts.filter((candidate) =>
       isTerminalStandaloneQuizAttemptStatus(candidate.status),
     );
@@ -5610,7 +5632,7 @@ async function getStandaloneQuizResult(
         now.getTime();
     const quizAvailable = isStandaloneQuizAvailableAt(quiz, now);
     const canRestart =
-      quizAvailable && (activeAttempt || (attemptsRemain && retryDelayPassed));
+      Boolean(activeAttempt) || (quizAvailable && !quiz.isHidden && attemptsRemain && retryDelayPassed);
     const releasedAttempts = attempt.participation.attempts.filter(
       (candidate) =>
         candidate.releaseState === AssessmentResultReleaseState.released,
@@ -5618,6 +5640,7 @@ async function getStandaloneQuizResult(
     return {
       answeredCount: attempt.answers.length,
       canRestart,
+      resumeAttemptId: activeAttempt?.id ?? null,
       correctCount: released ? attempt.correctCount : null,
       attemptId: attempt.id,
       attemptNo: attempt.attemptNo,

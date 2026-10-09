@@ -708,7 +708,7 @@ export function KaptenQuizDashboardPageModule({
               {confirmation?.label}
               {confirmation?.action === "delete"
                 ? " beserta soal, hasil, dan riwayat pengerjaannya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
-                : " tidak akan tersedia lagi untuk siswa. Kuis yang diarsipkan tidak bisa diaktifkan kembali."}
+                : " tidak lagi muncul di daftar siswa atau menerima pengerjaan baru. Siswa yang sudah mulai tetap bisa melanjutkan dan mengirim jawaban. Riwayat pengerjaan tetap tersimpan. Kuis yang diarsipkan tidak bisa diaktifkan kembali."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

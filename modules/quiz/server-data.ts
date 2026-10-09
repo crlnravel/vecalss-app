@@ -71,7 +71,7 @@ async function getAvailableQuizSubjects(studentId: string): Promise<QuizSubject[
 
 async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, studentId: string, attemptId?: string) {
   const subject = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"].map(getQuizSubjectByCode).find((item) => item?.slug === subjectSlug);
-  if (!subject || !attemptId) return null;
+  if (!subject) return null;
   const active = await getStandaloneQuizAttempt(subject.title, quizSlug, studentId, attemptId);
   if (!active) return null;
   const selectedOptionIdsByItem = new Map(active.attempt.answers.map((answer) => [answer.quizItemId, answerSelectionIds(answer)]));
