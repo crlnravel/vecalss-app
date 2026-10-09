@@ -64,7 +64,11 @@ type QuizAttempt = {
   isSubmitted: boolean;
   markers: QuizAttemptQuestionMarker[];
   questions: QuizAttemptQuestion[];
+  deadlineAt?: string | null;
+  serverNowAt?: string | null;
+  remainingSeconds?: number | null;
   remainingTime: string;
+  timeLimitStatus?: "timed" | "untimed" | "unknown";
 };
 
 type QuizSubject = {

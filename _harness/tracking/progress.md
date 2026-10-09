@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## KRF-03 attempt duration complete (2026-10-10)
+
+- Implemented and verified on isolated branch `krf-03-attempt-duration`; the shared `dev` checkout was left untouched. The work includes the per-attempt duration/start/deadline migration, pinned and disabled-cutover admission, request-time automatic submission, and student countdown/state.
+- Final normal guarded group passed migration backfill, KRF-03 DB/UI contracts, Start availability, KRF-02 continuation DB, KRF-01 pending-release DB, Kuis versioning, standalone version storage, TypeScript, lint, and `pnpm verify`. Spec and Standards follow-up reviews are clear. Full evidence: epic `krf03-implementation-evidence`.
+- Lint returned exit 0 with the existing Settings `Badge` warning and one unused UI-test counter warning. The database suite emitted the existing PostgreSQL concurrent-query deprecation warning. No browser or interactive verification was done.
+- Migration and fixtures targeted only disposable local `vecalss_dev`; other environments require the normal migration deployment. KRF-03 implementation is committed on its branch and ready for integration; KRF-04 remains independent.
+
 ## KRF-02 active-attempt continuation complete (2026-10-10)
 
 - Integrated the reviewed six-commit KRF-02 series onto local `dev`, ending at `fd21155` before this tracking update. This includes `20261009090000_allow_quiz_resume_commands` and the route/mobile-label correction.

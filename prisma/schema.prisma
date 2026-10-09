@@ -2498,6 +2498,9 @@ model StandaloneQuizAttempt {
   releaseState        AssessmentResultReleaseState @default(hidden) @map("release_state")
   startRequestId      String?                      @map("start_request_id") @db.Uuid
   policySnapshot      Json                         @map("policy_snapshot") @db.JsonB
+  durationSecondsSnapshot Int?                     @map("duration_seconds_snapshot")
+  startedAt           DateTime?                    @map("started_at") @db.Timestamptz
+  deadlineAt          DateTime?                    @map("deadline_at") @db.Timestamptz
   formItemOrder       Json                         @map("form_item_order") @db.JsonB
   formSnapshot        Json?                        @map("form_snapshot") @db.JsonB
   correctCount        Int?                         @map("correct_count")

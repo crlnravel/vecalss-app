@@ -24,11 +24,13 @@ import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentRev
 import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
 import { compareSelectedOptionSets } from "@/lib/question-bank/answer-contract";
 import { cn } from "@/lib/utils";
+import { QuizAutoSubmittedNotice } from "./QuizAutoSubmittedNotice";
 
 import { startQuizAction } from "./actions";
 
 type QuizResult = {
   aggregateScore: number | null;
+  autoSubmitted: boolean;
   answeredCount: number;
   canRestart: boolean;
   resumeAttemptId?: string | null;
@@ -482,6 +484,7 @@ function QuizResultPageModule({
       title={result.title}
     >
       <div>
+        {result.autoSubmitted ? <QuizAutoSubmittedNotice /> : null}
         {restartMessage && isAttemptLimitReached ? (
           <p
             className="mb-5 text-sm font-medium text-student-status-danger-fg"

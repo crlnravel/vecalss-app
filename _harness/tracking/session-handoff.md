@@ -1,5 +1,12 @@
 # Session Handoff
 
+## KRF-03 attempt duration complete (2026-10-10)
+
+- Implemented on isolated branch `krf-03-attempt-duration`, based on the integrated KRF-02 `dev` state. Shared `dev` and unrelated working edits were not modified. KRF-03 is ready for integration; the KRF-01 → KRF-02 → KRF-03 implementation chain is complete on its branches, while KRF-04 remains independent.
+- Per-attempt duration is pinned from the active version or admitted stable definition. Historical pinned timed/untimed rows are distinguishable; unversioned history stays unknown. Request paths auto-submit at/after the deadline under quiz → participation → attempt locks, preserving the last saved answers and disclosure policy. Close/archive do not limit the attempt's own deadline.
+- Final normal guarded group passed migration backfill, KRF-03 DB/UI contracts, Start availability, KRF-02 continuation DB, KRF-01 pending-release DB, Kuis versioning, standalone version storage, strict TypeScript, lint, and full `pnpm verify`. Two lint warnings remain (one existing Settings warning and one unused test counter); pg concurrent-query deprecation is existing. Spec and Standards final reviews are clear.
+- Migration applied and Prisma generated only against disposable local `vecalss_dev`. No browser/interactive check was performed. Other environments need normal migration deployment. Evidence: epic artifact `krf03-implementation-evidence`; issue: `.scratch/kuis-runtime-fixes/issues/03-attempt-duration.md`.
+
 ## KRF-02 active-attempt continuation complete (2026-10-10)
 
 - Integrated onto local `dev` through `fd21155` from isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`; six scoped implementation commits plus a tracking-only completion commit. Exact GPT-6.1-Sol/high explicitly approved by coordinator/user for this task. Unrelated uncommitted main-worktree files were preserved.
