@@ -215,6 +215,22 @@ async function run() {
       assert.equal((await newer.load())?.attempt.questions[0].prompt, "Pertanyaan awal");
     } finally { await newer.cleanup(); }
 
+    const racingStarts = await fixture();
+    try {
+      clock = base + 60_000;
+      const keyA = randomUUID();
+      const keyB = randomUUID();
+      const starts = await bounded(Promise.all([
+        racingStarts.start(student.id, keyA), racingStarts.start(student.id, keyB), racingStarts.start(student.id, keyA),
+      ]));
+      assert.ok(starts.every(start => start?.attempt.id === racingStarts.id));
+      assert.equal(await prisma.standaloneQuizStartCommand.count({ where: { attemptId: racingStarts.id } }), 3);
+      assert.equal(await prisma.standaloneQuizAttempt.count({ where: { participation: { quizId: racingStarts.quiz.id } } }), 3);
+      await submitStandaloneQuiz(racingStarts.id, student.id);
+      assert.equal((await racingStarts.start(student.id, keyA))?.attempt.status, "submitted");
+      assert.equal((await racingStarts.start(student.id, keyB))?.attempt.status, "submitted");
+    } finally { await racingStarts.cleanup(); }
+
     const admission = await fixture();
     try {
       await prisma.standaloneQuizItem.deleteMany({ where: { quizId: admission.quiz.id, quizVersion: { state: "draft" } } });
@@ -256,6 +272,8 @@ async function run() {
         const row = await f.stored();
         assert.equal(row.status, "submitted");
         assert.equal(row.answers[0].selectedOptionId, outcomes[1].status === "fulfilled" ? f.correct : f.wrong);
+        if (outcomes[1].status === "rejected") assert.match(String(outcomes[1].reason), /sudah dikirim/);
+        if (outcomes[0].status === "rejected") assert.match(String(outcomes[0].reason), /ditutup/);
         if (outcomes[0].status === "fulfilled") {
           assert.equal(outcomes[0].value?.attempt.id, f.id);
           assert.equal((await f.start(student.id, resumeKey))?.attempt.status, "submitted");
