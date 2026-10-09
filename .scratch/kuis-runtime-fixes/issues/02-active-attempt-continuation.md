@@ -20,6 +20,19 @@
 
 ## Implementation evidence (2026-10-09, partial)
 
+**Review correction gate:** Spec/Standards reviews cleared the mobile verb and
+real route-outcome corrections. The seventh user-approved guarded group failed
+at Next client-navigation import, before fixtures/assertions; subsequent checks
+were skipped (`/tmp/krf02-review-checks.log`). Coordinator-directed correction
+injects actual Next notFound from the page and a throwing test 404 sentinel in
+the script, keeping Next navigation outside the test-imported route seam.
+The separately approved eighth and final group completed: continuation DB exit 0,
+TypeScript exit 2 only on unchanged Materi `parentHref`, lint exit 0 with existing
+Settings warning, verify exit 1 after successful production compilation on the
+same Materi error. Logs: `/tmp/krf02-review-final-checks.log`, guard snapshot
+`/tmp/krf02-review-final-status.log`. No new correction or further launch needed
+in scope; ticket remains in progress pending coordinator integration/final gate.
+
 **Latest:** implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`.
 Final registered continuation DB suite passes (including multiple accepted keys,
 terminal replay, both archive/submit races and deterministic submit-before-replay)
@@ -27,7 +40,7 @@ in `/tmp/krf02-final.log`. Local migration applied and regenerated client; relat
 DB/storage/availability checks pass in `/tmp/krf02-migrated.log`. Six approved
 normal launch groups used. Lint passes; full verify compiles then fails baseline
 Materi `parentHref` prop typing. The three disclosed static checks still fail.
-Fresh independent Spec/Standards reviews are pending; integration gate remains
+Fresh independent Spec/Standards reviews are clear; integration gate remains
 open, so this ticket is not marked complete. The paragraphs below are phase-one
 history and are superseded by this latest result.
 

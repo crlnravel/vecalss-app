@@ -185,7 +185,7 @@ function QuizResultHeaderActions({
             variant="outline"
           >
             <RefreshCw />
-            <span className="hidden sm:inline">
+            <span>
               {isRestarting ? "Memulai…" : canResume ? "Lanjutkan" : "Ulangi"}
             </span>
           </Button>

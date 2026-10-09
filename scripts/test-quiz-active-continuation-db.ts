@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 
 import { prisma } from "@/lib/prisma";
 import { manageMentorDashboardQuiz } from "@/lib/quiz/mentor-dashboard-repository";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/quiz/repository";
 import { acquireEditLease, releaseEditLease } from "@/lib/resource-edit-lock/service";
 import { getQuizSubjectByCode } from "@/modules/quiz/data";
+import { getStudentQuizRouteData } from "@/modules/quiz/route-data";
 import { getAvailableQuizAttempt, getAvailableQuizPreview } from "@/modules/quiz/server-data";
 
 const OriginalDate = Date;
@@ -164,6 +164,24 @@ async function run() {
   }
 
   try {
+    // Exercise the same route outcome used after requireStudentSession. Real
+    // seeded student identities and DB loaders are used. Only the framework's
+    // notFound callback is replaced with a throwing route-404 sentinel.
+    // The quiz is still available here, so a preview fallback would succeed
+    // and cause these explicit-ID notFound assertions to fail.
+    const routeFixture = await fixture();
+    const routeNotFoundError = new Error("Test route 404");
+    const routeNotFound = (): never => { throw routeNotFoundError; };
+    const isNotFound = (error: unknown) => error === routeNotFoundError;
+    try {
+      assert.equal((await getStudentQuizRouteData(subjectSlug, routeFixture.quiz.slug, other.id, routeNotFound)).kind, "preview");
+      assert.equal((await getStudentQuizRouteData(subjectSlug, routeFixture.quiz.slug, student.id, routeNotFound)).kind, "attempt");
+      assert.equal((await getStudentQuizRouteData(subjectSlug, routeFixture.quiz.slug, student.id, routeNotFound, routeFixture.id)).kind, "attempt");
+      for (const explicitId of ["", "malformed", randomUUID()]) {
+        await assert.rejects(getStudentQuizRouteData(subjectSlug, routeFixture.quiz.slug, other.id, routeNotFound, explicitId), isNotFound);
+      }
+      await assert.rejects(getStudentQuizRouteData(subjectSlug, routeFixture.quiz.slug, other.id, routeNotFound, routeFixture.id), isNotFound, "Foreign explicit ID cannot fall through to an available preview");
+    } finally { await routeFixture.cleanup(); }
     for (const cutover of ["enabled", "disabled"]) {
       for (const boundary of [59_999, 60_000, 60_001]) {
         const f = await fixture(cutover);
@@ -322,9 +340,6 @@ async function run() {
       await Promise.allSettled([holder, submitting, replaying]);
       await ordered.cleanup();
     }
-    // Supplemental route wiring assertion after real loader ownership tests.
-    const route = readFileSync(new URL("../app/quiz/[slug]/[quizSlug]/page.tsx", import.meta.url), "utf8");
-    assert.match(route, /if \(searchParams\.attemptId !== undefined\) notFound\(\)/);
     console.log("Quiz active continuation DB contracts passed: boundaries, archives, route recovery, pins, ownership, admission, disclosure, replay and races.");
   } finally {
     globalThis.Date = OriginalDate;
