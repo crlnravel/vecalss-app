@@ -1,5 +1,13 @@
 # Session Handoff
 
+## F-9 / F-10 admission workflow planning (2026-10-10)
+
+- User requested a plan and product decisions before implementation. No application source changes, tests, browser or data mutations were performed for planning. Related fixes remain F-1 `53e1090` and F-5 `89193b8`.
+- Proposed epic artifact `tryout-f9-f10-admission-plan-20261010` records current source facts, D1–D8 open recommendations, user journeys, implementation sequence and acceptance groups. Consolidated lifecycle report links the plan and keeps F-9/F-10 unresolved.
+- Current source: three modes exist; published mode change rejects any attempt record; builder defaults to open with no exposed selector. Participant projection includes applicants without attempts, but Hasil only renders attempts. Embedded participant detail hides identity/back. Invite grants access immediately, notifies, restores rejected/revoked states; directory searches active platform students after owned-Tryout validation. Approval/invite session eligibility allows future opening but rejects expiry.
+- Critical integration points: draft selection before publish; preserve existing registration statuses on mode change; make registration list distinct from Hasil; current canonical context rejects Operasional + participant delivery; some grant commands need parent lifecycle fences if archive/hidden recommendations are accepted. Keep score/release payload sanitization, attempt pins, assignment revocation protection and current result gates.
+- Next: user aligns the open product behavior, then refine into approved implementation slices. No decisions in the proposed plan are settled by inference; do not mark it ready for an implementation agent yet. Fresh independent artifact critique completed; both P2 planning gaps are incorporated. D5 proposes consistent name plus mentor-visible email pending disclosure approval. D6 separates active registration from revoked session assignment; replay applies only to the same already-active assignment. Review artifact `tryout-f9-f10-admission-plan-review-20261010` records findings and disposition.
+
 ## F-5 Bank Soal creation accessible name complete (2026-10-10)
 
 - Commit `89193b8` on local `dev`: only `modules/mentor/KaptenQuestionBankCataloguePageModules.tsx` aria-label changed from “Buat Soal” to “Buat Bank”, matching visible text and title. User-selected gpt-6.1-sol/high confirmed for root and both independent reviewers.

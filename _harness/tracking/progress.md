@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## F-9 / F-10 admission workflow planning (2026-10-10)
+
+- [x] Read-only source trace mapped admission modes, existing commands, participant/result projections, invitation search/notification/restoration behavior, and current route redirects. No application changes, tests, browser runs or data mutations in this planning task.
+- [x] Proposed plan in epic `tryout-f9-f10-admission-plan-20261010`: eight open product decisions, staged implementation and sixteen detailed acceptance-check groups. Configuration before publish avoids an unintended open-registration interval; pending review must not depend on the Hasil/attempt list.
+- [x] Independent plan critique incorporated: active registration can have revoked session access; explicit restoration and filters cover that case. D5 also requires a consistent approved identity/disambiguator for same-name invitation targets. Review artifact `tryout-f9-f10-admission-plan-review-20261010`; both clarifications added without settling decisions.
+- [ ] Product alignment remains open. Canonical `participants` currently maps to Hasil and rejects Operasional + participant delivery, so all route/context consumers need coordinated changes. Restore the existing admission flow only after supported modes, grant timing, directory scope, restoration and archive/hidden behavior are approved. F-9/F-10 remain unresolved.
+
 ## F-5 Bank Soal creation accessible name complete (2026-10-10)
 
 - [x] Commit `89193b8` aligns the shared catalogue creation button's accessible name with visible “Buat Bank”. One source line only; unrelated dirty files preserved.
