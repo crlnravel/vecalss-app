@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "tryout-f1-archived-history",
+      "name": "Mentor access to archived Tryout history",
+      "description": "Open owned archived Tryouts from the catalogue and inspect preserved sessions, participants and attempt details without authoring or operational mutation controls.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "53e1090 on local dev. Approved Ego checks passed catalogue/history/detail navigation, direct reloads, parent return, original empty archive, participant mismatch refusal and active-draft smoke check; student-session mentor access redirected to dashboard. No Tryout data mutations. Focused ESLint, TypeScript, workflow projection contract and full pnpm verify pass (two existing unrelated warnings). Independent gpt-6.1-sol/high Standards and Spec reviews clear. Evidence: epic tryout-f1-history-fix-20261010; consolidated lifecycle report marks F-1 resolved. Restore remains undecided; broader lifecycle rows retain partial/unverified status."
+    },
+    {
       "id": "krf02-active-attempt-continuation",
       "name": "Resume active Kuis after close or archive",
       "description": "Recover owned active work before admission gates, preserve pins and answers, and keep accepted resume keys idempotent after submission.",

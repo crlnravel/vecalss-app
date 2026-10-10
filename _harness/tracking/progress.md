@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## F-1 archived Tryout history complete (2026-10-10)
+
+- [x] Committed `53e1090` on local `dev`: archived catalogue cards open owned session/participant history, and archived attempt details show participant identity plus seven test records without mutation controls. Draft/published paths and edit exclusion remain intact.
+- [x] Approved local Ego verification passed catalogue navigation, history/attempt reload, parent return, the originally reported empty archived draft, mismatched participant refusal, and active-draft smoke check. A student session redirected to `/dashboard`. No Tryout data mutations; TaskSpace 49 finished.
+- [x] Focused ESLint, TypeScript, workflow projection contract, and full `pnpm verify` pass. Two existing unrelated lint warnings remain. Independent clean-context gpt-6.1-sol/high Standards and Spec reviews are clear.
+- [x] Epic `tryout-f1-history-fix-20261010` records evidence and limits; consolidated lifecycle report marks F-1 resolved. Archive recovery remains undecided; broader lifecycle rows retain their explicit partial/unverified outcomes. Unrelated dirty files were preserved.
+
 ## KRF-03 attempt duration complete (2026-10-10)
 
 - Implemented and verified on isolated branch `krf-03-attempt-duration`; the shared `dev` checkout was left untouched. The work includes the per-attempt duration/start/deadline migration, pinned and disabled-cutover admission, request-time automatic submission, and student countdown/state.

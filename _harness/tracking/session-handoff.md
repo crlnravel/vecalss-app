@@ -1,5 +1,14 @@
 # Session Handoff
 
+## F-1 archived Tryout history complete (2026-10-10)
+
+- Implementation `53e1090` on local `dev`; five scoped files only. User explicitly selected gpt-6.1-sol/high for bug fixes, verified for the root and independent Standards/Spec reviewers.
+- Archived cards now link to the owned history route. Preserved session schedules and gated participant/result tables are visible; archived attempt detail has participant identity, seven test records and parent navigation without scoring/disconnect controls. Existing tutor/owner checks and attempt-context validation remain.
+- Local Ego verification passed catalogue/history/detail navigation, direct reloads, parent return, empty history on original record `4e524e00-4328-4c4f-a51c-cd3dbc73f609`, participant mismatch refusal, and active draft smoke check. A changed seeded-student session redirected the mentor reload to `/dashboard`; tutor login restored. No Tryout data mutations. Optional screenshot CDP capture timed out; no screenshot evidence is claimed. TaskSpace 49 finished, no agent-owned server was started.
+- Guarded focused ESLint, `tsc --noEmit`, `test:tryout-workflow-projection`, and full `pnpm verify` passed. Final gate shell `750f215d-d081-4302-b02e-691472978c98` exited 0. Existing Settings/test lint warnings remain. Both independent reviews found no actionable scoped issue.
+- Evidence: epic `tryout-f1-history-fix-20261010`; consolidated `tryout-lifecycle-qa-follow-up-20261008` marks F-1 resolved. Restore remains a product decision; owner-authorized detail scores and server mutation permissions predate this change. Other lifecycle findings remain as reported; unrelated dirty work was preserved.
+- Next: F-5 accessible-name alignment is the next self-contained confirmed fix. F-9/F-10 require the supported admission workflow to be settled; F-7/F-8 and archive recovery remain product decisions.
+
 ## KRF-03 attempt duration complete (2026-10-10)
 
 - Implemented on isolated branch `krf-03-attempt-duration`, based on the integrated KRF-02 `dev` state. Shared `dev` and unrelated working edits were not modified. KRF-03 is ready for integration; the KRF-01 → KRF-02 → KRF-03 implementation chain is complete on its branches, while KRF-04 remains independent.
