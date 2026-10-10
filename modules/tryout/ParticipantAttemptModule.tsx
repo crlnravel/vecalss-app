@@ -80,6 +80,8 @@ type State = {
     status: string;
   };
   attemptId: string;
+  availableUntil: Date | string | null;
+  serverNow: string;
   runs: RunSummary[];
   status: string;
   tryoutDescription: string | null;
@@ -112,6 +114,7 @@ function ParticipantAttemptStatusScreen({
   busy,
   finished,
   nextRun,
+  sessionEnded,
   onBegin,
   returnToHref,
   runs,
@@ -125,6 +128,7 @@ function ParticipantAttemptStatusScreen({
   busy: boolean;
   finished: boolean;
   nextRun?: RunSummary;
+  sessionEnded: boolean;
   onBegin: (runId: string) => void;
   returnToHref?: string;
   runs: RunSummary[];
@@ -171,6 +175,8 @@ function ParticipantAttemptStatusScreen({
             )}
           </dl>
         </section>
+
+        {sessionEnded ? <p aria-live="polite" className="text-sm font-medium text-secondary-700" role="status">Waktu sesi Tryout sudah berakhir.</p> : null}
 
         {finished ? (
           <section className="rounded-card border border-primary-100 bg-white p-6 sm:p-8">
@@ -227,6 +233,9 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const [submitOpen, setSubmitOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const activeRunRef = useRef<string | null>(null);
+  const activeDeadlineRefreshRef = useRef<string | null>(null);
+  const sessionDeadlineRefreshRef = useRef<number | null>(null);
+  const serverClockOffsetRef = useRef<number | null>(null);
   const stateRef = useRef<State | null>(null);
   const router = useRouter();
   const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
@@ -249,6 +258,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     setLoadError(null);
     try {
       const response = await tryoutAttemptStateAction(attemptId);
+      const responseReceivedAt = performance.now();
       if (!response.ok) {
         if (stateRef.current) {
           showToast(response.message, {
@@ -262,6 +272,11 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
         return;
       }
       const nextState = response.result as State;
+      const serverNow = new Date(nextState.serverNow).getTime();
+      if (Number.isFinite(serverNow)) {
+        serverClockOffsetRef.current = serverNow - responseReceivedAt;
+        setNow(serverNow);
+      }
       const nextRunId = nextState.activeRun?.id ?? null;
       let restoredPositionMessage = "";
       if (nextRunId !== activeRunRef.current) {
@@ -311,7 +326,10 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => void refresh(), 0);
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const interval = window.setInterval(() => {
+      const serverClockOffset = serverClockOffsetRef.current;
+      setNow(serverClockOffset === null ? Date.now() : serverClockOffset + performance.now());
+    }, 1000);
     return () => {
       window.clearTimeout(loadTimer);
       window.clearInterval(interval);
@@ -319,6 +337,9 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   }, [refresh]);
 
   const run = state?.activeRun;
+  const parsedSessionDeadline = state?.availableUntil ? new Date(state.availableUntil).getTime() : null;
+  const sessionDeadline = parsedSessionDeadline !== null && Number.isFinite(parsedSessionDeadline) ? parsedSessionDeadline : null;
+  const sessionEnded = sessionDeadline !== null && now >= sessionDeadline;
   const snapshot = run?.contentSnapshot;
   const items = useMemo(
     () => {
@@ -371,10 +392,37 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   }, [activeRunId, attemptId, fullscreenPrompt]);
 
   useEffect(() => {
-    if (!run?.serverDeadlineAt || remainingSeconds(run.serverDeadlineAt, now) !== 0 || busy) return;
+    const runDeadline = run?.serverDeadlineAt ? new Date(run.serverDeadlineAt).getTime() : null;
+    const runDeadlineReached = runDeadline !== null && remainingSeconds(run?.serverDeadlineAt ?? null, now) === 0;
+    const sessionDeadlineReached = Boolean(run && sessionDeadline !== null && now >= sessionDeadline);
+    const deadlineKey = run && sessionDeadlineReached
+      ? `session:${sessionDeadline}`
+      : run && runDeadlineReached
+        ? `run:${run.id}:${runDeadline}`
+        : null;
+    if (!deadlineKey || busy || activeDeadlineRefreshRef.current === deadlineKey) return;
+    activeDeadlineRefreshRef.current = deadlineKey;
     const timeout = window.setTimeout(() => void refresh(), 0);
     return () => window.clearTimeout(timeout);
-  }, [busy, now, refresh, run?.serverDeadlineAt]);
+  }, [busy, now, refresh, run, sessionDeadline]);
+
+  useEffect(() => {
+    if (sessionDeadline === null) return;
+    const serverClockOffset = serverClockOffsetRef.current;
+    const currentTime = serverClockOffset === null ? Date.now() : serverClockOffset + performance.now();
+    const timeout = window.setTimeout(() => {
+      const latestServerClockOffset = serverClockOffsetRef.current;
+      setNow(latestServerClockOffset === null ? Date.now() : latestServerClockOffset + performance.now());
+    }, Math.max(0, sessionDeadline - currentTime));
+    return () => window.clearTimeout(timeout);
+  }, [sessionDeadline, state]);
+
+  useEffect(() => {
+    if (!state || state.status !== "in_progress" || state.activeRun || sessionDeadline === null || now < sessionDeadline || busy) return;
+    if (sessionDeadlineRefreshRef.current === sessionDeadline) return;
+    sessionDeadlineRefreshRef.current = sessionDeadline;
+    void refresh();
+  }, [busy, now, refresh, sessionDeadline, state]);
 
   const item = items[Math.min(index, Math.max(0, items.length - 1))];
 
@@ -533,6 +581,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     safeReturnHref,
     save,
     saveState,
+    sessionEnded,
     selected: selectedOptionIds,
     selectionMode,
     setExitOpen,
@@ -561,9 +610,9 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
     return <TypedRouteState className="student-page-canvas" description="Memulihkan pengerjaan Tryout. Jawaban yang tersimpan tidak diubah." kind="loading" title="Pengerjaan Tryout" />;
   }
 
-  const nextRun = state.runs.find((candidate) => candidate.status === "pending");
+  const nextRun = controller.sessionEnded ? undefined : state.runs.find((candidate) => candidate.status === "pending");
   if (!run) {
-    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} nextRun={nextRun} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} nextRun={nextRun} sessionEnded={controller.sessionEnded} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
   }
   if (!item) {
     return <main className="student-page-canvas mx-auto min-h-svh max-w-3xl px-5 py-12"><p role="alert">Snapshot soal aktif tidak tersedia. Muat ulang untuk memulihkan keadaan server.</p><Button className="mt-5" onClick={() => void controller.refresh()} variant="default">Muat ulang</Button></main>;

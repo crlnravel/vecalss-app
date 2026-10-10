@@ -1088,14 +1088,14 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
 
 async function attemptState(attemptId: string, studentId: string) {
   const now = new Date();
-  return prisma.$transaction(async (tx) => {
+  const state = await prisma.$transaction(async (tx) => {
     const scope = await lockAttemptScope(tx, attemptId);
     if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({
       where: { id: attemptId, studentId },
       include: {
         assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
-        deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, fullscreenPrompt: true } },
+        deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, fullscreenPrompt: true } },
         tryout: {
           select: {
             createdBy: { select: { fullName: true } },
@@ -1199,6 +1199,7 @@ async function attemptState(attemptId: string, studentId: string) {
       activeRun: exposed,
       assessmentRelease: attempt.assessmentRelease ? toParticipantAssessmentReleaseMetadata(attempt.assessmentRelease) : null,
       attemptId,
+      availableUntil: attempt.deliverySession.availableUntil,
       status: (await tx.tryoutAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { status: true } })).status,
       tryoutDescription: attempt.tryout.description,
       tryoutEventName: attempt.tryout.examEvent?.name ?? null,
@@ -1212,6 +1213,7 @@ async function attemptState(attemptId: string, studentId: string) {
       })),
     };
   });
+  return { ...state, serverNow: new Date().toISOString() };
 }
 
 async function recordTryoutIntegrityEvent(attemptId: string, runId: string, eventType: TryoutIntegrityEventType, studentId: string) {
