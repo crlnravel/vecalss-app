@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## F-9 / F-10 decisions approved; implementation tickets prepared (2026-10-10)
+
+- [x] User explicitly approved recommended D1–D8. Governing epic plan `tryout-f9-f10-admission-plan-20261010` now records approval, including mentor-only name/email identity, active-registration/revoked-session restoration, and archive history-only behavior.
+- [x] Prepared four todo ticket artifacts grouped by `tryout-admission-implementation-20261010`: TA-01 registration discovery/review; TA-02 draft/published modes; TA-03 invitations/restoration; TA-04 integrated A–P verification. Each feature slice includes its own checks and reviews.
+- [x] Dependencies: TA-01 first; TA-02/TA-03 depend on its navigation/identity contracts and are independent of one another; TA-04 depends on all three. Recommend sequential feature execution to avoid shared-workspace edits. Approved fix model remains gpt-6.1-sol/high.
+- [ ] Breakdown/execution review pending; no implementation, tests, browser checks or data mutations performed for ticket preparation. Consolidated report keeps F-9/F-10 unresolved until verified outcomes. No further D1–D8 approval needed.
+
 ## F-9 / F-10 admission workflow planning (2026-10-10)
 
 - [x] Read-only source trace mapped admission modes, existing commands, participant/result projections, invitation search/notification/restoration behavior, and current route redirects. No application changes, tests, browser runs or data mutations in this planning task.

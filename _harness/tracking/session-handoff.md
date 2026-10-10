@@ -1,5 +1,13 @@
 # Session Handoff
 
+## F-9 / F-10 implementation-ticket handoff (2026-10-10)
+
+- User approved the recommended D1–D8 and requested ticket preparation. Epic `tryout-f9-f10-admission-plan-20261010` is the current approved product authority; its earlier open/proposed state is superseded. Do not re-request D1–D8 approval.
+- Four todo tickets in epic `tickets/tryout-admission-01-participant-review`, `tickets/tryout-admission-02-access-modes`, `tickets/tryout-admission-03-invitations`, `tickets/tryout-admission-04-lifecycle-verification`; dependency/coverage view in `tryout-admission-implementation-20261010`. Each stands alone with scope, blockers, acceptance, out-of-scope and execution constraints.
+- Frontier TA-01 creates participant discovery/review and shared canonical navigation/identity. TA-02 and TA-03 both depend on TA-01 but not each other; recommend sequential execution for shared files. TA-04 integrates all A–P checks, exact server cutoff assertions, browser transition, races/counts, offline recovery and prior-fix regression. Fix implementation uses gpt-6.1-sol/high in fresh context.
+- Approved identity disclosure is account name + email restricted to owned-Tryout mentor workflows; avoid public/student directory props. Registration status and session access are separate: restore active registration + revoked target assignment explicitly, and replay only same already-active assignment. Keep existing attempt pins/answers and result gates.
+- Prepared for ticket-breakdown review; no application edits/tests/browser/data mutations in this task. F-9/F-10 still unresolved. Next user instruction can approve the breakdown and start TA-01; decisions need reopening only for material new discoveries.
+
 ## F-9 / F-10 admission workflow planning (2026-10-10)
 
 - User requested a plan and product decisions before implementation. No application source changes, tests, browser or data mutations were performed for planning. Related fixes remain F-1 `53e1090` and F-5 `89193b8`.
