@@ -1,5 +1,12 @@
 # Session Handoff
 
+## F-5 Bank Soal creation accessible name complete (2026-10-10)
+
+- Commit `89193b8` on local `dev`: only `modules/mentor/KaptenQuestionBankCataloguePageModules.tsx` aria-label changed from “Buat Soal” to “Buat Bank”, matching visible text and title. User-selected gpt-6.1-sol/high confirmed for root and both independent reviewers.
+- Approved local Ego verification on Tryout Bank Soal passed accessible snapshot/DOM and computed role/name activation, opening the correct creation dialog. Dismissal, reload and shared Kuis accessible label passed. No records created or mutated; TaskSpace 50 finished; no agent-owned server started.
+- Guarded `test:mentor-bank-soal-catalogue-context-menu`, `tsc --noEmit`, and `pnpm verify` passed. Shell `a72c6c7c-f59c-43bc-9de8-114f5b4e6e67` exited 0; existing Settings/test warnings remain. Standards and Spec report zero findings. Evidence: epic `tryout-f5-accessible-name-fix-20261010`; consolidated lifecycle report marks F-5 resolved.
+- Remaining confirmed mentor workflow gaps: F-9 admission configuration and F-10 pending admission discovery/participant identity. Resolve supported admission modes before implementation; F-7/F-8 and archive recovery remain product decisions. Unrelated dirty work is preserved.
+
 ## F-1 archived Tryout history complete (2026-10-10)
 
 - Implementation `53e1090` on local `dev`; five scoped files only. User explicitly selected gpt-6.1-sol/high for bug fixes, verified for the root and independent Standards/Spec reviewers.

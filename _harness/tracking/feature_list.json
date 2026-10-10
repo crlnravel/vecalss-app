@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "tryout-f5-bank-accessible-name",
+      "name": "Bank creation control accessible name",
+      "description": "Align the shared mentor Bank Soal creation button's accessible name with its visible Buat Bank action.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "89193b8; one-line label correction. Local Ego accessible snapshot/DOM, role/name activation opening Tryout bank creation, dismissal, reload and Kuis label passed without data mutation. Catalogue lifecycle contract, TypeScript and full lint/build pass with two existing unrelated warnings. Independent gpt-6.1-sol/high Standards and Spec reviews clear. Epic tryout-f5-accessible-name-fix-20261010; consolidated QA report marks F-5 resolved."
+    },
+    {
       "id": "tryout-f1-archived-history",
       "name": "Mentor access to archived Tryout history",
       "description": "Open owned archived Tryouts from the catalogue and inspect preserved sessions, participants and attempt details without authoring or operational mutation controls.",

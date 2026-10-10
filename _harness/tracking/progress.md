@@ -1,5 +1,11 @@
 # Session Progress Log
 
+## F-5 Bank Soal creation accessible name complete (2026-10-10)
+
+- [x] Commit `89193b8` aligns the shared catalogue creation button's accessible name with visible “Buat Bank”. One source line only; unrelated dirty files preserved.
+- [x] Local Ego TaskSpace 50 passed the Tryout accessible snapshot/DOM, computed role/name click opening “Buat Bank Soal Tryout”, dismissal, reload, and shared Kuis label. No data mutation; space finished.
+- [x] Catalogue lifecycle contract, TypeScript and full `pnpm verify` pass, with two existing unrelated warnings. Clean-context gpt-6.1-sol/high Standards and Spec reviews report zero findings. Epic `tryout-f5-accessible-name-fix-20261010` and consolidated QA report record the resolution.
+
 ## F-1 archived Tryout history complete (2026-10-10)
 
 - [x] Committed `53e1090` on local `dev`: archived catalogue cards open owned session/participant history, and archived attempt details show participant identity plus seven test records without mutation controls. Draft/published paths and edit exclusion remain intact.
