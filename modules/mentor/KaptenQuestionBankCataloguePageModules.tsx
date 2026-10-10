@@ -1617,7 +1617,7 @@ function QuestionBankCataloguePageContent({
               <FolderPlus />
             </Button>
             <Button
-              aria-label="Buat Soal"
+              aria-label="Buat Bank"
               onClick={() => {
                 setCreateDialogOpen(true);
                 // Opening a local dialog must not remount the server catalogue.
