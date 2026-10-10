@@ -5,7 +5,7 @@ import { Calculator, ChevronLeft, ShieldAlert } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { ReferencePageHeader, ReferenceSectionHeading, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
@@ -83,11 +83,13 @@ function KaptenTryoutAttemptDetailPageModule({
   attemptId,
   embedded = false,
   initial,
+  readOnly = false,
 }: {
   attemptId: string;
   backHref?: string;
   embedded?: boolean;
   initial: TryoutOperationsView;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const delivery = initial.sessions.find((session) =>
@@ -112,7 +114,7 @@ function KaptenTryoutAttemptDetailPageModule({
   };
 
   const handleCalculate = async () => {
-    if (!auditReason.trim()) return;
+    if (readOnly || !auditReason.trim()) return;
     setBusy("calculate");
     report(
       "Skor tryout berhasil dihitung.",
@@ -121,7 +123,7 @@ function KaptenTryoutAttemptDetailPageModule({
   };
 
   const handleDisconnectStart = async () => {
-    if (!activeRun || !auditReason.trim()) return;
+    if (readOnly || !activeRun || !auditReason.trim()) return;
     setBusy("disconnect-start");
     report(
       "Waktu mulai gangguan koneksi berhasil dicatat.",
@@ -130,7 +132,7 @@ function KaptenTryoutAttemptDetailPageModule({
   };
 
   const handleDisconnectReconcile = async () => {
-    if (!activeRun || !auditReason.trim()) return;
+    if (readOnly || !activeRun || !auditReason.trim()) return;
     setBusy("disconnect-reconcile");
     report(
       "Pencatatan gangguan koneksi selesai. Durasi dihitung berdasarkan waktu sistem.",
@@ -141,10 +143,11 @@ function KaptenTryoutAttemptDetailPageModule({
   return (
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "operations" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="outline"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" title={attempt.student} /></div>}
+      {embedded && readOnly ? <ReferenceSectionHeading action={<StatusBadge status={attempt.status} />} title={attempt.student} /> : null}
       <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
+      <div className={cn("mt-5 grid gap-5", !readOnly && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>
         <AttemptRunsSection attempt={attempt} />
-        <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onCalculate={() => void handleCalculate()} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />
+        {readOnly ? null : <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onCalculate={() => void handleCalculate()} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />}
       </div>
     </div>
   );

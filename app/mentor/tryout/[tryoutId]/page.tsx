@@ -11,6 +11,7 @@ import {
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
 import { getTryoutForEdit } from "@/lib/tryout/repository";
+import { KaptenTryoutArchivedHistoryPageModule } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
@@ -113,7 +114,7 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // authorized detail routes so the client-bound workspace cannot inspect
   // embargoed results by walking its initial props.
   const operationsInitial = operations ? toTryoutWorkspaceView(operations) : null;
-  if (!initialDraft || !operationsInitial) notFound();
+  if (!operationsInitial || (!initialDraft && operationsInitial.status !== "archived")) notFound();
   const issues = collectTryoutContextIssues(parsedQuery, parentDraft, operationsInitial);
   if (issues.length) {
     return <TryoutContextError issues={issues} session={session} />;
@@ -128,5 +129,13 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   const canonicalHref = buildMentorTryoutHref(tryoutId, normalizedContext);
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
   redirectLegacyTryoutWorkspace(tryoutId, parsedQuery.workspace);
+  if (operationsInitial.status === "archived") {
+    return (
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Riwayat" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+        <KaptenTryoutArchivedHistoryPageModule initial={operationsInitial} />
+      </MentorWorkspaceShell>
+    );
+  }
+  if (!initialDraft) notFound();
   return <TryoutWorkspace activeWorkspace={initialWorkspaceForContext(parsedQuery)} initialDraft={initialDraft} initialOperations={operationsInitial} parentDraft={parentDraft} session={session} tryoutId={tryoutId} />;
 }

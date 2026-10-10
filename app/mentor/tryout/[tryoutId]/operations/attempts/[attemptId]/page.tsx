@@ -11,6 +11,7 @@ import {
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
+import { KaptenTryoutArchivedHistoryFrame } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryoutAttemptDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -45,7 +46,7 @@ export default async function TryoutAttemptDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
+  if (operations.status !== "published" && operations.status !== "archived") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
   const delivery = operations.sessions.find((candidate) => candidate.attempts.some((attempt) => attempt.id === attemptId));
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();
@@ -63,6 +64,16 @@ export default async function TryoutAttemptDetailPage({
     );
   }
   const backHref = buildMentorTryoutOperationsHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: delivery.id, workspace: parsedQuery.workspace });
+
+  if (operations.status === "archived") {
+    return (
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+        <KaptenTryoutArchivedHistoryFrame backHref={buildMentorTryoutHref(tryoutId)} backLabel="Kembali ke riwayat Tryout" initial={operations}>
+          <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} embedded initial={operations} readOnly />
+        </KaptenTryoutArchivedHistoryFrame>
+      </MentorWorkspaceShell>
+    );
+  }
 
   return (
     <MentorWorkspaceShell
