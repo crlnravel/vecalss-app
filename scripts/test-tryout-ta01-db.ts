@@ -41,9 +41,13 @@ try {
     updatedByUserId: fixture.ownerId,
   } });
   await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "unprepared session", false, unpreparedSession.id));
-  await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { status: "active", availableUntil: new Date() } });
-  await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "expired session", false, fixture.sessionId));
-  await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { availableUntil: originalSession.availableUntil } });
+  const expiredUntil = new Date(Date.now() - 1_000);
+  await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { status: "active", availableFrom: new Date(expiredUntil.getTime() - 60_000), availableUntil: expiredUntil } });
+  try {
+    await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "expired session", false, fixture.sessionId));
+  } finally {
+    await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { availableFrom: originalSession.availableFrom, availableUntil: originalSession.availableUntil } });
+  }
   assert.equal(await prisma.tryoutAdmission.findUniqueOrThrow({ where: { id: approve.id } }).then((admission) => admission.status), "pending");
   assert.equal(await prisma.tryoutDeliveryAssignment.count({ where: { admissionId: approve.id } }), 0);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { admissionId: approve.id } }), 0);
