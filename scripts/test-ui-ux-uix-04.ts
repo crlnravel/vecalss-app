@@ -205,7 +205,7 @@ includes(notificationPopover, "min-h-11", "Notification navigation actions must 
 const assessment = read("modules/assessment/AssessmentWorkspace.tsx");
 const attempt = read("modules/tryout/ParticipantAttemptModule.tsx");
 const result = read("modules/tryout/ParticipantResultModule.tsx");
-const quizResult = read("modules/quiz/QuizResultPageModule.tsx");
+const quizResult = read("modules/quiz/QuizResultView.tsx");
 
 includes(assessment, "size-11", "Assessment navigation controls must meet the 44px target.");
 includes(assessment, "min-h-11 min-w-11", "Assessment picker markers must meet the 44px target.");
