@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## TA-01 approved and delegated (2026-10-10)
+
+- User approved the four-ticket breakdown and authorized TA-01 implementation/local verification, exact gpt-6.1-sol/high. Clean-context child `dcd238fc-12a7-4507-848a-0abec0ad045f` verified its model and owns participant review implementation; root coordinates final QA/reviews. Broker request `8633cad7-7fd8-4638-b55c-b16d76a34076` requires a completion reply.
+- Ticket/story execution state is in progress. D1–D8 and breakdown do not need further approval. Scope stays TA-01; TA-02/03/04 remain todo. Child preserves existing dirty work and records scoped commits/fixture IDs/gates in `tryout-ta01-implementation-evidence-20261010`.
+- Root acceptance matrix in epic `tryout-ta01-local-qa-20261010` covers navigation/no-attempt discovery, identity, decisions/replay, session end boundaries, archive staleness, ownership/disclosure, recovery/accessibility and regressions. All product verification remains pending at dispatch.
+- Local diagnostics: login HTTP 200, peer-owned dev server alive; Obscura :9222 absent. No root Node/browser/DB launch. Child performs guarded focused checks before final root local QA; do not launch parallel heavy groups or stop peer-owned servers. Completion depends on evidence and independent reviews, not source wiring alone.
+
 ## F-9 / F-10 decisions approved; implementation tickets prepared (2026-10-10)
 
 - [x] User explicitly approved recommended D1–D8. Governing epic plan `tryout-f9-f10-admission-plan-20261010` now records approval, including mentor-only name/email identity, active-registration/revoked-session restoration, and archive history-only behavior.
