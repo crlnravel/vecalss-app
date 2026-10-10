@@ -1039,7 +1039,10 @@ function QuestionBankDetailContent({
     try {
       const result = await deleteQuestionBankAction(
         bank.id,
-        resourceLock.proof ?? undefined,
+        {
+          editLease: resourceLock.proof ?? undefined,
+          expectedRevision: bank.revision ?? 1,
+        },
       );
       if (!result.ok) {
         showToast(result.message, { variant: "error" });

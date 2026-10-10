@@ -89,13 +89,13 @@ try {
   assert.equal(lease.state, "owned");
   const proof = { token, generation: lease.generation! };
   assert.equal((await listQuestionBankPage({ purpose: "quiz" })).total, 1);
-  await assert.rejects(deleteQuestionBank(bank.id, tutor.id), "Deletion must require an edit lease");
+  await assert.rejects(deleteQuestionBank(bank.id, tutor.id, { expectedRevision: bank.revision }), "Deletion must require an edit lease");
   const archived = await updateQuestionBankLifecycle(bank.id, "archive", tutor.id, { expectedRevision: bank.revision, editLease: proof });
   assert.equal((await listQuestionBankPage({ purpose: "quiz", status: "archived" })).total, 1, "Ordinary archives remain available");
   const restored = await updateQuestionBankLifecycle(bank.id, "restore", tutor.id, { expectedRevision: archived.revision, editLease: proof });
   assert.equal(restored.status, "published");
   const usedQuestion = await prisma.quizItem.create({ data: { quizId: randomUUID(), questionId, sortOrder: 1 } });
-  await assert.rejects(deleteQuestionBank(bank.id, tutor.id, proof), /sudah digunakan/, "Banks in use retain the existing deletion guard");
+  await assert.rejects(deleteQuestionBank(bank.id, tutor.id, { expectedRevision: restored.revision, editLease: proof }), /sudah digunakan/, "Banks in use retain the existing deletion guard");
   assert.equal((await listQuestionBankPage({ purpose: "quiz" })).total, 1, "A rejected deletion must leave the bank visible");
   await prisma.quizItem.delete({ where: { id: usedQuestion.id } });
 
@@ -107,23 +107,37 @@ try {
   const packageLease = await acquireEditLease({ resourceId: packageBank.id, resourceType: "question_bank", holderUserId: tutor.id, newToken: packageToken });
   const packageProof = { token: packageToken, generation: packageLease.generation! };
   const draftPackage = await prisma.reusableQuestionPackage.create({ data: { code: `package-${randomUUID()}`, title: "Package draft", sourceBankId: packageBank.id, subtestId: subtest.id, createdByUserId: tutor.id, updatedByUserId: tutor.id } });
-  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, packageProof), /sudah digunakan/);
+  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, { expectedRevision: packageBank.revision, editLease: packageProof }), /sudah digunakan/);
   await prisma.reusableQuestionPackage.update({ where: { id: draftPackage.id }, data: { sourceBankId: otherBank.id } });
   const packageQuestionId = randomUUID();
   const packageRevisionId = randomUUID();
   await prisma.question.create({ data: { id: packageQuestionId, code: `package-question-${packageQuestionId}`, questionBankId: packageBank.id, subtestId: subtest.id, stem: "Package source question", currentRevisionId: packageRevisionId, createdByUserId: tutor.id, updatedByUserId: tutor.id } });
   await prisma.questionRevision.create({ data: { id: packageRevisionId, questionId: packageQuestionId, revisionNo: 1, stem: "Package source question", contentDigest: "fixture", createdByUserId: tutor.id, updatedByUserId: tutor.id } });
   const packageItem = await prisma.reusableQuestionPackageItem.create({ data: { packageId: draftPackage.id, sourceQuestionId: packageQuestionId, sourceQuestionRevisionId: packageRevisionId, sortOrder: 1, pointValue: 1 } });
-  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, packageProof), /sudah digunakan/);
+  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, { expectedRevision: packageBank.revision, editLease: packageProof }), /sudah digunakan/);
   assert.equal((await prisma.questionRevision.findUniqueOrThrow({ where: { id: packageRevisionId } })).status, "draft", "Rejected deletion must preserve the package's source revision");
   await prisma.reusableQuestionPackageItem.delete({ where: { id: packageItem.id } });
   const packageVersion = await prisma.reusableQuestionPackageVersion.create({ data: { packageId: draftPackage.id, sourceBankId: packageBank.id, versionNo: 1, createdByUserId: tutor.id } });
-  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, packageProof), /sudah digunakan/);
+  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, { expectedRevision: packageBank.revision, editLease: packageProof }), /sudah digunakan/);
   await prisma.reusableQuestionPackageVersion.update({ where: { id: packageVersion.id }, data: { sourceBankId: otherBank.id } });
   await prisma.reusableQuestionPackageVersionBankScope.create({ data: { packageVersionId: packageVersion.id, questionBankId: packageBank.id } });
-  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, packageProof), /sudah digunakan/);
+  await assert.rejects(deleteQuestionBank(packageBank.id, tutor.id, { expectedRevision: packageBank.revision, editLease: packageProof }), /sudah digunakan/);
   assert.equal((await prisma.questionBank.findUniqueOrThrow({ where: { id: packageBank.id } })).deletedAt, null);
-  await deleteQuestionBank(bank.id, tutor.id, proof);
+  // Archive/restore advanced the bank while the same edit proof stayed valid.
+  // A stale detail tab must not delete that newer, now-unreferenced state.
+  assert.ok(restored.revision > bank.revision);
+  const bankBeforeStaleDelete = await prisma.questionBank.findUniqueOrThrow({ where: { id: bank.id } });
+  const questionBeforeStaleDelete = await prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+  const revisionBeforeStaleDelete = await prisma.questionRevision.findUniqueOrThrow({ where: { id: revisionId } });
+  await assert.rejects(
+    deleteQuestionBank(bank.id, tutor.id, { expectedRevision: bank.revision, editLease: proof }),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "stale_revision",
+    "A valid edit lease must not allow a stale revision to delete a newer bank",
+  );
+  assert.deepEqual(await prisma.questionBank.findUniqueOrThrow({ where: { id: bank.id } }), bankBeforeStaleDelete, "Rejected stale deletion must preserve the bank's revision and complete state");
+  assert.deepEqual(await prisma.question.findUniqueOrThrow({ where: { id: questionId } }), questionBeforeStaleDelete, "Rejected stale deletion must not archive question identities");
+  assert.deepEqual(await prisma.questionRevision.findUniqueOrThrow({ where: { id: revisionId } }), revisionBeforeStaleDelete, "Rejected stale deletion must not retire question history");
+  assert.deepEqual(await deleteQuestionBank(bank.id, tutor.id, { expectedRevision: restored.revision, editLease: proof }), { id: bank.id }, "The current revision and same valid lease must allow deletion");
   assert.equal((await listQuestionBankPage({ purpose: "quiz" })).total, 0, "A successfully deleted bank must disappear from the default catalogue");
   assert.equal((await listQuestionBankPage({ purpose: "quiz", status: "archived" })).total, 0, "Deletion must not become a restorable archive");
   assert.equal(await getQuestionBankForEdit(bank.id), null, "Deleted detail URLs must no longer resolve");

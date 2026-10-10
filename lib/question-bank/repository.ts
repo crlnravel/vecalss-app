@@ -1769,18 +1769,21 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
 async function deleteQuestionBank(
   id: string,
   actorId: string,
-  editLease?: AuthoringEditLease,
+  options: QuestionBankLifecycleOptions,
 ) {
   return prisma.$transaction(async (tx) => {
     await assertAuthoringEditLease(
       tx,
       { resourceId: id, resourceType: "question_bank" },
       actorId,
-      editLease,
+      options.editLease,
     );
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id, deletedAt: null }, select: { id: true, revision: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.", { code: "not_found" });
+    if (bank.revision !== options.expectedRevision) {
+      throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.", { code: "stale_revision" });
+    }
     const modifierId = actorId;
 
     const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount, sourcePackageCount, sourcePackageVersionCount, scopedPackageVersionCount] = await Promise.all([
