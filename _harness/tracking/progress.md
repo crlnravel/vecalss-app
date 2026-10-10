@@ -1267,3 +1267,11 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Addressed Spec pending-form finding in `a58c356`: disable fields/picker and reject queued changes while saving; public save regression and full verify pass (`/tmp/materi-duplicate-followup.log`).
 - [x] Independent exact Luna/max Spec recheck clear after `a58c356`; pending-form finding resolved.
 - [x] Independent exact Luna/max Standards review clear through `a58c356`. Duplicate-create task complete; no browser verification or owned server.
+
+## TA-01 root verification checkpoint (2026-10-11)
+
+- [x] Committed owner registration review (d65f355), focused fixtures/contracts (de7b80b), and valid expired-window test repair (4be83e3).
+- [x] Expanded local DB suite passed after repair: complete zero-attempt discovery, owner isolation, eligibility, duplicate/opposing decisions and counts, future Start, explicit restoration, archived refusal/history. Root strict TypeScript and focused repaired-test ESLint passed; child full lint/build passed.
+- [x] Final independent Standards/Spec reconciliation: zero actionable findings; shared pagination/filter P3s resolved.
+- [ ] Rendered mentor/student acceptance: Obscura timed out at seeded login navigation; no browser pass. Ego route/role/checklist approval required by AGENTS.md. Details in epic tryout-ta01-local-qa-20261010.
+- [ ] Finish recovery/responsive/keyboard/history checks and acceptance reconciliation before closing TA-01/F-10. F-9 and later tickets remain open; four baseline source-pattern failures recorded separately.

@@ -1,5 +1,13 @@
 # Session Handoff
 
+## TA-01 committed; root verification checkpoint (2026-10-11)
+
+- Product `d65f355`, tests/fixture `de7b80b`, valid expired-window test repair `4be83e3`, all exact user-authorized gpt-6.1-sol/high implementation. Root reran expanded local DB checks successfully twice after repair. Strict TypeScript and focused repaired-test ESLint pass; prior child full lint/build pass with two unrelated lint warnings.
+- Final independent Standards/Spec reviews reconcile source and have zero actionable findings. Both original Standards P3 controls are fixed. Four pre-existing source-pattern tests still fail first assertions in untouched scopes; later assertions not executed, not a wholesale pass.
+- Rendered acceptance remains incomplete: guarded Obscura first timed out in readiness, then loaded/filled/submitted seeded login but timed out waiting for authenticated navigation. No Tryout UI mutation was dispatched and no browser pass claimed. Temporary seeded names restored; root-owned Obscura/contexts cleaned up. Existing peer dev server stays running.
+- Durable exact outcomes, pending Q1–Q14 scope, local routes/fixture IDs and evidence: epic artifact `tryout-ta01-local-qa-20261010/index.md`. TA-01/F-10 remain in progress/open; TA-02/03/04 not started.
+- Root used three guarded launches this turn (three/session). Continue rendered Ego QA only under explicit route/role/checklist approval per AGENTS.md, with remaining session budget. Reuse Ego lifecycle space 39 if active/authorized. Do not repeat completed DB suites or treat ordinary browser clicks as exact server equality proof.
+
 ## TA-01 approved and delegated (2026-10-10)
 
 - User approved the four-ticket breakdown and authorized TA-01 implementation/local verification, exact gpt-6.1-sol/high. Clean-context child `dcd238fc-12a7-4507-848a-0abec0ad045f` verified its model and owns participant review implementation; root coordinates final QA/reviews. Broker request `8633cad7-7fd8-4638-b55c-b16d76a34076` requires a completion reply.
