@@ -53,12 +53,12 @@ type DeliverySessionScheduleInput = {
   deliverySessionId: string;
 };
 
-type AssignmentInput = { admissionId: string; deliverySessionId: string };
+type AssignmentInput = { admissionId: string; deliverySessionId: string; restoreRevoked?: boolean };
 type RetakeInput = Omit<DeliverySessionInput, "tryoutId"> & { admissionId: string };
 
 function reasonOrThrow(reason: string) {
   const value = reason.trim();
-  if (!value) throw new TryoutDeliveryValidationError("Alasan audit wajib diisi.");
+  if (!value) throw new TryoutDeliveryValidationError("Alasan tindakan wajib diisi.");
   return value;
 }
 
@@ -108,7 +108,7 @@ async function assertTryoutOwnership(
   allowCrossOwner = false,
 ) {
   const tryout = await tx.tryoutPackage.findUnique({
-    select: { createdByUserId: true },
+    select: { createdByUserId: true, status: true },
     where: { id: tryoutId },
   });
   if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
@@ -116,6 +116,11 @@ async function assertTryoutOwnership(
     throw new TryoutDeliveryValidationError("Anda tidak dapat mengubah delivery Tryout milik Kapten lain.");
   }
   return tryout;
+}
+
+async function assertAdmissionMutationAllowed(tx: Prisma.TransactionClient, tryoutId: string, actorId: string, allowCrossOwner: boolean) {
+  const parent = await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
+  if (parent.status === ContentStatus.archived) throw new TryoutDeliveryValidationError("Tryout sudah diarsipkan. Pendaftaran hanya dapat dilihat sebagai riwayat.");
 }
 
 async function lockAdmission(tx: Prisma.TransactionClient, admissionId: string) {
@@ -229,7 +234,7 @@ function assertEligibleSession(
   if (session.status === TryoutDeliverySessionStatus.closed) throw new TryoutDeliveryValidationError(`${label} sudah ditutup dan tidak dapat digunakan.`);
   if (session.status === TryoutDeliverySessionStatus.archived) throw new TryoutDeliveryValidationError(`${label} sudah diarsipkan dan tidak dapat digunakan.`);
   if (session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError(`${label} belum dibuka untuk peserta.`);
-  if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError(`${label} belum memiliki AssessmentRelease yang valid.`);
+  if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError(`${label} belum memiliki konten yang siap dikerjakan.`);
   if (!isTryoutAdmissionSessionAvailable(session, now)) throw new TryoutDeliveryValidationError(`${label} sudah berakhir.`);
   return session;
 }
@@ -848,6 +853,8 @@ async function decideTryoutAdmission(
     if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
 
+    await assertAdmissionMutationAllowed(tx, admission.tryoutId, actorId, allowCrossOwner);
+
     if (decision === "approve") {
       const replayAssignment = admission.status === TryoutAdmissionStatus.active
         ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
@@ -872,6 +879,7 @@ async function decideTryoutAdmission(
           : null;
         if (replayedAssignment) return admission;
       }
+      if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Pendaftaran sudah diputuskan. Muat ulang untuk melihat status terbaru.");
       const now = new Date();
       const selected = selectedSessionId
         ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, now)
@@ -881,8 +889,8 @@ async function decideTryoutAdmission(
         .sort((left, right) => left.id.localeCompare(right.id));
       await lockParticipantAssignments(tx, admission.id, assignmentsToLock, [selected]);
       const lockedSelected = selectedSessionId
-        ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, now)
-        : await findSelectedSession(tx, admission.tryoutId, selected.id, now);
+        ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, new Date())
+        : await findSelectedSession(tx, admission.tryoutId, selected.id, new Date());
       admission = await tx.tryoutAdmission.findUnique({
         where: { id: admissionId },
         include: {
@@ -1055,10 +1063,13 @@ async function assignTryoutDeliverySession(input: AssignmentInput, actorId: stri
     if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
     const session = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } });
     if (!session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok setelah penguncian.");
-    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
+    await assertAdmissionMutationAllowed(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     if (admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk penugasan.");
     assertEligibleSession(session, new Date(), "selected");
+    const existing = await tx.tryoutDeliveryAssignment.findUnique({ where: { admissionId_deliverySessionId: { admissionId: admission.id, deliverySessionId: session.id } } });
+    if (existing?.status === TryoutAssignmentStatus.active) return existing;
+    if (existing?.status === TryoutAssignmentStatus.revoked && input.restoreRevoked !== true) throw new TryoutDeliveryValidationError("Akses sesi sudah dicabut. Konfirmasikan pemberian akses lagi untuk melanjutkan.");
     const assignment = await ensureActiveAssignment(tx, input.admissionId, input.deliverySessionId, actorId);
     await audit(tx, { action: "delivery_session.assigned", actorId, admissionId: admission.id, after: { assignmentId: assignment.id, status: assignment.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: admission.tryoutId });
     return assignment;
@@ -1101,14 +1112,14 @@ async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: str
       include: { admission: true, deliverySession: true },
     });
     if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan setelah penguncian.");
-    await assertTryoutOwnership(tx, assignment.admission.tryoutId, actorId, allowCrossOwner);
+    await assertAdmissionMutationAllowed(tx, assignment.admission.tryoutId, actorId, allowCrossOwner);
     if (assignment.status === TryoutAssignmentStatus.revoked) return assignment;
     if (assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
     const existingAttempt = await tx.tryoutAttempt.findUnique({
       where: { deliverySessionId_studentId: { deliverySessionId: assignment.deliverySessionId, studentId: assignment.admission.studentId } },
       select: { id: true },
     });
-    if (existingAttempt) throw new TryoutDeliveryValidationError("Akses sesi yang telah memiliki attempt tidak dapat dicabut; riwayat peserta harus dipertahankan.");
+    if (existingAttempt) throw new TryoutDeliveryValidationError("Akses sesi yang sudah memiliki pengerjaan tidak dapat dicabut; riwayat peserta tetap dipertahankan.");
     const updated = await tx.tryoutDeliveryAssignment.update({
       where: { id: assignmentId },
       data: { revokeReason: auditReason, revokedAt: new Date(), status: TryoutAssignmentStatus.revoked },

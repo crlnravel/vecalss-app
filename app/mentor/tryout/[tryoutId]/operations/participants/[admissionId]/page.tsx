@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import type { NavigationQueryValue } from "@/lib/navigation/canonical-context";
-import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
+import { buildMentorTryoutOperationsHref, canonicalQueryEquals, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
+import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutParticipantDetailPageModule } from "@/modules/mentor/KaptenTryoutParticipantDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -27,10 +27,15 @@ export default async function TryoutParticipantDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published") redirect(`/mentor/tryout/${tryoutId}?workspace=basics`);
+  const parsed = parseMentorTryoutContext(query);
+  if (parsed.issues.length) notFound();
   if (!operations.admissions.some((item) => item.id === admissionId)) {
     notFound();
   }
+  const initial = toTryoutWorkspaceView(operations);
+  const backHref = buildMentorTryoutOperationsHref(tryoutId, { ...parsed, workspace: "operations", delivery: "participants" });
+  const detailHref = `/mentor/tryout/${encodeURIComponent(tryoutId)}/operations/participants/${encodeURIComponent(admissionId)}?${new URL(backHref, "https://vecalss.invalid").searchParams}`;
+  if (!canonicalQueryEquals(query, detailHref)) redirect(detailHref);
 
   return (
     <MentorWorkspaceShell
@@ -44,11 +49,11 @@ export default async function TryoutParticipantDetailPage({
       sidebarAppearance="reference"
     >
       <KaptenTryoutWorkspaceFrame
-        activeTab="participants"
-        initial={operations}
+        activeTab="operations"
+        initial={initial}
         parentId={typeof query.parent === "string" ? query.parent : undefined}
       >
-        <KaptenTryoutParticipantDetailPageModule admissionId={admissionId} embedded initial={operations} />
+        <KaptenTryoutParticipantDetailPageModule admissionId={admissionId} embedded initial={initial} backHref={backHref} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );

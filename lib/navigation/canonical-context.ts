@@ -14,6 +14,7 @@ export type NavigationQueryInput =
   | Readonly<Record<string, NavigationQueryValue>>;
 
 export type CanonicalContextField =
+  | "access"
   | "artifact"
   | "category"
   | "delivery"
@@ -546,6 +547,7 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     schedule: "operations",
     sections: "sections",
     sessions: "operations",
+    settings: "settings",
     attempts: "operations",
     questions: "sections",
   };
@@ -572,11 +574,14 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   }
   const deliveryWorkspaceCompatible =
     workspace === null
-    || (workspace === "operations" && (delivery === "policy" || delivery === "sessions"))
+    || workspace === "operations"
     || (workspace === "participants" && delivery === "participants");
   if (!deliveryWorkspaceCompatible && delivery !== null) {
     issues.push(issue("delivery", deliveryValue, "Area delivery hanya tersedia di workspace Schedule."));
   }
+  // Explicit participant delivery is registration management; bare participants
+  // remains the historical Hasil bookmark.
+  if (workspace === "participants" && delivery === "participants") workspace = "operations";
 
   const session = sessionParam.value?.trim() || undefined;
   if (sessionParam.invalid || (sessionParam.present && !session) || (session !== undefined && !isSafeIdentifier(session) && !isUuid(session))) {
@@ -592,7 +597,22 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   const returnIssue = returnToIssue(returnToParam.value, TRYOUT_RETURN_PREFIXES);
   if (returnIssue) issues.push(returnIssue);
 
+  const listFields = ["q", "status", "access", "page"] as const;
+  const listParams = Object.fromEntries(listFields.map((key) => [key, singleValue(input, key)]));
+  for (const key of listFields) {
+    if (listParams[key].invalid) issues.push(issue(key, listParams[key].value, "Filter peserta hanya boleh dipilih satu kali."));
+  }
+  const q = listParams.q.value?.trim();
+  const status = listParams.status.value;
+  const access = listParams.access.value;
+  const pageValue = listParams.page.value;
+  if (q && q.length > MAX_SEARCH_LENGTH) issues.push(issue("q", q, "Pencarian peserta terlalu panjang."));
+  if (status !== undefined && !["all", "pending", "active", "rejected", "revoked"].includes(status)) issues.push(issue("status", status, "Status pendaftaran tidak tersedia."));
+  if (access !== undefined && !["all", "active", "revoked", "missing"].includes(access)) issues.push(issue("access", access, "Status akses sesi tidak tersedia."));
+  if (pageValue !== undefined && (!/^[1-9]\d*$/u.test(pageValue) || Number(pageValue) > MAX_PAGE)) issues.push(issue("page", pageValue, "Halaman peserta tidak tersedia."));
+
   return {
+    access,
     delivery,
     issues,
     parent,
@@ -604,6 +624,9 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
       workspace: workspaceParam.present,
     },
     returnTo: returnTo ?? undefined,
+    q,
+    status,
+    page: pageValue === undefined ? undefined : Number(pageValue),
     session,
     workspace,
   };
@@ -615,6 +638,10 @@ function tryoutQueryParams(context: Partial<MentorTryoutContext>) {
   const params = new URLSearchParams();
   if (context.workspace !== undefined && context.workspace !== null) params.set("workspace", context.workspace);
   if (context.delivery !== undefined && context.delivery !== null) params.set("delivery", context.delivery);
+  if (context.q !== undefined) params.set("q", context.q);
+  if (context.status !== undefined) params.set("status", context.status);
+  if (context.access !== undefined) params.set("access", context.access);
+  if (context.page !== undefined) params.set("page", String(context.page));
   if (context.session) params.set("session", context.session);
   if (context.parent) params.set("parent", context.parent);
   if (context.returnTo) params.set("returnTo", context.returnTo);

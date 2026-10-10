@@ -19,6 +19,8 @@ import {
 } from "@/lib/tryout/participant-view";
 import { synchronizeTryoutSessionReleaseState, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 import { projectTryoutWorkflow } from "@/lib/tryout/workflow-projection";
+import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
+import { isTryoutAdmissionSessionAvailable } from "@/lib/tryout/registration-availability";
 
 type TryoutOperationsRecord = NonNullable<
   Awaited<ReturnType<typeof getTryoutDeliveryOperations>>
@@ -208,7 +210,10 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
   }));
 
   // Keep the ParticipantView boundary explicit: participants: toParticipantViews(participantInputs).
-  const participants = toParticipantViews(participantInputs);
+  const participants = toParticipantViews(participantInputs).map((participant, index) => ({
+    ...participant,
+    participant: { ...participant.participant, ...mentorParticipantIdentity(participantInputs[index].student) },
+  }));
   const sessions = operations.deliverySessions.map((deliverySession) => ({
     attempts: deliverySession.attempts.map((attempt) => ({
       admissionId: attempt.admissionId,
@@ -241,6 +246,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     })),
     availableFrom: deliverySession.availableFrom.toISOString(),
     availableUntil: deliverySession.availableUntil.toISOString(),
+    grantEligible: operations.status !== "archived" && isTryoutAdmissionSessionAvailable(deliverySession, now),
     assessmentRelease: deliverySession.assessmentRelease
       ? toOperationsReleaseMetadata(deliverySession.assessmentRelease)
       : null,
@@ -410,7 +416,9 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       })),
       id: admission.id,
       status: admission.status,
-      student: safeParticipantIdentity(admission.student).displayName,
+      student: mentorParticipantIdentity(admission.student).displayName,
+      email: admission.student.email,
+      requestedAt: admission.requestedAt.toISOString(),
     })),
     sessions,
     // Keep lifecycle availability server-owned.  The projection carries only

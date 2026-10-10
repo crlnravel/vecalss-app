@@ -14,7 +14,7 @@ import {
   DataTableFilterMenu,
   type DataTableFilterMenuItem,
 } from "@/components/ui/data-table-filter-menu";
-import { buildMentorTryoutAttemptHref } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutAttemptHref, buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 
 type ResultFilter = "all" | "in_progress" | "submitted";
@@ -200,6 +200,7 @@ function KaptenTryoutParticipantsPageModule({
       <h2 className="sr-only" id="tryout-results-title">
         Hasil Tryout
       </h2>
+      <Link className="inline-flex min-h-11 items-center font-semibold text-primary-800" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>Kelola peserta</Link>
       <ReferenceSurface as="section" className="overflow-hidden mt-5">
         <DataTable
           caption="Hasil pengerjaan peserta Tryout"

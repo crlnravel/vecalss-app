@@ -1,6 +1,8 @@
 "use client";
 
 import { CalendarDays } from "@/lib/icons";
+import { useSearchParams } from "next/navigation";
+import { TryoutOperationsNavigation } from "@/modules/mentor/TryoutOperationsNavigation";
 
 import {
   Empty,
@@ -22,9 +24,11 @@ function KaptenTryoutOperationsModule({
   initial: TryoutOperationsView;
 }) {
   const mainSession = selectMainTryoutSession(initial.sessions);
+  const query = useSearchParams();
 
   return (
     <div className="min-w-0">
+      <TryoutOperationsNavigation initial={initial} active="sessions" parentId={query.get("parent") ?? undefined} />
       {embedded ? null : (
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
