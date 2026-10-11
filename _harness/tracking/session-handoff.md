@@ -1,5 +1,12 @@
 # Session Handoff
 
+## TA-01 approved Ego continuation outcomes (2026-10-11)
+
+- User approved exact local fixture routes/seeded roles/checklist and creation of replacement Ego space after missing 39. Space 51 verified same-name distinct emails, revoked-access discovery/named restore confirmation, no-match recovery/disabled pagination, browser approval, student directory refusal and student rejection copy. Database confirms approved student has one active assignment/one approval audit; rejected student has zero assignments/one rejection audit. All 13 pre-existing attempts/runs/answers/deadlines/content/release records have identical before/after digests. Seeded names restored.
+- Several browser assertions read before UI transitions completed; they remain unverified. Recovery after successful rejection/failed refresh had a three-second overlay interception; static Spec trace establishes no source defect yet. Do not force clicks or fix source based on this hypothesis.
+- User approved one additional guarded group and fresh space. Space 52 retained after invalid URL assertion (bare detail Operasional is a local tab button) and CDP screenshot timeout stopped diagnostics. Next QA must reuse 52, wait for actual controls, and catch screenshot errors. Existing Ego routes/roles/checklist authorization persists.
+- Root consumed seven guarded groups including the one explicitly approved extension. Resource-guard skill requires further budget authorization before another launch. No root-owned persistent process remains. TA-01/F-10 remain open; TA-02/03/04 not started. Durable detailed evidence: epic tryout-ta01-local-qa-20261010.
+
 ## TA-01 committed; root verification checkpoint (2026-10-11)
 
 - Product `d65f355`, tests/fixture `de7b80b`, valid expired-window test repair `4be83e3`, all exact user-authorized gpt-6.1-sol/high implementation. Root reran expanded local DB checks successfully twice after repair. Strict TypeScript and focused repaired-test ESLint pass; prior child full lint/build pass with two unrelated lint warnings.

@@ -1275,3 +1275,9 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Final independent Standards/Spec reconciliation: zero actionable findings; shared pagination/filter P3s resolved.
 - [ ] Rendered mentor/student acceptance: Obscura timed out at seeded login navigation; no browser pass. Ego route/role/checklist approval required by AGENTS.md. Details in epic tryout-ta01-local-qa-20261010.
 - [ ] Finish recovery/responsive/keyboard/history checks and acceptance reconciliation before closing TA-01/F-10. F-9 and later tickets remain open; four baseline source-pattern failures recorded separately.
+
+## TA-01 approved Ego continuation (2026-10-11)
+
+- [x] Rendered same-name/email discovery, revoked access discovery/explicit confirmation, no-match/disabled boundaries, browser approval, student owner-directory refusal and rejected-student outcome. Persisted approval = one grant/audit; rejection = zero grants/one audit. All 13 existing attempt records/runs/answers remain unchanged.
+- [ ] Context return, responsive/keyboard, recovery overlay, archived detail/Hasil return and settled granted-student schedule remain unverified. Additional approved group stopped at a bad URL expectation and screenshot timeout; no new product bug established.
+- [ ] Resume retained Ego space 52 after further resource-budget authorization (seven root groups consumed, including one approved extension). Existing route/role/checklist approval persists. Ticket and F-10 remain open; later tickets not started.
