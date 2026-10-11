@@ -1,5 +1,13 @@
 # Session Handoff
 
+## TA-02 delegated in clean context (2026-10-11)
+
+- User authorized TA-02 implementation/local verification using clean-context exact gpt-6.1-sol/high. Fresh child 3bfcec39-734c-4f5e-8d4b-047872e06f57 verified model and claimed TA-02 access configuration; broker request ea5091cc-6dd5-4895-a0ce-7ed9af6861d7 expects completion/continuation. Root owns final independent reviews/rendered QA. No need to reapprove D1–D8.
+- Scope: all3 draft persistence/default open, atomic chosen-mode publication, Operasional delivery=policy admission-only view, published named/reasoned mode change until any attempt, preserved existing queue/assignments, shared mutation serialization, archive/owner guards and bounded recovery. Explicit forged published-save/omitted draft input regression coverage requested.
+- Initial HEAD b975694. Shared unrelated dirty repository/participant/runtime/question-bank/mentor quiz/skills work preserved; child captures relevant baseline and commits scoped hunks. No schema/shared primitive changes planned. Existing :5023 server is peer/user-owned.
+- Root matrix/evidence epic tryout-ta02-local-qa-20261011, ticket status1. No TA-02 pass claimed. Root heavy groups0; child must obey3/turn6/session and coordinate no parallel heavy runs. Root CDP curl9222 unavailable; no browser launch/permission for TA-02 Ego yet. TA-01 space52 finished and cannot be resumed as active.
+- TA-01/F-10 complete; F-9 open; TA-03/04 remain todo. Wait for async child obligation by ending turn once independent preparation is done; do not poll/hold turn for reply.
+
 ## TA-01 accepted on local development (2026-10-11)
 
 - User approved one further guarded group after the prior three-group extension. Corrected absolute-path runner completed acceptance in the same Ego space 52, then task.finish({keep:[]}) succeeded exactly once. Eleven root groups total, all authorized; no guard bypass/emergency. No owned process remains and the peer/user dev server is untouched.

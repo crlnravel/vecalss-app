@@ -1293,3 +1293,8 @@ Live refresh/polling. AS-08 remains closed.
 - One further explicitly approved guarded group in retained Ego 52 completed saved-restoration/failed-refresh pointer recovery, mobile detail/dialog focus/Escape, genuine empty-registration rendering/restoration, and assigned student's future waiting screen/disabled Start. Existing navigation/named-review/context/archive/Hasil/offline checks also pass. Space finished exactly once; no owned processes.
 - All 13 prior attempts unchanged; approved/rejected counts preserved; Dimas restored to one active grant. Temporary names and five archived fixture registrations/three assignments restored exactly. Product commits unchanged; independent final reviews zero findings.
 - TA-01/shared-controls fixup complete, F-10 resolved, F-9 open. TA-02/03/04 remain todo. Final matrix/evidence/limits in epic tryout-ta01-local-qa-20261010. Screenshot export and four untouched source-pattern failures remain explicit limits; integrated exact command boundaries/races deferred to TA-04.
+
+## 2026-10-11 — TA-02 authorized and delegated
+
+- Fresh exact gpt-6.1-sol/high child 3bfcec39-734c-4f5e-8d4b-047872e06f57 implements TA-02 with required clean context. Root owns alignment, final Standards/Spec reviews and local browser acceptance. Ticket status1; R1–R14 QA matrix in epic tryout-ta02-local-qa-20261011. No pass/gate/browser claim at dispatch.
+- Draft create/edit/reopen/publication mode, published control/freeze and synchronized register/Start boundaries are covered; TA-03 invitation UI and TA-04 integrated work remain out of scope. Initial source seams suggest existing mutex/contracts can be reused without schema migration. Preserve unrelated dirty changes.
