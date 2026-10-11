@@ -1,5 +1,13 @@
 # Session Handoff
 
+## TA-01 three-group retained-space continuation (2026-10-11)
+
+- User authorized three additional guarded groups using retained Ego space 52; all consumed, ten root groups total. No emergency/guard bypass, replacement space, product changes or repeated approval/rejection.
+- New pass evidence: ordinary navigation; search/detail/reload/contextual back; archived read-only list/detail; Hasil management link; mobile list ArrowDown/Escape, ≥44px radio targets and no page overflow; desktop restore-dialog Escape/focus after teardown; offline one-request/manual-retry. Q11 screenshot calls timed out after behavior assertions passed.
+- Group 9 keyboard login did not authenticate, so dependent checks are inconclusive. Group 10 failed before browser actions because Ego CWD differs and root runner used relative scratch paths; cleanup restored seeded names/history. Runner now uses absolute paths but has not relaunched.
+- Remaining: saved-action/failed-refresh usable recovery, approved student's settled future schedule, 390px detail/actions/dialog, genuine zero-registration empty state. TA-01/F-10 stay open. Space 52 retained; no root-owned process remains. User/peer dev server stays running.
+- Durable current matrix: epic artifact tryout-ta01-local-qa-20261010; prepared exact flow qa-continuation-runner.md. Another guarded launch needs explicit budget extension under agent-resource-guard. Existing Ego route/seeded-role/checklist permission persists. TA-02/03/04 not started.
+
 ## TA-01 approved Ego continuation outcomes (2026-10-11)
 
 - User approved exact local fixture routes/seeded roles/checklist and creation of replacement Ego space after missing 39. Space 51 verified same-name distinct emails, revoked-access discovery/named restore confirmation, no-match recovery/disabled pagination, browser approval, student directory refusal and student rejection copy. Database confirms approved student has one active assignment/one approval audit; rejected student has zero assignments/one rejection audit. All 13 pre-existing attempts/runs/answers/deadlines/content/release records have identical before/after digests. Seeded names restored.

@@ -1281,3 +1281,9 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Rendered same-name/email discovery, revoked access discovery/explicit confirmation, no-match/disabled boundaries, browser approval, student owner-directory refusal and rejected-student outcome. Persisted approval = one grant/audit; rejection = zero grants/one audit. All 13 existing attempt records/runs/answers remain unchanged.
 - [ ] Context return, responsive/keyboard, recovery overlay, archived detail/Hasil return and settled granted-student schedule remain unverified. Additional approved group stopped at a bad URL expectation and screenshot timeout; no new product bug established.
 - [ ] Resume retained Ego space 52 after further resource-budget authorization (seven root groups consumed, including one approved extension). Existing route/role/checklist approval persists. Ticket and F-10 remain open; later tickets not started.
+
+## 2026-10-11 — TA-01 three additional guarded QA groups
+
+- Retained Ego 52 verifies ordinary registration navigation/context return, archive/Hasil paths, mobile list keyboard/44px geometry, desktop dialog Escape/focus, bounded offline retry. Existing 13 attempts unchanged; prior approve/reject grant/audit counts unchanged; seeded names restored.
+- Screenshot export timeouts, keyboard login failure and root's relative-path runner error leave remaining recovery/student schedule/mobile detail/genuine empty acceptance incomplete. The runner's paths are corrected; no product edits or new confirmed defect. All three authorized groups consumed (ten root total); no owned processes. TA-01/F-10 remain open; TA-02/03/04 not started.
+- Current evidence and prepared next flow: epic tryout-ta01-local-qa-20261010. Further guarded launch requires explicit budget extension; space 52 and existing Ego route/role approval retained.
