@@ -1,5 +1,14 @@
 # Session Handoff
 
+## TA-01 accepted on local development (2026-10-11)
+
+- User approved one further guarded group after the prior three-group extension. Corrected absolute-path runner completed acceptance in the same Ego space 52, then task.finish({keep:[]}) succeeded exactly once. Eleven root groups total, all authorized; no guard bypass/emergency. No owned process remains and the peer/user dev server is untouched.
+- Product d65f355, tests de7b80b, fixture repair 4be83e3 unchanged during QA. Final Standards/Spec reviews zero actionable findings; focused contracts/DB/type/lint/build pass as recorded. Four baseline source-pattern scripts fail first untouched assertions; later assertions unrun. No wholesale regression pass.
+- Browser verifies ordinary zero-attempt registration discovery, distinguishable name/email, named approve/reject, context/reload/back, revoked-access discovery/restoration, archive read-only/Hasil, offline one-request/manual retry, saved-action/failed-refresh pointer recovery, 390px filter/detail/dialog focus/Escape, genuine empty/no-match and approved student's future opening with disabled Start.
+- Approved student has one active grant/one approval audit; rejected Arya zero grants/one rejection audit; Dimas one restored active grant. Empty-state archived fixture's five registrations/three assignments restored exactly; all 13 prior attempts/runs/answers/content/deadlines/release fields unchanged. Seeded names restored.
+- TA-01/shared-controls fixup complete and F-10 resolved. F-9 remains open; TA-02/03/04 not started. Recommended next ticket TA-02 with clean-context gpt-6.1-sol/high; current request does not authorize its start. Durable current evidence: epic tryout-ta01-local-qa-20261010.
+- Limits: Ego screenshot export timed out (DOM geometry/keyboard behavior verified); exact cutoff equality is shared helper proof, not DB execution timing/live F-3 run. Full combined deadline/archive/session-close races remain TA-04 coverage. Prior runner/assertion failures below are superseded, not product fixes.
+
 ## TA-01 three-group retained-space continuation (2026-10-11)
 
 - User authorized three additional guarded groups using retained Ego space 52; all consumed, ten root groups total. No emergency/guard bypass, replacement space, product changes or repeated approval/rejection.

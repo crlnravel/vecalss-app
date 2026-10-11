@@ -1287,3 +1287,9 @@ Live refresh/polling. AS-08 remains closed.
 - Retained Ego 52 verifies ordinary registration navigation/context return, archive/Hasil paths, mobile list keyboard/44px geometry, desktop dialog Escape/focus, bounded offline retry. Existing 13 attempts unchanged; prior approve/reject grant/audit counts unchanged; seeded names restored.
 - Screenshot export timeouts, keyboard login failure and root's relative-path runner error leave remaining recovery/student schedule/mobile detail/genuine empty acceptance incomplete. The runner's paths are corrected; no product edits or new confirmed defect. All three authorized groups consumed (ten root total); no owned processes. TA-01/F-10 remain open; TA-02/03/04 not started.
 - Current evidence and prepared next flow: epic tryout-ta01-local-qa-20261010. Further guarded launch requires explicit budget extension; space 52 and existing Ego route/role approval retained.
+
+## 2026-10-11 — TA-01 local acceptance complete; F-10 resolved
+
+- One further explicitly approved guarded group in retained Ego 52 completed saved-restoration/failed-refresh pointer recovery, mobile detail/dialog focus/Escape, genuine empty-registration rendering/restoration, and assigned student's future waiting screen/disabled Start. Existing navigation/named-review/context/archive/Hasil/offline checks also pass. Space finished exactly once; no owned processes.
+- All 13 prior attempts unchanged; approved/rejected counts preserved; Dimas restored to one active grant. Temporary names and five archived fixture registrations/three assignments restored exactly. Product commits unchanged; independent final reviews zero findings.
+- TA-01/shared-controls fixup complete, F-10 resolved, F-9 open. TA-02/03/04 remain todo. Final matrix/evidence/limits in epic tryout-ta01-local-qa-20261010. Screenshot export and four untouched source-pattern failures remain explicit limits; integrated exact command boundaries/races deferred to TA-04.
