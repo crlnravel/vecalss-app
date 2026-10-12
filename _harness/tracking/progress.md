@@ -1311,3 +1311,8 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Fresh exact gpt-6.1-sol/high child 9fc64115 assigned approved TA-03; model verified and role claimed. TA-01/02 accepted; root owns Q1–Q14 acceptance and final independent reviews. D1–D8 remain approved.
 - [x] Ticket/story updated to in-progress scope; matrix epic tryout-ta03-local-qa-20261013 records detailed identity, grants/restoration/counts, locks/deadlines, races, recovery and accessibility checks. No product or runtime pass at dispatch.
 - [ ] Complete scoped implementation/gates/reviews and local invitation/restoration acceptance. No TA-04 start. Root0 guarded groups; child startup allocation3/turn, future windows and seeded local-only fixtures required; peer dev server preserved.
+
+## TA-03 startup accounting correction and continuation
+
+- Baseline install/lint/build and interface context passed; actual4 child launches, one above per-turn3. Recorded counting error; no retrospective approval. Remaining2/session allocated red then sequential focused/DB/type/lint/build; stop before any seventh launch.
+- Test/fixture slice7002146 committed but unrun; all TA-03 acceptance pending. Root0 heavy groups. Same-name rendered proof and fixture serialization constraints handed off.
