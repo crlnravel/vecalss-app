@@ -1,5 +1,13 @@
 # Session Handoff
 
+## TA-03 authorized and delegated (2026-10-13 WIB)
+
+- User explicitly authorized clean-context exact gpt-6.1-sol/high TA-03 implementation and local invitations/restoration verification. Fresh child 9fc64115-9b27-455e-8404-b10e30372c8b verified identity and owns invitation implementation; root 09708a92 owns acceptance coordination/reviews. TA-03 ticket status1; TA-01/02 accepted; TA-04 todo. Approved D1–D8 unchanged.
+- Child scope is picker reachability, owned active-student search/name+email identity, named reasoned invitation/restoration, pending-vs-restoration distinction, missing/revoked assignment handling, server eligibility/archive/deadline guards, replay audits/notifications and truthful recovery. Preserve unrelated dirty files and accepted TA-01/02 contracts. Starting HEAD ae7e6fd; baseline dirty F6/F3/question-bank/quiz/material/skill work excluded.
+- Root Q1–Q14 matrix: epic tryout-ta03-local-qa-20261013. No TA-03 product/runtime pass claimed. Root0 heavy launches. Child startup init lint/build counts2 and required interface context1; remaining3/session reserved red, green focused/DB/type, final lint/build in continuation. Normal guard only, no simultaneous heavy work/emergency/budget bypass.
+- Local :5023 login HTTP200, peer server untouched; Obscura CDP9222 unavailable. Browser authorization will name exact fixture routes/roles/checklist after child creates future-window fixtures. No new browser launched or finished Ego55 resumed. Seeded local accounts/localhost55432 only; no resets/new accounts/production.
+- Child expected-reply handoff remains active; root ends turn once independent preparation is complete, then resumes from async completion/continuation. Final independent Standards/Spec plus local browser/count evidence govern acceptance, not source wiring. TA-03 completion does not authorize starting TA-04.
+
 ## TA-02 accepted on local development (2026-10-13 WIB)
 
 - Product/tests commit d9d537ea94e87fbf9dd9855c48dc12b0d931fa92 unchanged during QA. Clean-context exact gpt-6.1-sol/high implementation and final independent Standards/Spec committed reconciliation have zero remaining findings. Recovery/navigation, complete expanded local DB, strict TypeScript, full lint/build pass; five unrelated warnings and four previously documented untouched regex failures remain explicit limits.
