@@ -1298,3 +1298,10 @@ Live refresh/polling. AS-08 remains closed.
 
 - Fresh exact gpt-6.1-sol/high child 3bfcec39-734c-4f5e-8d4b-047872e06f57 implements TA-02 with required clean context. Root owns alignment, final Standards/Spec reviews and local browser acceptance. Ticket status1; R1–R14 QA matrix in epic tryout-ta02-local-qa-20261011. No pass/gate/browser claim at dispatch.
 - Draft create/edit/reopen/publication mode, published control/freeze and synchronized register/Start boundaries are covered; TA-03 invitation UI and TA-04 integrated work remain out of scope. Initial source seams suggest existing mutex/contracts can be reused without schema migration. Preserve unrelated dirty changes.
+
+## 2026-10-13 WIB — TA-02 local acceptance complete
+
+- [x] d9d537e all-three draft/published admission configuration, authoritative any-attempt/archive freeze, preserved queue/content/history and truthful recovery. Final independent 6.1-sol/high reviews clear; focused pure/complete local DB/type/full lint/build pass. Five unrelated warnings; untouched regex failures not claimed green.
+- [x] Final approved Ego55 verification passes forms/save/reopen, stay/save/discard and canonical navigation, locks, offline/pointer/read-failure recovery, 390px real keyboard/Escape/focus, student state preservation, and mounted delayed-create/newer-input/one-identity recovery. SQL two changes=one audit each; each new draft exists once; published history hashes unchanged.
+- [x] Ego55 finished once with p1 retained for user; no owned processes/source changes during QA. Ten root groups all authorized/guarded; no emergency/force-click bypass. TA-02 status2 and F-9 configuration resolved; invitation/restoration/integrated TA-03/04 remain todo.
+- Final matrix/receipts and practical limits: epic tryout-ta02-local-qa-20261011. Session windows elapsed while waiting for human approvals; fresh future fixtures required for subsequent eligibility tests. No new live F-3 cutoff, forced-both-orders race or cross-reload idempotency claim.
