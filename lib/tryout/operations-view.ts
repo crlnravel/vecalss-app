@@ -27,7 +27,7 @@ type TryoutOperationsRecord = NonNullable<
 >;
 
 type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
-type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions">;
+type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions" | "status">;
 type TryoutDeliverySessionRecord = TryoutOperationsRecord["deliverySessions"][number];
 type TryoutAttemptRecord = TryoutDeliverySessionRecord["attempts"][number];
 
@@ -500,6 +500,7 @@ async function getOwnedTryoutParticipantsView(
   return {
     participants: workspaceView.participants,
     sessions: workspaceView.sessions,
+    status: workspaceView.status,
   };
 }
 

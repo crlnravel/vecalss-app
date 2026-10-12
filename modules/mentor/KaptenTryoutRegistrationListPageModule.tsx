@@ -11,12 +11,13 @@ import { Pagination, PaginationContent, PaginationItem, PaginationNext, Paginati
 import { showToast } from "@/components/ui/toast";
 import { buildMentorTryoutHref, type MentorTryoutContext } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { participantAccess, type queryTryoutParticipants } from "@/lib/tryout/participant-list";
+import { participantAccess, queryTryoutParticipants } from "@/lib/tryout/participant-list";
 import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { admissionStatusLabels, participantAttemptStateLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { TryoutOperationsNavigation } from "@/modules/mentor/TryoutOperationsNavigation";
 import { refreshTryoutRegistrationListAction } from "@/modules/mentor/tryout-operations-actions";
 import { withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
+import { KaptenTryoutInvitationPicker } from "@/modules/mentor/KaptenTryoutInvitationPicker";
 
 type List = ReturnType<typeof queryTryoutParticipants>;
 type Row = TryoutOperationsView["participants"][number];
@@ -32,9 +33,11 @@ function KaptenTryoutRegistrationListPageModule({ initial, initialList, context 
   const [list, setList] = useState(initialList);
   const [busy, setBusy] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const canonical = { ...context, workspace: "operations" as const, delivery: "participants" as const, status: list.status, access: list.access, page: list.page };
   const href = (updates: Partial<MentorTryoutContext> = {}) => buildMentorTryoutHref(view.id, { ...canonical, ...updates });
-  const detailHref = (row: Row) => `/mentor/tryout/${encodeURIComponent(view.id)}/operations/participants/${encodeURIComponent(row.admissionId)}?${new URL(href(), "https://vecalss.invalid").searchParams}`;
+  const participantHref = (admissionId: string) => `/mentor/tryout/${encodeURIComponent(view.id)}/operations/participants/${encodeURIComponent(admissionId)}?${new URL(href(), "https://vecalss.invalid").searchParams}`;
+  const detailHref = (row: Row) => participantHref(row.admissionId);
   const main = selectMainTryoutSession(view.sessions);
   const columns: DataTableColumn<Row>[] = [
     { id: "name", label: "Peserta", cell: (row) => <Link className="font-semibold text-secondary-900 hover:text-primary-800" href={detailHref(row)}>{row.participant.displayName}</Link> },
@@ -66,8 +69,12 @@ function KaptenTryoutRegistrationListPageModule({ initial, initialList, context 
     <TryoutOperationsNavigation initial={view} active="participants" parentId={context.parent} pendingCount={list.pendingCount} />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-xl font-semibold text-secondary-900" id="tryout-registration-title">Peserta</h2>
-      <Button variant="outline" disabled={busy} onClick={() => void refresh()}>{busy ? "Memuat…" : refreshFailed ? "Coba muat ulang" : "Muat ulang"}</Button>
+      <div className="flex flex-wrap gap-3">{view.status === "published" ? <Button aria-expanded={inviting} aria-controls="tryout-invitation-panel" onClick={() => setInviting(!inviting)}>{inviting ? "Tutup undangan" : "Undang peserta"}</Button> : null}<Button variant="outline" disabled={busy} onClick={() => void refresh()}>{busy ? "Memuat…" : refreshFailed ? "Coba muat ulang" : "Muat ulang"}</Button></div>
     </div>
+    {inviting && view.status === "published" ? <div id="tryout-invitation-panel"><KaptenTryoutInvitationPicker tryoutId={view.id} sessions={view.sessions} participantHref={participantHref} onRefresh={(refreshed) => {
+      const updated = { ...view, ...refreshed };
+      setView(updated); setList(queryTryoutParticipants(updated, canonical)); setRefreshFailed(false);
+    }} /></div> : null}
     {view.status === "archived" ? <p className="text-sm text-secondary-600">Tryout sudah diarsipkan. Pendaftaran peserta hanya dapat dilihat sebagai riwayat.</p> : null}
     <ReferenceSurface className="overflow-hidden">
       <DataTable caption="Pendaftaran peserta Tryout" columns={columns} rows={list.rows} getRowId={(row) => row.admissionId} onRowClick={(row) => router.push(detailHref(row))}

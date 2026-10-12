@@ -1,131 +1,67 @@
 import "server-only";
 
-import {
-  RoleName,
-  TryoutAssignmentStatus,
-  TryoutDeliverySessionStatus,
-  TryoutAdmissionStatus,
-  UserStatus,
-} from "@/generated/prisma/client";
+import { RoleName, UserStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
+import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
 
 class TryoutInvitationPickerError extends Error {}
 
-type InvitationPickerStudent = {
-  admission: {
-    assignment: {
-      availableFrom: string;
-      availableUntil: string;
-      id: string;
-      name: string;
-      status: TryoutDeliverySessionStatus;
-    } | null;
-    id: string;
-    status: TryoutAdmissionStatus;
-  } | null;
-  displayName: string;
-  id: string;
-};
-
 async function assertOwnedTryout(tryoutId: string, actorId: string) {
-  const tryout = await prisma.tryoutPackage.findFirst({
+  const actor = await prisma.user.findFirst({
     select: { id: true },
+    where: { id: actorId, status: UserStatus.active, softDeletedAt: null, roleAssignments: { some: { revokedAt: null, role: { in: [RoleName.tutor, RoleName.admin] } } } },
+  });
+  if (!actor) throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
+  const tryout = await prisma.tryoutPackage.findFirst({
+    select: { deliverySessions: { select: { id: true, name: true, isDefaultOpenRegistration: true } } },
     where: { createdByUserId: actorId, id: tryoutId },
   });
-
-  if (!tryout) {
-    throw new TryoutInvitationPickerError("Tryout tidak ditemukan atau tidak dapat diakses.");
-  }
+  if (!tryout) throw new TryoutInvitationPickerError("Tryout tidak ditemukan atau tidak dapat diakses.");
+  return tryout;
 }
 
-async function searchTryoutInvitationStudents(
-  tryoutId: string,
-  actorId: string,
-  query: string,
-): Promise<InvitationPickerStudent[]> {
-  // Keep ownership ahead of every student read. This also means a Kapten
-  // cannot use an arbitrary Tryout id as a directory/PII probe.
-  await assertOwnedTryout(tryoutId, actorId);
-
+async function searchTryoutInvitationStudents(tryoutId: string, actorId: string, query: string) {
+  // Authorization precedes every directory read, including short queries.
+  const tryout = await assertOwnedTryout(tryoutId, actorId);
   const normalizedQuery = query.trim().slice(0, 80);
   if (normalizedQuery.length < 2) return [];
-
+  const main = selectMainTryoutSession(tryout.deliverySessions);
   const students = await prisma.user.findMany({
-    orderBy: { id: "asc" },
+    orderBy: [{ fullName: "asc" }, { email: "asc" }],
     select: {
-      id: true,
-      studentProfile: { select: { displayName: true } },
+      id: true, fullName: true, email: true,
       tryoutAdmissions: {
         where: { tryoutId },
         select: {
+          id: true, status: true,
           assignments: {
-            orderBy: { assignedAt: "desc" },
-            take: 1,
-            where: { status: TryoutAssignmentStatus.active },
-            select: {
-              deliverySession: {
-                select: {
-                  availableFrom: true,
-                  availableUntil: true,
-                  id: true,
-                  name: true,
-                  status: true,
-                },
-              },
-            },
+            where: { deliverySessionId: main?.id ?? "00000000-0000-0000-0000-000000000000" },
+            select: { id: true, status: true, deliverySessionId: true },
           },
-          id: true,
-          status: true,
         },
       },
     },
     take: 20,
     where: {
-      previewPurpose: null,
-      roleAssignments: {
-        some: { revokedAt: null, role: RoleName.student },
-      },
-      softDeletedAt: null,
-      status: UserStatus.active,
-      studentProfile: {
-        is: {
-          displayName: { contains: normalizedQuery, mode: "insensitive" },
-        },
-      },
+      previewPurpose: null, softDeletedAt: null, status: UserStatus.active,
+      studentProfile: { isNot: null },
+      roleAssignments: { some: { revokedAt: null, role: RoleName.student } },
+      OR: [
+        { fullName: { contains: normalizedQuery, mode: "insensitive" } },
+        { email: { contains: normalizedQuery, mode: "insensitive" } },
+      ],
     },
   });
-
-  return students
-    .map((student) => {
-      const admission = student.tryoutAdmissions[0] ?? null;
-      const assignment = admission?.assignments[0] ?? null;
-      const displayName = student.studentProfile?.displayName?.trim();
-
-      return {
-        admission: admission
-          ? {
-              assignment: assignment
-                ? {
-                    availableFrom: assignment.deliverySession.availableFrom.toISOString(),
-                    availableUntil: assignment.deliverySession.availableUntil.toISOString(),
-                    id: assignment.deliverySession.id,
-                    name: assignment.deliverySession.name,
-                    status: assignment.deliverySession.status,
-                  }
-                : null,
-              id: admission.id,
-              status: admission.status,
-            }
-          : null,
-        displayName: displayName || "Siswa tanpa nama",
-        id: student.id,
-      } satisfies InvitationPickerStudent;
-    })
-    .sort((left, right) => left.displayName.localeCompare(right.displayName, "id"));
+  return students.map((student) => {
+    const admission = student.tryoutAdmissions.at(0);
+    return {
+      ...mentorParticipantIdentity(student), id: student.id,
+      admission: admission ? { id: admission.id, status: admission.status, assignment: admission.assignments.at(0) ?? null } : null,
+    };
+  });
 }
 
-export {
-  searchTryoutInvitationStudents,
-  TryoutInvitationPickerError,
-};
+type InvitationPickerStudent = Awaited<ReturnType<typeof searchTryoutInvitationStudents>>[number];
+export { searchTryoutInvitationStudents, TryoutInvitationPickerError };
 export type { InvitationPickerStudent };

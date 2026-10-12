@@ -14,7 +14,7 @@ import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 import { admissionStatusLabels, assignmentStatusLabels, participantAttemptStateLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
-import { assignTryoutDeliverySessionAction, decideTryoutAdmissionAction, revokeTryoutDeliveryAssignmentAction } from "@/modules/mentor/tryout-actions";
+import { inviteTryoutParticipantAction, decideTryoutAdmissionAction, revokeTryoutDeliveryAssignmentAction } from "@/modules/mentor/tryout-actions";
 import { refreshTryoutLiveAction } from "@/modules/mentor/tryout-operations-actions";
 import { withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
 
@@ -39,7 +39,8 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
   const eligible = main?.grantEligible;
   const canDecide = view.status !== "archived" && status === "pending";
   const mainAssignment = participant.sessions.find((session) => session.id === main?.id);
-  const canManage = view.status !== "archived" && status === "active";
+  const canManage = view.status === "published" && ["active", "rejected", "revoked"].includes(status);
+  const needsRestoration = status === "rejected" || status === "revoked" || mainAssignment?.assignmentStatus === "revoked";
   const confirmationTitle = confirmation === "approve" ? "Setujui pendaftaran" : confirmation === "reject" ? "Tolak pendaftaran" : confirmation === "revoke" ? "Cabut akses sesi" : confirmation === "restore" ? "Berikan akses lagi" : "Tugaskan sesi";
 
   async function refresh() {
@@ -66,17 +67,22 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
       const request = decision === "revoke"
         ? revokeTryoutDeliveryAssignmentAction(revokeTarget!, reason)
         : decision === "assign" || decision === "restore"
-          ? assignTryoutDeliverySessionAction({ admissionId, deliverySessionId: main!.id, restoreRevoked: decision === "restore" }, reason)
+          ? inviteTryoutParticipantAction(view.id, identity.id, reason, main!.id, decision === "restore" ? "restore" : "invite")
           : decideTryoutAdmissionAction(admissionId, decision, reason, decision === "approve" ? main?.id : undefined);
       const result = await withTryoutRequestDeadline<{ ok: true; result: { status: string } } | { ok: false; message?: string }>(request);
       if (!result.ok) {
         setConfirmation(null);
+        if ("outcomeUnknown" in result && result.outcomeUnknown) {
+          setRefreshFailed(true);
+          showToast("Hasil tindakan belum dapat dipastikan. Muat ulang data peserta sebelum mencoba lagi.", { variant: "warning" });
+          return;
+        }
         showToast(result.message ?? "Keputusan belum dapat disimpan.", { variant: "error" });
         try { await refresh(); } catch { setRefreshFailed(true); }
         return;
       }
       // Retain the confirmed outcome even if the subsequent read fails.
-      if (decision === "approve" || decision === "reject") setDecidedStatus(result.result.status);
+      if (decision !== "revoke") setDecidedStatus(result.result.status);
       setConfirmation(null);
       setReason("");
       showToast(decision === "approve" ? `Pendaftaran ${identity.displayName} disetujui.` : decision === "reject" ? `Pendaftaran ${identity.displayName} ditolak.` : decision === "revoke" ? `Akses sesi ${identity.displayName} dicabut.` : `Akses sesi ${identity.displayName} diberikan.`, { variant: "success" });
@@ -107,8 +113,8 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
       <Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="participant-decision-reason" required>Alasan tindakan</FieldLabel><FieldInput id="participant-decision-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan keputusan" required aria-required="true" disabled={busy} /></Field>
       <div className="flex flex-wrap gap-3">
         {canDecide ? <><Button disabled={busy || !reason.trim() || !eligible || refreshFailed} onClick={() => setConfirmation("approve")}>Setujui</Button><Button variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => setConfirmation("reject")}>Tolak</Button></> : null}
-        {canManage && mainAssignment?.assignmentStatus !== "active" ? <Button disabled={busy || !reason.trim() || !eligible || refreshFailed} onClick={() => setConfirmation(mainAssignment?.assignmentStatus === "revoked" ? "restore" : "assign")}>{mainAssignment?.assignmentStatus === "revoked" ? "Berikan akses lagi" : "Tugaskan sesi"}</Button> : null}
-        {canManage ? participant.sessions.filter((session) => session.assignmentStatus === "active").map((session) => <Button key={session.assignmentId} variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => { setRevokeTarget(session.assignmentId); setConfirmation("revoke"); }}>Cabut akses {session.name}</Button>) : null}
+        {canManage && (needsRestoration || mainAssignment?.assignmentStatus !== "active") ? <Button disabled={busy || !reason.trim() || !eligible || refreshFailed} onClick={() => setConfirmation(needsRestoration ? "restore" : "assign")}>{needsRestoration ? "Berikan akses lagi" : "Berikan akses sesi"}</Button> : null}
+        {canManage && status === "active" ? participant.sessions.filter((session) => session.assignmentStatus === "active").map((session) => <Button key={session.assignmentId} variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => { setRevokeTarget(session.assignmentId); setConfirmation("revoke"); }}>Cabut akses {session.name}</Button>) : null}
       </div>
     </ReferenceSurface> : null}
     <AlertDialog open={confirmation !== null} onOpenChange={(open) => { if (!open && !busy) setConfirmation(null); }}>

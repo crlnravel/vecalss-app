@@ -8,8 +8,8 @@ import { openTryoutDeliverySession } from "../lib/tryout/delivery-repository";
 export async function createTa03Fixture() {
   const url = new URL(process.env.DATABASE_URL ?? "");
   if (!["localhost", "127.0.0.1"].includes(url.hostname) || url.port !== "55432" || url.pathname !== "/vecalss_dev") throw new Error("TA-03 requires local vecalss_dev on port 55432.");
-  const owner = await prisma.user.findUniqueOrThrow({ where: { email: "tutor@vecalss.local" } });
-  const students = await prisma.user.findMany({ where: { status: "active", softDeletedAt: null, previewPurpose: null, studentProfile: { isNot: null }, roleAssignments: { some: { role: "student", revokedAt: null } } }, orderBy: { email: "asc" } });
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: "tutor@vecalss.local" }, select: { id: true } });
+  const students = await prisma.user.findMany({ select: { id: true, fullName: true, email: true }, where: { status: "active", softDeletedAt: null, previewPurpose: null, studentProfile: { isNot: null }, roleAssignments: { some: { role: "student", revokedAt: null } } }, orderBy: { email: "asc" } });
   const student = students.find((item) => item.email === "student@vecalss.local");
   if (!student || students.length < 5) throw new Error("TA-03 requires the existing seeded Voyager and four students.");
   const source = await prisma.tryoutPackage.findFirstOrThrow({ where: { createdByUserId: owner.id, status: "published", sections: { every: { packageVersionId: null } }, items: { some: {} } }, orderBy: { createdAt: "asc" } });
