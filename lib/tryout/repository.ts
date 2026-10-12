@@ -1510,6 +1510,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     if (id) {
       const current = await tx.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: { attempts: { take: 1 }, sections: { select: { items: { select: { packageVersionId: true } }, packageVersionId: true } } } });
       if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+      if (current.status === ContentStatus.archived) throw new TryoutValidationError("Tryout sudah diarsipkan. Pengaturan hanya dapat dilihat sebagai riwayat.");
       if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Paket Soal yang digunakan sudah diarsipkan. Buat Tryout baru dengan memilih soal dari Bank Soal.");
       if (current.status === ContentStatus.published) throw new TryoutValidationError("Tryout yang sudah terbit tidak dapat diubah strukturnya. Gunakan Buat draf perubahan.");
       if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dikerjakan peserta tidak dapat diubah. Gunakan Buat draf perubahan.");

@@ -398,6 +398,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       ? toOperationsReleaseMetadata(operations.assessmentReleases[0])
       : null,
     admissionMode: operations.admissionMode,
+    admissionConfigurationLocked: operations._count.attempts > 0,
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
     description: operations.description,
     id: operations.id,

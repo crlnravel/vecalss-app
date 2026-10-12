@@ -66,6 +66,10 @@ import {
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { OptionSet } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { TryoutAdmissionModeField } from "@/modules/mentor/TryoutAdmissionModeField";
+import { KaptenTryoutDraftAdmissionModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
+import { TryoutRequestDeadlineError, withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
+import { continueAfterTryoutSave, createTryoutSaveRequest, finishTryoutSave } from "@/modules/mentor/tryout-save-request";
 import {
   type DefaultPolicy,
   type Mode,
@@ -1128,6 +1132,7 @@ function TryoutIdentityPanel({
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
+  onAdmissionModeChange,
   presentation = "page",
   saving,
 }: {
@@ -1140,6 +1145,7 @@ function TryoutIdentityPanel({
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
+  onAdmissionModeChange: (mode: Mode) => void;
   presentation?: "dialog" | "page";
   saving: boolean;
 }) {
@@ -1186,6 +1192,7 @@ function TryoutIdentityPanel({
           presentation={presentation}
           titleField={titleField}
         />
+        {onCreate ? <TryoutAdmissionModeField value={draft.admissionMode ?? "open"} onChange={onAdmissionModeChange} disabled={identityDisabled} /> : null}
       </div>
       {onCreate ? (
         <TryoutIdentityCreateAction
@@ -2424,6 +2431,8 @@ function useTryoutBuilderState({
   } = state;
 
   const savedDraftRef = useRef<TryoutDraft>(initialFormDraft);
+  const [recoveredCreateHref, setRecoveredCreateHref] = useState<string | null>(null);
+  const saveRequestRef = useRef(createTryoutSaveRequest<{ draft: TryoutDraft; status: "draft" | "published" }, Awaited<ReturnType<typeof saveTryoutAction>>>());
   const latestDraftRef = useRef<TryoutDraft>(initialFormDraft);
   const pendingHrefRef = useRef<string | null>(null);
   const autosaveInFlightRef = useRef<Promise<boolean> | null>(null);
@@ -2671,13 +2680,14 @@ function useTryoutBuilderState({
         : "basics",
       redirectSubtest?: SubjectCode,
     ): Promise<boolean> => {
-      const draftToSave = latestDraftRef.current;
+      let draftToSave = latestDraftRef.current;
       if (id && !resourceLock.canEdit) return false;
       dispatch({ saving: true, type: "setSaving" });
       dispatch({ error: null, type: "setError" });
+      let request: ReturnType<typeof saveRequestRef.current.getOrStart> | undefined;
       try {
-        const result = await saveTryoutAction({
-          admissionMode: id ? undefined : (draftToSave.admissionMode ?? "open"),
+        request = saveRequestRef.current.getOrStart({ draft: draftToSave, status }, ({ draft: draftToSave, status }) => saveTryoutAction({
+          admissionMode: draftToSave.admissionMode ?? "open",
           bannerMediaId: draftToSave.bannerMediaId ?? null,
           defaultResultReleasePolicy: id
             ? undefined
@@ -2722,19 +2732,37 @@ function useTryoutBuilderState({
           })),
           status,
           title: draftToSave.title,
-        });
+        }));
+        if (request.input.status !== status) {
+          showToast("Periksa hasil penyimpanan draf sebelum menerbitkan Tryout. Klik Simpan draf untuk melanjutkan.", { variant: "warning" });
+          return false;
+        }
+        draftToSave = request.input.draft;
+        const result = await withTryoutRequestDeadline(request.response);
         if (!result.ok) {
+          if ("outcomeUnknown" in result && result.outcomeUnknown) throw new Error("unknown-save-outcome");
+          saveRequestRef.current.clear(request);
           showToast(result.message, { variant: "error" });
           return false;
         }
         const nextDraft = normalize(result.result);
-        savedDraftRef.current = nextDraft;
-        if (latestDraftRef.current === draftToSave) {
-          latestDraftRef.current = nextDraft;
-          dispatch({ draft: nextDraft, type: "setDraft" });
-          dispatch({ dirty: false, type: "setDirty" });
-        }
-        if (!id) {
+        // A created Tryout receipt remains reusable until navigation succeeds;
+        // subsequent create clicks only recover that same saved Tryout.
+        if (id) saveRequestRef.current.clear(request);
+        const latestSaved = finishTryoutSave({
+          savedSnapshot: draftToSave,
+          latestSnapshot: latestDraftRef.current,
+          receipt: nextDraft,
+          onReceipt: (receipt) => {
+            savedDraftRef.current = receipt;
+            if (!id) setRecoveredCreateHref(`/mentor/tryout/${receipt.id}`);
+          },
+          onLatestSaved: (receipt) => {
+            latestDraftRef.current = receipt;
+            dispatch({ draft: receipt, type: "setDraft" });
+            dispatch({ dirty: false, type: "setDirty" });
+          },
+          onCreateNavigate: !id ? () => {
           const nextUrl = new URL(
             redirectSubtest
               ? tryoutSubtestDetailHref(result.result.id, redirectSubtest)
@@ -2743,15 +2771,22 @@ function useTryoutBuilderState({
           );
           if (!redirectSubtest && redirectWorkspace !== "basics")
             nextUrl.searchParams.set("workspace", redirectWorkspace);
-          window.location.assign(`${nextUrl.pathname}${nextUrl.search}`);
-        }
-        return true;
+          try { window.location.assign(`${nextUrl.pathname}${nextUrl.search}`); }
+          catch { showToast("Tryout tersimpan. Klik Buat lagi untuk membuka Tryout yang sama.", { variant: "warning" }); }
+          } : undefined,
+        });
+        if (!latestSaved) showToast(id
+          ? "Draf sebelumnya tersimpan. Perubahan terbaru masih tersedia; klik Simpan draf lagi sebelum meninggalkan halaman."
+          : "Tryout sebelumnya tersimpan. Perubahan terbaru tetap tersedia di sini. Buka draf tersimpan hanya jika perubahan terbaru boleh dibuang.", { variant: "warning" });
+        return latestSaved;
       } catch (saveError) {
+        // A transport rejection does not prove rollback. Retain the gate even
+        // when its promise rejects so neither retry nor autosave creates again.
         showToast(
-          saveError instanceof Error
-            ? saveError.message
-            : "Tryout belum dapat disimpan. Coba lagi.",
-          { variant: "error" },
+          saveError instanceof TryoutRequestDeadlineError
+            ? "Hasil penyimpanan belum dapat dipastikan. Pilihan tetap tersedia; klik simpan lagi untuk memeriksa permintaan yang sama."
+            : "Jawaban penyimpanan terputus. Perubahan tetap tersedia di sini. Periksa daftar Tryout di tab lain sebelum memuat ulang; penyimpanan ulang dihentikan agar tidak membuat Tryout ganda.",
+          { variant: "warning" },
         );
         return false;
       } finally {
@@ -3159,6 +3194,7 @@ function useTryoutBuilderState({
     metadataSaving,
     mode,
     pendingHrefRef,
+    recoveredCreateHref,
     publishOpen,
     save,
     saveMetadata,
@@ -3461,6 +3497,7 @@ function TryoutWorkspaceContent({
   onSetHidden,
   onUnpublish,
   operationsInitial,
+  draftAdmission,
   renderSubtestEditor,
   saving,
 }: {
@@ -3485,6 +3522,7 @@ function TryoutWorkspaceContent({
   operationsInitial?: TryoutOperationsView & {
     workflow?: CanonicalTryoutWorkflowProjection;
   };
+  draftAdmission?: ReactNode;
   renderSubtestEditor: (editorMode: boolean) => ReactNode;
   saving: boolean;
 }) {
@@ -3516,7 +3554,7 @@ function TryoutWorkspaceContent({
         >
           Operasional
         </h2>
-        <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
+        <KaptenTryoutOperationsModule embedded initial={operationsInitial} draftAdmission={draftAdmission} />
       </ReferenceSurface>
     );
   }
@@ -3659,6 +3697,7 @@ function TryoutBuilderPageWorkspace({
         onSetHidden={(hidden) => void state.setTryoutVisibility(hidden)}
         onUnpublish={() => state.dispatch({ open: true, type: "setUnpublishOpen" })}
         operationsInitial={operationsInitial}
+        draftAdmission={<KaptenTryoutDraftAdmissionModule value={viewDraft.admissionMode ?? "open"} onChange={(admissionMode) => state.updateDraft((current) => ({ ...current, admissionMode }))} onSave={() => state.save("draft")} onNavigate={(href) => state.guardExternalNavigation(href, { preventDefault: () => undefined })} disabled={viewDraft.locked || state.editLocked} saving={state.saving} dirty={state.dirty} />}
         renderSubtestEditor={renderSubtestEditor}
         saving={viewSaving}
       />
@@ -3718,12 +3757,10 @@ function TryoutBuilderLifecycleDialogContent({
       }}
       onConfirmSaveDirty={() => {
         const href = pendingHrefRef.current;
-        void save("draft").then((ok) => {
-          if (ok && href) window.location.assign(href);
-          if (ok) {
-            pendingHrefRef.current = null;
-            dispatch({ open: false, type: "setDirtyNavigationOpen" });
-          }
+        void continueAfterTryoutSave(() => save("draft"), () => {
+          if (href) window.location.assign(href);
+          pendingHrefRef.current = null;
+          dispatch({ open: false, type: "setDirtyNavigationOpen" });
         });
       }}
       onConfirmUnpublish={() => {
@@ -3781,6 +3818,7 @@ function TryoutBuilderContent({
   };
 }) {
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const [recoveredDraftOpen, setRecoveredDraftOpen] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
   const createDialogDirtyRef = useRef(false);
   const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
@@ -3859,6 +3897,17 @@ function TryoutBuilderContent({
     onDialogOpenChange?.(false);
   };
   const identityPanel = (
+    <>
+    {state.recoveredCreateHref ? <ReferenceSurface variant="inset" className="mb-4 space-y-3 p-4 text-sm leading-6" role="status">
+      <p>Tryout sudah dibuat. Perubahan terbaru masih ada di halaman ini. Membuka draf tersimpan akan membuang perubahan tersebut.</p>
+      <Button type="button" variant="outline" onClick={() => setRecoveredDraftOpen(true)}>Buka draf tersimpan</Button>
+      <UnsavedChangesConfirmationDialog open={recoveredDraftOpen} onOpenChange={setRecoveredDraftOpen} description="Perubahan terbaru belum disimpan. Buka draf yang sudah tersimpan dan buang perubahan terbaru?" onDiscard={() => {
+        const href = state.recoveredCreateHref;
+        discardDraft();
+        setRecoveredDraftOpen(false);
+        if (href) window.location.assign(href);
+      }} />
+    </ReferenceSurface> : null}
     <TryoutIdentityPanel
       draft={viewDraft}
       metadataSaving={viewMetadataSaving}
@@ -3875,9 +3924,11 @@ function TryoutBuilderContent({
       onTitleChange={(title) =>
         updateIdentityDraft((current) => ({ ...current, title }))
       }
+      onAdmissionModeChange={(admissionMode) => updateIdentityDraft((current) => ({ ...current, admissionMode }))}
       presentation={isCreateDialog ? "dialog" : "page"}
       saving={viewSaving || bannerUploading}
     />
+    </>
   );
 
   const renderSubtestEditor = (editorMode: boolean) => {

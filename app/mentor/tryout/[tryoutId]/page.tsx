@@ -17,6 +17,7 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import { queryTryoutParticipants } from "@/lib/tryout/participant-list";
 import { KaptenTryoutRegistrationListPageModule } from "@/modules/mentor/KaptenTryoutRegistrationListPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
+import { KaptenTryoutAccessPageModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
 
 export const metadata: Metadata = { title: "Tryout Kapten | Vecalss LMS" };
 
@@ -141,6 +142,13 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
     return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
       <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
         <KaptenTryoutRegistrationListPageModule key={canonicalHref} context={normalizedContext} initial={operationsInitial} initialList={queryTryoutParticipants(operationsInitial, parsedQuery)} />
+      </KaptenTryoutWorkspaceFrame>
+    </MentorWorkspaceShell>;
+  }
+  if (parsedQuery.delivery === "policy" && operationsInitial.status !== "draft") {
+    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Akses peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
+        <KaptenTryoutAccessPageModule key={canonicalHref} initial={operationsInitial} parentId={parsedQuery.parent} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>;
   }

@@ -21,7 +21,19 @@ function authoringMessage(error: unknown, fallback: string) { return error insta
 function authoringFailure(error: unknown, fallback: string) { return error instanceof EditLeaseServiceError ? { code: error.code, message: error.message, ok: false as const } : { message: authoringMessage(error, fallback), ok: false as const }; }
 type ArchivedPackageMutationResult = { code?: string; currentRevision?: number; expectedRevision?: number; message: string; ok: false; packageId?: string } | { ok: true; result: SaveReusableQuestionPackageResult };
 async function managementSession(capability: "tryout.delivery.configure" | "tryout.delivery.open" | "tryout.admission.manage" | "tryout.results.manage") { const session = await requireSession(); requireTryoutCapability(session, capability); return session; }
-async function saveTryoutAction(input: SaveTryoutInput) { const session = await managementSession("tryout.delivery.configure"); try { const result = await saveTryout(input, session.user.id); revalidatePath("/mentor/tryout"); revalidatePath(`/mentor/tryout/${result.id}`); return { ok: true as const, result }; } catch (error) { return authoringFailure(error, "Tryout tidak dapat disimpan saat ini."); } }
+async function saveTryoutAction(input: SaveTryoutInput) {
+  const session = await managementSession("tryout.delivery.configure");
+  let result: Awaited<ReturnType<typeof saveTryout>>;
+  try { result = await saveTryout(input, session.user.id); }
+  catch (error) {
+    if (error instanceof TryoutValidationError || error instanceof EditLeaseServiceError) return authoringFailure(error, "Tryout tidak dapat disimpan saat ini.");
+    return { ok: false as const, outcomeUnknown: true as const, message: "Hasil penyimpanan belum dapat dipastikan." };
+  }
+  // Cache invalidation failure cannot turn committed persistence into refusal.
+  try { revalidatePath("/mentor/tryout"); revalidatePath(`/mentor/tryout/${result.id}`); }
+  catch { /* The client still receives the saved identity and snapshot. */ }
+  return { ok: true as const, result };
+}
 async function importTryoutBankQuestionSnapshotsAction(input: ImportTryoutBankQuestionSnapshotsInput) { const session = await managementSession("tryout.delivery.configure"); try { const result = await importTryoutBankQuestionSnapshots(input, session.user.id); return { ok: true as const, ...result }; } catch (error) { if (error instanceof TryoutQuestionImportError) return { message: error.message, ok: false as const }; return authoringFailure(error, "Soal dari Bank Soal Tryout tidak dapat disiapkan saat ini. Coba lagi."); } }
 async function updateTryoutMetadataAction(input: TryoutMetadataInput) { const session = await managementSession("tryout.delivery.configure"); try { const result = input.editLease ? await updateTryoutMetadata(input, session.user.id, input.editLease) : await updateTryoutMetadataTransient(input, session.user.id); revalidatePath("/mentor/tryout"); revalidatePath(`/mentor/tryout/${input.id}`); return { ok: true as const, result }; } catch (error) { return authoringFailure(error, "Detail Tryout tidak dapat disimpan saat ini."); } }
 async function unpublishTryoutAction(id: string, editLease?: AuthoringEditLease) { const session = await managementSession("tryout.delivery.configure"); try { const result = editLease ? await unpublishTryout(id, session.user.id, editLease) : await unpublishTryoutTransient(id, session.user.id); revalidatePath("/mentor/tryout"); revalidatePath(`/mentor/tryout/${id}`); revalidatePath("/tryout"); revalidatePath(`/tryout/${id}`); revalidatePath(`/tryout/${id}/register`); revalidatePath(`/tryout/${id}/waiting`); return { ok: true as const, result }; } catch (error) { return authoringFailure(error, "Tryout tidak dapat dikembalikan ke draf saat ini."); } }

@@ -371,6 +371,7 @@ async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: st
 }
 
 async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approval_required" | "invitation_only", actorId: string, reason: string, allowCrossOwner = false) {
+  if (!["open", "approval_required", "invitation_only"].includes(mode)) throw new TryoutDeliveryValidationError("Pilih akses peserta yang tersedia.");
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
@@ -1197,6 +1198,7 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
   const tryout = await tx.tryoutPackage.findFirst({
     where: { createdByUserId: actorId, id: ownedTryout.id },
     include: {
+      _count: { select: { attempts: true } },
       assessmentReleases: { orderBy: { releaseNumber: "desc" }, take: 1 },
       sections: {
         select: { id: true, sequenceNo: true, subtestId: true },
