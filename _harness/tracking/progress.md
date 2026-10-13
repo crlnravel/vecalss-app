@@ -1316,3 +1316,9 @@ Live refresh/polling. AS-08 remains closed.
 
 - Baseline install/lint/build and interface context passed; actual4 child launches, one above per-turn3. Recorded counting error; no retrospective approval. Remaining2/session allocated red then sequential focused/DB/type/lint/build; stop before any seventh launch.
 - Test/fixture slice7002146 committed but unrun; all TA-03 acceptance pending. Root0 heavy groups. Same-name rendered proof and fixture serialization constraints handed off.
+
+## 2026-10-13 WIB — TA-03 local acceptance complete
+
+- [x] Invitations/restoration and hidden assigned schedule/Start, precise server grant blockers and44px search control delivered in1857b4ab/1730003d with final independent exact6.1-sol/high reviews clear. Complete DB/pure/type/lint/build pass; five unrelated warnings.
+- [x] Actual same-name/email selection, reasoned invite/revoke/restore, preserved IDs/notification counts, offline/failed-read recovery, student schedule/no acceptance/futureStart and mobile/keyboard pass. Nine rootgroups normalguard, all extensions approved; no bypass/new accounts/production. Ego56 finished once keep[p1], overrides/names/eligibility restored, no ownedprocess.
+- [x] Durable evidence/receipts in epic tryout-ta03-local-qa-20261013; ticket2. F9 feature accepted; story1/TA04todo. Separate F11transientlock-order confirmed/open preparedticket, not autoimplemented. Preserve excludedF3/F6 and peerwork; no blanketfulllifecyclepass.

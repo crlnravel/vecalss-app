@@ -1,5 +1,13 @@
 # Session Handoff
 
+## TA-03 accepted on local development (2026-10-13 WIB)
+
+- TA-03 complete. Product/tests7002146+a742741+hidden/blocker1730003d+DTO testa294904+local44px1857b4ab; clean-context exact6.1-sol/high implementation/repairs and final independent Standards/Spec clear. Complete DB/pure/type/lint/build pass; five unrelated warnings. Three F3 serverNow dirty hunks preserved/excluded; F6/bank/quiz/material/skills untouched.
+- Root nine normal guarded groups, extensions explicitly approved (remainingtwo then up tothree). Child startup miscount4/turn disclosed, not retroactively approved. Root owns full evidence epic tryout-ta03-local-qa-20261013. Initial hydration/substring-selection/unsupported preview conversion and temporary QA lint errors were diagnosed without hiding failures; genuine43.25px input fixed/measured44px, pagewidth390.
+- Browser confirms email/same-name keyboard selection, required reason/named cancel/confirm, invite→revoke→discover active registration+revoked session→explicit restore, same-active no-write state, offline gated recovery, committed grant/failed read/manual reload with no duplicate, student notification/schedule/no acceptance/futureStart disabled and mobile Escape/focus.
+- Primary c9ae9d65/session9ba8cf77 retains Voyager admission570ed683-d375-4b79-8da1-c7bbb3f227cc/assignment0d2bef36-8517-470a-acc2-d9fe1e026524. Final browserfixture2admissions/3notifications/3legitimate grant/restoration audits/zeroattempts: Voyager2notifications, Arya1 saved-read-failure test. Names/eligibility restored. Excluded inactive/deleted/existing managed-preview queries and stale grants refused. DB separately verifies hidden ownreads/future/inwindowStart/replay/pins and archive/close counts; both race orders not forced.
+- Ego56 finish once keep[p1] (closedSpace:false), user studentpage retained. Network/device/fetch reset; no owned shells/server/forward; peer5023 untouched. Root acceptance role relinquishes after docs. TA03 ticket2; story1 untilTA04. F9 feature functionality accepted, integrated closurepending. F11 no-proof transient lock-order separately confirmed/open ticket tryout-f11-transient-lifecycle-lock-order; no automaticfix/TA04start authorized. Recommend F11 before wider no-proof lifecycle regression.
+
 ## TA-03 authorized and delegated (2026-10-13 WIB)
 
 - User explicitly authorized clean-context exact gpt-6.1-sol/high TA-03 implementation and local invitations/restoration verification. Fresh child 9fc64115-9b27-455e-8404-b10e30372c8b verified identity and owns invitation implementation; root 09708a92 owns acceptance coordination/reviews. TA-03 ticket status1; TA-01/02 accepted; TA-04 todo. Approved D1–D8 unchanged.
