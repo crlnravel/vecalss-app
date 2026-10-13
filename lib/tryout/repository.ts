@@ -135,10 +135,11 @@ async function lockTryoutTransientIdentity(
   if (proof.resource.resourceType !== "tryout" || proof.resource.resourceId !== tryoutId) {
     throw new TryoutValidationError("Tryout tidak dapat diedit saat ini. Muat ulang halaman lalu coba lagi.");
   }
-  const identity = await acquireTryoutIdentityMutex(tx, { id: tryoutId, kind: "tryout" });
-  if (!identity) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
-  await lockTryoutAggregate(tx, identity.tryoutId);
-  return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
+  // withTransientTryoutLifecycle already holds this canonical Tryout's mutex
+  // in this transaction before claiming the lease. Reacquiring it here would
+  // move from the lease level back to the domain level.
+  await lockTryoutAggregate(tx, proof.resource.resourceId);
+  return assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, proof.resource.resourceId);
 }
 
 async function runTryoutLifecycleCore<T>(
