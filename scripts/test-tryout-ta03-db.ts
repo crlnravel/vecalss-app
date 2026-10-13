@@ -148,7 +148,7 @@ try {
   const hiddenDetail = await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id);
   assert.equal(hiddenDetail?.admissionStatus, "active");
   assert.equal(hiddenDetail?.assignments[0].id, hidden.sessionId, "invited student discovers the intended hidden schedule");
-  assert.equal(hiddenDetail?.assignments[0].canStart, false, "future hidden invitation still waits for opening");
+  assert.equal(hiddenDetail?.assignments[0].isAvailableNow, false, "future hidden invitation still waits for opening");
   assert((await participantTryoutCatalogue(hiddenStudent.id)).some((item) => item.id === hidden.tryoutId));
   await assert.rejects(startTryoutAttempt(hidden.sessionId, hiddenStudent.id), /belum|jadwal|dibuka/i);
   await assert.rejects(registerForTryout(hidden.tryoutId, hiddenOther.id));
@@ -168,7 +168,7 @@ try {
   const hiddenSession = await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: hidden.sessionId }, include: { assessmentRelease: true } });
   await atServerTime(hiddenSession.availableFrom, async () => {
     await assert.rejects(startTryoutAttempt(hidden.sessionId, hiddenOther.id));
-    assert.equal((await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id))?.assignments[0].canStart, true);
+    assert.equal((await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id))?.assignments[0].isAvailableNow, true);
     const started = await startTryoutAttempt(hidden.sessionId, hiddenStudent.id);
     assert.equal(started.state, "started");
     const attempt = await prisma.tryoutAttempt.findUniqueOrThrow({ where: { id: started.attemptId } });
