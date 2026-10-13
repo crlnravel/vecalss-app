@@ -1322,3 +1322,8 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Invitations/restoration and hidden assigned schedule/Start, precise server grant blockers and44px search control delivered in1857b4ab/1730003d with final independent exact6.1-sol/high reviews clear. Complete DB/pure/type/lint/build pass; five unrelated warnings.
 - [x] Actual same-name/email selection, reasoned invite/revoke/restore, preserved IDs/notification counts, offline/failed-read recovery, student schedule/no acceptance/futureStart and mobile/keyboard pass. Nine rootgroups normalguard, all extensions approved; no bypass/new accounts/production. Ego56 finished once keep[p1], overrides/names/eligibility restored, no ownedprocess.
 - [x] Durable evidence/receipts in epic tryout-ta03-local-qa-20261013; ticket2. F9 feature accepted; story1/TA04todo. Separate F11transientlock-order confirmed/open preparedticket, not autoimplemented. Preserve excludedF3/F6 and peerwork; no blanketfulllifecyclepass.
+
+## 2026-10-13 WIB — F-11 repair authorized
+
+- [x] Clean-context exact6.1-sol/high c5497398 verified/claimed isolated transient lifecycle repair; root acceptance role and Q1–Q12 matrix created. Ticket1; no implementation/gate pass yet.
+- [ ] Actual no-proof hide/archive/unpublish, shared caller/lease/owner/history/race regressions, localUI, final cold reviews/gates and finding closure. Preserve F6/F3/peerwork. Child startup2+redthird allocation, root0 launches; browser approval pending exactfixtures.
