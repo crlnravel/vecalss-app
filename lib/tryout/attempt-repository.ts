@@ -931,7 +931,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     // This is the single content-lock transition: same aggregate lock as
     // authoring writes. The row was already acquired before session locks.
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { isHidden: true, status: true } });
-    if (!tryout || tryout.status !== ContentStatus.published || tryout.isHidden) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai pengerjaan baru.");
+    if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai pengerjaan baru.");
     const lockedTryout = await tx.tryoutPackage.findUniqueOrThrow({
       where: { id: session.tryoutId },
       include: {

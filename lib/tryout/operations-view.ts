@@ -20,7 +20,7 @@ import {
 import { synchronizeTryoutSessionReleaseState, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 import { projectTryoutWorkflow } from "@/lib/tryout/workflow-projection";
 import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
-import { isTryoutAdmissionSessionAvailable } from "@/lib/tryout/registration-availability";
+import { tryoutAccessGrantBlockReason } from "@/lib/tryout/registration-availability";
 
 type TryoutOperationsRecord = NonNullable<
   Awaited<ReturnType<typeof getTryoutDeliveryOperations>>
@@ -246,7 +246,8 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     })),
     availableFrom: deliverySession.availableFrom.toISOString(),
     availableUntil: deliverySession.availableUntil.toISOString(),
-    grantEligible: operations.status !== "archived" && isTryoutAdmissionSessionAvailable(deliverySession, now),
+    grantEligible: tryoutAccessGrantBlockReason(operations.status, deliverySession, now) === null,
+    grantBlockedReason: tryoutAccessGrantBlockReason(operations.status, deliverySession, now),
     assessmentRelease: deliverySession.assessmentRelease
       ? toOperationsReleaseMetadata(deliverySession.assessmentRelease)
       : null,

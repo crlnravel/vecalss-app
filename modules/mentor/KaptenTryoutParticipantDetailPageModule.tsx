@@ -11,6 +11,7 @@ import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/referen
 import { showToast } from "@/components/ui/toast";
 import { buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
 import { selectMainTryoutSession } from "@/lib/tryout/main-session";
+import { tryoutAccessGrantBlockMessage } from "@/lib/tryout/registration-availability";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 import { admissionStatusLabels, assignmentStatusLabels, participantAttemptStateLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
@@ -108,7 +109,7 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
     {view.status === "archived" ? <p className="text-sm text-secondary-600">Tryout sudah diarsipkan. Pendaftaran hanya dapat dilihat sebagai riwayat.</p> : null}
     {canDecide || canManage ? <ReferenceSurface className="grid gap-4 p-5">
       <h3 className="font-semibold text-secondary-900">{canDecide ? "Tinjau pendaftaran" : "Kelola akses sesi"}</h3>
-      <p className="text-sm text-secondary-700">{eligible ? `Persetujuan memberi akses ke ${main.name}. Peserta dapat mulai sesuai jadwal.` : "Belum ada sesi yang siap menerima peserta. Siapkan sesi sebelum menyetujui pendaftaran."}</p>
+      <p className="text-sm text-secondary-700">{eligible ? `Persetujuan memberi akses ke ${main.name}. Peserta dapat mulai sesuai jadwal.` : tryoutAccessGrantBlockMessage(main?.grantBlockedReason ?? (view.status === "archived" ? "archived_tryout" : view.status !== "published" ? "unpublished_tryout" : "missing_session"))}</p>
       {eligible ? <p className="text-sm text-secondary-600">{formatTryoutDateTime(main.availableFrom)} WIB – {formatTryoutDateTime(main.availableUntil)} WIB</p> : null}
       <Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="participant-decision-reason" required>Alasan tindakan</FieldLabel><FieldInput id="participant-decision-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan keputusan" required aria-required="true" disabled={busy} /></Field>
       <div className="flex flex-wrap gap-3">

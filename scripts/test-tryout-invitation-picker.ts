@@ -3,6 +3,25 @@ import { readFile } from "node:fs/promises";
 import { invitationIntent, invitationSearchReducer, initialInvitationSearch } from "../lib/tryout/invitation-state";
 import type { InvitationPickerStudent } from "../lib/tryout/invitation-picker";
 import { performTryoutAccess } from "../modules/mentor/tryout-access-request";
+import { tryoutAccessGrantBlockReason, tryoutAccessGrantBlockMessage } from "../lib/tryout/registration-availability";
+
+const grantNow = new Date("2026-10-13T10:00:00Z");
+const grantSession = { id: "main", isDefaultOpenRegistration: true, status: "active", assessmentReleaseId: "release", availableFrom: "2026-10-13T10:30:00Z", availableUntil: "2026-10-13T11:00:00Z" };
+assert.equal(tryoutAccessGrantBlockReason("published", grantSession, grantNow), null, "future-opening active content-bound sessions may receive access");
+assert.equal(tryoutAccessGrantBlockReason("published", null, grantNow), "missing_session");
+assert.equal(tryoutAccessGrantBlockReason("archived", grantSession, grantNow), "archived_tryout");
+assert.equal(tryoutAccessGrantBlockReason("draft", grantSession, grantNow), "unpublished_tryout");
+for (const [status, expected] of [["draft", "inactive_session"], ["closed", "closed_session"], ["archived", "archived_session"]] as const) {
+  assert.equal(tryoutAccessGrantBlockReason("published", { ...grantSession, status }, grantNow), expected);
+}
+assert.equal(tryoutAccessGrantBlockReason("published", { ...grantSession, assessmentReleaseId: null }, grantNow), "missing_content");
+assert.equal(tryoutAccessGrantBlockReason("published", grantSession, new Date(grantSession.availableUntil)), "ended_session", "grant cutoff is exclusive at the authoritative server time");
+assert.equal(tryoutAccessGrantBlockReason("published", { ...grantSession, availableUntil: "invalid" }, grantNow), "ended_session", "invalid deadlines fail closed");
+assert.equal(tryoutAccessGrantBlockMessage("inactive_session"), "Sesi belum dibuka untuk peserta. Buka sesi sebelum memberi akses.");
+assert.equal(tryoutAccessGrantBlockMessage("missing_content"), "Konten sesi belum siap. Siapkan konten sebelum memberi akses.");
+assert.equal(tryoutAccessGrantBlockMessage("closed_session"), "Sesi sudah ditutup. Siapkan sesi yang masih aktif untuk memberi akses.");
+assert.equal(tryoutAccessGrantBlockMessage("ended_session"), "Waktu sesi sudah berakhir. Siapkan jadwal sesi yang baru untuk memberi akses.");
+assert.equal(tryoutAccessGrantBlockMessage("missing_session"), "Belum ada sesi. Siapkan sesi dan kontennya sebelum memberi akses.");
 
 const first: InvitationPickerStudent = { id: "first", displayName: "Nabila", email: "first@vecalss.local", admission: null };
 const second = { ...first, id: "second", email: "second@vecalss.local" };
