@@ -1,5 +1,21 @@
 # Session Handoff
 
+## TA-04 initial run executed; F-12 blocks acceptance (2026-10-14 WIB)
+
+- Normal open, approval and invitation workflows passed locally, including named review, contextual return, invitations/restoration, notification counts and 390px keyboard checks. Fresh TA-01/02/03 DB suites and relevant pure contracts passed. A retained fixture overlap correctly blocked the original F-11 rerun; an isolated repeat-safe copy passed. Detailed case limits are in the epic artifact `tryout-ta04-local-qa-20261014`.
+- F-12 P2 is confirmed in both student actions: an unresolved registration request leaves Batal/Mendaftarkan disabled after 26,008 ms; an unresolved Start leaves Menyiapkan disabled after 25,918 ms. No product repair was authorized or made. F-12 ticket is todo; TA-04 remains in progress with matrix M failed. Standards review is clear; Spec records this finding. Mentor offline and saved-write/failed-read recovery passed.
+- The primary student's retained overlapping TA-02 attempt was preserved; seeded Dimas exercised the short live session. Session b753fd1a ended at 09:34:08.463Z; attempt f7c502f0 has that exact deadline, the original release and seven expired runs. With the client clock ten minutes slow, the action disappeared 57 ms after cutoff without reload. Exact approval/invitation boundary contracts passed. TypeScript, lint and build passed; final lint retains five unrelated warnings. Result disclosure remains gated under the separately open F-7 workflow.
+- Eleven normal guarded groups were used with explicit extensions of six then two. Ego space 59 finished once with no tabs retained; clock/network/viewport and temporary names were restored. No owned persistent process remains; peer server :5023 was untouched. Five critical source hashes match the initial baseline. Excluded F-6/F-3 dirty work and peer work remain intact. Mixed-worktree results do not establish standalone clean-commit acceptance or both winning race orders.
+- Next: authorize clean-context exact 6.1-sol/high F-12 repair, then rerun interrupted-action recovery and affected deadline/identity/replay checks before closing TA-04. Root retains TA-04 QA role cea6434f for followthrough. F-7/F-8 remain separate. No required asynchronous verdict is pending.
+
+## Historical checkpoint — TA-04 authorized and started (2026-10-14 WIB)
+
+- User authorized combined A–P admission QA. Root09708a92 owns rolecea6434f, taskticket1, evidence epictryout-ta04-local-qa-20261014. Starting HEADd20d99cb; no product changes. F11 complete; F6/F3 dirt preserved. Normal3 root groups consumed; existing6/session leaves3. Browser approval/extension requested for fresh fixtures and seeded roles before Ego.
+- Fresh TA01/02/03 DB suites0. OriginalF11 rerun failed synthetic Start because retained priorF11 attempt overlapped newwindow; actual command refuses overlap as intended, no newattempt. Scratch repeat-safe copy moves racewindows after existing schedules, allsameassertions0; initial scratchrelative-import error retained. Pure invitation/recovery/expiry/workflow/disclosure0; fresh public all-mode fixtures0.
+- Open81d6c156/sessionb753fd1a; approval39ae65d9/session4c11834e; invitation48f272f6/session8bb30bf5. FullIDs/routes in .scratch/tryout-ta04/fixtures.json, futureOct16–17, noadmissions/attempts. Root DB peerhistory untouched; no reset/newaccounts/production, peer5023 untouched.
+- Paired static-only reviews required bycode-review: Standards374ddc97 thread4474903e, Spec0b77028c thread218a64af; configuredLuna/max perselectionguide, nofix/runtime. Baseline0df7d9d→d20d99cb scopes31files. Both async replies pending; don'tpoll. TA04 runtime/rendered/recovery/realF3 boundary/type/lint/build and closure remain pending.
+
+
 ## F-11 accepted locally (2026-10-14 WIB)
 
 - Product `6ee19ee5`: private transient lifecycle helper5add4del plus293-line actual public DB regression. Clean-context exact6.1-sol/high child; final independent Standards/Spec clear. No-proof DB red→green, held-proof paths, ownership/leases/staleidentity/history/Start/grant, strictTS/full lint/build pass; five unrelated lint warnings.
