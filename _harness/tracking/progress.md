@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## F-12 repair authorized and delegated (2026-10-14 WIB)
+
+- User authorized clean-context exact gpt-6.1-sol/high repair and rerun of failed TA-04 recovery/deadline cases. Worker 49a6fe7f verified that runtime and owns F-12 implementation; root retains TA-04 acceptance coordination. Ticket status1; focused matrix is epic `tryout-f12-local-qa-20261014` (R1–R9).
+- Scope: bounded registration/Start busy state, authoritative owned inspection, unknown outcomes versus known refusal, single dispatch/replay safety, late-response intent, server-clock/cutoff/identity preservation. Before-images are in `.scratch/tryout-f12/before`; root source hashes are in `.scratch/tryout-f12/root-baseline.json`. F-3/F-6 dirty work and peer work must be preserved and excluded from commits.
+- New task standard resource allocations: child six guarded groups total, three per turn; root QA six total. Child startup lint/build then focused red use its first three. Root has launched no heavy QA or browser for F-12. No emergency/extra-group authorization assumed. Ego59 is already finished; fresh fixture routes require applicable explicit browser scope before checking.
+- Child owes checkpoint/committed handoff on thread 97b762a3; root should authorize ordinary continuation within the remaining allocation, perform independent reviews and rendered R1–R9 verification, then update F-12/TA-04/consolidated artifacts. No product repair or passing rerun is claimed at dispatch. F-7/F-8 remain separate.
+
 ## TA-04 initial run executed; F-12 blocks acceptance (2026-10-14 WIB)
 
 - Normal open, approval and invitation workflows passed locally, including named review, contextual return, invitations/restoration, notification counts and 390px keyboard checks. Fresh TA-01/02/03 DB suites and relevant pure contracts passed. A retained fixture overlap correctly blocked the original F-11 rerun; an isolated repeat-safe copy passed. Detailed case limits are in the epic artifact `tryout-ta04-local-qa-20261014`.
