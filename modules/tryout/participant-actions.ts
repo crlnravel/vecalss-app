@@ -63,7 +63,7 @@ async function registerForTryoutWithTargetAction(
     revalidatePath(`/tryout/${tryoutId}`);
     return { ok: true as const, result };
   } catch (error) {
-    return { ok: false as const, message: message(error) };
+    return { ok: false as const, confirmedRefusal: error instanceof TryoutDeliveryValidationError || error instanceof TryoutCapabilityError, message: message(error) };
   }
 }
 
@@ -73,7 +73,7 @@ async function startTryoutAttemptAction(deliverySessionId: string) {
     const result = await startTryoutAttempt(deliverySessionId, session.user.id);
     return { ok: true as const, result };
   } catch (error) {
-    return { ok: false as const, message: message(error) };
+    return { ok: false as const, confirmedRefusal: error instanceof TryoutAttemptValidationError || error instanceof TryoutCapabilityError, message: message(error) };
   }
 }
 
