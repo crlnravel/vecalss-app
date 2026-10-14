@@ -1,5 +1,13 @@
 # Session Progress Log
 
+## F-11 accepted locally (2026-10-14 WIB)
+
+- Product `6ee19ee5`: private transient lifecycle helper5add4del plus293-line actual public DB regression. Clean-context exact6.1-sol/high child; final independent Standards/Spec clear. No-proof DB red→green, held-proof paths, ownership/leases/staleidentity/history/Start/grant, strictTS/full lint/build pass; five unrelated lint warnings.
+- Approved Kapten Ego58 hide/unhide/reloads, unpublish cancel/confirm and archive cancel/confirm/archived-history reload pass. UI had held proof; no-proof command evidence separate. SQL same session/release/payload; unpublish closes session, archive retains it. Existing20attempt history SHA unchanged. Browser scripts' path/API/wrongtab errors retained; no product failures attributed.
+- Child6 groups; root7 groups with explicit user extension after6 (up to2 approved, only1 used). Ego58 finished once keep[]; no owned server/worker; peer5023 untouched. Durable matrix/evidence epic tryout-f11-local-qa-20261013; ticket2/consolidated finding resolved. TA04 ticket remains0; not automatically started.
+- Repository F6 remaining64add4del byte-preserved/excluded; F3/peers untouched. Untouched draft deletion regression relies on preserved F6 dirty code; not clean standalone F11 pass. Race winners observed, both orders not forced. All previous checkpoints below are historical.
+
+
 ## TA-01 approved and delegated (2026-10-10)
 
 - User approved the four-ticket breakdown and authorized TA-01 implementation/local verification, exact gpt-6.1-sol/high. Clean-context child `dcd238fc-12a7-4507-848a-0abec0ad045f` verified its model and owns participant review implementation; root coordinates final QA/reviews. Broker request `8633cad7-7fd8-4638-b55c-b16d76a34076` requires a completion reply.
