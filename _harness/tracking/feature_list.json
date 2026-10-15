@@ -1,6 +1,16 @@
 {
   "features": [
     {
+      "id": "tryout-f13-deadline-reconciliation",
+      "name": "Reconcile Tryout deadlines after early active reads",
+      "description": "Bound automatic deadline rechecks and preserve authoritative attempt expiry, stable request budgets and explicit recovery.",
+      "dependencies": [
+        "tryout-f12-student-recovery"
+      ],
+      "status": "in-progress",
+      "evidence": "User authorized exact clean-context gpt-6.1-sol/high worker ff50cc02. Actual extracted mounted effects reproduce early successful-active read leaving in_progress after 20 seconds. Startup lint/build pass; implementation and D1\u2013D8 local verification pending. Epic tryout-f13-local-qa-20261015; preserve excluded F3/F6 baseline."
+    },
+    {
       "id": "tryout-f12-student-recovery",
       "name": "Bound student Tryout registration and Start recovery",
       "description": "Bound stalled student actions and independent owned-state inspection while preserving frozen intent, safe replay and attempt/session deadlines.",

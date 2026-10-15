@@ -1,5 +1,11 @@
 # Session Handoff
 
+## F-13 repair authorized; deterministic red confirmed (2026-10-15 WIB)
+
+- User authorized clean-context exact gpt-6.1-sol/high repair and local deadline reconciliation verification. Worker ff50cc02 verified that runtime and owns the isolated implementation; root retains TA-04 acceptance. Ticket is in progress; detailed D1–D8 matrix is epic tryout-f13-local-qa-20261015.
+- Original mounted one-shot deadline effects were extracted without a behavior change. Corrected mounted harness confirms an early successful-active response remains in_progress after 20 seconds instead of reconciling expiry. Group3 was a React host scheduling failure, not bug evidence; group4 is the intended red. Startup lint/build passed. Child4/6 groups consumed; root0/6; no emergency or extension.
+- Approved scope is finite/coalesced reconciliation with stable deadline identity, quiet automatic failures, explicit recovery and stale-generation cleanup. Preserve F-3/F-6 and peer dirty work; isolate HEAD-based product hunks and restoration proof. No passing fix or live rerun yet. Root prepares new future-only seeded fixtures, then requests exact route/role/checklist browser approval; Ego60 is already finished. Existing F12 attempt/pin/deadline remain unchanged.
+
 ## F-12 accepted; F-13 deadline follow-up open (2026-10-15 WIB)
 
 - F-12 product/tests committed as 4aa36e91 (12 paths) by clean-context exact gpt-6.1-sol/high worker 49a6fe7f. Shared bounded recovery and independent authenticated read-only GET replace the queued inspection action. Known late refusal unlocks correction; unresolved writes remain fenced, manual same-intent replay is backed by actual server-lock tests, and late receipts do not navigate from stale callbacks.
