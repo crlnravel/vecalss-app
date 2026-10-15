@@ -1,5 +1,12 @@
 # Session Handoff
 
+## F-13 live checks pass; final review follow-up remains (2026-10-15 WIB)
+
+- Exact6.1-sol/high worker delivered6c2a84e1 (fivepaths) with isolated HEAD main; original15F3lines and F6/peerbytes preserved. Final11 mounted scenarios, F12 pure/HTTP and public DB replay/ownership/cutoff, TypeScript/fullverify pass (five unrelatedwarnings).
+- Approved Ego63 confirms real earlyactive514ms beforecutoff→automaticexpired157ms aftercutoff, two reads/no reload; real1minPU expiry preserves nextsection; six failed deadline reads backoff then one notice/manualseventhread expires. Original twoattempts14runs/pins/deadlines andsavedanswer retained. Results gated. Ego63 finished exactlyonce keep[], clock/fetch restored; no ownedprocess, peer5023untouched.
+- Root6/6 normalgroups exhausted. Runner3 link/nativebutton selector and runner4 too-short55s wait were QAerrors; recovered samepage withoutrearm. Group6 invariant1 wrongly assumed oneexpiry audit perattempt: actual active-run+overallend are two distinct legitimate audited transitions. Corrected source-only helper awaits rerun; actualreadonly audit before/after confirms no duplicate transition. Child6/6 used.
+- FinalSpec raises P2 commit-before-passive-effect stale-response interval. Workerff50cc02 asked to validate/prepare smallest source-only fence+actual-controller timing regression; no morelaunch authorized. F13ticket/feature andTA04 remaininprogress. Next: reconcile concrete repair/coldreviews then askuser explicit extra guardedgroup for repaired tests/type/lint/build andcorrected invariants. Epic tryout-f13-local-qa-20261015 has full receipts; do not repeat accepted livewrites or reuse finishedEgo63.
+
 ## F-13 repair authorized; deterministic red confirmed (2026-10-15 WIB)
 
 - User authorized clean-context exact gpt-6.1-sol/high repair and local deadline reconciliation verification. Worker ff50cc02 verified that runtime and owns the isolated implementation; root retains TA-04 acceptance. Ticket is in progress; detailed D1–D8 matrix is epic tryout-f13-local-qa-20261015.
