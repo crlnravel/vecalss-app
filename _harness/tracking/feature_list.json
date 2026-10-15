@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "tryout-f12-student-recovery",
+      "name": "Bound student Tryout registration and Start recovery",
+      "description": "Bound stalled student actions and independent owned-state inspection while preserving frozen intent, safe replay and attempt/session deadlines.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "4aa36e91; clean-context exact gpt-6.1-sol/high. Actual-handler/controller/HTTP and public DB overlap/ownership/exact-cutoff pass, TypeScript/lint/build pass, final committed Standards/Spec clear. Ego60 verifies held/lost/failed/offline registration and Start recovery, independent GET, explicit destinations, future gate and 390px controls. Separate F-13 live expiry reconciliation failed in unchanged F-3 baseline and remains todo; TA-04 is still in progress. Original attempt/pin/deadline preserved; post-cutoff reload expired same seven runs and kept results gated. Safe evidence epic tryout-f12-local-qa-20261014; browser finished once; excluded F-3/F-6/peer work preserved."
+    },
+    {
       "id": "tryout-f5-bank-accessible-name",
       "name": "Bank creation control accessible name",
       "description": "Align the shared mentor Bank Soal creation button's accessible name with its visible Buat Bank action.",
