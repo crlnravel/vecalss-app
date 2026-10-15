@@ -7,8 +7,8 @@
       "dependencies": [
         "tryout-f12-student-recovery"
       ],
-      "status": "in-progress",
-      "evidence": "User authorized exact clean-context gpt-6.1-sol/high worker ff50cc02. Actual extracted mounted effects reproduce early successful-active read leaving in_progress after 20 seconds. Startup lint/build pass; implementation and D1\u2013D8 local verification pending. Epic tryout-f13-local-qa-20261015; preserve excluded F3/F6 baseline."
+      "status": "complete",
+      "evidence": "6c2a84e1 +3fb78997; exact clean-context gpt-6.1-sol/high. Real early-active reply514ms before cutoff then automatic expiry157ms after, run-only continuation, six failures/one notice/manual recovery. Twelve actual mounted/controller cases include commit-before-passive and retained-callback red/green proof on working+HEAD candidate. F12 pure/HTTP, public DB exact cutoff/replay/ownership, TypeScript/full lint/build pass with five unrelated warnings. Both final committed reviews clear. Original attempt/run IDs, pins, deadlines and saved choiceA preserved; distinct run/session audits verified. Root7groups=6standard+1explicit approval, child6; Ego63 finished once, overrides restored, no process. F13 and TA04 complete within documented limits; F7/F8 remain product decisions. Epic tryout-f13-local-qa-20261015."
     },
     {
       "id": "tryout-f12-student-recovery",

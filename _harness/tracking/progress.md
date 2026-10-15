@@ -1,5 +1,13 @@
 # Session Progress Log
 
+## F-13 accepted; integrated admission QA complete (2026-10-15 WIB)
+
+- F13 fixed by clean-context exact gpt-6.1-sol/high in6c2a84e1 plus3fb78997. Finite deadline rechecks handle early active reads, quiet failures/exhaustion and manual recovery; commit-time read identity fences obsolete responses/callbacks before passive cleanup.
+- Actual12-scenario mounted/controller suites pass on working and isolated HEAD candidate, including two intended red snapshots and real native transition phase receipts. F12 pure/HTTP, public DB exact before/equal/after cutoff/replay/ownership, TypeScript/full lint/build pass; five unchanged unrelated warnings. Both final committed Standards/Spec clear.
+- Approved Ego63 proves early active reply514ms before cutoff then automatic expired reply157ms after, no reload; PU-only expiry preserves next section; six failed deadline reads yield one notice, explicit manual seventh read reaches expiry. Original two attempts/14 runs, pins/deadlines, saved choiceA and one audit per distinct transition preserved. Results remain gated. QA selector/wait/audit expectation mistakes corrected, not product defects.
+- Root7 groups =six standard+one explicitly approved extra; child6, no emergency/bypass. Ego63 finished exactly once keep[], overrides restored, no owned process; peer5023 untouched. Committed HEAD main excludes15 pre-existing F3 lines; F6/other peer bytes preserved. Shared-tree build is not a clean-checkout whole-app claim.
+- F13ticket/feature, TA04 A–P matrix and four-ticket admission story complete; consolidated F9/F10 outcomes resolved. Durable final document epic tryout-f13-local-qa-20261015, exact source/SQL/phase/gate/cleanup receipts linked there. Remaining decisions: F7 unopened-section/partial-expiry scoring, F8 manual result-release workflow and archive reversibility. No next fix authorized by this closure.
+
 ## F-13 live checks pass; final review follow-up remains (2026-10-15 WIB)
 
 - Exact6.1-sol/high worker delivered6c2a84e1 (fivepaths) with isolated HEAD main; original15F3lines and F6/peerbytes preserved. Final11 mounted scenarios, F12 pure/HTTP and public DB replay/ownership/cutoff, TypeScript/fullverify pass (five unrelatedwarnings).
