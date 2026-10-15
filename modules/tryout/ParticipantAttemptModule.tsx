@@ -18,7 +18,7 @@ import {
 } from "@/lib/icons";
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -242,14 +242,17 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const mountedRef = useRef(false);
   const pendingRefreshRef = useRef<{ generation: number; promise: Promise<State | null> } | null>(null);
   const readAttemptState = useMemo(() => createSingleFlightRead(() => tryoutAttemptStateAction(attemptId)), [attemptId]);
-  useEffect(() => {
+  const committedReadRef = useRef<typeof readAttemptState | null>(null);
+  useLayoutEffect(() => {
     mountedRef.current = true;
+    committedReadRef.current = readAttemptState;
     const generation = ++mountGenerationRef.current;
     return () => {
       mountedRef.current = false;
+      committedReadRef.current = null;
       mountGenerationRef.current = generation + 1;
     };
-  }, [attemptId]);
+  }, [attemptId, readAttemptState]);
   const router = useRouter();
   const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
@@ -267,9 +270,9 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   const refresh = useCallback(function refreshAttempt(background = false): Promise<State | null> {
     const generation = mountGenerationRef.current;
-    if (!mountedRef.current) return Promise.resolve(null);
+    if (!mountedRef.current || committedReadRef.current !== readAttemptState) return Promise.resolve(null);
     if (pendingRefreshRef.current?.generation === generation) return pendingRefreshRef.current.promise;
-    const isCurrent = () => mountedRef.current && mountGenerationRef.current === generation;
+    const isCurrent = () => mountedRef.current && committedReadRef.current === readAttemptState && mountGenerationRef.current === generation;
     const promise = (async () => {
       setBusy(true);
       setLoadState(stateRef.current ? "ready" : "loading");
@@ -421,10 +424,13 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
 
   useParticipantDeadlineReconciliation({
     attemptId, state, now, busy, refresh,
-    onExhausted: () => showToast("Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi.", {
-      action: { label: "Coba lagi", onClick: () => void refresh() },
-      variant: "error",
-    }),
+    onExhausted: () => {
+      if (!mountedRef.current || committedReadRef.current !== readAttemptState) return;
+      showToast("Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi.", {
+        action: { label: "Coba lagi", onClick: () => void refresh() },
+        variant: "error",
+      });
+    },
   });
 
   useEffect(() => {

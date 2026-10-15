@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { act, createElement, StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { act, createElement, StrictMode, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ts from "typescript";
 import { createSingleFlightRead } from "../lib/tryout/single-flight-read";
 import { useParticipantDeadlineReconciliation, type DeadlineState } from "../modules/tryout/use-participant-deadline-reconciliation";
@@ -183,17 +183,21 @@ await scenario("run-only expiry leaves later sections before overall cutoff", as
 // Compile the actual controller body, replacing only its imported external
 // boundaries. This executes the component's real hook wiring without importing
 // server-only action infrastructure or creating a browser/server dependency.
-const moduleSource = readFileSync(new URL("../modules/tryout/ParticipantAttemptModule.tsx", import.meta.url), "utf8");
+const moduleSource = readFileSync(process.env.F13_ATTEMPT_MODULE_SOURCE ?? new URL("../modules/tryout/ParticipantAttemptModule.tsx", import.meta.url), "utf8");
 const body = moduleSource.slice(moduleSource.indexOf("function useParticipantAttemptController("), moduleSource.indexOf("\nfunction ParticipantAttemptModule("));
 assert(body.includes("useParticipantDeadlineReconciliation({"));
 const controllerJs = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
 type Controller = { state: (DeadlineState & { attemptId: string }) | null; busy: boolean; refresh: (background?: boolean) => Promise<DeadlineState | null> };
-function compileController(read: (id: string) => Promise<unknown>, notices: Array<{ message: string; action?: { onClick: () => void } }>, navigation: string[] = []) {
-  return new Function("useCallback", "useEffect", "useMemo", "useRef", "useState", "useRouter", "usePageStatusToast", "tryoutAttemptStateAction", "estimateServerClockOffset", "createSingleFlightRead", "useParticipantDeadlineReconciliation", "unstable_rethrow", "showToast",
+type DeadlineProps = Parameters<typeof useParticipantDeadlineReconciliation>[0];
+function compileController(read: (id: string) => Promise<unknown>, notices: Array<{ message: string; action?: { onClick: () => void } }>, navigation: string[] = [], observeDeadline?: (props: DeadlineProps) => void) {
+  return new Function("useCallback", "useEffect", "useLayoutEffect", "useMemo", "useRef", "useState", "useRouter", "usePageStatusToast", "tryoutAttemptStateAction", "estimateServerClockOffset", "createSingleFlightRead", "useParticipantDeadlineReconciliation", "unstable_rethrow", "showToast",
     `${controllerJs}; return useParticipantAttemptController;`)(
-    useCallback, useEffect, useMemo, useRef, useState, () => ({ push: (href: string) => navigation.push(href), replace: (href: string) => navigation.push(href) }), () => {}, read,
+    useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, () => ({ push: (href: string) => navigation.push(href), replace: (href: string) => navigation.push(href) }), () => {}, read,
     (sample: { serverSentAt: number; clientReceivedAt: number }) => sample.serverSentAt - sample.clientReceivedAt,
-    createSingleFlightRead, useParticipantDeadlineReconciliation, () => {},
+    createSingleFlightRead, function useObservedDeadlineReconciliation(props: DeadlineProps) {
+      observeDeadline?.(props);
+      useParticipantDeadlineReconciliation(props);
+    }, () => {},
     (message: string, options: { action?: { onClick: () => void } }) => { notices.push({ message, action: options.action }); },
   ) as (props: { attemptId: string }) => Controller;
 }
@@ -315,6 +319,93 @@ for (const order of ["A before B", "B before A", "A failure after B"] as const) 
     assert.deepEqual(reads, ["A", "B"]);
   });
 }
+
+await scenario("actual controller: obsolete read is fenced between replacement commit and passive effects", async (clock, root, render) => {
+  const oldRead = deferred<unknown>();
+  const replacementRead = deferred<unknown>();
+  const replacementCommitted = deferred<void>();
+  const replacementPassive = deferred<void>();
+  const notices: Array<{ message: string }> = [];
+  const navigation: string[] = [];
+  const reads: string[] = [];
+  let passiveRan = false;
+  let controller!: Controller;
+  let replaceAttempt!: () => void;
+  let oldExhaustion!: () => void;
+  const useController = compileController(async (attemptId) => {
+    reads.push(attemptId);
+    return attemptId === "A" ? oldRead.promise : replacementRead.promise;
+  }, notices, navigation, (props) => {
+    if (props.attemptId === "A") oldExhaustion = props.onExhausted;
+  });
+  function Harness() {
+    const [attemptId, setAttemptId] = useState("A");
+    replaceAttempt = () => setAttemptId("B");
+    controller = useController({ attemptId });
+    useLayoutEffect(() => {
+      if (attemptId === "B") {
+        // Resolve A during B's real commit, before the passive lifecycle can
+        // invalidate it. Promise continuations resume after this commit returns.
+        oldRead.resolve(response(expired, clock.time, "A"));
+        replacementCommitted.resolve();
+      }
+    }, [attemptId]);
+    useEffect(() => {
+      if (attemptId === "B") {
+        passiveRan = true;
+        replacementPassive.resolve();
+      }
+    }, [attemptId]);
+    return createElement("p", null, controller.state?.attemptId ?? "loading");
+  }
+  await render(createElement(Harness));
+  await clock.advance(0);
+  const oldRefresh = controller.refresh;
+  const obsoleteExhaustion = oldExhaustion;
+  let oldFlight!: Promise<DeadlineState | null>;
+  await act(async () => { oldFlight = controller.refresh(); });
+  assert.deepEqual(reads, ["A"]);
+  const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean };
+  const previousActEnvironment = environment.IS_REACT_ACT_ENVIRONMENT;
+  try {
+    // act drains passive effects and would erase the interval under test.
+    // A real transition uses React's native scheduler and commit ordering.
+    environment.IS_REACT_ACT_ENVIRONMENT = false;
+    startTransition(replaceAttempt);
+    await replacementCommitted.promise;
+    const oldOutcome = await oldFlight;
+    assert.equal(passiveRan, false, "Probe must settle A after B commits and before B's passive effects");
+    console.log("F13 phase receipt: B committed; A settled; B passive=false");
+    assert.equal(oldOutcome, null, "Commit must invalidate A before its response continuation resumes");
+    const retainedOutcome = await oldRefresh();
+    assert.equal(retainedOutcome, null, "A retained refresh callback cannot read for the committed B attempt");
+    assert.deepEqual(reads, ["A"], "Retained A callback must return without dispatching another read");
+    obsoleteExhaustion();
+    assert.equal(notices.length, 0, "Obsolete reconciler cannot show exhaustion or a recovery action for B");
+    assert.deepEqual(navigation, []);
+    assert.equal(passiveRan, false, "Retained callbacks are also checked before B's passive effects");
+    console.log("F13 callback receipt: retained A read/exhaustion suppressed; B passive=false");
+    await replacementPassive.promise;
+  } finally {
+    environment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+  await act(async () => {});
+  assert.equal(root.textContent, "loading", "A cannot populate the replacement page");
+  assert.equal(controller.state, null);
+  assert.equal(controller.busy, true, "A cannot clear busy before B's initial read starts");
+  assert.equal(notices.length, 0);
+  assert.deepEqual(navigation, []);
+  await clock.advance(0);
+  assert.deepEqual(reads, ["A", "B"]);
+  assert.equal(controller.busy, true);
+  await act(async () => {
+    replacementRead.resolve(response({ ...pending, availableUntil: new Date(100_000) }, clock.time, "B"));
+  });
+  assert.equal(root.textContent, "B");
+  assert.equal(controller.busy, false);
+  assert.equal(notices.length, 0);
+  assert.deepEqual(navigation, []);
+});
 
 await scenario("actual controller: hung read releases busy after 10s while retaining one transport fence", async (clock, _root, render) => {
   const hung = deferred<unknown>();
