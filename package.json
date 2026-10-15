@@ -126,6 +126,7 @@
     "test:tryout-workflow-projection": "tsx scripts/test-tryout-workflow-projection.ts",
     "test:tryout-live-result-workspaces": "tsx scripts/test-tryout-live-result-workspaces.ts",
     "test:tryout-realtime-hardening": "tsx scripts/test-tryout-realtime-hardening.ts",
+    "test:tryout-deadline-reconciliation": "tsx scripts/test-tryout-deadline-reconciliation.ts",
     "test:tryout-participant-ux-contract": "tsx scripts/test-tryout-participant-ux-contract.ts",
     "test:tryout-wib-schedule": "tsx scripts/test-tryout-wib-schedule.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",

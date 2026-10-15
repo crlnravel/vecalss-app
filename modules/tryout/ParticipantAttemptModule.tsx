@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
 import { TypedRouteState } from "@/components/ui/typed-route-state";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
+import { createSingleFlightRead } from "@/lib/tryout/single-flight-read";
 import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
 import { Minus, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,8 @@ import {
   startActiveTryoutTestRunAction,
   tryoutAttemptStateAction,
 } from "./participant-actions";
+
+import { useParticipantDeadlineReconciliation } from "./use-participant-deadline-reconciliation";
 
 type Option = { choiceKey: string; content: string; id: string; sortOrder: number };
 type Item = { id: string; options: Option[]; prompt: string; questionType?: "single_choice" | "multiple_choice" | string | null; sortOrder: number };
@@ -233,10 +236,20 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   const [submitOpen, setSubmitOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const activeRunRef = useRef<string | null>(null);
-  const activeDeadlineRefreshRef = useRef<string | null>(null);
-  const sessionDeadlineRefreshRef = useRef<number | null>(null);
   const serverClockOffsetRef = useRef<number | null>(null);
   const stateRef = useRef<State | null>(null);
+  const mountGenerationRef = useRef(0);
+  const mountedRef = useRef(false);
+  const pendingRefreshRef = useRef<{ generation: number; promise: Promise<State | null> } | null>(null);
+  const readAttemptState = useMemo(() => createSingleFlightRead(() => tryoutAttemptStateAction(attemptId)), [attemptId]);
+  useEffect(() => {
+    mountedRef.current = true;
+    const generation = ++mountGenerationRef.current;
+    return () => {
+      mountedRef.current = false;
+      mountGenerationRef.current = generation + 1;
+    };
+  }, [attemptId]);
   const router = useRouter();
   const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
@@ -252,77 +265,92 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     variant: "info",
   });
 
-  const refresh = useCallback(async function refreshAttempt() {
-    setBusy(true);
-    setLoadState(stateRef.current ? "ready" : "loading");
-    setLoadError(null);
-    try {
-      const response = await tryoutAttemptStateAction(attemptId);
-      const responseReceivedAt = performance.now();
-      if (!response.ok) {
-        if (stateRef.current) {
-          showToast(response.message, {
+  const refresh = useCallback(function refreshAttempt(background = false): Promise<State | null> {
+    const generation = mountGenerationRef.current;
+    if (!mountedRef.current) return Promise.resolve(null);
+    if (pendingRefreshRef.current?.generation === generation) return pendingRefreshRef.current.promise;
+    const isCurrent = () => mountedRef.current && mountGenerationRef.current === generation;
+    const promise = (async () => {
+      setBusy(true);
+      setLoadState(stateRef.current ? "ready" : "loading");
+      setLoadError(null);
+      try {
+        const response = await readAttemptState();
+        if (!isCurrent()) return null;
+        const responseReceivedAt = performance.now();
+        if (!response.ok) {
+          if (stateRef.current && !background) {
+            showToast(response.message, {
+              action: { label: "Coba lagi", onClick: () => void refreshAttempt() },
+              variant: "error",
+            });
+          } else if (!stateRef.current) {
+            setLoadState("error");
+            setLoadError(response.message);
+          }
+          return null;
+        }
+        const nextState = response.result as State;
+        const serverNow = new Date(nextState.serverNow).getTime();
+        if (Number.isFinite(serverNow)) {
+          serverClockOffsetRef.current = serverNow - responseReceivedAt;
+          setNow(serverNow);
+        }
+        const nextRunId = nextState.activeRun?.id ?? null;
+        let restoredPositionMessage = "";
+        if (nextRunId !== activeRunRef.current) {
+          activeRunRef.current = nextRunId;
+          if (nextRunId) {
+            const saved = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:marked`);
+            try {
+              setMarked(new Set(saved ? JSON.parse(saved) as string[] : []));
+            } catch {
+              setMarked(new Set());
+            }
+            const positionItemId = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:position`);
+            const restoredIndex = nextState.activeRun?.contentSnapshot.testType === "cbt" && positionItemId
+              ? nextState.activeRun.contentSnapshot.items.findIndex((candidate) => candidate.id === positionItemId)
+              : -1;
+            const safeIndex = restoredIndex >= 0 ? restoredIndex : 0;
+            setIndex(safeIndex);
+            if (safeIndex > 0) restoredPositionMessage = `Progres dipulihkan ke soal ${safeIndex + 1}. Jawaban tersimpan dari server.`;
+          } else {
+            setIndex(0);
+            setMarked(new Set());
+          }
+        }
+        stateRef.current = nextState;
+        setState(nextState);
+        setLoadState("ready");
+        setLoadError(null);
+        if (restoredPositionMessage) showToast(restoredPositionMessage, { variant: "info" });
+        return nextState;
+      } catch (refreshError) {
+        if (!isCurrent()) return null;
+        unstable_rethrow(refreshError);
+        const failureMessage = stateRef.current
+          ? "Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi."
+          : "Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi.";
+        if (stateRef.current && !background) {
+          showToast(failureMessage, {
             action: { label: "Coba lagi", onClick: () => void refreshAttempt() },
             variant: "error",
           });
-        } else {
+        } else if (!stateRef.current) {
           setLoadState("error");
-          setLoadError(response.message);
+          setLoadError(failureMessage);
         }
-        return;
+        return null;
+      } finally {
+        if (isCurrent()) setBusy(false);
       }
-      const nextState = response.result as State;
-      const serverNow = new Date(nextState.serverNow).getTime();
-      if (Number.isFinite(serverNow)) {
-        serverClockOffsetRef.current = serverNow - responseReceivedAt;
-        setNow(serverNow);
-      }
-      const nextRunId = nextState.activeRun?.id ?? null;
-      let restoredPositionMessage = "";
-      if (nextRunId !== activeRunRef.current) {
-        activeRunRef.current = nextRunId;
-        if (nextRunId) {
-          const saved = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:marked`);
-          try {
-            setMarked(new Set(saved ? JSON.parse(saved) as string[] : []));
-          } catch {
-            setMarked(new Set());
-          }
-          const positionItemId = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:position`);
-          const restoredIndex = nextState.activeRun?.contentSnapshot.testType === "cbt" && positionItemId
-            ? nextState.activeRun.contentSnapshot.items.findIndex((candidate) => candidate.id === positionItemId)
-            : -1;
-          const safeIndex = restoredIndex >= 0 ? restoredIndex : 0;
-          setIndex(safeIndex);
-          if (safeIndex > 0) restoredPositionMessage = `Progres dipulihkan ke soal ${safeIndex + 1}. Jawaban tersimpan dari server.`;
-        } else {
-          setIndex(0);
-          setMarked(new Set());
-        }
-      }
-      stateRef.current = nextState;
-      setState(nextState);
-      setLoadState("ready");
-      setLoadError(null);
-      if (restoredPositionMessage) showToast(restoredPositionMessage, { variant: "info" });
-    } catch (refreshError) {
-      unstable_rethrow(refreshError);
-      const failureMessage = stateRef.current
-        ? "Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi."
-        : "Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi.";
-      if (stateRef.current) {
-        showToast(failureMessage, {
-          action: { label: "Coba lagi", onClick: () => void refreshAttempt() },
-          variant: "error",
-        });
-      } else {
-        setLoadState("error");
-        setLoadError(failureMessage);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [attemptId]);
+    })();
+    pendingRefreshRef.current = { generation, promise };
+    void promise.finally(() => {
+      if (pendingRefreshRef.current?.promise === promise) pendingRefreshRef.current = null;
+    }).catch(() => {});
+    return promise;
+  }, [attemptId, readAttemptState]);
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => void refresh(), 0);
@@ -391,20 +419,13 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     };
   }, [activeRunId, attemptId, fullscreenPrompt]);
 
-  useEffect(() => {
-    const runDeadline = run?.serverDeadlineAt ? new Date(run.serverDeadlineAt).getTime() : null;
-    const runDeadlineReached = runDeadline !== null && remainingSeconds(run?.serverDeadlineAt ?? null, now) === 0;
-    const sessionDeadlineReached = Boolean(run && sessionDeadline !== null && now >= sessionDeadline);
-    const deadlineKey = run && sessionDeadlineReached
-      ? `session:${sessionDeadline}`
-      : run && runDeadlineReached
-        ? `run:${run.id}:${runDeadline}`
-        : null;
-    if (!deadlineKey || busy || activeDeadlineRefreshRef.current === deadlineKey) return;
-    activeDeadlineRefreshRef.current = deadlineKey;
-    const timeout = window.setTimeout(() => void refresh(), 0);
-    return () => window.clearTimeout(timeout);
-  }, [busy, now, refresh, run, sessionDeadline]);
+  useParticipantDeadlineReconciliation({
+    attemptId, state, now, busy, refresh,
+    onExhausted: () => showToast("Pengerjaan Tryout belum berhasil diperbarui. Periksa koneksi lalu coba lagi.", {
+      action: { label: "Coba lagi", onClick: () => void refresh() },
+      variant: "error",
+    }),
+  });
 
   useEffect(() => {
     if (sessionDeadline === null) return;
@@ -417,12 +438,6 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     return () => window.clearTimeout(timeout);
   }, [sessionDeadline, state]);
 
-  useEffect(() => {
-    if (!state || state.status !== "in_progress" || state.activeRun || sessionDeadline === null || now < sessionDeadline || busy) return;
-    if (sessionDeadlineRefreshRef.current === sessionDeadline) return;
-    sessionDeadlineRefreshRef.current = sessionDeadline;
-    void refresh();
-  }, [busy, now, refresh, sessionDeadline, state]);
 
   const item = items[Math.min(index, Math.max(0, items.length - 1))];
 
