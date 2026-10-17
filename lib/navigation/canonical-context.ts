@@ -28,6 +28,8 @@ export type CanonicalContextField =
   | "purpose"
   | "q"
   | "returnTo"
+  | "resultQ"
+  | "resultStatus"
   | "session"
   | "sort"
   | "status"
@@ -72,6 +74,7 @@ export type TryoutWorkspace = (typeof TRYOUT_WORKSPACES)[number];
 
 export const TRYOUT_DELIVERIES = ["policy", "sessions", "participants"] as const;
 export type TryoutDelivery = (typeof TRYOUT_DELIVERIES)[number];
+export type TryoutResultFilter = "all" | "in_progress" | "submitted";
 
 /** MVP query registry. Legacy values remain a type-only compatibility union. */
 export const VERA_TOOL_IDS = ["analysis", "route", "review"] as const;
@@ -611,6 +614,14 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   if (access !== undefined && !["all", "active", "revoked", "missing"].includes(access)) issues.push(issue("access", access, "Status akses sesi tidak tersedia."));
   if (pageValue !== undefined && (!/^[1-9]\d*$/u.test(pageValue) || Number(pageValue) > MAX_PAGE)) issues.push(issue("page", pageValue, "Halaman peserta tidak tersedia."));
 
+  // Hasil filters are separate from registration/admission status semantics.
+  const resultQParam = singleValue(input, "resultQ");
+  const resultStatusParam = singleValue(input, "resultStatus");
+  const resultQ = resultQParam.value?.trim();
+  const resultStatus = resultStatusParam.value as TryoutResultFilter | undefined;
+  if (resultQParam.invalid || (resultQ && resultQ.length > MAX_SEARCH_LENGTH)) issues.push(issue("resultQ", resultQ, "Pencarian hasil tidak tersedia."));
+  if (resultStatusParam.invalid || (resultStatus !== undefined && !["all", "in_progress", "submitted"].includes(resultStatus))) issues.push(issue("resultStatus", resultStatus, "Status hasil tidak tersedia."));
+
   return {
     access,
     delivery,
@@ -624,6 +635,8 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
       workspace: workspaceParam.present,
     },
     returnTo: returnTo ?? undefined,
+    resultQ,
+    resultStatus,
     q,
     status,
     page: pageValue === undefined ? undefined : Number(pageValue),
@@ -645,6 +658,8 @@ function tryoutQueryParams(context: Partial<MentorTryoutContext>) {
   if (context.session) params.set("session", context.session);
   if (context.parent) params.set("parent", context.parent);
   if (context.returnTo) params.set("returnTo", context.returnTo);
+  if (context.resultQ !== undefined) params.set("resultQ", context.resultQ);
+  if (context.resultStatus !== undefined) params.set("resultStatus", context.resultStatus);
   return params;
 }
 
@@ -668,6 +683,13 @@ export function buildMentorTryoutAttemptHref(tryoutId: string, attemptId: string
   const params = tryoutQueryParams(context);
   if (context.participant) params.set("participant", context.participant);
   return appendQuery(`/mentor/tryout/${encodeSegment(tryoutId)}/operations/attempts/${encodeSegment(attemptId)}`, params);
+}
+
+/** Hasil has no delivery pane; Operations retains its existing session/participant defaults. */
+export function buildMentorTryoutAttemptBackHref(tryoutId: string, context: Partial<MentorTryoutContext>) {
+  return context.workspace === "participants"
+    ? buildMentorTryoutHref(tryoutId, { ...context, delivery: undefined, workspace: "participants" })
+    : buildMentorTryoutOperationsHref(tryoutId, context);
 }
 
 export function parseMentorTryoutAttemptContext(input: NavigationQueryInput) {

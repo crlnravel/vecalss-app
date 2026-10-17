@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
@@ -14,10 +14,10 @@ import {
   DataTableFilterMenu,
   type DataTableFilterMenuItem,
 } from "@/components/ui/data-table-filter-menu";
-import { buildMentorTryoutAttemptHref, buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 
-type ResultFilter = "all" | "in_progress" | "submitted";
+type ResultFilter = TryoutResultFilter;
 
 const dateTime = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "medium",
@@ -87,8 +87,21 @@ function KaptenTryoutParticipantsPageModule({
   parentId?: string;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ResultFilter>("all");
+  const context = parseMentorTryoutContext(useSearchParams());
+  const [query, setQuery] = useState(context.resultQ ?? "");
+  const [filter, setFilter] = useState<ResultFilter>(context.resultStatus ?? "all");
+  const preserveFilters = (nextQuery: string, nextFilter: ResultFilter) => {
+    window.history.replaceState(null, "", buildMentorTryoutHref(initial.id, {
+      parent: parentId ?? context.parent,
+      returnTo: context.returnTo,
+      session: context.session,
+      workspace: "participants",
+      resultQ: nextQuery,
+      resultStatus: nextFilter,
+    }));
+  };
+  const changeQuery = (value: string) => { setQuery(value); preserveFilters(value, filter); };
+  const changeFilter = (value: ResultFilter) => { setFilter(value); preserveFilters(query, value); };
   const resultByAttemptId = useMemo(
     () => new Map(initial.results.map((result) => [result.attemptId, result])),
     [initial.results],
@@ -112,9 +125,13 @@ function KaptenTryoutParticipantsPageModule({
   const Root = embedded ? "section" : "main";
   const attemptHref = (attempt: TryoutOperationsView["attempts"][number]) =>
     buildMentorTryoutAttemptHref(initial.id, attempt.id, {
-      parent: parentId,
+      parent: parentId ?? context.parent,
+      returnTo: context.returnTo,
       participant: attempt.admissionId,
       session: attempt.sessionId,
+      workspace: "participants",
+      resultQ: query,
+      resultStatus: filter,
     });
   const columns: DataTableColumn<TryoutOperationsView["attempts"][number]>[] = [
     {
@@ -213,7 +230,7 @@ function KaptenTryoutParticipantsPageModule({
           getRowId={(attempt) => attempt.id}
           onRowClick={(attempt) => router.push(attemptHref(attempt))}
           filterPanel={
-            <TryoutResultFilterPanel filter={filter} onChange={setFilter} />
+            <TryoutResultFilterPanel filter={filter} onChange={changeFilter} />
           }
           filters={filters}
           rowProps={(attempt) => ({
@@ -223,7 +240,7 @@ function KaptenTryoutParticipantsPageModule({
           rows={visibleAttempts}
           search={{
             label: "Cari hasil peserta",
-            onValueChange: setQuery,
+            onValueChange: changeQuery,
             placeholder: "Cari peserta atau ID…",
             value: query,
           }}

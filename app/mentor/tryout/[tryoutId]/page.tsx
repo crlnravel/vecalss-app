@@ -126,6 +126,8 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   }
   const normalizedContext = {
     q: parsedQuery.q,
+    resultQ: parsedQuery.resultQ,
+    resultStatus: parsedQuery.resultStatus,
     status: parsedQuery.status,
     access: parsedQuery.access,
     page: parsedQuery.page,

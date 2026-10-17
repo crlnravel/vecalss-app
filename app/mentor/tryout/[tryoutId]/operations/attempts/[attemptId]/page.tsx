@@ -4,12 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import { requireTutorSession } from "@/lib/auth/access";
 import {
   buildMentorTryoutHref,
-  buildMentorTryoutOperationsHref,
+  buildMentorTryoutAttemptBackHref,
   getSafeRedirectUrl,
   parseMentorTryoutAttemptContext,
   type CanonicalContextIssue,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
+import { inspectTryoutCalculation } from "@/lib/tryout/result-repository";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutArchivedHistoryFrame } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryoutAttemptDetailPageModule";
@@ -63,13 +64,16 @@ export default async function TryoutAttemptDetailPage({
       </MentorWorkspaceShell>
     );
   }
-  const backHref = buildMentorTryoutOperationsHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: delivery.id, workspace: parsedQuery.workspace });
+  const backHref = buildMentorTryoutAttemptBackHref(tryoutId, { ...parsedQuery, session: delivery.id });
+  const backLabel = parsedQuery.workspace === "participants" ? "Kembali ke hasil sesi" : "Kembali ke sesi Tryout";
+
+  const resultRecovery = await inspectTryoutCalculation({ attemptId, tryoutId, sessionId: delivery.id }, session.user.id);
 
   if (operations.status === "archived") {
     return (
       <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <KaptenTryoutArchivedHistoryFrame backHref={buildMentorTryoutHref(tryoutId)} backLabel="Kembali ke riwayat Tryout" initial={operations}>
-          <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} embedded initial={operations} readOnly />
+          <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} backLabel={backLabel} embedded initial={operations} readOnly resultRecovery={resultRecovery} />
         </KaptenTryoutArchivedHistoryFrame>
       </MentorWorkspaceShell>
     );
@@ -87,11 +91,11 @@ export default async function TryoutAttemptDetailPage({
       sidebarAppearance="reference"
     >
       <KaptenTryoutWorkspaceFrame
-        activeTab="operations"
+        activeTab={parsedQuery.workspace === "participants" ? "participants" : "operations"}
         initial={operations}
         parentId={parsedQuery.parent}
       >
-        <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} embedded initial={operations} />
+        <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} backLabel={backLabel} embedded initial={operations} resultRecovery={resultRecovery} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );
