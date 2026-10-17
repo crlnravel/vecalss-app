@@ -8,6 +8,7 @@ import {
 } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 import { aggregateTryoutScores, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { assertFrozenRunRelease, calculateFrozenTryoutRun, FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE } from "@/lib/tryout/frozen-run-scoring";
 import {
   acquireTryoutIdentityMutex,
   assertTryoutIdentityStable,
@@ -158,6 +159,53 @@ function terminalAttemptStateIsCalculable(attempt: { attemptState: AssessmentAtt
     && attempt.status !== AttemptStatus.abandoned;
 }
 
+const PUBLISHED_RESULT_REVIEW_MESSAGE = "Hasil yang sudah dirilis perlu diperiksa terlebih dahulu.";
+type PublishedRun = CanonicalRun & {
+  assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null;
+  calculationReleaseable: boolean; calculationResult: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue;
+  normalizedScore: Prisma.Decimal | null; rawScore: Prisma.Decimal | null; scaledScore: Prisma.Decimal | null;
+  scoringState: AssessmentScoringState; scoringVersion: string | null; status: TryoutAttemptTestRunStatus;
+};
+type PublishedAttempt = {
+  assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null;
+  attemptState: AssessmentAttemptState; status: AttemptStatus; releaseState: AssessmentResultReleaseState; releaseAt: Date | null;
+  score: Prisma.Decimal | null; normalizedScore: Prisma.Decimal | null; scaledScore: Prisma.Decimal | null;
+  scoringState: AssessmentScoringState; scoringVersion: string | null; tryoutId: string;
+  runs: PublishedRun[]; scoreBreakdowns: ReleaseBreakdown[];
+};
+
+/** Inspect stored publication integrity; never estimate or rewrite its scores. */
+function publishedAttemptIsConsistent(attempt: PublishedAttempt, tryout: { sections: CanonicalSection[] }, release: { id: string; releaseNumber: number; contentDigest: string; payload: Prisma.JsonValue } | null) {
+  const finite = (value: Prisma.Decimal | null) => value !== null && Number.isFinite(Number(value));
+  const normalized = (value: Prisma.Decimal | null) => finite(value) && Number(value) >= 0 && Number(value) <= 100;
+  if (!release || attempt.releaseState !== AssessmentResultReleaseState.released || !attempt.releaseAt
+    || attempt.scoringState !== AssessmentScoringState.scored || !attempt.scoringVersion || !normalized(attempt.score)
+    || (attempt.normalizedScore !== null && (!normalized(attempt.normalizedScore) || Number(attempt.normalizedScore) !== Number(attempt.score)))
+    || (attempt.scaledScore !== null && (!normalized(attempt.scaledScore) || Number(attempt.scaledScore) !== Number(attempt.score)))
+    || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout, runs: attempt.runs })
+    || !hasCanonicalSevenBreakdownSet({ tryout, breakdowns: attempt.scoreBreakdowns })
+    || attempt.assessmentReleaseId !== release.id || attempt.assessmentReleaseNumber !== release.releaseNumber || attempt.assessmentReleaseDigest !== release.contentDigest) return false;
+  try {
+    return attempt.runs.every((run) => {
+      if (run.scoringState !== AssessmentScoringState.scored || !run.scoringVersion || !run.calculationReleaseable
+        || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired)
+        || !normalized(run.normalizedScore) || !normalized(run.scaledScore) || !finite(run.rawScore) || !explanationsComplete(run)
+        || (run.calculationResult && typeof run.calculationResult === "object" && "validationFailure" in run.calculationResult)) return false;
+      assertFrozenRunRelease(run, run.section, release);
+      const breakdown = attempt.scoreBreakdowns.find((row) => row.subtestId === run.section.subtestId);
+      return Boolean(breakdown && normalized(breakdown.normalizedScore) && normalized(breakdown.scaledScore) && finite(breakdown.rawScore)
+        && Number(breakdown.normalizedScore) === Number(run.normalizedScore) && Number(breakdown.rawScore) === Number(run.rawScore) && Number(breakdown.scaledScore) === Number(run.scaledScore));
+    });
+  } catch { return false; }
+}
+
+/** Participant calculations expose only established numeric result fields. */
+function participantRunCalculation(value: Prisma.JsonValue | null): Prisma.JsonValue | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const fields = ["ability", "answeredCount", "correctCount", "maxScore", "normalizedScore", "score", "unansweredCount", "wrongCount"];
+  return Object.fromEntries(Object.entries(value).filter(([key, value]) => fields.includes(key) && typeof value === "number" && Number.isFinite(value)));
+}
+
 async function upsertTryoutBreakdown(
   tx: Prisma.TransactionClient,
   attemptId: string,
@@ -187,20 +235,29 @@ async function upsertTryoutBreakdown(
   return tx.tryoutScoreBreakdown.create({ data: { ...data, attemptId, subtestId: run.section.subtestId, topicId: null } });
 }
 
-type MaterializeTryoutAttemptResult = { aggregationVersion: string; attemptId: string; finalScore?: number; runScores?: number[]; state?: "existing" | "review_required" };
+type MaterializeTryoutAttemptResult = { aggregationVersion: string; attemptId: string; finalScore?: number; runScores?: number[]; state?: "existing" | "review_required"; reason?: string };
 
 async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClient, attemptId: string, actorId: string, reason: string, strict = true): Promise<MaterializeTryoutAttemptResult> {
   const attempt = await tx.tryoutAttempt.findUnique({
     where: { id: attemptId },
     include: {
-      deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, rankingRule: true, releaseState: true, releasedAt: true, resultReleasePolicy: true, scheduledReleaseAt: true, tryout: { select: { defaultResultReleasePolicy: true } } } },
-      runs: { include: { section: { select: { durationSeconds: true, id: true, sequenceNo: true, subtestId: true, testType: true, title: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
+      deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, payload: true, releaseNumber: true } }, availableUntil: true, rankingRule: true, releaseState: true, releasedAt: true, resultReleasePolicy: true, scheduledReleaseAt: true, tryout: { select: { defaultResultReleasePolicy: true } } } },
+      runs: { include: { answers: { select: { selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } }, section: { select: { durationSeconds: true, id: true, sequenceNo: true, subtestId: true, testType: true, title: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
       scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } },
       tryout: { select: { createdByUserId: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
     },
   });
-  const review = async (message: string): Promise<MaterializeTryoutAttemptResult> => {
-    if (strict) throw new TryoutResultValidationError(message);
+  // Publication is an immutable receipt, including older scoring versions.
+  // Check it before validation/review paths can hide or rewrite stored results.
+  if (attempt?.releaseState === AssessmentResultReleaseState.released) {
+    if (!publishedAttemptIsConsistent(attempt, attempt.tryout, attempt.deliverySession.assessmentRelease)) {
+      if (strict) throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
+      return { aggregationVersion: attempt.scoringVersion ?? TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, state: "review_required", reason: PUBLISHED_RESULT_REVIEW_MESSAGE };
+    }
+    return { aggregationVersion: attempt.scoringVersion ?? TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, ...(attempt.score === null ? {} : { finalScore: Number(attempt.score) }), state: "existing" };
+  }
+  const review = async (message: string, cause?: unknown): Promise<MaterializeTryoutAttemptResult> => {
+    if (strict) throw new TryoutResultValidationError(message, { cause });
     if (attempt) await tx.tryoutAttempt.update({ where: { id: attempt.id }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: message, scoringState: AssessmentScoringState.review_required } });
     return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, state: "review_required" };
   };
@@ -214,6 +271,14 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   if (attempt.runs.some((run) => run.assessmentReleaseId !== attempt.assessmentReleaseId || run.assessmentReleaseNumber !== attempt.assessmentReleaseNumber || run.assessmentReleaseDigest !== attempt.assessmentReleaseDigest)) return review("Test run Tryout tidak cocok dengan AssessmentRelease attempt.");
   if (!terminalAttemptStateIsCalculable(attempt)) return review("Attempt belum berada pada state terminal yang dapat dihitung, atau telah abandoned/void.");
   if (!hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.tryout, runs: attempt.runs })) return review("Attempt tidak memiliki tepat tujuh Test kanonis untuk Tryout ini.");
+  try {
+    for (const run of attempt.runs) {
+      assertFrozenRunRelease(run, run.section, attempt.deliverySession.assessmentRelease);
+      calculateFrozenTryoutRun({ contentSnapshot: run.contentSnapshot, answers: run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId, selectedOptionIds: answer.selectedOptionIds })), expired: run.status === TryoutAttemptTestRunStatus.expired });
+    }
+  } catch (error) {
+    return review(FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE, error);
+  }
   if (attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.normalizedScore === null)) return review("Semua tujuh Test harus tersegel dan termaterialisasi sebelum hasil dapat dihitung.");
   const scores = attempt.runs.map((run) => Number(run.normalizedScore));
   const finalScore = aggregateTryoutScores(scores);
@@ -392,7 +457,7 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
         scheduledReleaseAt: true,
         tryoutId: true,
         assessmentRelease: {
-          select: { contentDigest: true, id: true, releaseNumber: true },
+          select: { contentDigest: true, id: true, payload: true, releaseNumber: true },
         },
         tryout: {
           select: {
@@ -414,17 +479,25 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
             releaseAt: true,
             releaseState: true,
             score: true,
+            normalizedScore: true,
+            scaledScore: true,
             scoringState: true,
+            scoringVersion: true,
             status: true,
+            tryoutId: true,
             runs: {
               select: {
                 assessmentReleaseDigest: true,
                 assessmentReleaseId: true,
                 assessmentReleaseNumber: true,
                 calculationReleaseable: true,
+                calculationResult: true,
                 contentSnapshot: true,
                 normalizedScore: true,
+                rawScore: true,
+                scaledScore: true,
                 scoringState: true,
+                scoringVersion: true,
                 sequenceNo: true,
                 status: true,
                 tryoutSectionId: true,
@@ -448,6 +521,12 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
       },
     });
     if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
+    // A refresh must never expand or rewrite an already published bundle.
+    if (session.releaseState === AssessmentResultReleaseState.released) {
+      const ready = session.releasedAt !== null && session.attempts.length > 0
+        && session.attempts.every((attempt) => publishedAttemptIsConsistent(attempt, session.tryout, session.assessmentRelease));
+      return { deliverySessionId: session.id, releaseAt: session.releasedAt, releaseState: session.releaseState, ready, ...(ready ? {} : { reason: PUBLISHED_RESULT_REVIEW_MESSAGE }) };
+    }
     if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
     const policy = effectivePolicy(session);
     const releaseableAttemptIds = session.attempts.flatMap((attempt) => {
@@ -470,12 +549,11 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
     if (policy === "scheduled" && !session.scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
     const thresholdReached = policy === "immediate"
       || (policy === "automatic_at_end" && session.availableUntil <= now)
-      || (policy === "scheduled" && session.scheduledReleaseAt !== null && session.scheduledReleaseAt <= now)
-      || (policy === "manual" && session.releaseState === AssessmentResultReleaseState.released);
-    let releaseState = session.releaseState;
+      || (policy === "scheduled" && session.scheduledReleaseAt !== null && session.scheduledReleaseAt <= now);
+    let releaseState: AssessmentResultReleaseState = session.releaseState;
     let releaseAt = session.releasedAt;
-    if (session.releaseState !== AssessmentResultReleaseState.released && ready) {
-      if (thresholdReached && policy !== "manual") {
+    if (ready) {
+      if (thresholdReached) {
         releaseState = AssessmentResultReleaseState.released;
         releaseAt = session.releasedAt ?? (policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : now);
       } else if (!thresholdReached && policy !== "manual") {
@@ -490,6 +568,7 @@ async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.Tran
     if (releaseState === AssessmentResultReleaseState.released || releaseState === AssessmentResultReleaseState.scheduled) {
       const releaseableIds = new Set(releaseableAttemptIds);
       const attemptIdsNeedingUpdate = session.attempts
+        .filter((attempt) => attempt.releaseState !== AssessmentResultReleaseState.released)
         .filter((attempt) => releaseableIds.has(attempt.id))
         .filter((attempt) => attempt.releaseState !== releaseState
           || (attempt.releaseAt?.getTime() ?? null) !== (releaseAt?.getTime() ?? null))
@@ -599,6 +678,8 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   const afterClose = attempt.deliverySession.availableUntil <= new Date();
   const scheduledReleaseAt = attempt.deliverySession.scheduledReleaseAt;
   if (policy === "scheduled" && !scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
+  if (!legacyRead && attempt.releaseState === AssessmentResultReleaseState.released
+    && !publishedAttemptIsConsistent(attempt, attempt.tryout, sessionRelease)) throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
   const released = attempt.releaseState === AssessmentResultReleaseState.released
     && attempt.scoringState === AssessmentScoringState.scored
     && attempt.score !== null
@@ -678,7 +759,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       }, []) ?? [];
 
       return {
-        calculation: run.calculationResult,
+        calculation: participantRunCalculation(run.calculationResult),
         materializedScore: {
           correctCount: run.correctCount,
           maxScore: run.maxScore === null ? null : Number(run.maxScore),
