@@ -8,6 +8,7 @@ const read = (relativePath: string) =>
 
 const materi = read("lib/materi/repository.ts");
 const quiz = read("lib/quiz/repository.ts");
+const quizDashboard = read("lib/quiz/mentor-dashboard-repository.ts");
 const bank = read("lib/question-bank/repository.ts");
 const organization = read("lib/question-bank/organization.ts");
 const service = read("lib/resource-edit-lock/service.ts");
@@ -25,60 +26,100 @@ function declarationIndex(source: string, name: string, fromIndex = 0) {
 function functionSlice(source: string, name: string, nextName?: string) {
   const start = declarationIndex(source, name);
   assert.ok(start >= 0, `${name} must remain a named repository boundary`);
-  const end = nextName ? declarationIndex(source, nextName, start + 1) : source.length;
-  return source.slice(start, end < 0 ? source.length : end);
+  if (!nextName) return source.slice(start);
+  const end = declarationIndex(source, nextName, start + 1);
+  assert.ok(end > start, `${nextName} must remain after ${name}`);
+  return source.slice(start, end);
 }
 
-function assertProofBeforeRowLock(source: string, name: string) {
-  const slice = functionSlice(source, name);
+function assertProofBeforeRowLock(source: string, name: string, nextName?: string) {
+  const slice = functionSlice(source, name, nextName);
   const proof = slice.indexOf("assertAuthoringEditLease");
-  const rowLock = slice.indexOf("FOR UPDATE");
+  const rowLocks = [
+    slice.indexOf("FOR UPDATE"),
+    slice.indexOf("lockStandaloneQuizAggregate("),
+  ].filter((index) => index >= 0);
+  const rowLock = rowLocks.length ? Math.min(...rowLocks) : -1;
   assert.ok(proof >= 0, `${name} must assert editLease`);
   assert.ok(rowLock < 0 || proof < rowLock, `${name} must fence row locks with editLease`);
 }
 
-for (const name of [
-  "saveStandaloneQuizVersioned",
-  "saveStandaloneQuiz",
-  "transitionStandaloneQuizSourceModeVersioned",
-  "transitionStandaloneQuizSourceMode",
-  "acceptStandaloneQuizQuestionUpdateVersioned",
-  "acceptStandaloneQuizQuestionUpdate",
-  "attachStandaloneQuizAssemblyVersioned",
-  "attachStandaloneQuizAssembly",
-  "detachStandaloneQuizAssemblyVersioned",
-  "detachStandaloneQuizAssembly",
-  "updateStandaloneQuizLifecycle",
+for (const [name, nextName] of [
+  ["saveStandaloneQuizVersioned", "saveStandaloneQuiz"],
+  ["saveStandaloneQuiz", "transitionStandaloneQuizSourceModeVersioned"],
+  ["transitionStandaloneQuizSourceModeVersioned", "transitionStandaloneQuizSourceMode"],
+  ["transitionStandaloneQuizSourceMode", "importStandaloneQuizBankQuestions"],
+  ["acceptStandaloneQuizQuestionUpdateVersioned", "acceptStandaloneQuizQuestionUpdate"],
+  ["acceptStandaloneQuizQuestionUpdate", "getMentorStandaloneQuiz"],
+  ["attachStandaloneQuizAssemblyVersioned", "attachStandaloneQuizAssembly"],
+  ["attachStandaloneQuizAssembly", "detachStandaloneQuizAssemblyVersioned"],
+  ["detachStandaloneQuizAssemblyVersioned", "detachStandaloneQuizAssembly"],
+  ["detachStandaloneQuizAssembly", "getMentorStandaloneQuizzes"],
+  ["updateStandaloneQuizLifecycle", "setStandaloneQuizHidden"],
+  ["setStandaloneQuizHidden", "studentAvailabilityWhere"],
 ]) {
-  assertProofBeforeRowLock(quiz, name);
+  assertProofBeforeRowLock(quiz, name, nextName);
 }
-for (const name of [
-  "saveQuestionBank",
+for (const [name, nextName] of [
+  ["saveQuestionBank", "updateQuestionBankLifecycle"],
+  ["updateQuestionRevisionLifecycle", "deleteQuestionBank"],
+]) {
+  assertProofBeforeRowLock(bank, name, nextName);
+}
+assertProofBeforeRowLock(bank, "deleteQuestionBank");
+
+const bankLifecycle = functionSlice(
+  bank,
   "updateQuestionBankLifecycle",
   "updateQuestionRevisionLifecycle",
-  "deleteQuestionBank",
-]) {
-  assertProofBeforeRowLock(bank, name);
+);
+if (bankLifecycle.includes("withTransientAuthoringEditLeases")) {
+  assert.match(
+    bankLifecycle,
+    /const applyLifecycle = async \(\) => \{[\s\S]*?FOR UPDATE[\s\S]*?\};[\s\S]*?if \(options\.editLease\) \{[\s\S]*?await assertAuthoringEditLease\([\s\S]*?\);[\s\S]*?return applyLifecycle\(\);[\s\S]*?return withTransientAuthoringEditLeases\([\s\S]*?actorId,[\s\S]*?applyLifecycle,/u,
+    "bank lifecycle must fence its row-lock callback with either the supplied proof or a transient lease",
+  );
+} else {
+  assertProofBeforeRowLock(
+    bank,
+    "updateQuestionBankLifecycle",
+    "updateQuestionRevisionLifecycle",
+  );
 }
+
+const quizDashboardLifecycle = functionSlice(
+  quizDashboard,
+  "manageMentorDashboardQuiz",
+);
+assert.match(
+  quizDashboardLifecycle,
+  /withTransientAuthoringEditLeases\([\s\S]*?\[\{ resourceId: quizId, resourceType: "quiz" \}\],[\s\S]*?tutorId,[\s\S]*?FOR UPDATE/u,
+  "dashboard quiz mutations must acquire a transient lease before locking the quiz row",
+);
 
 assert.match(materi, /assertAuthoringEditLease/u);
 assert.match(materi, /withTransientAuthoringEditLeases/u);
-assert.match(quiz, /withTransientAuthoringEditLeases/u);
-assert.match(bank, /assertReadyKaptenImageAssets/u);
 assert.match(organization, /withTransientAuthoringEditLeases/u);
 assert.doesNotMatch(organization, /acquireEditKeys/u);
 assert.doesNotMatch(organization, /resourceType:\s*["']question-bank["']/u);
 
 const ordinaryBankSave = functionSlice(bank, "saveQuestionBank", "updateQuestionBankLifecycle");
-assert.ok(
-  ordinaryBankSave.indexOf("assertReadyKaptenImageAssets") < ordinaryBankSave.indexOf("questionBank.create"),
-  "ordinary Bank save must validate all media before its first write",
+const bankImageValidator = functionSlice(
+  mediaValidator,
+  "lockAndValidateKaptenBankImages",
+  "findQuestionBankImageReferences",
 );
-assert.match(mediaValidator, /asset\.findMany/u);
-assert.match(mediaValidator, /MediaLibraryScope\.kapten/u);
-assert.match(mediaValidator, /MediaAssetState\.ready/u);
-assert.match(mediaValidator, /trashedAt === null/u);
-assert.match(mediaValidator, /isImageMimeType/u);
+const bankImageValidationCall = ordinaryBankSave.indexOf("lockAndValidateKaptenBankImages(");
+const firstQuestionWrite = ordinaryBankSave.indexOf("tx.question.create(");
+assert.ok(
+  bankImageValidationCall >= 0 && firstQuestionWrite > bankImageValidationCall,
+  "ordinary Bank save must validate all media before writing questions",
+);
+assert.match(bankImageValidator, /tx\.asset\.findMany/u);
+assert.match(bankImageValidator, /MediaLibraryScope\.kapten/u);
+assert.match(bankImageValidator, /MediaAssetState\.ready/u);
+assert.match(bankImageValidator, /trashedAt === null/u);
+assert.match(bankImageValidator, /isImageMimeType/u);
 
 assert.match(service, /sort\(\(left, right\) => left\.resourceKey\.localeCompare\(right\.resourceKey\)\)/u);
 assert.match(service, /A callback error\s+\*\s+is intentionally allowed to abort/u);
