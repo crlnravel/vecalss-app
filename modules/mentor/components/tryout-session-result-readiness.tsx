@@ -39,15 +39,69 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
     catch (error) { if (active.current) setFailed(true); throw error; }
     finally { if (active.current) setLoading(false); }
   }
-  return <ReferenceSurface as="section" className="mt-5 grid min-w-0 gap-5 p-4 sm:p-5" aria-labelledby="session-readiness-title">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="session-readiness-title" className="text-xl font-semibold text-secondary-900">Kesiapan hasil sesi</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Ringkasan mencakup seluruh sesi yang dipilih, termasuk peserta di luar pencarian tabel.</p></div><Button className="min-h-11" variant="outline" disabled={loading} onClick={() => void refresh().catch(() => {})}>{loading ? "Memuat…" : "Perbarui kesiapan"}</Button></div>
-    {failed ? <p className="text-sm leading-6 text-secondary-700">Kesiapan terbaru belum dapat dimuat. Perbarui kesiapan sebelum melanjutkan.</p> : null}
-    {snapshot ? <>
-      <dl className="grid min-w-0 gap-3 text-sm leading-6 sm:grid-cols-2"><div><dt className="text-secondary-600">Sesi</dt><dd className="break-words font-medium text-secondary-900">{snapshot.sessionName}</dd></div><div><dt className="text-secondary-600">Waktu selesai</dt><dd className="font-medium text-secondary-900">{formatTryoutDateTime(snapshot.availableUntil)} WIB</dd></div><div><dt className="text-secondary-600">Aturan yang berlaku</dt><dd className="font-medium text-secondary-900">{resultPolicyLabels[snapshot.effectivePolicy] ?? "Belum tersedia"} · {snapshot.inherited ? "mengikuti Tryout" : "ditentukan pada sesi"}</dd></div><div><dt className="text-secondary-600">Pengerjaan yang disertakan</dt><dd className="font-medium tabular-nums text-secondary-900">{snapshot.counts.ready} siap · {snapshot.counts.blocked} perlu diperiksa</dd></div><div><dt className="text-secondary-600">Tidak disertakan</dt><dd className="tabular-nums text-secondary-900">{snapshot.counts.void} dibatalkan · {snapshot.counts.abandoned} ditinggalkan · {snapshot.counts.noAttempt} belum mengerjakan</dd></div></dl>
-      {snapshot.publication ? <p className="break-words text-sm leading-6 text-secondary-700">Hasil dirilis {formatTryoutDateTime(snapshot.publication.releasedAt)} WIB. Alasan: {snapshot.publication.reason ?? "Tercatat pada riwayat sesi."}</p> : null}
-      {snapshot.blockers.length ? <section aria-labelledby="result-blockers-title" className="grid gap-2"><h3 id="result-blockers-title" className="font-semibold text-secondary-900">Yang perlu diselesaikan</h3><ul className="grid gap-3 text-sm leading-6 text-secondary-700">{snapshot.blockers.map((blocker, index) => <li key={`${blocker.category}-${blocker.attemptId}-${blocker.section}-${index}`} className="min-w-0 break-words">{blocker.section ? `Tes ${blocker.section}: ` : ""}{blocker.message}{blocker.attemptId ? <Link className="ml-1 inline-flex min-h-11 items-center rounded-control font-semibold text-primary-800 focus-visible:outline focus-visible:outline-2" href={buildMentorTryoutAttemptHref(scope.tryoutId, blocker.attemptId, { ...context, session: scope.sessionId, workspace: "participants" })}>Periksa pengerjaan</Link> : null}</li>)}</ul></section> : !snapshot.publication ? <p className="text-sm leading-6 text-secondary-700">Seluruh hasil yang disertakan sudah siap.</p> : null}
-      {allowPublication ? <TryoutResultPublication initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : null}
-      <TryoutResultPolicyForm initial={snapshot} refresh={refresh} />
-    </> : !loading && !failed ? <p className="text-sm text-secondary-700">Ringkasan hasil belum tersedia.</p> : null}
-  </ReferenceSurface>;
+  return (
+    <ReferenceSurface as="section" className="mt-5 grid min-w-0 gap-5 p-4 sm:p-5" aria-labelledby="session-readiness-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-prose">
+          <h2 id="session-readiness-title" className="text-xl font-semibold text-secondary-900">Kesiapan hasil sesi</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Ringkasan mencakup seluruh sesi yang dipilih, termasuk peserta di luar pencarian tabel.</p>
+        </div>
+        <Button className="min-h-11 w-full sm:w-auto" variant="outline" disabled={loading} onClick={() => void refresh().catch(() => {})}>
+          {loading ? "Memuat…" : "Perbarui kesiapan"}
+        </Button>
+      </div>
+      {failed ? <p className="text-sm leading-6 text-secondary-700">Kesiapan terbaru belum dapat dimuat. Perbarui kesiapan sebelum melanjutkan.</p> : null}
+      {snapshot ? (
+        <>
+          <dl className="grid min-w-0 gap-4 border-y border-primary-100 py-4 text-sm leading-6 sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="text-secondary-600">Pengerjaan yang disertakan</dt>
+              <dd className="mt-1 font-semibold tabular-nums text-secondary-900">{snapshot.counts.ready} siap · {snapshot.counts.blocked} perlu diperiksa</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-secondary-600">Tidak disertakan</dt>
+              <dd className="mt-1 tabular-nums text-secondary-700">{snapshot.counts.void} dibatalkan · {snapshot.counts.abandoned} ditinggalkan · {snapshot.counts.noAttempt} belum mengerjakan</dd>
+            </div>
+          </dl>
+          <dl className="grid min-w-0 gap-4 text-sm leading-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="min-w-0">
+              <dt className="text-secondary-600">Sesi</dt>
+              <dd className="break-words font-medium text-secondary-900">{snapshot.sessionName}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-secondary-600">Waktu selesai</dt>
+              <dd className="break-words font-medium text-secondary-900">{formatTryoutDateTime(snapshot.availableUntil)} WIB</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-secondary-600">Aturan yang berlaku</dt>
+              <dd className="font-medium text-secondary-900">{resultPolicyLabels[snapshot.effectivePolicy] ?? "Belum tersedia"}</dd>
+              <dd className="text-secondary-600">{snapshot.inherited ? "Mengikuti Tryout" : "Ditentukan pada sesi"}</dd>
+            </div>
+          </dl>
+          {snapshot.publication && (!allowPublication || !snapshot.publication.receipt) ? (
+            <p className="break-words text-sm leading-6 text-secondary-700">Hasil dirilis {formatTryoutDateTime(snapshot.publication.releasedAt)} WIB. Alasan: {snapshot.publication.reason ?? "Tercatat pada riwayat sesi."}</p>
+          ) : null}
+          {snapshot.blockers.length ? (
+            <section aria-labelledby="result-blockers-title" className="grid gap-3">
+              <h3 id="result-blockers-title" className="text-base font-semibold text-secondary-900">Yang perlu diselesaikan</h3>
+              <ul className="divide-y divide-primary-100 text-sm leading-6 text-secondary-700">
+                {snapshot.blockers.map((blocker, index) => (
+                  <li key={`${blocker.category}-${blocker.attemptId}-${blocker.section}-${index}`} className="flex min-w-0 flex-col items-start gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <p className="min-w-0 break-words">{blocker.section ? <span className="font-semibold text-secondary-900">Tes {blocker.section}: </span> : null}{blocker.message}</p>
+                    {blocker.attemptId ? (
+                      <Link className="inline-flex min-h-11 shrink-0 items-center rounded-control font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2" href={buildMentorTryoutAttemptHref(scope.tryoutId, blocker.attemptId, { ...context, session: scope.sessionId, workspace: "participants" })}>
+                        Periksa pengerjaan
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : !snapshot.publication ? <p className="text-sm leading-6 text-secondary-700">Seluruh hasil yang disertakan sudah siap.</p> : null}
+          {allowPublication ? <TryoutResultPublication initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : null}
+          <TryoutResultPolicyForm initial={snapshot} refresh={refresh} />
+        </>
+      ) : !loading && !failed ? <p className="text-sm text-secondary-700">Ringkasan hasil belum tersedia.</p> : null}
+    </ReferenceSurface>
+  );
 }

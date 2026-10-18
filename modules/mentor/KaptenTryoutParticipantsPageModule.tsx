@@ -222,12 +222,33 @@ function KaptenTryoutParticipantsPageModule({
       <h2 className="sr-only" id="tryout-results-title">
         Hasil Tryout
       </h2>
-      <Link className="inline-flex min-h-11 items-center font-semibold text-primary-800" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>Kelola peserta</Link>
-      {selectedSession ? <>
-        <div className="mt-4"><DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" className="min-h-11 max-w-full whitespace-normal" />}>Sesi: {selectedSession.name}</DropdownMenuTrigger><DropdownMenuContent>{initial.sessions.map((session) => <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>{session.name}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {selectedSession ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" className="min-h-11 w-full max-w-full justify-start whitespace-normal text-left sm:w-auto" />}>
+              Sesi: {selectedSession.name}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {initial.sessions.map((session) => (
+                <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
+                  {session.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+        <Link className="inline-flex min-h-11 w-fit items-center text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:rounded-control focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>
+          Kelola peserta
+        </Link>
+      </div>
+      {selectedSession ? (
         <TryoutSessionResultReadiness key={selectedSession.id} scope={{ tryoutId: initial.id, sessionId: selectedSession.id }} tryoutTitle={initial.title} allowPublication={resultMaintenance} context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }} />
-      </> : null}
-      <ReferenceSurface as="section" className="overflow-hidden mt-5">
+      ) : null}
+      <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className="mt-5 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary-100 px-4 py-4 sm:px-5">
+          <h3 className="text-base font-semibold text-secondary-900" id="tryout-attempts-title">Pengerjaan peserta</h3>
+          <p className="text-sm tabular-nums text-secondary-600">{visibleAttempts.length} ditampilkan</p>
+        </div>
         <DataTable
           caption="Hasil pengerjaan peserta Tryout"
           columns={columns}
@@ -250,7 +271,7 @@ function KaptenTryoutParticipantsPageModule({
           search={{
             label: "Cari hasil peserta",
             onValueChange: changeQuery,
-            placeholder: "Cari peserta atau ID…",
+            placeholder: "Cari nama peserta…",
             value: query,
           }}
           tableClassName="w-full min-w-0"

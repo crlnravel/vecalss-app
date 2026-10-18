@@ -67,9 +67,14 @@ export function TryoutResultPolicyForm({ initial, refresh }: { initial: TryoutSe
   }
   const receipt = state.receipt ?? initial.policy.receipt;
   return <section aria-labelledby="result-policy-title" className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
-    <div><h3 className="text-lg font-semibold text-secondary-900" id="result-policy-title">Aturan rilis hasil</h3><p className="mt-1 text-sm leading-6 text-secondary-700">Aturan bawaan berlaku untuk sesi yang mengikuti pengaturan Tryout. Sesi dengan aturan sendiri tetap memakai pilihannya.</p></div>
-    <ul className="grid gap-1 text-sm leading-6 text-secondary-700">{initial.policy.sessions.map((session) => <li key={session.id}>{session.name}: {session.inherited ? "mengikuti aturan Tryout" : `aturan sesi sendiri · ${resultPolicyLabels[session.effectivePolicy] ?? "Belum tersedia"}`}</li>)}</ul>
-    {receipt ? <p className="break-words text-sm leading-6 text-secondary-600">{state.receipt ? "Penyimpanan ini tercatat" : "Perubahan terakhir tercatat"} {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.configuredAt))}. Alasan: {receipt.reason}</p> : null}
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0 max-w-prose">
+        <h3 className="text-lg font-semibold text-secondary-900" id="result-policy-title">Aturan rilis hasil</h3>
+        <p className="mt-1 text-sm leading-6 text-secondary-700">Aturan bawaan berlaku untuk sesi yang mengikuti pengaturan Tryout. Sesi dengan aturan sendiri tetap memakai pilihannya.</p>
+      </div>
+      <p className="shrink-0 text-sm font-medium leading-6 text-secondary-900">{resultPolicyLabels[initial.policy.value] ?? "Belum tersedia"}</p>
+    </div>
+    {receipt && state.receipt ? <p className="break-words text-sm leading-6 text-secondary-600">Penyimpanan ini tercatat {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.configuredAt))}. Alasan: {receipt.reason}</p> : null}
     {saved && receipt?.policy !== initial.policy.value ? <p className="text-sm leading-6 text-secondary-700">Aturan terbaru: {resultPolicyLabels[initial.policy.value] ?? "Belum tersedia"}. Penyimpanan ini tetap tercatat.</p> : null}
     {!initial.policy.editable ? <p className="text-sm leading-6 text-secondary-700">{initial.policy.reason}</p> : <form className="grid min-w-0 max-w-2xl gap-4" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <OptionSet label="Aturan bawaan Tryout" required value={saved ? initial.policy.value as TryoutDefaultResultPolicy : selected} onValueChange={(value) => { flow.reset(); setSelected(value); }} options={options.map((option) => ({ ...option, disabled: busy || retained || flow.refreshFailed }))} />
@@ -79,6 +84,20 @@ export function TryoutResultPolicyForm({ initial, refresh }: { initial: TryoutSe
     {needsRefresh ? <div className="grid gap-2 text-sm leading-6"><p>{state.message}</p><Button variant="outline" onClick={() => void flow.refreshRefused()}>Muat aturan terbaru</Button></div> : null}
     {retained ? <section aria-label="Pemulihan penyimpanan aturan rilis" className="grid gap-3 text-sm leading-6"><p>{state.message ?? "Tunggu hasil penyimpanan, lalu periksa status jika diperlukan."}</p><div className="flex flex-wrap gap-2"><Button className="min-h-11" disabled={busy} variant="outline" onClick={() => void flow.inspect()}>{state.phase === "reading" ? "Memeriksa…" : "Periksa status penyimpanan"}</Button>{state.phase === "retry" ? <Button className="min-h-11" disabled={busy || state.writePending} onClick={() => void flow.replay()}>Kirim ulang perubahan yang sama</Button> : null}</div></section> : null}
     {flow.refreshFailed ? <div className="grid gap-2 text-sm leading-6"><p>Aturan rilis sudah tersimpan. Tampilan terbaru belum dapat dimuat.</p><Button className="min-h-11" variant="outline" onClick={() => void flow.reload()}>Muat ulang tampilan</Button></div> : null}
+    <details open={initial.policy.editable} className="min-w-0 border-t border-primary-100 pt-3">
+      <summary className="min-h-11 cursor-pointer rounded-control py-2.5 text-sm font-semibold leading-6 text-secondary-900 marker:text-primary-700 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2">Sesi dan riwayat aturan</summary>
+      <div className="grid min-w-0 gap-3 pb-1 pt-2">
+        <ul className="grid gap-3 text-sm leading-6 text-secondary-700">
+          {initial.policy.sessions.map((session) => (
+            <li key={session.id} className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+              <span className="min-w-0 break-words font-medium text-secondary-900">{session.name}</span>
+              <span className="min-w-0 sm:text-right">{session.inherited ? "Mengikuti aturan Tryout" : `Aturan sesi sendiri · ${resultPolicyLabels[session.effectivePolicy] ?? "Belum tersedia"}`}</span>
+            </li>
+          ))}
+        </ul>
+        {receipt && !state.receipt ? <p className="break-words text-sm leading-6 text-secondary-600">Perubahan terakhir tercatat {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.configuredAt))}. Alasan: {receipt.reason}</p> : null}
+      </div>
+    </details>
     <AlertDialog open={pendingHref !== null} onOpenChange={(open) => { if (!open) cancelNavigation(); }}>
       <AlertDialogContent size="sm" variant="warning"><AlertDialogHeader><AlertDialogTitle>{saved ? "Lanjut ke halaman tujuan?" : "Simpan perubahan aturan rilis?"}</AlertDialogTitle><AlertDialogDescription>{saved ? "Aturan rilis sudah tersimpan. Lanjutkan ke halaman tujuan atau tetap di sini." : retained ? "Penyimpanan sebelumnya belum dapat dipastikan. Periksa status sebelum mengirim ulang. Keluar dari halaman tidak membatalkan penyimpanan tersebut." : "Pilihan dan alasan belum tersimpan. Simpan sebelum melanjutkan, atau keluar tanpa menyimpan."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter>
         <AlertDialogCancel>{saved ? "Tetap di sini" : "Lanjut mengedit"}</AlertDialogCancel><Button variant="outline" onClick={() => { const href = pendingHref; if (href) leave(href, saved); }}>{saved ? "Buka halaman tujuan" : retained ? "Keluar dari halaman" : "Keluar tanpa menyimpan"}</Button>{!saved ? <Button disabled={busy || retained || needsRefresh || !initial.policy.editable || !reason.trim() || flow.refreshFailed} onClick={() => void save()}>Simpan lalu lanjut</Button> : null}
