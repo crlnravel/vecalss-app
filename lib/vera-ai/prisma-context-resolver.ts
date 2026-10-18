@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { releasedTryoutResultWhere } from "@/lib/tryout/released-result-eligibility";
 
 import { VeraContractError } from "./contracts";
 import { resolvePublishedMateri } from "./context-resolvers";
@@ -57,12 +58,7 @@ export function createPrismaVeraContextResolver(db: VeraContextDb = defaultPrism
         const tryout = await db.tryoutAttempt.findFirst({
           where: {
             id: selection.sourceId,
-            studentId: authority.studentId,
-            status: "scored",
-            scoringState: "scored",
-            releaseState: "released",
-            assessmentReleaseId: { not: null },
-            assessmentReleaseDigest: { not: null },
+            ...releasedTryoutResultWhere(authority.studentId),
           },
           select: { id: true, score: true, assessmentReleaseDigest: true, tryout: { select: { title: true } } },
         });

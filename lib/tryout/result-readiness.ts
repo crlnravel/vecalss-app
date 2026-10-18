@@ -6,6 +6,7 @@ export function isTryoutPolicyBaseline(value: unknown): value is TryoutPolicyBas
 }
 export type TryoutDefaultResultPolicy = "immediate" | "manual" | "automatic_at_end";
 export type TryoutResultReadinessScope = { tryoutId: string; sessionId: string };
+export type TryoutPublicationReceipt = TryoutResultReadinessScope & { id: string; releasedAt: string; actorId: string; actorName: string | null; reason: string; participantCount: number };
 export type TryoutPolicyInspectionScope = TryoutResultReadinessScope & { requestId?: string };
 export type TryoutReadinessBlocker = { category: "session" | "end" | "empty" | "unfinished" | "binding" | "scoring" | "explanations" | "published"; attemptId: string | null; section: number | null; message: string };
 export type TryoutPolicyReceipt = { id: string; expectedBaseline?: TryoutPolicyBaseline; configuredAt: string; reason: string; policy: TryoutDefaultResultPolicy };
@@ -19,7 +20,7 @@ export type TryoutSessionReadiness = {
   ready: boolean;
   counts: { attempts: number; candidates: number; ready: number; blocked: number; excluded: number; void: number; abandoned: number; noAttempt: number };
   blockers: TryoutReadinessBlocker[];
-  publication: { releasedAt: string; actorId: string | null; reason: string | null } | null;
+  publication: { releasedAt: string; actorId: string | null; reason: string | null; receipt?: TryoutPublicationReceipt | null } | null;
   policy: { baseline: TryoutPolicyBaseline; editable: boolean; reason: string | null; value: string; receipt: TryoutPolicyReceipt | null; intentReceipt?: TryoutPolicyReceipt | null; sessions: Array<{ id: string; name: string; inherited: boolean; effectivePolicy: string }> };
 };
 

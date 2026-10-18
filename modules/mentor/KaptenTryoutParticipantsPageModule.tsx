@@ -86,10 +86,12 @@ function KaptenTryoutParticipantsPageModule({
   embedded = false,
   initial,
   parentId,
+  resultMaintenance = true,
 }: {
   embedded?: boolean;
   initial: TryoutOperationsView;
   parentId?: string;
+  resultMaintenance?: boolean;
 }) {
   const router = useRouter();
   const context = parseMentorTryoutContext(useSearchParams());
@@ -223,7 +225,7 @@ function KaptenTryoutParticipantsPageModule({
       <Link className="inline-flex min-h-11 items-center font-semibold text-primary-800" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>Kelola peserta</Link>
       {selectedSession ? <>
         <div className="mt-4"><DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" className="min-h-11 max-w-full whitespace-normal" />}>Sesi: {selectedSession.name}</DropdownMenuTrigger><DropdownMenuContent>{initial.sessions.map((session) => <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>{session.name}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>
-        <TryoutSessionResultReadiness key={selectedSession.id} scope={{ tryoutId: initial.id, sessionId: selectedSession.id }} context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }} />
+        <TryoutSessionResultReadiness key={selectedSession.id} scope={{ tryoutId: initial.id, sessionId: selectedSession.id }} tryoutTitle={initial.title} allowPublication={resultMaintenance} context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }} />
       </> : null}
       <ReferenceSurface as="section" className="overflow-hidden mt-5">
         <DataTable

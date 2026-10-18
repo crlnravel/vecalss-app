@@ -56,7 +56,7 @@ function KaptenTryoutArchivedHistoryPageModule({ initial }: { initial: TryoutOpe
       </section>
       <section aria-labelledby="archived-tryout-attempts" className="grid min-w-0 gap-3">
         <h2 className="text-xl font-semibold text-secondary-900" id="archived-tryout-attempts">Riwayat pengerjaan</h2>
-        <KaptenTryoutParticipantsPageModule embedded initial={initial} />
+        <KaptenTryoutParticipantsPageModule embedded initial={initial} resultMaintenance />
       </section>
     </KaptenTryoutArchivedHistoryFrame>
   );

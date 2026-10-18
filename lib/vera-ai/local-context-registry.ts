@@ -1,4 +1,5 @@
 import "server-only";
+import { releasedTryoutResultWhere } from "@/lib/tryout/released-result-eligibility";
 
 import { createPrismaContextRegistry, tokenizeContextQuery, type ContextRegistryCandidate, type ContextRegistrySource } from "./context-query-registry";
 import { canonicalJson, sha256Hex } from "./contracts";
@@ -157,10 +158,7 @@ function quizMetadataWhere(studentId: string, now: Date) {
 
 function tryoutMetadataWhere(studentId: string, now: Date) {
   return {
-    studentId,
-    status: "scored",
-    scoringState: "scored",
-    releaseState: "released",
+    ...releasedTryoutResultWhere(studentId),
     tryout: { status: "published", publishedAt: { lte: now } },
     deliverySession: {
       status: { in: ["active", "closed", "archived"] },

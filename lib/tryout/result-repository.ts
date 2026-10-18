@@ -11,7 +11,7 @@ import { isUuid } from "@/lib/resource-edit-lock/canonical";
 import { aggregateTryoutScores, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { assertFrozenRunRelease, calculateFrozenTryoutRun, FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE } from "@/lib/tryout/frozen-run-scoring";
 import { isTryoutPolicyBaseline } from "@/lib/tryout/result-readiness";
-import type { TryoutPolicyBaseline, TryoutDefaultResultPolicy, TryoutReadinessBlocker, TryoutResultReadinessScope, TryoutSessionReadiness } from "@/lib/tryout/result-readiness";
+import type { TryoutPolicyBaseline, TryoutDefaultResultPolicy, TryoutPublicationReceipt, TryoutReadinessBlocker, TryoutResultReadinessScope, TryoutSessionReadiness } from "@/lib/tryout/result-readiness";
 import type { TryoutCalculationReceipt, TryoutResultRecoveryScope, TryoutResultRecoverySnapshot } from "@/lib/tryout/result-recovery";
 import {
   acquireTryoutIdentityMutex,
@@ -581,6 +581,15 @@ async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySes
   return { session, ...evaluateSessionCohort(session) };
 }
 
+/** Read the immutable release audit, never reconstruct its cohort from current history. */
+async function publicationReceipt(tx: Prisma.TransactionClient, scope: TryoutResultReadinessScope, releasedAt: Date | null): Promise<TryoutPublicationReceipt | null> {
+  if (!releasedAt) return null;
+  const record = await tx.tryoutDeliveryAudit.findFirst({ where: { tryoutId: scope.tryoutId, deliverySessionId: scope.sessionId, action: "result.bundle_released" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, actorUserId: true, actor: { select: { fullName: true } }, reason: true, after: true } });
+  const after = record?.after as { attemptIds?: unknown; policy?: unknown } | null;
+  if (!record || after?.policy !== "manual" || !Array.isArray(after.attemptIds) || !after.attemptIds.length || !after.attemptIds.every((id) => typeof id === "string" && isUuid(id)) || new Set(after.attemptIds).size !== after.attemptIds.length) return null;
+  return { ...scope, id: record.id, releasedAt: releasedAt.toISOString(), actorId: record.actorUserId, actorName: record.actor.fullName, reason: record.reason, participantCount: after.attemptIds.length };
+}
+
 /** Dedicated owner projection; no hidden scores, frozen keys or calculation diagnostics leave this boundary. */
 function policyAuditReceipt(record: { id: string; createdAt: Date; reason: string; after: Prisma.JsonValue | null } | null) {
   const after = record?.after as { policy?: string; expectedBaseline?: TryoutPolicyBaseline } | null;
@@ -613,7 +622,7 @@ async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, 
       scope, sessionName: session.name, availableUntil: session.availableUntil.toISOString(), serverNow: now.toISOString(),
       effectivePolicy: evaluated.policy ?? "unavailable", inherited: session.resultReleasePolicy === "inherit", ready: blockers.length === 0 && evaluated.ready,
       counts: { ...evaluated.counts, noAttempt }, blockers,
-      publication: session.releaseState === "released" && session.releasedAt ? { releasedAt: session.releasedAt.toISOString(), actorId: session.releasedByUserId, reason: session.releaseReason } : null,
+      publication: session.releaseState === "released" && session.releasedAt ? { releasedAt: session.releasedAt.toISOString(), actorId: session.releasedByUserId, reason: session.releaseReason, receipt: await publicationReceipt(tx, scope, session.releasedAt) } : null,
       policy: {
         baseline: { auditCount, policy: session.tryout.defaultResultReleasePolicy },
         editable, reason: editable ? null : archived ? "Tryout sudah diarsipkan. Aturan rilis tidak dapat diubah." : started ? "Aturan rilis terkunci karena peserta sudah mulai mengerjakan Tryout ini." : "Aturan rilis dapat diubah setelah Tryout diterbitkan.",
@@ -626,17 +635,19 @@ async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, 
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
 }
 
-async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false) {
+async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false, expectedTryoutId?: string) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit rilis wajib diisi.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     const scope = await lockTryoutResultScope(tx, { id: deliverySessionId, kind: "session" });
+    if (expectedTryoutId !== undefined && scope.tryoutId !== expectedTryoutId) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
     const target = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, select: { releasedAt: true, releaseState: true, tryout: { select: { createdByUserId: true } } } });
     if (!target) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
     if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat merilis hasil Tryout milik Kapten lain.");
     // A committed bundle is a stable receipt, even if later historical damage is reported separately.
-    if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const };
+    if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const, receipt: await publicationReceipt(tx, { tryoutId: scope.tryoutId, sessionId: deliverySessionId }, target.releasedAt) };
     const { policy, session, ready, readyIds, blockers } = await sessionReleaseReadiness(tx, deliverySessionId);
+    if (session.tryout.status !== "published" && session.tryout.status !== "archived") throw new TryoutResultValidationError("Hasil hanya dapat dirilis dari Tryout yang diterbitkan atau riwayat arsip.");
     if (policy !== "manual") throw new TryoutResultValidationError("Kontrol rilis master hanya digunakan untuk sesi dengan kebijakan manual.");
     // Fresh authoritative time AFTER the complete canonical lock scope is held.
     const releasedAt = new Date();
@@ -645,7 +656,7 @@ async function releaseTryoutSessionResults(deliverySessionId: string, actorId: s
     await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { releaseReason: reason.trim(), releaseState: AssessmentResultReleaseState.released, releasedAt, releasedByUserId: actorId } });
     await tx.tryoutAttempt.updateMany({ where: { id: { in: readyIds }, releaseState: { not: "released" } }, data: { releaseAt: releasedAt, releaseState: AssessmentResultReleaseState.released } });
     await tx.tryoutDeliveryAudit.create({ data: { action: "result.bundle_released", actorUserId: actorId, after: json({ bundle: ["score", "review", "explanations", "ranking", "report"], policy, attemptIds: readyIds }), deliverySessionId, reason: reason.trim(), tryoutId: scope.tryoutId } });
-    return { deliverySessionId, releasedAt, state: "released" as const };
+    return { deliverySessionId, releasedAt, state: "released" as const, receipt: await publicationReceipt(tx, { tryoutId: scope.tryoutId, sessionId: deliverySessionId }, releasedAt) };
   }, { timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
 }
 

@@ -8,6 +8,7 @@ import { buildMentorTryoutAttemptHref, type MentorTryoutContext } from "@/lib/na
 import { readTryoutSessionReadiness, type TryoutResultReadinessScope, type TryoutSessionReadiness } from "@/lib/tryout/result-readiness";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 import { TryoutResultPolicyForm, resultPolicyLabels } from "@/modules/mentor/components/tryout-result-policy-form";
+import { TryoutResultPublication } from "@/modules/mentor/components/tryout-result-publication";
 
 async function inspect(scope: TryoutResultReadinessScope) {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -19,7 +20,7 @@ async function inspect(scope: TryoutResultReadinessScope) {
 }
 
 /** Full selected session; table search/filter/page never enter this request. */
-export function TryoutSessionResultReadiness({ scope, context }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext }) {
+export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tryout", allowPublication = false }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext; tryoutTitle?: string; allowPublication?: boolean }) {
   const [snapshot, setSnapshot] = useState<TryoutSessionReadiness | null>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,7 @@ export function TryoutSessionResultReadiness({ scope, context }: { scope: Tryout
       <dl className="grid min-w-0 gap-3 text-sm leading-6 sm:grid-cols-2"><div><dt className="text-secondary-600">Sesi</dt><dd className="break-words font-medium text-secondary-900">{snapshot.sessionName}</dd></div><div><dt className="text-secondary-600">Waktu selesai</dt><dd className="font-medium text-secondary-900">{formatTryoutDateTime(snapshot.availableUntil)} WIB</dd></div><div><dt className="text-secondary-600">Aturan yang berlaku</dt><dd className="font-medium text-secondary-900">{resultPolicyLabels[snapshot.effectivePolicy] ?? "Belum tersedia"} · {snapshot.inherited ? "mengikuti Tryout" : "ditentukan pada sesi"}</dd></div><div><dt className="text-secondary-600">Pengerjaan yang disertakan</dt><dd className="font-medium tabular-nums text-secondary-900">{snapshot.counts.ready} siap · {snapshot.counts.blocked} perlu diperiksa</dd></div><div><dt className="text-secondary-600">Tidak disertakan</dt><dd className="tabular-nums text-secondary-900">{snapshot.counts.void} dibatalkan · {snapshot.counts.abandoned} ditinggalkan · {snapshot.counts.noAttempt} belum mengerjakan</dd></div></dl>
       {snapshot.publication ? <p className="break-words text-sm leading-6 text-secondary-700">Hasil dirilis {formatTryoutDateTime(snapshot.publication.releasedAt)} WIB. Alasan: {snapshot.publication.reason ?? "Tercatat pada riwayat sesi."}</p> : null}
       {snapshot.blockers.length ? <section aria-labelledby="result-blockers-title" className="grid gap-2"><h3 id="result-blockers-title" className="font-semibold text-secondary-900">Yang perlu diselesaikan</h3><ul className="grid gap-3 text-sm leading-6 text-secondary-700">{snapshot.blockers.map((blocker, index) => <li key={`${blocker.category}-${blocker.attemptId}-${blocker.section}-${index}`} className="min-w-0 break-words">{blocker.section ? `Tes ${blocker.section}: ` : ""}{blocker.message}{blocker.attemptId ? <Link className="ml-1 inline-flex min-h-11 items-center rounded-control font-semibold text-primary-800 focus-visible:outline focus-visible:outline-2" href={buildMentorTryoutAttemptHref(scope.tryoutId, blocker.attemptId, { ...context, session: scope.sessionId, workspace: "participants" })}>Periksa pengerjaan</Link> : null}</li>)}</ul></section> : !snapshot.publication ? <p className="text-sm leading-6 text-secondary-700">Seluruh hasil yang disertakan sudah siap.</p> : null}
+      {allowPublication ? <TryoutResultPublication initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : null}
       <TryoutResultPolicyForm initial={snapshot} refresh={refresh} />
     </> : !loading && !failed ? <p className="text-sm text-secondary-700">Ringkasan hasil belum tersedia.</p> : null}
   </ReferenceSurface>;
