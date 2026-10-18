@@ -4,6 +4,7 @@ import React, { act, createElement, useMemo, useState, type ReactElement } from 
 import ts from "typescript";
 import { buildMentorTryoutAttemptBackHref, buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutAttemptContext, parseMentorTryoutContext } from "../lib/navigation/canonical-context";
 import { withReactDomTest } from "./react-dom-test-host";
+import { selectMainTryoutSession } from "../lib/tryout/main-session";
 
 const queryFor = (href: string) => new URL(href, "http://localhost").searchParams;
 for (const resultStatus of ["all", "submitted", "in_progress"] as const) {
@@ -37,7 +38,7 @@ type Table = { rows: Attempt[]; columns: Array<{ cell: (attempt: Attempt) => Rea
 let table!: Table;
 let currentQuery = new URLSearchParams("workspace=participants&parent=parent&resultQ=Arya&resultStatus=submitted");
 const pushes: string[] = [];
-const Hasil = new Function("React", "useMemo", "useState", "useRouter", "useSearchParams", "parseMentorTryoutContext", "buildMentorTryoutAttemptHref", "buildMentorTryoutHref", "buildMentorTryoutOperationsHref", "ReferenceSurface", "Link", "DataTable", "TryoutResultFilterPanel", "isInProgress", "dateTime", "resultFilterLabels", `${javascript}; return KaptenTryoutParticipantsPageModule;`)(
+const Hasil = new Function("React", "useMemo", "useState", "useRouter", "useSearchParams", "parseMentorTryoutContext", "buildMentorTryoutAttemptHref", "buildMentorTryoutHref", "buildMentorTryoutOperationsHref", "ReferenceSurface", "Link", "DataTable", "TryoutResultFilterPanel", "isInProgress", "dateTime", "resultFilterLabels", "selectMainTryoutSession", "navigateTryoutResultHref", `${javascript}; return KaptenTryoutParticipantsPageModule;`)(
   React, useMemo, useState, () => ({ push: (href: string) => pushes.push(href) }), () => currentQuery,
   parseMentorTryoutContext, buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref,
   ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
@@ -45,6 +46,7 @@ const Hasil = new Function("React", "useMemo", "useState", "useRouter", "useSear
   (props: Table) => { table = props; return createElement("p", null, `Rows:${props.rows.length}`); },
   () => createElement("p"), (attempt: Attempt) => attempt.status === "in_progress" || attempt.attemptState === "in_progress",
   new Intl.DateTimeFormat("id-ID"), { all: "Semua", submitted: "Terkirim", in_progress: "Berjalan" },
+  selectMainTryoutSession, (href: string, navigate: (href: string) => void) => navigate(href),
 ) as (props: { initial: unknown; parentId?: string }) => ReactElement;
 const attempts: Attempt[] = [{ id: "expired", admissionId: "admission", sessionId: "session", student: "Arya", status: "expired", attemptState: "expired", serverStartedAt: null }, { id: "active", admissionId: "other-admission", sessionId: "session", student: "Dimas", status: "in_progress", attemptState: "in_progress", serverStartedAt: null }];
 await withReactDomTest(async (_root, render) => {

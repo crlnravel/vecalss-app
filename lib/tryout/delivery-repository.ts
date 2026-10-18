@@ -1,4 +1,7 @@
 import "server-only";
+import { isTryoutPolicyBaseline, type TryoutPolicyBaseline } from "@/lib/tryout/result-readiness";
+import { randomUUID } from "node:crypto";
+import { isUuid } from "@/lib/resource-edit-lock/canonical";
 
 import {
   ContentStatus,
@@ -72,8 +75,8 @@ function dateOrThrow(value: Date | string, field: string) {
 
 function json(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
 
-async function audit(tx: Prisma.TransactionClient, input: { action: string; admissionId?: string; after: unknown; before?: unknown; deliverySessionId?: string; reason: string; tryoutId: string; actorId: string }) {
-  return tx.tryoutDeliveryAudit.create({ data: { action: input.action, actorUserId: input.actorId, admissionId: input.admissionId, after: json(input.after), before: input.before === undefined ? undefined : json(input.before), deliverySessionId: input.deliverySessionId, reason: input.reason, tryoutId: input.tryoutId } });
+async function audit(tx: Prisma.TransactionClient, input: { id?: string; action: string; admissionId?: string; after: unknown; before?: unknown; deliverySessionId?: string; reason: string; tryoutId: string; actorId: string }) {
+  return tx.tryoutDeliveryAudit.create({ data: { id: input.id, action: input.action, actorUserId: input.actorId, admissionId: input.admissionId, after: json(input.after), before: input.before === undefined ? undefined : json(input.before), deliverySessionId: input.deliverySessionId, reason: input.reason, tryoutId: input.tryoutId } });
 }
 
 async function assertStudent(tx: Prisma.TransactionClient, studentId: string) {
@@ -396,19 +399,41 @@ async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approv
   });
 }
 
-async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "immediate" | "manual" | "automatic_at_end", actorId: string, reason: string, allowCrossOwner = false) {
+async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "immediate" | "manual" | "automatic_at_end", actorId: string, reason: string, allowCrossOwner = false, requestId?: string, expectedBaseline?: TryoutPolicyBaseline) {
+  if (!["immediate", "manual", "automatic_at_end"].includes(policy)) throw new TryoutDeliveryValidationError("Pilih aturan rilis hasil yang tersedia.");
+  if (requestId !== undefined && (typeof requestId !== "string" || !isUuid(requestId))) throw new TryoutDeliveryValidationError("Permintaan penyimpanan tidak dapat digunakan. Mulai perubahan baru.");
+  if ((requestId !== undefined || expectedBaseline !== undefined) && !isTryoutPolicyBaseline(expectedBaseline)) throw new TryoutDeliveryValidationError("Permintaan penyimpanan tidak dapat digunakan. Muat aturan terbaru sebelum mencoba lagi.");
+  const baseline = expectedBaseline ? { ...expectedBaseline } : undefined;
+  const receiptId = requestId?.toLowerCase() ?? randomUUID();
   const auditReason = reasonOrThrow(reason);
-  return prisma.$transaction(async (tx) => {
+  try { return await prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     await lockTryoutIdentityScope(tx, { id: tryoutId, kind: "tryout" });
-    await assertTryoutNotStarted(tx, tryoutId);
     await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
+    const existing = await tx.tryoutDeliveryAudit.findUnique({ where: { id: receiptId } });
+    if (existing) {
+      const after = existing.after as { policy?: string; expectedBaseline?: TryoutPolicyBaseline } | null;
+      if (existing.actorUserId !== actorId || existing.tryoutId !== tryoutId || existing.action !== "result_release.default_configured" || existing.reason !== auditReason || after?.policy !== policy || after?.expectedBaseline?.auditCount !== baseline?.auditCount || after?.expectedBaseline?.policy !== baseline?.policy) throw new TryoutDeliveryValidationError("Permintaan penyimpanan tidak dapat digunakan. Mulai perubahan baru.");
+      // Historical receipt replay never restores its old policy, including
+      // after another intent, first Start or archive has superseded it.
+      return { policy, tryoutId, receipt: { id: existing.id, configuredAt: existing.createdAt.toISOString(), reason: existing.reason, policy, ...(after?.expectedBaseline ? { expectedBaseline: after.expectedBaseline } : {}) } };
+    }
+    await assertTryoutNotStarted(tx, tryoutId);
     const record = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { defaultResultReleasePolicy: true } });
     if (!record) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
+    // Count is monotonic for immutable policy audits. Wall-clock timestamp/UUID
+    // ordering cannot identify the last serialized write when timestamps tie.
+    const auditCount = baseline ? await tx.tryoutDeliveryAudit.count({ where: { tryoutId, action: "result_release.default_configured" } }) : null;
+    if (baseline && (baseline.auditCount !== auditCount || baseline.policy !== record.defaultResultReleasePolicy)) throw new TryoutDeliveryValidationError("Aturan rilis telah berubah. Muat aturan terbaru sebelum menyimpan kembali. Pilihan dan alasan Anda tetap tersedia.");
     await tx.tryoutPackage.update({ where: { id: tryoutId }, data: { defaultResultReleasePolicy: policy as TryoutResultReleasePolicy } });
-    await audit(tx, { action: "result_release.default_configured", actorId, after: { policy }, before: { policy: record.defaultResultReleasePolicy }, reason: auditReason, tryoutId });
-    return { policy, tryoutId };
-  });
+    const receipt = await audit(tx, { id: receiptId, action: "result_release.default_configured", actorId, after: { policy, ...(baseline ? { expectedBaseline: baseline } : {}) }, before: { policy: record.defaultResultReleasePolicy }, reason: auditReason, tryoutId });
+    return { policy, tryoutId, receipt: { id: receipt.id, configuredAt: receipt.createdAt.toISOString(), reason: auditReason, policy, ...(baseline ? { expectedBaseline: baseline } : {}) } };
+  }); } catch (error) {
+    // Cross-aggregate concurrent reuse can race on the global audit UUID.
+    // The losing transaction rolls back its policy update as well as its audit.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new TryoutDeliveryValidationError("Permintaan penyimpanan tidak dapat digunakan. Mulai perubahan baru.");
+    throw error;
+  }
 }
 
 async function createTryoutDeliverySession(input: DeliverySessionInput, actorId: string, reason: string, allowCrossOwner = false) {

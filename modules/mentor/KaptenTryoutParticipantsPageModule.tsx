@@ -16,6 +16,11 @@ import {
 } from "@/components/ui/data-table-filter-menu";
 import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { TryoutSessionResultReadiness } from "@/modules/mentor/components/tryout-session-result-readiness";
+import { navigateTryoutResultHref } from "@/modules/mentor/tryout-result-navigation";
 
 type ResultFilter = TryoutResultFilter;
 
@@ -88,13 +93,15 @@ function KaptenTryoutParticipantsPageModule({
 }) {
   const router = useRouter();
   const context = parseMentorTryoutContext(useSearchParams());
+  const selectedSession = initial.sessions?.find((session) => session.id === context.session) ?? selectMainTryoutSession(initial.sessions ?? []);
+  const selectedSessionId = selectedSession?.id;
   const [query, setQuery] = useState(context.resultQ ?? "");
   const [filter, setFilter] = useState<ResultFilter>(context.resultStatus ?? "all");
   const preserveFilters = (nextQuery: string, nextFilter: ResultFilter) => {
     window.history.replaceState(null, "", buildMentorTryoutHref(initial.id, {
       parent: parentId ?? context.parent,
       returnTo: context.returnTo,
-      session: context.session,
+      session: selectedSession?.id ?? context.session,
       workspace: "participants",
       resultQ: nextQuery,
       resultStatus: nextFilter,
@@ -106,22 +113,18 @@ function KaptenTryoutParticipantsPageModule({
     () => new Map(initial.results.map((result) => [result.attemptId, result])),
     [initial.results],
   );
-  const visibleAttempts = useMemo(
-    () =>
-      initial.attempts.filter((attempt) => {
-        const matchesQuery =
-          !query.trim() ||
-          attempt.student
-            .toLocaleLowerCase()
-            .includes(query.trim().toLocaleLowerCase());
-        const inProgress = isInProgress(attempt);
-        const matchesStatus =
-          filter === "all" ||
-          (filter === "submitted" ? !inProgress : inProgress);
-        return matchesQuery && matchesStatus;
-      }),
-    [filter, initial.attempts, query],
-  );
+  const visibleAttempts = initial.attempts.filter((attempt) => {
+    const matchesQuery =
+      !query.trim() ||
+      attempt.student
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase());
+    const inProgress = isInProgress(attempt);
+    const matchesStatus =
+      filter === "all" ||
+      (filter === "submitted" ? !inProgress : inProgress);
+    return matchesQuery && matchesStatus && (!selectedSessionId || attempt.sessionId === selectedSessionId);
+  });
   const Root = embedded ? "section" : "main";
   const attemptHref = (attempt: TryoutOperationsView["attempts"][number]) =>
     buildMentorTryoutAttemptHref(initial.id, attempt.id, {
@@ -218,6 +221,10 @@ function KaptenTryoutParticipantsPageModule({
         Hasil Tryout
       </h2>
       <Link className="inline-flex min-h-11 items-center font-semibold text-primary-800" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>Kelola peserta</Link>
+      {selectedSession ? <>
+        <div className="mt-4"><DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" className="min-h-11 max-w-full whitespace-normal" />}>Sesi: {selectedSession.name}</DropdownMenuTrigger><DropdownMenuContent>{initial.sessions.map((session) => <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>{session.name}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>
+        <TryoutSessionResultReadiness key={selectedSession.id} scope={{ tryoutId: initial.id, sessionId: selectedSession.id }} context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }} />
+      </> : null}
       <ReferenceSurface as="section" className="overflow-hidden mt-5">
         <DataTable
           caption="Hasil pengerjaan peserta Tryout"
@@ -228,7 +235,7 @@ function KaptenTryoutParticipantsPageModule({
             </div>
           }
           getRowId={(attempt) => attempt.id}
-          onRowClick={(attempt) => router.push(attemptHref(attempt))}
+          onRowClick={(attempt) => navigateTryoutResultHref(attemptHref(attempt), (href) => router.push(href))}
           filterPanel={
             <TryoutResultFilterPanel filter={filter} onChange={changeFilter} />
           }

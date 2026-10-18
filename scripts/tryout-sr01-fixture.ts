@@ -5,7 +5,7 @@ import { startTryoutAttempt } from "../lib/tryout/attempt-repository";
 import { createTa03Fixture } from "./tryout-ta03-fixture";
 import { requireTa02LocalDatabase } from "./tryout-ta02-fixture";
 
-export type Sr01Item = { id: string; snapshotId?: string; sourceQuestionId?: string; points: string; options: Array<{ id: string; isCorrect: boolean }> };
+export type Sr01Item = { id: string; snapshotId?: string; sourceQuestionId?: string; explanation?: string | null; explanationAssetId?: string | null; points: string; options: Array<{ id: string; isCorrect: boolean }> };
 export type Sr01Snapshot = { items: Sr01Item[]; scoringConfig: unknown; sectionId: string; sequenceNo: number; subtestId: string; durationSeconds: number };
 
 /** Runs in an isolated process; restores the native clock even on refusal. */
@@ -19,7 +19,7 @@ export async function atSr01Time<T>(time: Date, run: () => Promise<T>) {
 }
 
 /** New Tryout/release only; never edits a pre-existing attempt or seeded user. */
-export async function createSr01Fixture(name: string, ordinal: number, irt = false, windowStart?: Date) {
+export async function createSr01Fixture(name: string, ordinal: number, irt = false, windowStart?: Date, missingExplanations = false) {
   requireTa02LocalDatabase();
   const fixture = await createTa03Fixture();
   const session = await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: fixture.sessionId }, include: { assessmentRelease: true } });
@@ -30,6 +30,7 @@ export async function createSr01Fixture(name: string, ordinal: number, irt = fal
     section.items = section.items.slice(0, 2);
     section.items[0].points = "7";
     section.items[1].points = "3";
+    if (missingExplanations) for (const item of section.items) { item.explanation = null; item.explanationAssetId = null; }
     section.durationSeconds = 60;
     if (irt) section.scoring.config = { method: "irt_2pl", itemParameters: section.items.map((item) => ({ itemId: item.snapshotId ?? item.sourceQuestionId, a: 1, b: 0 })) };
   }
