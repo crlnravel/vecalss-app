@@ -179,7 +179,7 @@ function QuestionBankCreateFileImportControl({
           file={file}
           id={inputId}
           inputRef={inputRef}
-          maxSizeLabel="CSV: maks. 2 MB · 500 soal | Excel: maks. 24 MB · 1.000 soal"
+          maxSizeLabel="CSV: maks. 2 MB · 500 soal | Excel: maks. 24 MB · 1.250 soal"
           onChange={handleFileChange}
           onCancelUpload={
             isXlsxUploading ? () => handleXlsxPanelOpenChange(false) : undefined
