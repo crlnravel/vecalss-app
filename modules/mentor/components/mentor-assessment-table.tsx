@@ -59,7 +59,7 @@ export function MentorAssessmentGrid<T>({
   onRowOpen?: (row: T) => void;
   wrapRow?: (row: T, element: ReactNode) => ReactNode;
 }) {
-  const cellClassName = (id: string) => id === "select" ? styles.selectionCell : id === "title" ? styles.titleCell : undefined;
+  const cellClassName = (id: string) => id === "select" ? styles.selectionCell : id === "thumbnail" ? styles.thumbnailCell : id === "title" ? styles.titleCell : undefined;
   const rowProps = (original: T): ComponentProps<typeof TableRow> => onRowOpen ? {
     tabIndex: 0,
     onClick: (event) => {

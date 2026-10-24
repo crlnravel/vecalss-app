@@ -10,21 +10,19 @@ import {
   Search,
 } from "@/lib/icons";
 import Image from "next/image";
-import { unstable_rethrow } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { showToast } from "@/components/ui/toast";
-import { buildStudentTryoutHref, buildStudentTryoutSubrouteHref } from "@/lib/navigation/canonical-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { registerForTryoutWithTargetAction } from "@/modules/tryout/participant-actions";
+import { ParticipantActionRecoveryControls, participantRecoveryHref, useParticipantActionRecovery } from "@/modules/tryout/ParticipantStudentActionRecovery";
 
 type UniversityOption = { id: string; name: string; shortName: string | null };
 type MajorOption = { id: string; name: string; universityId: string };
 
 function UniversityPicker({
+  disabled,
   matchingUniversities,
   onOpenChange,
   onQueryChange,
@@ -34,6 +32,7 @@ function UniversityPicker({
   selectedUniversity,
   selectedUniversityId,
 }: {
+  disabled: boolean;
   matchingUniversities: UniversityOption[];
   onOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
@@ -52,6 +51,7 @@ function UniversityPicker({
       <Popover onOpenChange={onOpenChange} open={open}>
         <PopoverTrigger
           aria-haspopup="listbox"
+          disabled={disabled}
           render={
             <Button
               className="h-12 w-full justify-between  px-4 text-left"
@@ -195,6 +195,9 @@ function MajorPicker({
 
 function EnrollmentConfirmationDialog({
   busy,
+  locked,
+  submitting,
+  recovery,
   major,
   onConfirm,
   onOpenChange,
@@ -202,6 +205,9 @@ function EnrollmentConfirmationDialog({
   university,
 }: {
   busy: boolean;
+  locked: boolean;
+  submitting: boolean;
+  recovery: ReactNode;
   major?: MajorOption;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
@@ -226,10 +232,12 @@ function EnrollmentConfirmationDialog({
           </div>
         </dl>
 
+        {recovery}
+
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
-          <Button disabled={busy} onClick={onConfirm} type="button" variant="default">
-            {busy ? (
+          {!locked || submitting ? <Button disabled={busy || locked} onClick={onConfirm} type="button" variant="default">
+            {submitting ? (
               <>
                 <LoaderCircle className="animate-spin" />
                 Mendaftarkan…
@@ -240,7 +248,7 @@ function EnrollmentConfirmationDialog({
                 <ArrowRight />
               </>
             )}
-          </Button>
+          </Button> : null}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -277,7 +285,7 @@ function ParticipantTryoutEnrollmentPanel({
   const [universityQuery, setUniversityQuery] = useState("");
   const [majorQuery, setMajorQuery] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { controller, state: recoveryState, busy, locked } = useParticipantActionRecovery();
   const [message, setMessage] = useState<string | null>(null);
 
   const visibleMajors = useMemo(
@@ -305,6 +313,7 @@ function ParticipantTryoutEnrollmentPanel({
   );
 
   const handleUniversityChange = (value: string) => {
+    if (locked) return;
     setUniversityId(value);
     if (!majors.some((item) => item.id === majorId && item.universityId === value)) {
       setMajorId("");
@@ -315,6 +324,7 @@ function ParticipantTryoutEnrollmentPanel({
   };
 
   const handleMajorChange = (value: string) => {
+    if (locked) return;
     setMajorId(value);
     setMajorQuery("");
     setMessage(null);
@@ -322,6 +332,7 @@ function ParticipantTryoutEnrollmentPanel({
   };
 
   const handleOpenConfirmation = () => {
+    if (locked || busy) return;
     if (!university || !major) {
       setMessage("Pilih universitas dan jurusan target sebelum mendaftar.");
       return;
@@ -332,41 +343,16 @@ function ParticipantTryoutEnrollmentPanel({
 
   const handleRegister = async () => {
     if (!university || !major) return;
-    setBusy(true);
     setMessage(null);
-    try {
-      const response = await registerForTryoutWithTargetAction(tryoutId, {
-        majorId: major.id,
-        universityId: university.id,
-      }, sessionId);
-      if (!response.ok) {
-        showToast(response.message, { variant: "error" });
-        return;
-      }
-      if (response.result.state === "unavailable") {
-        showToast(
-          "Belum ada sesi tryout yang dapat menerima pendaftaran. Targetmu belum diubah; coba lagi setelah Kapten membuka jadwal baru.",
-          { variant: "error" },
-        );
-        return;
-      }
-      setConfirmOpen(false);
-      const destinationSessionId = response.result.deliverySessionId;
-      window.location.assign(
-        destinationSessionId
-          ? buildStudentTryoutSubrouteHref(tryoutId, "waiting", { returnTo: returnToHref, session: destinationSessionId })
-          : buildStudentTryoutHref(tryoutId, { returnTo: returnToHref, session: sessionId }),
-      );
-    } catch (registerError) {
-      unstable_rethrow(registerError);
-      showToast(
-        "Pendaftaran Tryout belum berhasil. Periksa koneksi lalu coba lagi.",
-        { variant: "error" },
-      );
-    } finally {
-      setBusy(false);
-    }
+    const destination = await controller.submit({ kind: "register", tryoutId, sessionId, target: { majorId: major.id, universityId: university.id } });
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref, sessionId));
   };
+
+  const navigateRecovered = async (action: "retry" | "continue") => {
+    const destination = await controller[action]();
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref, sessionId));
+  };
+  const recoveryControls = <ParticipantActionRecoveryControls state={recoveryState} onInspect={() => void controller.inspect()} onRetry={() => void navigateRecovered("retry")} onContinue={() => void navigateRecovered("continue")} />;
 
   return (
     <div className="grid gap-5">
@@ -392,6 +378,7 @@ function ParticipantTryoutEnrollmentPanel({
           </div>
           <div className="grid gap-3">
             <UniversityPicker
+              disabled={locked}
               matchingUniversities={matchingUniversities}
               onOpenChange={setUniversityOpen}
               onQueryChange={setUniversityQuery}
@@ -402,7 +389,7 @@ function ParticipantTryoutEnrollmentPanel({
               selectedUniversityId={universityId}
             />
             <MajorPicker
-              disabled={!universityId}
+              disabled={locked || !universityId}
               matchingMajors={matchingMajors}
               onOpenChange={setMajorOpen}
               onQueryChange={setMajorQuery}
@@ -420,7 +407,7 @@ function ParticipantTryoutEnrollmentPanel({
       <div className="grid gap-2">
         <Button
           className="w-full"
-          disabled={busy}
+          disabled={busy || locked}
           onClick={handleOpenConfirmation}
           size="lg"
           type="button"
@@ -442,10 +429,14 @@ function ParticipantTryoutEnrollmentPanel({
             {message}
           </p>
         ) : null}
+        {!confirmOpen ? recoveryControls : null}
       </div>
 
       <EnrollmentConfirmationDialog
         busy={busy}
+        locked={locked}
+        submitting={recoveryState.phase === "writing"}
+        recovery={recoveryControls}
         major={major}
         onConfirm={() => void handleRegister()}
         onOpenChange={(nextOpen) => {

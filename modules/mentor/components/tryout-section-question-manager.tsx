@@ -1392,6 +1392,7 @@ function TryoutQuestionImportResults({
               return (
                 <QuestionBankPickerRow
                   allInBank={allInBank}
+                  answerMode={question.questionType}
                   checkboxId={`tryout-source-question-${question.id}`}
                   difficulty={difficultyLabel(question.difficulty)}
                   disabled={rowDisabled}

@@ -45,16 +45,17 @@ const AUTHORING_WRITER_REGISTRY = [
 
   // Standalone Kuis definition and source writers. Runtime attempt writers
   // remain system/deferred and are listed below as distinct entries.
-  { name: "saveStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
+  { name: "saveStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 6, 7] },
   { name: "transitionStandaloneQuizSourceMode", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "importStandaloneQuizBankQuestions", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "acceptStandaloneQuizQuestionUpdate", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "attachStandaloneQuizAssembly", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "detachStandaloneQuizAssembly", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
   { name: "updateStandaloneQuizLifecycle", source: "lib/quiz/repository.ts", classification: "leased", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [1, 4, 5, 7] },
-  { name: "startStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 6, 7] },
-  { name: "saveStandaloneQuizAnswer", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz-attempt:{id}", resolver: "attempt-id", lockOrder: [0, 2, 4, 6, 7] },
-  { name: "submitStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz-attempt:{id}", resolver: "attempt-id", lockOrder: [0, 2, 4, 6, 7] },
+  { name: "startStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 6, 7] },
+  { name: "saveStandaloneQuizAnswer", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "attempt-id", lockOrder: [4, 5, 6, 7] },
+  { name: "submitStandaloneQuiz", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "attempt-id", lockOrder: [4, 5, 6, 7] },
+  { name: "synchronizeStandaloneQuizReleaseState", source: "lib/quiz/repository.ts", classification: "system/deferred", resource: "quiz:{id}", resolver: "attempt-id", lockOrder: [4, 5, 6] },
 
   // Bank aggregate and organization writers.
   { name: "saveQuestionBank", source: "lib/question-bank/repository.ts", classification: "leased", resource: "question_bank:{id}", resolver: "direct-aggregate", lockOrder: [1, 3, 4, 7] },

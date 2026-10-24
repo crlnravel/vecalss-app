@@ -4,6 +4,7 @@ import { decodeLegacyAnswerSelection } from "@/lib/question-bank/answer-contract
 import { getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getStandaloneQuizAttempt, getStandaloneQuizAttemptStatuses, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus } from "@/lib/quiz/repository";
 import { getQuizSubjectByCode, toDatabaseQuizItem, type QuizAttempt, type QuizSubject } from "@/modules/quiz/data";
 import { resolveQuizStartAvailability } from "@/modules/quiz/start-availability";
+import { formatQuizRemainingTime } from "@/modules/quiz/time-format";
 
 function toQuestionSnapshot(item: { id: string; prompt: string; options: { id: string; choiceKey: string; content: string; isCorrect: boolean }[]; questionType: string; sourceQuestionId: string | null }, selectedOptionIds: readonly string[]) {
   const options = item.options.map((choice) => ({ id: choice.id, key: choice.choiceKey, text: choice.content }));
@@ -71,13 +72,28 @@ async function getAvailableQuizSubjects(studentId: string): Promise<QuizSubject[
 
 async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, studentId: string, attemptId?: string) {
   const subject = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"].map(getQuizSubjectByCode).find((item) => item?.slug === subjectSlug);
-  if (!subject || !attemptId) return null;
+  if (!subject) return null;
   const active = await getStandaloneQuizAttempt(subject.title, quizSlug, studentId, attemptId);
   if (!active) return null;
   const selectedOptionIdsByItem = new Map(active.attempt.answers.map((answer) => [answer.quizItemId, answerSelectionIds(answer)]));
   const questions = active.quiz.items.map((item) => toQuestionSnapshot(item, selectedOptionIdsByItem.get(item.id) ?? [])).filter((question): question is NonNullable<typeof question> => question !== null);
   if (!questions.length) return null;
   const quiz = toDatabaseQuizItem(active.quiz);
+  const serverNow = new Date();
+  const deadlineAt = active.attempt.deadlineAt;
+  const remainingSeconds = deadlineAt
+    ? Math.max(0, Math.ceil((deadlineAt.getTime() - serverNow.getTime()) / 1000))
+    : null;
+  const timeLimitStatus = deadlineAt
+    ? "timed" as const
+    : active.attempt.startedAt
+      ? "untimed" as const
+      : "unknown" as const;
+  const remainingTime = deadlineAt
+    ? formatQuizRemainingTime(remainingSeconds ?? 0)
+    : timeLimitStatus === "untimed"
+      ? "Tanpa batas waktu"
+      : "—";
   const attempt: QuizAttempt = {
     answeredCount: active.attempt.answers.length,
     currentNumber: 1,
@@ -87,7 +103,11 @@ async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, st
     isSubmitted: active.attempt.status !== "in_progress",
     markers: questions.map((question, index) => ({ number: index + 1, state: index === 0 ? "active" : (question.selectedOptionKeys?.length ?? (question.selectedOptionKey ? 1 : 0)) > 0 ? "answered" : "empty" })),
     questions,
-    remainingTime: "Tanpa batas waktu",
+    deadlineAt: deadlineAt?.toISOString() ?? null,
+    serverNowAt: serverNow.toISOString(),
+    remainingSeconds,
+    remainingTime,
+    timeLimitStatus,
   };
   return { attempt, attemptId: active.attempt.id, attemptNo: active.attempt.attemptNo, policy: active.policy, quiz, subject: { ...subject, quizzes: [quiz] } };
 }

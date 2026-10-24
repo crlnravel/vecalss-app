@@ -208,7 +208,7 @@ const csvIssueMessages: Record<string, string> = {
   xlsx_invalid_utf8: "File belum dapat dibaca. Simpan ulang lalu unggah kembali.",
   xlsx_option_sequence_invalid: "Pilihan jawaban harus berurutan mulai dari A.",
   xlsx_required_field: "Bagian ini wajib diisi.",
-  xlsx_row_limit_exceeded: "File memuat lebih dari 1.000 soal.",
+  xlsx_row_limit_exceeded: "File memuat lebih dari 1.250 soal.",
 };
 
 const xlsxIssueMessages: Record<string, string> = {
@@ -2173,7 +2173,7 @@ function XlsxImportFileSection({
           disabled={disabled || isBusy || phase === "applying"}
           file={file}
           id={inputId}
-          maxSizeLabel="Maks. 24 MB · 1.000 soal"
+          maxSizeLabel="Maks. 24 MB · 1.250 soal"
           onCancelUpload={() => flow.cancelFlow(true)}
           onChange={handleFileChange}
           progress={flow.progress}

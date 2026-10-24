@@ -66,6 +66,17 @@ async function getKaptenVideoGalleryItems(ownerUserId: string): Promise<VideoGal
   return records.map(toGalleryItem);
 }
 
+async function getKaptenVideoById(
+  videoId: string,
+  ownerUserId: string,
+): Promise<VideoGalleryItem | null> {
+  const record = await prisma.kaptenVideo.findFirst({
+    select: gallerySelect,
+    where: { createdByUserId: ownerUserId, id: videoId },
+  });
+  return record ? toGalleryItem(record) : null;
+}
+
 async function getStudentVideoGalleryItems(): Promise<VideoGalleryItem[]> {
   const records = await prisma.kaptenVideo.findMany({
     orderBy: [{ createdAt: "desc" }],
@@ -123,6 +134,7 @@ async function deleteKaptenVideo(videoId: string, ownerUserId: string): Promise<
 
 export {
   deleteKaptenVideo,
+  getKaptenVideoById,
   getKaptenVideoGalleryItems,
   getStudentVideoGalleryItems,
   saveKaptenVideo,

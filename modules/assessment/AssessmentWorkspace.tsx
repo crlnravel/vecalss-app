@@ -517,6 +517,12 @@ function AssessmentUtilityPill({
   );
 }
 
+type AssessmentUnavailableScore = {
+  state: "unavailable";
+  label: string;
+  description: string;
+};
+
 function AssessmentResultWorkspace({
   children,
   floatingPanels = false,
@@ -532,13 +538,15 @@ function AssessmentResultWorkspace({
   floatingPanels?: boolean;
   headerActions?: ReactNode;
   navigation?: ReactNode;
-  score: number;
+  score: number | AssessmentUnavailableScore;
   scoreLabel?: string;
   smoothHeaderDivider?: boolean;
   summary?: ReactNode;
   title: ReactNode;
 }) {
-  const normalizedScore = Math.max(0, Math.min(100, score));
+  const normalizedScore = typeof score === "number"
+    ? Math.max(0, Math.min(100, score))
+    : null;
 
   return (
     <div className="student-page-canvas min-h-svh text-secondary-900">
@@ -565,9 +573,17 @@ function AssessmentResultWorkspace({
             ? "mt-4 self-start rounded-panel border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
             : "min-h-full border-b border-primary-100 bg-white px-5 sm:px-8 lg:border-r lg:border-b-0 lg:px-8 xl:px-10 print:px-0",
         )}>
+          {normalizedScore === null && typeof score !== "number" ? (
+            <div aria-label={`${scoreLabel}: ${score.label}`} role="status" className="rounded-card border border-primary-100 bg-secondary-50 p-4 text-center">
+              <p className="text-xs font-semibold text-secondary-500">{scoreLabel}</p>
+              <p className="mt-2 text-lg font-semibold text-secondary-900">{score.label}</p>
+              <p className="mt-2 text-sm leading-relaxed text-secondary-600">{score.description}</p>
+            </div>
+          ) : normalizedScore !== null ? (
           <div className="flex justify-center">
             <div
               aria-label={`${Math.round(normalizedScore)} ${scoreLabel}`}
+              role="img"
               className="grid size-28 shrink-0 place-items-center rounded-full p-3 sm:size-36 lg:size-44"
               style={{ background: `conic-gradient(var(--primary-700) ${normalizedScore}%, var(--primary-100) 0)` }}
             >
@@ -579,6 +595,7 @@ function AssessmentResultWorkspace({
               </div>
             </div>
           </div>
+          ) : null}
 
           {summary ? (
             <div className={cn(

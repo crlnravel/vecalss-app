@@ -37,7 +37,7 @@ includes(pdfDocument, "const PAGE_BATCH_SIZE = 3;", "PDF pages must render in bo
 includes(pdfDocument, "Tampilkan halaman berikutnya", "PDF preview must provide progressive page loading.");
 
 const quizOngoing = read("modules/quiz/QuizOngoingPageModule.tsx");
-const quizResult = read("modules/quiz/QuizResultPageModule.tsx");
+const quizResult = read("modules/quiz/QuizResultView.tsx");
 const quizActions = read("modules/quiz/actions.ts");
 const activeQuizOngoing = quizOngoing.replace(/\{\/\*[\s\S]*?\*\/\}/gu, "");
 excludes(activeQuizOngoing, 'label="Tandai untuk ditinjau"', "Ongoing quiz must not imply the retired reporting action exists.");

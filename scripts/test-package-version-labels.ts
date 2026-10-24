@@ -14,7 +14,6 @@ const surfaces = [
   "modules/mentor/KaptenPackageBuilderPageModule.tsx",
   "modules/mentor/KaptenPackageVersionDetailModule.tsx",
   "modules/mentor/KaptenPackageVersionHubModule.tsx",
-  "modules/mentor/KaptenQuizBuilderPageModule.tsx",
 ];
 
 for (const surface of surfaces) {

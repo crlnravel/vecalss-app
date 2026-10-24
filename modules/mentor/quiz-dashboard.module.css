@@ -90,6 +90,10 @@
   padding-left: 20px;
   padding-right: 0;
 }
+.thumbnailCell {
+  padding-left: 8px;
+  padding-right: 8px;
+}
 .titleCell {
   padding-left: 8px;
 }
@@ -124,9 +128,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.change {
-  color: var(--warning-700);
 }
 .footer {
   display: flex;

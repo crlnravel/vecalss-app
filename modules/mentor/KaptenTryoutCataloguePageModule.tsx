@@ -87,13 +87,11 @@ function TryoutStatusTabs({
 }
 
 function TryoutCard({ item }: { item: TryoutItem }) {
-  const isArchived = item.status === "archived";
   const cardClassName = cn(
     REFERENCE_SURFACE_CLASS_NAMES.raised,
-    !isArchived && REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
+    REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
     "flex min-w-0 items-center justify-between gap-4 rounded-3xl p-3 sm:gap-5 sm:p-5",
-    !isArchived &&
-      "group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/40",
+    "group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/40",
   );
   const content = (
     <>
@@ -143,22 +141,16 @@ function TryoutCard({ item }: { item: TryoutItem }) {
           </div>
         </div>
       </div>
-      {!isArchived ? (
-        <ChevronRight
-          aria-hidden="true"
-          className="size-5 shrink-0 text-secondary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-safe:group-focus-visible:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none"
-        />
-      ) : null}
+      <ChevronRight
+        aria-hidden="true"
+        className="size-5 shrink-0 text-secondary-400 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5 motion-safe:group-focus-visible:translate-x-0.5 motion-reduce:translate-x-0 motion-reduce:transition-none"
+      />
     </>
   );
 
-  return isArchived ? (
-    <article aria-label={`${item.title}, Tryout diarsipkan`} className={cardClassName}>
-      {content}
-    </article>
-  ) : (
+  return (
     <Link
-      aria-label={`Buka ${item.title}`}
+      aria-label={item.status === "archived" ? `Buka riwayat ${item.title}` : `Buka ${item.title}`}
       className={cardClassName}
       href={`/mentor/tryout/${item.id}`}
     >

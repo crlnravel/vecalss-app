@@ -11,8 +11,13 @@ import {
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
 import { getTryoutForEdit } from "@/lib/tryout/repository";
+import { KaptenTryoutArchivedHistoryPageModule } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { queryTryoutParticipants } from "@/lib/tryout/participant-list";
+import { KaptenTryoutRegistrationListPageModule } from "@/modules/mentor/KaptenTryoutRegistrationListPageModule";
+import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
+import { KaptenTryoutAccessPageModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
 
 export const metadata: Metadata = { title: "Tryout Kapten | Vecalss LMS" };
 
@@ -87,13 +92,14 @@ function TryoutWorkspace({
 }
 
 function redirectLegacyTryoutWorkspace(tryoutId: string, workspace: ParsedTryoutContext["workspace"]): never | void {
-  if (workspace === "schedule" || workspace === "attempts" || workspace === "live" || workspace === "results") {
+  if (workspace === "results") redirect(buildMentorTryoutHref(tryoutId, { workspace: "participants" }));
+  if (workspace === "schedule" || workspace === "attempts" || workspace === "live") {
     redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations" }));
   }
 }
 
 function initialWorkspaceForContext(parsedQuery: ParsedTryoutContext): "subtests" | "operations" | "participants" | "settings" {
-  if (parsedQuery.workspace === "participants" || parsedQuery.delivery === "participants") return "participants";
+  if (parsedQuery.workspace === "participants") return "participants";
   if (parsedQuery.workspace === "settings") return "settings";
   if (parsedQuery.workspace === "operations" || parsedQuery.delivery) return "operations";
   if (parsedQuery.workspace === "sections") return "subtests";
@@ -113,20 +119,48 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // authorized detail routes so the client-bound workspace cannot inspect
   // embargoed results by walking its initial props.
   const operationsInitial = operations ? toTryoutWorkspaceView(operations) : null;
-  if (!initialDraft || !operationsInitial) notFound();
+  if (!operationsInitial || (!initialDraft && operationsInitial.status !== "archived")) notFound();
   const issues = collectTryoutContextIssues(parsedQuery, parentDraft, operationsInitial);
   if (issues.length) {
     return <TryoutContextError issues={issues} session={session} />;
   }
   const normalizedContext = {
+    q: parsedQuery.q,
+    resultQ: parsedQuery.resultQ,
+    resultStatus: parsedQuery.resultStatus,
+    status: parsedQuery.status,
+    access: parsedQuery.access,
+    page: parsedQuery.page,
     delivery: parsedQuery.delivery ?? undefined,
     parent: parsedQuery.parent,
     returnTo: parsedQuery.returnTo,
     session: parsedQuery.session,
-    workspace: parsedQuery.workspace ?? (parsedQuery.delivery === "participants" ? "participants" : parsedQuery.delivery ? "operations" : undefined),
+    workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "operations" : undefined),
   };
   const canonicalHref = buildMentorTryoutHref(tryoutId, normalizedContext);
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
   redirectLegacyTryoutWorkspace(tryoutId, parsedQuery.workspace);
+  if (parsedQuery.delivery === "participants") {
+    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
+        <KaptenTryoutRegistrationListPageModule key={canonicalHref} context={normalizedContext} initial={operationsInitial} initialList={queryTryoutParticipants(operationsInitial, parsedQuery)} />
+      </KaptenTryoutWorkspaceFrame>
+    </MentorWorkspaceShell>;
+  }
+  if (parsedQuery.delivery === "policy" && operationsInitial.status !== "draft") {
+    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Akses peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
+        <KaptenTryoutAccessPageModule key={canonicalHref} initial={operationsInitial} parentId={parsedQuery.parent} />
+      </KaptenTryoutWorkspaceFrame>
+    </MentorWorkspaceShell>;
+  }
+  if (operationsInitial.status === "archived") {
+    return (
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Riwayat" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+        <KaptenTryoutArchivedHistoryPageModule initial={operationsInitial} />
+      </MentorWorkspaceShell>
+    );
+  }
+  if (!initialDraft) notFound();
   return <TryoutWorkspace activeWorkspace={initialWorkspaceForContext(parsedQuery)} initialDraft={initialDraft} initialOperations={operationsInitial} parentDraft={parentDraft} session={session} tryoutId={tryoutId} />;
 }

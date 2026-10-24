@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "55mb",
     },
   },
+  images: {
+    remotePatterns: [
+      {
+        hostname: "i.ytimg.com",
+        pathname: "/vi/**",
+        protocol: "https",
+      },
+    ],
+  },
   // sharp resolves its native addon and libvips through optional platform
   // packages at runtime. Keep the Vercel Linux x64 files in server traces.
   outputFileTracingIncludes: {

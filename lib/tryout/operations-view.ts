@@ -19,15 +19,19 @@ import {
 } from "@/lib/tryout/participant-view";
 import { synchronizeTryoutSessionReleaseState, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 import { projectTryoutWorkflow } from "@/lib/tryout/workflow-projection";
+import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
+import { tryoutAccessGrantBlockReason } from "@/lib/tryout/registration-availability";
+import { FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE } from "@/lib/tryout/frozen-run-scoring";
 
 type TryoutOperationsRecord = NonNullable<
   Awaited<ReturnType<typeof getTryoutDeliveryOperations>>
 >;
 
 type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
-type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions">;
+type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions" | "status">;
 type TryoutDeliverySessionRecord = TryoutOperationsRecord["deliverySessions"][number];
 type TryoutAttemptRecord = TryoutDeliverySessionRecord["attempts"][number];
+type ReleaseIntegrity = { ready: boolean; reason?: string };
 
 function snapshotFor(run: { contentSnapshot: unknown }) {
   return run.contentSnapshot as {
@@ -96,6 +100,7 @@ function resultReleaseReady(
       || run.assessmentReleaseDigest !== sessionRelease.contentDigest
       || !["sealed", "expired"].includes(run.status)
       || run.scoringState !== "scored"
+      || (run.calculationResult && typeof run.calculationResult === "object" && "validationFailure" in run.calculationResult)
       || !run.calculationReleaseable
       || run.normalizedScore === null
       || !explanationsCompleteForRelease(run)) return false;
@@ -180,7 +185,10 @@ function serializeRun(
   };
 }
 
-function serializeTryoutOperations(operations: TryoutOperationsRecord) {
+function serializeTryoutOperations(
+  operations: TryoutOperationsRecord,
+  releaseIntegrityBySession: ReadonlyMap<string, ReleaseIntegrity> = new Map(),
+) {
   const now = new Date();
   const participantInputs = operations.admissions.map((admission) => ({
     assignments: admission.assignments.map((assignment) => ({
@@ -208,7 +216,10 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
   }));
 
   // Keep the ParticipantView boundary explicit: participants: toParticipantViews(participantInputs).
-  const participants = toParticipantViews(participantInputs);
+  const participants = toParticipantViews(participantInputs).map((participant, index) => ({
+    ...participant,
+    participant: { ...participant.participant, ...mentorParticipantIdentity(participantInputs[index].student) },
+  }));
   const sessions = operations.deliverySessions.map((deliverySession) => ({
     attempts: deliverySession.attempts.map((attempt) => ({
       admissionId: attempt.admissionId,
@@ -224,6 +235,9 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       reconciledAt: toIso(attempt.reconciledAt),
       releaseAt: toIso(attempt.releaseAt),
       releaseState: attempt.releaseState,
+      releaseIntegrityReason: deliverySession.releaseState === "released"
+        ? releaseIntegrityBySession.get(deliverySession.id)?.reason ?? null
+        : null,
       runs: attempt.runs.map((run) => serializeRun(run, now)),
       score: attempt.score?.toString() ?? null,
       scoringReviewReason: attempt.scoringReviewReason,
@@ -237,10 +251,13 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       totalDisconnectSeconds: attempt.totalDisconnectSeconds,
       unansweredCount: attempt.unansweredCount,
       wrongCount: attempt.wrongCount,
-      releaseReady: resultReleaseReady(operations, deliverySession, attempt),
+      releaseReady: !(deliverySession.releaseState === "released" && releaseIntegrityBySession.get(deliverySession.id)?.ready === false)
+        && resultReleaseReady(operations, deliverySession, attempt),
     })),
     availableFrom: deliverySession.availableFrom.toISOString(),
     availableUntil: deliverySession.availableUntil.toISOString(),
+    grantEligible: tryoutAccessGrantBlockReason(operations.status, deliverySession, now) === null,
+    grantBlockedReason: tryoutAccessGrantBlockReason(operations.status, deliverySession, now),
     assessmentRelease: deliverySession.assessmentRelease
       ? toOperationsReleaseMetadata(deliverySession.assessmentRelease)
       : null,
@@ -361,8 +378,8 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
         releaseState: attempt.releaseState,
         releaseReady: attempt.releaseReady,
         score: attempt.score,
-        scoringReviewReason: attempt.scoringReviewReason,
-        scoringState: attempt.scoringState,
+        scoringReviewReason: attempt.releaseIntegrityReason ?? attempt.scoringReviewReason,
+        scoringState: attempt.releaseIntegrityReason ? "review_required" : attempt.scoringState,
         status: attempt.status,
         runs: attempt.runs,
       },
@@ -392,6 +409,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       ? toOperationsReleaseMetadata(operations.assessmentReleases[0])
       : null,
     admissionMode: operations.admissionMode,
+    admissionConfigurationLocked: operations._count.attempts > 0,
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
     description: operations.description,
     id: operations.id,
@@ -410,7 +428,9 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       })),
       id: admission.id,
       status: admission.status,
-      student: safeParticipantIdentity(admission.student).displayName,
+      student: mentorParticipantIdentity(admission.student).displayName,
+      email: admission.student.email,
+      requestedAt: admission.requestedAt.toISOString(),
     })),
     sessions,
     // Keep lifecycle availability server-owned.  The projection carries only
@@ -463,17 +483,20 @@ async function getOwnedTryoutOperationsView(
   if (!synchronized) return null;
   const sessionIds = await getOwnedTryoutDeliverySessionIdsWithAttempts(tryoutId, actorId);
   if (!sessionIds) return null;
+  const releaseIntegrityBySession = new Map<string, ReleaseIntegrity>();
   for (const sessionId of sessionIds) {
     try {
       // react-doctor-disable-next-line async-await-in-loop -- serialize expiry reconciliation to limit concurrent writes for one tryout.
-      await synchronizeTryoutSessionReleaseState(sessionId, new Date());
+      const release = await synchronizeTryoutSessionReleaseState(sessionId, new Date());
+      releaseIntegrityBySession.set(sessionId, release);
     } catch (error) {
       if (!(error instanceof TryoutResultValidationError)) throw error;
+      releaseIntegrityBySession.set(sessionId, { ready: false, reason: FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE });
     }
   }
   const operations = await getTryoutDeliveryOperations(tryoutId, actorId);
   if (!operations) return null;
-  return serializeTryoutOperations(operations);
+  return serializeTryoutOperations(operations, releaseIntegrityBySession);
 }
 
 async function getOwnedTryoutParticipantsView(
@@ -491,6 +514,7 @@ async function getOwnedTryoutParticipantsView(
   return {
     participants: workspaceView.participants,
     sessions: workspaceView.sessions,
+    status: workspaceView.status,
   };
 }
 

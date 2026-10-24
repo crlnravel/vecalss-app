@@ -80,6 +80,7 @@ import {
   QuestionEditorWorkspace,
 } from "@/modules/mentor/components/question-editor-workspace";
 import { QuizMobileInventory, QuizQuestionInventory } from "@/modules/mentor/components/quiz-question-inventory";
+import { getQuizQuestionBankContext } from "@/modules/mentor/components/quiz-question-bank-context";
 import { QuestionBankPickerDialog } from "@/modules/mentor/components/question-bank-picker";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import {
@@ -786,16 +787,6 @@ function QuizEditQuestionArea({ state }: { state: QuizEditorState }) {
       <QuizQuestionAreaMain bankPickerDisabled={bankPickerDisabled} state={state} />
     </QuestionEditorWorkspace>
   );
-}
-
-function getQuizQuestionBankContext(savedQuiz: QuizEditorState["savedQuiz"]) {
-  const assemblyBank = savedQuiz?.sourceMode === "assembly" ? savedQuiz.assembly : undefined;
-  const assemblySourceBankId = savedQuiz?.sourceMode === "assembly" ? savedQuiz.sourceBankId : undefined;
-  return {
-    showAddFromBank: savedQuiz?.sourceMode !== "assembly",
-    sourceBankHref: assemblySourceBankId ? `/mentor/quiz/question-bank/${assemblySourceBankId}?purpose=quiz` : undefined,
-    sourceBankTitle: assemblyBank && assemblySourceBankId && assemblyBank.bankId === assemblySourceBankId ? assemblyBank.bankName || undefined : undefined,
-  };
 }
 
 function getQuizEmptyStateContent(state: QuizEditorState, hasQuestions: boolean) {

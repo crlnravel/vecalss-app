@@ -2,6 +2,16 @@
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
+import { parseMentorTryoutContext } from "@/lib/navigation/canonical-context";
+import { queryTryoutParticipants } from "@/lib/tryout/participant-list";
+
+async function refreshTryoutRegistrationListAction(tryoutId: string, query: string) {
+  const context = parseMentorTryoutContext(new URLSearchParams(query));
+  if (context.issues.length) return { ok: false as const, message: "Filter peserta tidak tersedia. Muat ulang halaman." };
+  const refreshed = await refreshTryoutLiveAction(tryoutId);
+  if (!refreshed.ok) return refreshed;
+  return { ...refreshed, list: queryTryoutParticipants(refreshed.result, context) };
+}
 
 async function refreshTryoutLiveAction(tryoutId: string) {
   const session = await requireTutorSession();
@@ -18,4 +28,4 @@ async function refreshTryoutLiveAction(tryoutId: string) {
   }
 }
 
-export { refreshTryoutLiveAction };
+export { refreshTryoutLiveAction, refreshTryoutRegistrationListAction };

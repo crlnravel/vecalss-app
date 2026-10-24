@@ -57,3 +57,5 @@ next-env.d.ts
 .tmp-*
 tmp/
 
+# local development scratch files
+/.scratch/

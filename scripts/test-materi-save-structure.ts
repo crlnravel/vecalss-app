@@ -144,17 +144,20 @@ try {
   assert.equal(await prisma.topic.count(), 3, "Concurrent saves share the subject initialization lock");
   const { acquireEditLease, EditLeaseServiceError } = await import("../lib/resource-edit-lock/service");
   await assert.rejects(deleteMateriLesson(managedLesson!.code, randomUUID()), EditLeaseServiceError, "Another tutor cannot delete this lesson");
-  const module = await prisma.module.findUniqueOrThrow({ where: { code: managedLesson!.code } });
+  const lessonModule = await prisma.module.findUniqueOrThrow({ where: { code: managedLesson!.code } });
   const nextModule = await prisma.module.findUniqueOrThrow({ where: { code: concurrent[0]!.code } });
-  await prisma.moduleProgress.create({ data: { moduleId: module.id, studentId } });
-  await prisma.modulePrerequisite.create({ data: { moduleId: nextModule.id, prerequisiteModuleId: module.id } });
-  const quiz = await prisma.moduleQuiz.create({ data: { moduleId: module.id, title: "Latihan" } });
+  const otherModule = await prisma.module.findUniqueOrThrow({ where: { code: concurrent[1]!.code } });
+  await prisma.moduleProgress.create({ data: { moduleId: lessonModule.id, studentId } });
+  await prisma.modulePrerequisite.create({ data: { moduleId: nextModule.id, prerequisiteModuleId: lessonModule.id } });
+  await prisma.modulePrerequisite.create({ data: { moduleId: lessonModule.id, prerequisiteModuleId: otherModule.id } });
+  await prisma.modulePrerequisite.create({ data: { moduleId: nextModule.id, prerequisiteModuleId: otherModule.id } });
+  const quiz = await prisma.moduleQuiz.create({ data: { moduleId: lessonModule.id, title: "Latihan" } });
   const attempt = await prisma.quizAttempt.create({ data: { quizId: quiz.id, studentId } });
   await prisma.quizAttemptAnswer.create({ data: { attemptId: attempt.id, questionId: randomUUID() } });
   await prisma.quizItem.create({ data: { quizId: quiz.id, questionId: randomUUID(), sortOrder: 1 } });
-  await prisma.learningRecommendation.create({ data: { moduleId: module.id, topicId: module.topicId, studentId, source: "test" } });
-  await prisma.weaknessAnalysisTopic.create({ data: { moduleId: module.id, topicId: module.topicId, weaknessAnalysisId: randomUUID(), rank: 1 } });
-  await prisma.intervention.create({ data: { recommendedModuleId: module.id, studentId, tutorId, message: "Baca materi ini" } });
+  const recommendation = await prisma.learningRecommendation.create({ data: { moduleId: lessonModule.id, topicId: lessonModule.topicId, studentId, source: "test" } });
+  const weaknessTopic = await prisma.weaknessAnalysisTopic.create({ data: { moduleId: lessonModule.id, topicId: lessonModule.topicId, weaknessAnalysisId: randomUUID(), rank: 1 } });
+  const intervention = await prisma.intervention.create({ data: { recommendedModuleId: lessonModule.id, studentId, tutorId, message: "Baca materi ini" } });
   const token = randomBytes(32).toString("base64url");
   const lease = await acquireEditLease({ holderUserId: tutorId, newToken: token, resourceId: managedLesson!.code, resourceType: "materi" });
   assert.equal(lease.state, "owned");
@@ -164,12 +167,39 @@ try {
   assert.equal(await getMentorMateriByCode(managedLesson!.code), undefined);
   assert.equal(await getPublishedLesson(input.subjectSlug, managedLesson!.code), undefined);
   assert.ok(await prisma.asset.findUnique({ where: { id: managedPdf.id } }), "Deleting a lesson retains its PDF in the media library");
+  const retainedRecommendation = await prisma.learningRecommendation.findUniqueOrThrow({ where: { id: recommendation.id } });
+  assert.equal(retainedRecommendation.moduleId, null);
+  assert.equal(retainedRecommendation.topicId, lessonModule.topicId, "Recommendations retain their topic context");
+  const retainedWeaknessTopic = await prisma.weaknessAnalysisTopic.findUniqueOrThrow({ where: { id: weaknessTopic.id } });
+  assert.equal(retainedWeaknessTopic.moduleId, null);
+  assert.equal(retainedWeaknessTopic.topicId, lessonModule.topicId);
+  assert.equal(retainedWeaknessTopic.weaknessAnalysisId, weaknessTopic.weaknessAnalysisId, "Analysis history survives lesson deletion");
+  const retainedIntervention = await prisma.intervention.findUniqueOrThrow({ where: { id: intervention.id } });
+  assert.equal(retainedIntervention.recommendedModuleId, null);
+  assert.equal(retainedIntervention.message, "Baca materi ini", "Intervention history survives lesson deletion");
+  assert.equal(await prisma.modulePrerequisite.count({ where: { OR: [{ moduleId: lessonModule.id }, { prerequisiteModuleId: lessonModule.id }] } }), 0, "Remove prerequisite links in both directions");
+  assert.ok(await prisma.modulePrerequisite.findUnique({ where: { moduleId_prerequisiteModuleId: { moduleId: nextModule.id, prerequisiteModuleId: otherModule.id } } }), "Keep prerequisite links between remaining lessons");
   const remaining = (await getMentorMateriCatalogue()).find((subject) => subject.code === "PU")!.lessons;
   assert.deepEqual(remaining.map((item) => item.sequenceNo), [1, 2]);
   assert.deepEqual(remaining.map((item) => item.code), concurrent.sort((a, b) => a!.sequenceNo - b!.sequenceNo).map((item) => item!.code));
   await deleteMateriLesson(remaining[0].code, tutorId);
   assert.equal(await getMentorMateriByCode(remaining[0].code), undefined, "Catalogue deletion succeeds without an active editor");
   assert.equal((await getMentorMateriByCode(remaining[1].code))?.sequenceNo, 1);
+  const repeatedInput = { ...managedInput, title: "PU satu kali", creationRequestId: randomUUID() };
+  const repeated = await Promise.all([
+    saveMateriLesson(repeatedInput, tutorId),
+    saveMateriLesson(repeatedInput, tutorId),
+    saveMateriLesson(repeatedInput, tutorId),
+  ]);
+  assert.equal(new Set(repeated.map((saved) => saved?.code)).size, 1, "Repeated submissions of one create request must return one record");
+  assert.equal((await saveMateriLesson(repeatedInput, tutorId))?.code, repeated[0]?.code, "A later retry returns the same saved record");
+  assert.equal((await getMentorMateriCatalogue()).find((subject) => subject.code === "PU")?.lessons.length, 2, "Replays must not append another lesson");
+  await assert.rejects(saveMateriLesson({ ...repeatedInput, title: "PU berubah" }, tutorId), MateriValidationError, "A changed replay must not overwrite the original without an edit lease");
+  assert.equal((await getMentorMateriByCode(repeated[0]!.code))?.title, "PU satu kali");
+  await assert.rejects(saveMateriLesson({ ...repeatedInput, creationRequestId: "invalid" }, tutorId), MateriValidationError);
+  const separateCreate = await saveMateriLesson({ ...repeatedInput, creationRequestId: randomUUID() }, tutorId);
+  assert.notEqual(separateCreate?.code, repeated[0]?.code, "Separate create sessions may intentionally use the same title and PDF");
+  assert.equal((await getMentorMateriCatalogue()).find((subject) => subject.code === "PU")?.lessons.length, 3);
   console.log("Materi auto-publication, safe deletion, ownership/edit locks, missing/partial topics, managed PDF, ordering, and validation passed.");
 } finally {
   await prisma?.$disconnect();

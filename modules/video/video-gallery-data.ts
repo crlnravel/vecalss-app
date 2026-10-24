@@ -18,6 +18,7 @@ export type VideoGalleryItem = {
   thumbnailTitle: string;
   thumbnailTone: VideoThumbnailTone;
   title: string;
+  views: number | null;
   youtubeUrl: string;
 };
 
@@ -63,6 +64,7 @@ export function toVideoGalleryItem(record: {
     thumbnailTitle: title.toLocaleUpperCase("id-ID"),
     thumbnailTone: presentation.thumbnailTone,
     title,
+    views: null,
     youtubeUrl: record.youtubeUrl,
   };
 }

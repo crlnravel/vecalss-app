@@ -66,6 +66,10 @@ import {
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { OptionSet } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { TryoutAdmissionModeField } from "@/modules/mentor/TryoutAdmissionModeField";
+import { KaptenTryoutDraftAdmissionModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
+import { TryoutRequestDeadlineError, withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
+import { continueAfterTryoutSave, createTryoutSaveRequest, finishTryoutSave } from "@/modules/mentor/tryout-save-request";
 import {
   type DefaultPolicy,
   type Mode,
@@ -75,8 +79,18 @@ import {
   CBT_FIXED_POINTS_METHOD,
   CBT_IRT_2PL_METHOD,
 } from "@/lib/tryout/cbt-scoring-policy";
+import {
+  isImageMimeType,
+  validateMediaUpload,
+} from "@/lib/media/domain";
+import type { MediaUploadTicket } from "@/lib/media/types";
 import { MediaAssetPreview } from "@/modules/media/media-library";
-import { TryoutBannerUploadDialog } from "@/modules/mentor/components/tryout-banner-upload-dialog";
+import {
+  postMediaAction,
+  putFile,
+  readImageDimensions,
+} from "@/modules/media/helpers";
+import { questionAnswerModeLabel } from "@/modules/mentor/question-answer-mode-label";
 import {
   QuestionEditorHeader,
   QuestionEditorPageShell,
@@ -382,22 +396,91 @@ function TryoutBannerHero({
   disabled,
   onSave,
   onChange,
+  onUploadStateChange,
   presentation,
 }: {
   bannerMediaId?: string | null;
   disabled: boolean;
   onSave?: () => void;
   onChange: (bannerMediaId: string | null) => void;
+  onUploadStateChange: (uploading: boolean) => void;
   presentation: "dialog" | "page";
 }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInFlightRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadFileName, setUploadFileName] = useState<string | null>(null);
 
   const handleBannerChange = (nextBannerMediaId: string | null) => {
     onChange(nextBannerMediaId);
     onSave?.();
   };
-  const openPicker = () => setPickerOpen(true);
+  const openPicker = () => {
+    if (disabled || uploading) return;
+    bannerInputRef.current?.click();
+  };
+  const uploadBanner = async (nextFile: File) => {
+    if (uploadInFlightRef.current) return;
+
+    if (!isImageMimeType(nextFile.type)) {
+      showToast("Pilih gambar berformat JPG, PNG, WebP, atau GIF.", {
+        variant: "error",
+      });
+      return;
+    }
+
+    const validation = validateMediaUpload({
+      fileName: nextFile.name,
+      mimeType: nextFile.type,
+      sizeBytes: nextFile.size,
+    });
+    if (!validation.isValid) {
+      showToast(validation.error, { variant: "error" });
+      return;
+    }
+
+    uploadInFlightRef.current = true;
+    onUploadStateChange(true);
+    setUploading(true);
+    setUploadFileName(nextFile.name);
+    setUploadProgress(null);
+
+    try {
+      const ticket = await postMediaAction<MediaUploadTicket>("kapten", {
+        action: "request-upload",
+        fileName: nextFile.name,
+        folderId: null,
+        mimeType: nextFile.type,
+        sizeBytes: nextFile.size,
+      });
+      const dimensions = await readImageDimensions(nextFile);
+      setUploadProgress(0);
+      await putFile(nextFile, ticket.uploadUrl, setUploadProgress);
+      await postMediaAction("kapten", {
+        action: "finalize-upload",
+        assetId: ticket.assetId,
+        height: dimensions.height,
+        width: dimensions.width,
+      });
+
+      handleBannerChange(ticket.assetId);
+      showToast("Banner Tryout berhasil diunggah.", { variant: "success" });
+    } catch {
+      showToast(
+        "Banner belum dapat diunggah. Periksa format dan ukuran file, lalu coba lagi.",
+        { variant: "error" },
+      );
+    } finally {
+      uploadInFlightRef.current = false;
+      onUploadStateChange(false);
+      setUploading(false);
+      setUploadFileName(null);
+      setUploadProgress(null);
+    }
+  };
   const hasBanner = Boolean(bannerMediaId);
+  const bannerDisabled = disabled || uploading;
 
   return (
     <section
@@ -407,6 +490,19 @@ function TryoutBannerHero({
       }
       className={`grid min-w-0 max-w-full ${presentation === "dialog" ? "gap-2 sm:gap-3" : "gap-2"}`}
     >
+      <input
+        accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+        aria-label="Pilih gambar banner Tryout"
+        className="sr-only"
+        disabled={bannerDisabled}
+        onChange={(event) => {
+          const nextFile = event.currentTarget.files?.[0] ?? null;
+          event.currentTarget.value = "";
+          if (nextFile) void uploadBanner(nextFile);
+        }}
+        ref={bannerInputRef}
+        type="file"
+      />
       {presentation === "dialog" ? (
         <p
           className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -426,25 +522,78 @@ function TryoutBannerHero({
           />
         ) : (
           <TryoutBannerPlaceholder
-            disabled={disabled}
+            disabled={bannerDisabled}
             onOpenPicker={openPicker}
             presentation={presentation}
           />
         )}
         <TryoutBannerActions
           bannerMediaId={bannerMediaId}
-          disabled={disabled}
+          disabled={bannerDisabled}
           onChange={handleBannerChange}
           onOpenPicker={openPicker}
           presentation={presentation}
         />
+        {uploading ? (
+          <TryoutBannerUploadStatus
+            fileName={uploadFileName}
+            progress={uploadProgress}
+          />
+        ) : null}
       </div>
-      <TryoutBannerUploadDialog
-        onOpenChange={setPickerOpen}
-        onSelect={handleBannerChange}
-        open={pickerOpen && !disabled}
-      />
     </section>
+  );
+}
+
+function TryoutBannerUploadStatus({
+  fileName,
+  progress,
+}: {
+  fileName: string | null;
+  progress: number | null;
+}) {
+  const progressValue =
+    typeof progress === "number" ? Math.min(100, Math.max(0, progress)) : null;
+
+  return (
+    <div
+      aria-live="polite"
+      className="absolute inset-0 z-30 grid place-items-center bg-secondary-950/70 px-5 text-center text-white"
+      role="status"
+    >
+      <div className="w-full max-w-sm">
+        <p className="text-sm font-semibold">Mengunggah banner</p>
+        {fileName ? (
+          <p className="mt-1 truncate text-xs text-white/85" title={fileName}>
+            {fileName}
+          </p>
+        ) : null}
+        <div
+          aria-label={
+            progressValue === null
+              ? "Banner sedang diproses"
+              : `${progressValue}% selesai`
+          }
+          aria-valuemax={progressValue === null ? undefined : 100}
+          aria-valuemin={progressValue === null ? undefined : 0}
+          aria-valuenow={progressValue ?? undefined}
+          className="mt-3 h-1.5 overflow-hidden rounded-pill bg-white/30"
+          role="progressbar"
+        >
+          <span
+            className="block h-full rounded-pill bg-white transition-[width]"
+            style={{
+              width: progressValue === null ? "40%" : `${progressValue}%`,
+            }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-white/85">
+          {progressValue === null
+            ? "File sedang disiapkan"
+            : `${progressValue}% selesai`}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -978,10 +1127,12 @@ function TryoutIdentityPanel({
   metadataSaving,
   mode,
   onBannerChange,
+  onBannerUploadStateChange,
   onCreate,
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
+  onAdmissionModeChange,
   presentation = "page",
   saving,
 }: {
@@ -989,10 +1140,12 @@ function TryoutIdentityPanel({
   metadataSaving: boolean;
   mode: WorkflowMode;
   onBannerChange: (bannerMediaId: string | null) => void;
+  onBannerUploadStateChange: (uploading: boolean) => void;
   onCreate?: () => void;
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
+  onAdmissionModeChange: (mode: Mode) => void;
   presentation?: "dialog" | "page";
   saving: boolean;
 }) {
@@ -1005,6 +1158,7 @@ function TryoutIdentityPanel({
       disabled={identityDisabled}
       onChange={onBannerChange}
       onSave={onSaveMetadata}
+      onUploadStateChange={onBannerUploadStateChange}
       presentation={presentation}
     />
   );
@@ -1038,6 +1192,7 @@ function TryoutIdentityPanel({
           presentation={presentation}
           titleField={titleField}
         />
+        {onCreate ? <TryoutAdmissionModeField value={draft.admissionMode ?? "open"} onChange={onAdmissionModeChange} disabled={identityDisabled} /> : null}
       </div>
       {onCreate ? (
         <TryoutIdentityCreateAction
@@ -1209,10 +1364,7 @@ function TryoutSavedQuestionList({
                   : difficulty === "adaptive"
                     ? "Adaptif"
                     : "Sedang";
-            const questionTypeLabel =
-              question.questionType === "multiple_choice"
-                ? "Pilihan ganda kompleks"
-                : "Pilihan ganda";
+            const questionTypeLabel = questionAnswerModeLabel(question.questionType);
             const options = question.options ?? [];
 
             return (
@@ -2279,6 +2431,8 @@ function useTryoutBuilderState({
   } = state;
 
   const savedDraftRef = useRef<TryoutDraft>(initialFormDraft);
+  const [recoveredCreateHref, setRecoveredCreateHref] = useState<string | null>(null);
+  const saveRequestRef = useRef(createTryoutSaveRequest<{ draft: TryoutDraft; status: "draft" | "published" }, Awaited<ReturnType<typeof saveTryoutAction>>>());
   const latestDraftRef = useRef<TryoutDraft>(initialFormDraft);
   const pendingHrefRef = useRef<string | null>(null);
   const autosaveInFlightRef = useRef<Promise<boolean> | null>(null);
@@ -2526,13 +2680,14 @@ function useTryoutBuilderState({
         : "basics",
       redirectSubtest?: SubjectCode,
     ): Promise<boolean> => {
-      const draftToSave = latestDraftRef.current;
+      let draftToSave = latestDraftRef.current;
       if (id && !resourceLock.canEdit) return false;
       dispatch({ saving: true, type: "setSaving" });
       dispatch({ error: null, type: "setError" });
+      let request: ReturnType<typeof saveRequestRef.current.getOrStart> | undefined;
       try {
-        const result = await saveTryoutAction({
-          admissionMode: id ? undefined : (draftToSave.admissionMode ?? "open"),
+        request = saveRequestRef.current.getOrStart({ draft: draftToSave, status }, ({ draft: draftToSave, status }) => saveTryoutAction({
+          admissionMode: draftToSave.admissionMode ?? "open",
           bannerMediaId: draftToSave.bannerMediaId ?? null,
           defaultResultReleasePolicy: id
             ? undefined
@@ -2577,19 +2732,37 @@ function useTryoutBuilderState({
           })),
           status,
           title: draftToSave.title,
-        });
+        }));
+        if (request.input.status !== status) {
+          showToast("Periksa hasil penyimpanan draf sebelum menerbitkan Tryout. Klik Simpan draf untuk melanjutkan.", { variant: "warning" });
+          return false;
+        }
+        draftToSave = request.input.draft;
+        const result = await withTryoutRequestDeadline(request.response);
         if (!result.ok) {
+          if ("outcomeUnknown" in result && result.outcomeUnknown) throw new Error("unknown-save-outcome");
+          saveRequestRef.current.clear(request);
           showToast(result.message, { variant: "error" });
           return false;
         }
         const nextDraft = normalize(result.result);
-        savedDraftRef.current = nextDraft;
-        if (latestDraftRef.current === draftToSave) {
-          latestDraftRef.current = nextDraft;
-          dispatch({ draft: nextDraft, type: "setDraft" });
-          dispatch({ dirty: false, type: "setDirty" });
-        }
-        if (!id) {
+        // A created Tryout receipt remains reusable until navigation succeeds;
+        // subsequent create clicks only recover that same saved Tryout.
+        if (id) saveRequestRef.current.clear(request);
+        const latestSaved = finishTryoutSave({
+          savedSnapshot: draftToSave,
+          latestSnapshot: latestDraftRef.current,
+          receipt: nextDraft,
+          onReceipt: (receipt) => {
+            savedDraftRef.current = receipt;
+            if (!id) setRecoveredCreateHref(`/mentor/tryout/${receipt.id}`);
+          },
+          onLatestSaved: (receipt) => {
+            latestDraftRef.current = receipt;
+            dispatch({ draft: receipt, type: "setDraft" });
+            dispatch({ dirty: false, type: "setDirty" });
+          },
+          onCreateNavigate: !id ? () => {
           const nextUrl = new URL(
             redirectSubtest
               ? tryoutSubtestDetailHref(result.result.id, redirectSubtest)
@@ -2598,15 +2771,22 @@ function useTryoutBuilderState({
           );
           if (!redirectSubtest && redirectWorkspace !== "basics")
             nextUrl.searchParams.set("workspace", redirectWorkspace);
-          window.location.assign(`${nextUrl.pathname}${nextUrl.search}`);
-        }
-        return true;
+          try { window.location.assign(`${nextUrl.pathname}${nextUrl.search}`); }
+          catch { showToast("Tryout tersimpan. Klik Buat lagi untuk membuka Tryout yang sama.", { variant: "warning" }); }
+          } : undefined,
+        });
+        if (!latestSaved) showToast(id
+          ? "Draf sebelumnya tersimpan. Perubahan terbaru masih tersedia; klik Simpan draf lagi sebelum meninggalkan halaman."
+          : "Tryout sebelumnya tersimpan. Perubahan terbaru tetap tersedia di sini. Buka draf tersimpan hanya jika perubahan terbaru boleh dibuang.", { variant: "warning" });
+        return latestSaved;
       } catch (saveError) {
+        // A transport rejection does not prove rollback. Retain the gate even
+        // when its promise rejects so neither retry nor autosave creates again.
         showToast(
-          saveError instanceof Error
-            ? saveError.message
-            : "Tryout belum dapat disimpan. Coba lagi.",
-          { variant: "error" },
+          saveError instanceof TryoutRequestDeadlineError
+            ? "Hasil penyimpanan belum dapat dipastikan. Pilihan tetap tersedia; klik simpan lagi untuk memeriksa permintaan yang sama."
+            : "Jawaban penyimpanan terputus. Perubahan tetap tersedia di sini. Periksa daftar Tryout di tab lain sebelum memuat ulang; penyimpanan ulang dihentikan agar tidak membuat Tryout ganda.",
+          { variant: "warning" },
         );
         return false;
       } finally {
@@ -3014,6 +3194,7 @@ function useTryoutBuilderState({
     metadataSaving,
     mode,
     pendingHrefRef,
+    recoveredCreateHref,
     publishOpen,
     save,
     saveMetadata,
@@ -3316,6 +3497,7 @@ function TryoutWorkspaceContent({
   onSetHidden,
   onUnpublish,
   operationsInitial,
+  draftAdmission,
   renderSubtestEditor,
   saving,
 }: {
@@ -3340,6 +3522,7 @@ function TryoutWorkspaceContent({
   operationsInitial?: TryoutOperationsView & {
     workflow?: CanonicalTryoutWorkflowProjection;
   };
+  draftAdmission?: ReactNode;
   renderSubtestEditor: (editorMode: boolean) => ReactNode;
   saving: boolean;
 }) {
@@ -3371,7 +3554,7 @@ function TryoutWorkspaceContent({
         >
           Operasional
         </h2>
-        <KaptenTryoutOperationsModule embedded initial={operationsInitial} />
+        <KaptenTryoutOperationsModule embedded initial={operationsInitial} draftAdmission={draftAdmission} />
       </ReferenceSurface>
     );
   }
@@ -3452,7 +3635,7 @@ function TryoutBuilderPageWorkspace({
   viewSaving: boolean;
 }) {
   return (
-    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto min-w-0 w-full max-w-[1420px] px-4 py-6 sm:px-6 lg:px-8">
       {initialSubtest ? (
         <TryoutBuilderNotices error={error} />
       ) : (
@@ -3514,6 +3697,7 @@ function TryoutBuilderPageWorkspace({
         onSetHidden={(hidden) => void state.setTryoutVisibility(hidden)}
         onUnpublish={() => state.dispatch({ open: true, type: "setUnpublishOpen" })}
         operationsInitial={operationsInitial}
+        draftAdmission={<KaptenTryoutDraftAdmissionModule value={viewDraft.admissionMode ?? "open"} onChange={(admissionMode) => state.updateDraft((current) => ({ ...current, admissionMode }))} onSave={() => state.save("draft")} onNavigate={(href) => state.guardExternalNavigation(href, { preventDefault: () => undefined })} disabled={viewDraft.locked || state.editLocked} saving={state.saving} dirty={state.dirty} />}
         renderSubtestEditor={renderSubtestEditor}
         saving={viewSaving}
       />
@@ -3573,12 +3757,10 @@ function TryoutBuilderLifecycleDialogContent({
       }}
       onConfirmSaveDirty={() => {
         const href = pendingHrefRef.current;
-        void save("draft").then((ok) => {
-          if (ok && href) window.location.assign(href);
-          if (ok) {
-            pendingHrefRef.current = null;
-            dispatch({ open: false, type: "setDirtyNavigationOpen" });
-          }
+        void continueAfterTryoutSave(() => save("draft"), () => {
+          if (href) window.location.assign(href);
+          pendingHrefRef.current = null;
+          dispatch({ open: false, type: "setDirtyNavigationOpen" });
         });
       }}
       onConfirmUnpublish={() => {
@@ -3636,6 +3818,8 @@ function TryoutBuilderContent({
   };
 }) {
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const [recoveredDraftOpen, setRecoveredDraftOpen] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
   const createDialogDirtyRef = useRef(false);
   const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
     initialSubtest ? "subtests" : (initialWorkspace ?? "subtests"),
@@ -3699,7 +3883,7 @@ function TryoutBuilderContent({
       onDialogOpenChange?.(true);
       return;
     }
-    if (viewSaving) return;
+    if (viewSaving || bannerUploading) return;
     if (createDialogDirtyRef.current) {
       setDiscardConfirmationOpen(true);
       return;
@@ -3713,6 +3897,17 @@ function TryoutBuilderContent({
     onDialogOpenChange?.(false);
   };
   const identityPanel = (
+    <>
+    {state.recoveredCreateHref ? <ReferenceSurface variant="inset" className="mb-4 space-y-3 p-4 text-sm leading-6" role="status">
+      <p>Tryout sudah dibuat. Perubahan terbaru masih ada di halaman ini. Membuka draf tersimpan akan membuang perubahan tersebut.</p>
+      <Button type="button" variant="outline" onClick={() => setRecoveredDraftOpen(true)}>Buka draf tersimpan</Button>
+      <UnsavedChangesConfirmationDialog open={recoveredDraftOpen} onOpenChange={setRecoveredDraftOpen} description="Perubahan terbaru belum disimpan. Buka draf yang sudah tersimpan dan buang perubahan terbaru?" onDiscard={() => {
+        const href = state.recoveredCreateHref;
+        discardDraft();
+        setRecoveredDraftOpen(false);
+        if (href) window.location.assign(href);
+      }} />
+    </ReferenceSurface> : null}
     <TryoutIdentityPanel
       draft={viewDraft}
       metadataSaving={viewMetadataSaving}
@@ -3720,6 +3915,7 @@ function TryoutBuilderContent({
       onBannerChange={(bannerMediaId) =>
         updateIdentityDraft((current) => ({ ...current, bannerMediaId }))
       }
+      onBannerUploadStateChange={setBannerUploading}
       onCreate={!id ? () => void save("draft") : undefined}
       onDescriptionChange={(description) =>
         updateIdentityDraft((current) => ({ ...current, description }))
@@ -3728,9 +3924,11 @@ function TryoutBuilderContent({
       onTitleChange={(title) =>
         updateIdentityDraft((current) => ({ ...current, title }))
       }
+      onAdmissionModeChange={(admissionMode) => updateIdentityDraft((current) => ({ ...current, admissionMode }))}
       presentation={isCreateDialog ? "dialog" : "page"}
-      saving={viewSaving}
+      saving={viewSaving || bannerUploading}
     />
+    </>
   );
 
   const renderSubtestEditor = (editorMode: boolean) => {
@@ -3821,7 +4019,7 @@ function TryoutBuilderContent({
         onCloseAfterDiscard={closeCreateDialogAfterDiscard}
         onDiscardOpenChange={setDiscardConfirmationOpen}
         onOpenChange={handleCreateDialogOpenChange}
-        saving={viewSaving}
+        saving={viewSaving || bannerUploading}
       />
     );
   }

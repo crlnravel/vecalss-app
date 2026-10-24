@@ -9,6 +9,7 @@ import {
 import { canonicalJson, normalizeText, sha256Hex, VeraContractError } from "./contracts";
 import { resolveAutomaticKuis, resolveAutomaticTryout, resolvePublishedMateri } from "./context-resolvers";
 import { hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet } from "@/lib/tryout/result-repository";
+import { isEligibleTryoutResultLifecycle, releasedTryoutResultWhere } from "@/lib/tryout/released-result-eligibility";
 import { isMateriReady, readMateriResources } from "@/lib/materi/contract";
 
 export const VERA_CONTEXT_REGISTRY_MAX_SOURCES = 4 as const;
@@ -516,10 +517,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
     async listTryout({ studentId, now, sourceIds }) {
       const rows = await client.tryoutAttempt.findMany({
         where: {
-          studentId,
-          status: "scored",
-          scoringState: "scored",
-          releaseState: "released",
+          ...releasedTryoutResultWhere(studentId),
           tryout: { status: "published", publishedAt: { lte: now } },
           deliverySession: {
             status: { in: ["active", "closed", "archived"] },
@@ -607,7 +605,7 @@ export function createPrismaContextRegistry(db: unknown): ContextRegistrySource 
         const releasePublishedAt = dateValue(release.publishedAt);
         const packagePublished = tryout.status === "published" && Boolean(tryoutPublishedAt && tryoutPublishedAt <= now);
         const released = row.releaseState === "released" && session.releaseState === "released";
-        const scored = row.status === "scored" && row.scoringState === "scored";
+        const scored = isEligibleTryoutResultLifecycle({ status: row.status, attemptState: row.attemptState }) && row.scoringState === "scored";
         const sessionStatus = stringValue(session.status);
         const sessionAvailable = sessionStatus === "active" || sessionStatus === "closed" || sessionStatus === "archived";
         const assignments = Array.isArray(session.assignments) ? session.assignments.map(record) : [];

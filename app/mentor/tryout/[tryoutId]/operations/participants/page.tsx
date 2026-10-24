@@ -22,8 +22,10 @@ export default async function TryoutParticipantsPage({
   const parsed = parseMentorTryoutContext(await searchParams);
   redirect(
     buildMentorTryoutHref(tryoutId, {
+      ...parsed,
       parent: parsed.parent,
-      workspace: "participants",
+      workspace: "operations",
+      delivery: "participants",
     }),
   );
 }

@@ -9,5 +9,5 @@ export const metadata: Metadata = { title: "Kebijakan Tryout | Vecalss LMS" };
 export default async function TryoutPolicyPage({ params }: { params: Promise<{ tryoutId: string }> }) {
   await requireTutorSession();
   const { tryoutId } = await params;
-  redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations" }));
+  redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations", delivery: "policy" }));
 }

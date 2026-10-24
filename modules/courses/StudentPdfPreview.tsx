@@ -142,7 +142,7 @@ function useStudentPdfPreviewController({
 
   useEffect(() => {
     if (isFullscreen !== previousFullscreenRef.current) {
-      fullscreenControlRef.current?.focus();
+      (fullscreenControlRef.current ?? previewRef.current)?.focus();
     }
     previousFullscreenRef.current = isFullscreen;
   }, [isFullscreen]);
@@ -298,7 +298,10 @@ function StudentPdfPreview({
 
   return (
     <div
+      aria-label={previewTitle}
       ref={previewRef}
+      role="region"
+      tabIndex={-1}
       className={cn(
         "flex w-full flex-col gap-4 p-4",
         className,

@@ -10,12 +10,10 @@ import {
   WifiHigh,
 } from "@/lib/icons";
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { buildStudentAttemptHref } from "@/lib/navigation/canonical-context";
-import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type {
@@ -23,8 +21,8 @@ import type {
   ParticipantTryoutAssignment,
 } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
-import { startTryoutAttemptAction } from "@/modules/tryout/participant-actions";
 import { formatSchedule } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
+import { ParticipantActionRecoveryControls, participantRecoveryHref, useParticipantActionRecovery } from "@/modules/tryout/ParticipantStudentActionRecovery";
 
 const rules = [
   { description: "Jawabanmu tersimpan otomatis. Status penyimpanan terlihat selama ujian.", icon: WifiHigh, title: "Koneksi stabil" },
@@ -77,7 +75,7 @@ function ParticipantWaitingRoomModule({
   tryout: ParticipantTryout;
 }) {
   const [now, setNow] = useState(() => Date.now());
-  const [busy, setBusy] = useState(false);
+  const { controller, state: recoveryState, locked } = useParticipantActionRecovery();
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -88,35 +86,26 @@ function ParticipantWaitingRoomModule({
   const closesAt = new Date(assignment.availableUntil).getTime();
   const beforeWindow = now < opensAt;
   const afterWindow = now >= closesAt;
-  const canStart = !beforeWindow && !afterWindow && assignment.status === "active";
+  const canStart = !locked && !beforeWindow && !afterWindow && assignment.status === "active";
   const attempt = assignment.attempt;
   const blockedReason = waitingBlockedReason(assignment, beforeWindow, afterWindow);
 
   const handleStart = async () => {
-    setBusy(true);
-    try {
-      const response = await startTryoutAttemptAction(assignment.id);
-      if (!response.ok) {
-        showToast(response.message, { variant: "error" });
-        return;
-      }
-      window.location.assign(buildStudentAttemptHref(response.result.attemptId, { returnTo: returnToHref, session: assignment.id }));
-    } catch (startError) {
-      unstable_rethrow(startError);
-      showToast(
-        "Tryout belum berhasil dimulai. Periksa koneksi lalu coba lagi.",
-        { variant: "error" },
-      );
-    } finally {
-      setBusy(false);
-    }
+    if (!canStart) return;
+    const destination = await controller.submit({ kind: "start", sessionId: assignment.id, tryoutId: tryout.id });
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref, assignment.id));
+  };
+
+  const navigateRecovered = async (action: "retry" | "continue") => {
+    const destination = await controller[action]();
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref, assignment.id));
   };
 
   if (attempt) return <WaitingRoomAttemptState assignment={assignment} notificationFeed={notificationFeed} returnToHref={returnToHref} session={session} />;
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
-      <div className="mx-auto grid w-full max-w-3xl gap-8"><WaitingRoomGuide assignment={assignment} blockedReason={blockedReason} busy={busy} canStart={canStart} onStart={() => void handleStart()} showCatalogueLink={assignment.status !== "active" || afterWindow} tryout={tryout} /></div>
+      <div className="mx-auto grid w-full max-w-3xl gap-8"><WaitingRoomGuide assignment={assignment} blockedReason={blockedReason} busy={recoveryState.phase === "writing"} canStart={canStart} onStart={() => void handleStart()} showCatalogueLink={assignment.status !== "active" || afterWindow} tryout={tryout} /><ParticipantActionRecoveryControls state={recoveryState} onInspect={() => void controller.inspect()} onRetry={() => void navigateRecovered("retry")} onContinue={() => void navigateRecovered("continue")} /></div>
     </CourseWorkspaceShell>
   );
 }

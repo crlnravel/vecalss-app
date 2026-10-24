@@ -72,6 +72,11 @@ export function isYouTubeVideoUrl(value: string): boolean {
   return parseYouTubeVideoId(value) !== null;
 }
 
+export function getYouTubeThumbnailUrl(value: string): string | null {
+  const videoId = parseYouTubeVideoId(value);
+  return videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
 export function normalizeKaptenVideoInput(input: unknown): ValidatedKaptenVideoInput {
   if (!input || typeof input !== "object") {
     throw new VideoGalleryValidationError("Lengkapi informasi video terlebih dahulu.");

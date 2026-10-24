@@ -328,6 +328,25 @@ async function queryParticipantTryouts(studentId: string, tryoutId?: string) {
             { isHidden: false },
             { status: { not: ContentStatus.published } },
             {
+              status: ContentStatus.published,
+              admissions: {
+                some: {
+                  studentId,
+                  status: "active",
+                  assignments: {
+                    some: {
+                      status: TryoutAssignmentStatus.active,
+                      deliverySession: {
+                        status: "active",
+                        assessmentReleaseId: { not: null },
+                        availableUntil: { gt: new Date() },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            {
               attempts: {
                 some: {
                   status: AttemptStatus.in_progress,

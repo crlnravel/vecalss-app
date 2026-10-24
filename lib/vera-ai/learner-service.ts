@@ -10,6 +10,7 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { releasedTryoutResultWhere } from "@/lib/tryout/released-result-eligibility";
 
 import { VeraAdmissionError } from "./admission";
 import {
@@ -569,7 +570,7 @@ export class VeraLearnerService {
               return { sourceType: "practice" as const, sourceId: attempt.id, title: attempt.participation.quiz.title, digest: sha256Hex(canonicalJson({ formSnapshot: attempt.formSnapshot, policySnapshot: attempt.policySnapshot })) };
             } else {
               const tryout = await tx.tryoutAttempt.findFirst({
-                where: { id: source.sourceId, studentId: input.studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseDigest: { not: null } },
+                where: { id: source.sourceId, ...releasedTryoutResultWhere(input.studentId) },
                 select: { id: true, assessmentReleaseDigest: true, tryout: { select: { title: true } } },
               });
               if (!tryout || !tryout.assessmentReleaseDigest) throw new VeraLearnerServiceError("context_release_unavailable", 410);
@@ -620,7 +621,7 @@ export class VeraLearnerService {
       });
       sources.push(...attempts.map((attempt) => ({ sourceType: "practice" as const, sourceId: attempt.id, title: attempt.participation.quiz.title, subtitle: "Latihan selesai", releasedAt: attempt.releaseAt?.toISOString() ?? attempt.updatedAt.toISOString(), orderAt: attempt.updatedAt, orderKey: `practice:${attempt.id}` })));
       const tryouts = await this.db.tryoutAttempt.findMany({
-        where: { studentId: input.studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseDigest: { not: null }, updatedAt: boundary ? { lte: boundary } : undefined },
+        where: { ...releasedTryoutResultWhere(input.studentId), updatedAt: boundary ? { lte: boundary } : undefined },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
         take: input.limit + 1,
         select: { id: true, releaseAt: true, updatedAt: true, tryout: { select: { title: true } } },

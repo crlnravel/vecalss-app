@@ -201,6 +201,7 @@ local-reset: local-env _local-services _resource-status
     docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 0 FLUSHDB
     docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 15 FLUSHDB
     echo 'Local PostgreSQL was reset, migrated, and seeded; local Redis DBs 0 and 15 were cleared.'
+    echo 'Prisma Client was regenerated. Fully stop and restart the Next dev process before using the app.'
 
 # Apply pending local migrations without dropping PostgreSQL data.
 local-migrate: local-env _local-services _resource-status

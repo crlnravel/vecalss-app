@@ -8,8 +8,8 @@ import {
   releaseMetadataFields,
   toParticipantAssessmentReleaseMetadata,
 } from "@/lib/tryout/assessment-release";
-import { materializeFrozenAnswers, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
-import { canonicalizeCbtScoringConfig, scoreFixedOrderIrt } from "@/lib/tryout/cbt-scoring-policy";
+import { TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { assertFrozenRunRelease, calculateFrozenTryoutRun, FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE } from "@/lib/tryout/frozen-run-scoring";
 import { prisma } from "@/lib/prisma";
 import { materializeTryoutAttemptInTransaction } from "@/lib/tryout/result-repository";
 import { validateSelectedOptionIds, type QuestionAnswerMode } from "@/lib/question-bank/answer-contract";
@@ -183,8 +183,8 @@ async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, atte
     tx.tryoutAttemptTestRun.count({ where: { attemptId, scoringState: AssessmentScoringState.review_required } }),
   ]);
   if (remaining) return;
-  const current = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { attemptState: true, status: true, studentId: true } });
-  if (!current || current.attemptState === AssessmentAttemptState.abandoned || current.attemptState === AssessmentAttemptState.void || current.status === AttemptStatus.abandoned) return;
+  const current = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { attemptState: true, releaseState: true, status: true, studentId: true } });
+  if (!current || current.releaseState === AssessmentResultReleaseState.released || current.attemptState === AssessmentAttemptState.abandoned || current.attemptState === AssessmentAttemptState.void || current.status === AttemptStatus.abandoned) return;
   const nextAttemptState = current.attemptState === AssessmentAttemptState.expired
     ? AssessmentAttemptState.expired
     : current.attemptState === AssessmentAttemptState.auto_submitted
@@ -199,138 +199,72 @@ async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, atte
   if (autoCalculate) await materializeTryoutAttemptInTransaction(tx, attemptId, current.studentId, "Perhitungan otomatis setelah tujuh Test tersegel.", false);
 }
 
-async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false) {
+async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false, materializeAttempt = true) {
   const run = await tx.tryoutAttemptTestRun.findUnique({
     where: { id: runId },
-    include: { answers: { select: { id: true, selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } }, attempt: { select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentReleaseId: true } } } }, section: { select: { scoringConfig: true, testType: true } } },
+    include: {
+      answers: { select: { id: true, selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } },
+      attempt: { select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, releaseState: true, assessmentRelease: true, deliverySession: { select: { assessmentReleaseId: true } } } },
+      section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true, scoringConfig: true, testType: true } },
+    },
   });
-  if (!run || run.status !== TryoutAttemptTestRunStatus.active) return run;
-  const frozen = assertCompleteFrozenRun(run, run.section, Boolean(run.attempt.assessmentReleaseId || run.attempt.assessmentReleaseNumber !== null || run.attempt.assessmentReleaseDigest || run.attempt.deliverySession.assessmentReleaseId));
-  const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
-  const items = content.items ?? [];
-  const scored = materializeFrozenAnswers(items, run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId, selectedOptionIds: Array.isArray(answer.selectedOptionIds) ? answer.selectedOptionIds.filter((value): value is string => typeof value === "string") : null })));
-  if (scored.invalid || scored.normalizedScore === null) {
+  if (!run || run.attempt.releaseState === AssessmentResultReleaseState.released
+    || (run.status !== TryoutAttemptTestRunStatus.active && !(expired && run.status === TryoutAttemptTestRunStatus.pending))) return run;
+  let calculation: ReturnType<typeof calculateFrozenTryoutRun>;
+  try {
+    assertCompleteFrozenRun(run, run.section, true);
+    if (!run.attempt.assessmentRelease || run.attempt.deliverySession.assessmentReleaseId !== run.attempt.assessmentReleaseId) throw new Error("Frozen CBT attempt release is missing or inconsistent.");
+    assertAttemptReleaseBinding(run.attempt, run);
+    assertFrozenRunRelease(run, run.section, run.attempt.assessmentRelease);
+    calculation = calculateFrozenTryoutRun({
+      contentSnapshot: run.contentSnapshot,
+      answers: run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId, selectedOptionIds: answer.selectedOptionIds })),
+      expired,
+    });
+  } catch (error) {
     const failed = await tx.tryoutAttemptTestRun.update({
       where: { id: run.id },
       data: {
         calculationReleaseable: false,
-        scoringProvenance: AssessmentScoringProvenance.runtime,
-        scoringReviewReason: "One or more answers are absent from the frozen CBT snapshot.",
-        scoringState: AssessmentScoringState.review_required,
-        sealedAt: now,
-        status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
+        calculationResult: json({ validationFailure: { diagnostic: error instanceof Error ? error.message : "Frozen CBT calculation is invalid." } }),
+        scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE,
+        scoringState: AssessmentScoringState.review_required, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
       },
     });
-    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
+    if (materializeAttempt) await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, false);
     return failed;
   }
-  const scoringPolicy = canonicalizeCbtScoringConfig(frozen.scoringConfig);
-  if (scoringPolicy.method === "irt_2pl") {
-    const itemById = new Map(items.map((item) => [item.id, item]));
-    const responses = scored.materializedAnswers
-      .filter((answer): answer is typeof answer & { isCorrect: boolean } => answer.isCorrect !== null)
-      .map((answer) => {
-        const item = itemById.get(answer.itemId);
-        const itemId = item?.snapshotId ?? item?.sourceQuestionId;
-        return itemId ? { isCorrect: answer.isCorrect, itemId } : null;
-      })
-      .filter((response): response is { isCorrect: boolean; itemId: string } => Boolean(response));
-    if (scoringPolicy.itemParameters.length !== items.length || items.some((item) => {
-      const itemId = item.snapshotId ?? item.sourceQuestionId;
-      return !itemId || !scoringPolicy.itemParameters.some((parameter) => parameter.itemId === itemId);
-    })) {
-      const failed = await tx.tryoutAttemptTestRun.update({
-        where: { id: run.id },
-        data: {
-          calculationReleaseable: false,
-          scoringProvenance: AssessmentScoringProvenance.runtime,
-          scoringReviewReason: "IRT CBT requires a frozen parameter for every item.",
-          scoringState: AssessmentScoringState.review_required,
-          sealedAt: now,
-          status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
-        },
-      });
-      await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
-      return failed;
-    }
-    const estimated = scoreFixedOrderIrt({ itemParameters: scoringPolicy.itemParameters, responses });
-    const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
-    for (const answer of run.answers) {
-      const materialized = materializedByItemId.get(answer.tryoutItemId);
-      if (!materialized) continue;
-      // react-doctor-disable-next-line async-await-in-loop -- apply each persisted answer's score before sealing the run.
-      await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.isCorrect ? 1 : 0, scoringVersion: estimated.scoringVersion } });
-    }
-    const result = { ability: estimated.ability, answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: items.length, normalizedScore: estimated.normalizedScore, score: estimated.ability, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
-    const sealed = await tx.tryoutAttemptTestRun.update({
-      where: { id: run.id },
-      data: {
-        calculationInput: json({ itemParameters: scoringPolicy.itemParameters, responses, scoringConfig: scoringPolicy }),
-        calculationResult: json(result),
-        calculationReleaseable: true,
-        correctCount: scored.correctCount,
-        maxScore: items.length,
-        normalizedScore: estimated.normalizedScore,
-        rawScore: estimated.ability,
-        scaledScore: estimated.normalizedScore,
-        scoringProvenance: AssessmentScoringProvenance.runtime,
-        scoringReviewReason: null,
-        scoringState: AssessmentScoringState.scored,
-        scoringVersion: estimated.scoringVersion,
-        sealedAt: now,
-        status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
-        unansweredCount: scored.unansweredCount,
-        wrongCount: scored.wrongCount,
-      },
-    });
-    await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
-    return sealed;
-  }
-  const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
+  const materializedByItemId = new Map(calculation.answers.map((answer) => [answer.itemId, answer]));
   for (const answer of run.answers) {
-      const materialized = materializedByItemId.get(answer.tryoutItemId);
-      if (!materialized) continue;
-      // react-doctor-disable-next-line async-await-in-loop -- persist answer scoring before sealing the run transaction.
-      await tx.tryoutAnswer.update({
-        where: { id: answer.id },
-        data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION },
-      });
+    const materialized = materializedByItemId.get(answer.tryoutItemId)!;
+    // react-doctor-disable-next-line async-await-in-loop -- persist scoring only; selection acknowledgments remain immutable.
+    await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: calculation.scoringVersion } });
   }
-  const result = { answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore: scored.normalizedScore, score: scored.rawScore, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
     data: {
-      calculationInput: json({ answersAcknowledged: scored.answeredCount, scoringConfig: frozen.scoringConfig, totalItems: items.length }),
-      calculationResult: json(result),
-      calculationVersion: TRYOUT_CBT_SCORING_VERSION,
-      calculationReleaseable: true,
-      correctCount: scored.correctCount,
-      maxScore: scored.maxScore,
-      normalizedScore: scored.normalizedScore,
-      rawScore: scored.rawScore,
-      scaledScore: scored.normalizedScore,
-      scoringProvenance: AssessmentScoringProvenance.runtime,
-      scoringReviewReason: null,
-      scoringState: AssessmentScoringState.scored,
-      scoringVersion: TRYOUT_CBT_SCORING_VERSION,
-      sealedAt: now,
-      status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
-      unansweredCount: scored.unansweredCount,
-      wrongCount: scored.wrongCount,
+      calculationInput: json(calculation.calculationInput), calculationResult: json(calculation.calculationResult),
+      calculationVersion: calculation.scoringVersion, calculationReleaseable: true,
+      correctCount: calculation.correctCount, wrongCount: calculation.wrongCount, unansweredCount: calculation.unansweredCount,
+      maxScore: calculation.maxScore, normalizedScore: calculation.normalizedScore, rawScore: calculation.rawScore, scaledScore: calculation.normalizedScore,
+      scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: calculation.scoringVersion,
+      sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
     },
   });
-  // A run that reaches its own deadline can still be a valid, fully
-  // materialized run. Let the seventh valid run trigger attempt aggregation;
-  // only the failed/ambiguous paths below intentionally suppress it.
-  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
+  if (materializeAttempt) await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
   return sealed;
 }
 
 async function expireForSessionCap(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
-  const active = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } });
-  if (active) await calculateAndSealRun(tx, active.id, now, true);
-  await tx.tryoutAttemptTestRun.updateMany({ where: { attemptId, status: TryoutAttemptTestRunStatus.pending }, data: { scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Test tidak pernah dibuka sebelum batas waktu sesi.", scoringState: AssessmentScoringState.review_required, sealedAt: now, status: TryoutAttemptTestRunStatus.expired } });
+  const attempt = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { releaseState: true } });
+  if (!attempt || attempt.releaseState === AssessmentResultReleaseState.released) return;
+  // Set the authoritative terminal meaning before the seventh run can aggregate.
   await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.expired, autoSubmittedAt: now, releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringReviewReason: null, scoringState: AssessmentScoringState.pending, status: AttemptStatus.expired } });
+  const runs = await tx.tryoutAttemptTestRun.findMany({ where: { attemptId, status: { in: [TryoutAttemptTestRunStatus.active, TryoutAttemptTestRunStatus.pending] } }, orderBy: { sequenceNo: "asc" }, select: { id: true } });
+  for (const run of runs) {
+    // react-doctor-disable-next-line async-await-in-loop -- expire each real run without inventing start/deadline history.
+    await calculateAndSealRun(tx, run.id, now, true, false);
+  }
   await markAttemptSubmittedIfComplete(tx, attemptId, now, true);
 }
 
@@ -482,6 +416,7 @@ async function synchronizeAttempt(
       deliverySession: { select: { assessmentReleaseId: true, availableUntil: true } },
       disconnectStartedAt: true,
       reconciledAt: true,
+      releaseState: true,
       totalDisconnectSeconds: true,
       id: true,
       serverDeadlineAt: true,
@@ -494,7 +429,7 @@ async function synchronizeAttempt(
       },
     },
   });
-  if (!attempt || attempt.status !== AttemptStatus.in_progress) return attempt;
+  if (!attempt || attempt.status !== AttemptStatus.in_progress || attempt.releaseState === AssessmentResultReleaseState.released) return attempt;
 
   // Legacy nullable trees predate the immutable release boundary. They remain
   // historical reads and must not be rewritten by an operations refresh.
@@ -931,7 +866,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     // This is the single content-lock transition: same aggregate lock as
     // authoring writes. The row was already acquired before session locks.
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { isHidden: true, status: true } });
-    if (!tryout || tryout.status !== ContentStatus.published || tryout.isHidden) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai pengerjaan baru.");
+    if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai pengerjaan baru.");
     const lockedTryout = await tx.tryoutPackage.findUniqueOrThrow({
       where: { id: session.tryoutId },
       include: {
@@ -1088,14 +1023,14 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
 
 async function attemptState(attemptId: string, studentId: string) {
   const now = new Date();
-  return prisma.$transaction(async (tx) => {
+  const state = await prisma.$transaction(async (tx) => {
     const scope = await lockAttemptScope(tx, attemptId);
     if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const attempt = await tx.tryoutAttempt.findFirst({
       where: { id: attemptId, studentId },
       include: {
         assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
-        deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, fullscreenPrompt: true } },
+        deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, fullscreenPrompt: true } },
         tryout: {
           select: {
             createdBy: { select: { fullName: true } },
@@ -1199,6 +1134,7 @@ async function attemptState(attemptId: string, studentId: string) {
       activeRun: exposed,
       assessmentRelease: attempt.assessmentRelease ? toParticipantAssessmentReleaseMetadata(attempt.assessmentRelease) : null,
       attemptId,
+      availableUntil: attempt.deliverySession.availableUntil,
       status: (await tx.tryoutAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { status: true } })).status,
       tryoutDescription: attempt.tryout.description,
       tryoutEventName: attempt.tryout.examEvent?.name ?? null,
@@ -1212,6 +1148,7 @@ async function attemptState(attemptId: string, studentId: string) {
       })),
     };
   });
+  return { ...state, serverNow: new Date().toISOString() };
 }
 
 async function recordTryoutIntegrityEvent(attemptId: string, runId: string, eventType: TryoutIntegrityEventType, studentId: string) {
@@ -1293,7 +1230,7 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
   return prisma.$transaction(async (tx) => {
     const scope = await lockAttemptScope(tx, attemptId);
     if (!scope || scope.studentId !== studentId) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
-    const loadAttempt = () => tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, status: true } }, id: true, status: true } });
+    const loadAttempt = () => tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, status: true } }, id: true, serverDeadlineAt: true, status: true } });
     let attempt = await loadAttempt();
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     const sessionRelease = attempt.deliverySession.assessmentRelease;
@@ -1320,6 +1257,12 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
     const answerMode = answerModeForSnapshotItem(item);
     const selection = validateSelectedOptionIds(answerMode, selectedOptionIds, item.options.map((option) => option.id));
     if (!selection.ok) throw new TryoutAttemptValidationError(selection.errors[0].message);
+    // A request may have waited for the mutex across either cutoff. Only an
+    // acknowledgment checked under the held locks can enter frozen scoring.
+    now = new Date();
+    if (attempt.status !== AttemptStatus.in_progress || attempt.deliverySession.status !== TryoutDeliverySessionStatus.active
+      || attempt.serverDeadlineAt <= now || attempt.deliverySession.availableUntil <= now
+      || (run.serverDeadlineAt !== null && run.serverDeadlineAt <= now)) throw new TryoutAttemptValidationError("Waktu pengerjaan sudah berakhir. Jawaban tidak dapat disimpan.");
     if (run.status !== TryoutAttemptTestRunStatus.active) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat menyimpan jawaban.");
     const answer = await tx.tryoutAnswer.upsert({ where: { attemptTestRunId_tryoutItemId: { attemptTestRunId: runId, tryoutItemId } }, create: { answerText: null, answeredAt: now, attemptId, attemptTestRunId: runId, selectedOptionId, selectedOptionIds: json(selectedOptionIds), tryoutId: run.section.tryoutId, tryoutItemId }, update: { answeredAt: now, selectedOptionId, selectedOptionIds: json(selectedOptionIds) } });
     return { answerId: answer.id, remainingSeconds: remainingSeconds(run.serverDeadlineAt, now), savedAt: answer.answeredAt };

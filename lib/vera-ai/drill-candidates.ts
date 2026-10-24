@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma, QuestionRevisionStatus, QuestionType } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { releasedTryoutResultWhere } from "@/lib/tryout/released-result-eligibility";
 
 import { canonicalJson, sha256Hex } from "./contracts";
 
@@ -151,8 +152,8 @@ async function standaloneCandidates(tx: Prisma.TransactionClient, studentId: str
 
 async function tryoutCandidates(tx: Prisma.TransactionClient, studentId: string, attemptId: string): Promise<FrozenDrillCandidate[]> {
   const attempt = await tx.tryoutAttempt.findFirst({
-    where: { id: attemptId, studentId, status: "scored", scoringState: "scored", releaseState: "released", assessmentReleaseId: { not: null }, assessmentReleaseNumber: { not: null }, assessmentReleaseDigest: { not: null } },
-    include: { runs: { where: { status: "sealed", scoringState: "scored", calculationReleaseable: true }, orderBy: { sequenceNo: "asc" } } },
+    where: { id: attemptId, ...releasedTryoutResultWhere(studentId) },
+    include: { runs: { where: { status: { in: ["sealed", "expired"] }, scoringState: "scored", calculationReleaseable: true }, orderBy: { sequenceNo: "asc" } } },
   });
   if (!attempt || !attempt.assessmentReleaseId || attempt.assessmentReleaseNumber === null || !attempt.assessmentReleaseDigest || !attempt.runs.length) return [];
   const parsed = attempt.runs.flatMap((run) => {

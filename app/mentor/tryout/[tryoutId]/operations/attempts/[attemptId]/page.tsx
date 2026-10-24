@@ -4,13 +4,15 @@ import { notFound, redirect } from "next/navigation";
 import { requireTutorSession } from "@/lib/auth/access";
 import {
   buildMentorTryoutHref,
-  buildMentorTryoutOperationsHref,
+  buildMentorTryoutAttemptBackHref,
   getSafeRedirectUrl,
   parseMentorTryoutAttemptContext,
   type CanonicalContextIssue,
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
+import { inspectTryoutCalculation } from "@/lib/tryout/result-repository";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
+import { KaptenTryoutArchivedHistoryFrame } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryoutAttemptDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -45,7 +47,7 @@ export default async function TryoutAttemptDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
+  if (operations.status !== "published" && operations.status !== "archived") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
   const delivery = operations.sessions.find((candidate) => candidate.attempts.some((attempt) => attempt.id === attemptId));
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();
@@ -62,7 +64,20 @@ export default async function TryoutAttemptDetailPage({
       </MentorWorkspaceShell>
     );
   }
-  const backHref = buildMentorTryoutOperationsHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: delivery.id, workspace: parsedQuery.workspace });
+  const backHref = buildMentorTryoutAttemptBackHref(tryoutId, { ...parsedQuery, session: delivery.id });
+  const backLabel = parsedQuery.workspace === "participants" ? "Kembali ke hasil sesi" : "Kembali ke sesi Tryout";
+
+  const resultRecovery = await inspectTryoutCalculation({ attemptId, tryoutId, sessionId: delivery.id }, session.user.id);
+
+  if (operations.status === "archived") {
+    return (
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+        <KaptenTryoutArchivedHistoryFrame backHref={buildMentorTryoutHref(tryoutId)} backLabel="Kembali ke riwayat Tryout" initial={operations}>
+          <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} backLabel={backLabel} embedded initial={operations} readOnly resultRecovery={resultRecovery} />
+        </KaptenTryoutArchivedHistoryFrame>
+      </MentorWorkspaceShell>
+    );
+  }
 
   return (
     <MentorWorkspaceShell
@@ -76,11 +91,11 @@ export default async function TryoutAttemptDetailPage({
       sidebarAppearance="reference"
     >
       <KaptenTryoutWorkspaceFrame
-        activeTab="operations"
+        activeTab={parsedQuery.workspace === "participants" ? "participants" : "operations"}
         initial={operations}
         parentId={parsedQuery.parent}
       >
-        <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} embedded initial={operations} />
+        <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} backHref={backHref} backLabel={backLabel} embedded initial={operations} resultRecovery={resultRecovery} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );

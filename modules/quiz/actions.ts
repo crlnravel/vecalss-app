@@ -7,6 +7,7 @@ import {
   startStandaloneQuiz,
   submitStandaloneQuiz,
 } from "@/lib/quiz/repository";
+import { getAvailableQuizAttempt } from "./server-data";
 
 function message(error: unknown) {
   return error instanceof QuizAttemptValidationError
@@ -67,4 +68,46 @@ async function submitQuizAction(attemptId: string) {
   }
 }
 
-export { saveQuizAnswerAction, startQuizAction, submitQuizAction };
+async function syncQuizAttemptClockAction(
+  subjectSlug: string,
+  quizSlug: string,
+  attemptId: string,
+) {
+  const requestReceivedAt = Date.now();
+  const session = await requireStudentSession();
+  const current = await getAvailableQuizAttempt(
+    subjectSlug,
+    quizSlug,
+    session.user.id,
+    attemptId,
+  );
+  if (!current) {
+    return { ok: false as const };
+  }
+  const deadlineAt = current.attempt.deadlineAt
+    ? Date.parse(current.attempt.deadlineAt)
+    : null;
+  const serverNowAt = current.attempt.serverNowAt
+    ? Date.parse(current.attempt.serverNowAt)
+    : null;
+  return {
+    ok: true as const,
+    result: {
+      isSubmitted: current.attempt.isSubmitted,
+      remainingMilliseconds:
+        deadlineAt !== null && serverNowAt !== null
+          ? Math.max(0, deadlineAt - serverNowAt)
+          : null,
+      serverProcessingMilliseconds: serverNowAt !== null
+        ? Math.max(0, serverNowAt - requestReceivedAt)
+        : 0,
+    },
+  };
+}
+
+export {
+  saveQuizAnswerAction,
+  startQuizAction,
+  submitQuizAction,
+  syncQuizAttemptClockAction,
+};

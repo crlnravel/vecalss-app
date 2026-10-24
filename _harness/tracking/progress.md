@@ -1,5 +1,146 @@
 # Session Progress Log
 
+## F-13 accepted; integrated admission QA complete (2026-10-15 WIB)
+
+- F13 fixed by clean-context exact gpt-6.1-sol/high in6c2a84e1 plus3fb78997. Finite deadline rechecks handle early active reads, quiet failures/exhaustion and manual recovery; commit-time read identity fences obsolete responses/callbacks before passive cleanup.
+- Actual12-scenario mounted/controller suites pass on working and isolated HEAD candidate, including two intended red snapshots and real native transition phase receipts. F12 pure/HTTP, public DB exact before/equal/after cutoff/replay/ownership, TypeScript/full lint/build pass; five unchanged unrelated warnings. Both final committed Standards/Spec clear.
+- Approved Ego63 proves early active reply514ms before cutoff then automatic expired reply157ms after, no reload; PU-only expiry preserves next section; six failed deadline reads yield one notice, explicit manual seventh read reaches expiry. Original two attempts/14 runs, pins/deadlines, saved choiceA and one audit per distinct transition preserved. Results remain gated. QA selector/wait/audit expectation mistakes corrected, not product defects.
+- Root7 groups =six standard+one explicitly approved extra; child6, no emergency/bypass. Ego63 finished exactly once keep[], overrides restored, no owned process; peer5023 untouched. Committed HEAD main excludes15 pre-existing F3 lines; F6/other peer bytes preserved. Shared-tree build is not a clean-checkout whole-app claim.
+- F13ticket/feature, TA04 A–P matrix and four-ticket admission story complete; consolidated F9/F10 outcomes resolved. Durable final document epic tryout-f13-local-qa-20261015, exact source/SQL/phase/gate/cleanup receipts linked there. Remaining decisions: F7 unopened-section/partial-expiry scoring, F8 manual result-release workflow and archive reversibility. No next fix authorized by this closure.
+
+## F-13 live checks pass; final review follow-up remains (2026-10-15 WIB)
+
+- Exact6.1-sol/high worker delivered6c2a84e1 (fivepaths) with isolated HEAD main; original15F3lines and F6/peerbytes preserved. Final11 mounted scenarios, F12 pure/HTTP and public DB replay/ownership/cutoff, TypeScript/fullverify pass (five unrelatedwarnings).
+- Approved Ego63 confirms real earlyactive514ms beforecutoff→automaticexpired157ms aftercutoff, two reads/no reload; real1minPU expiry preserves nextsection; six failed deadline reads backoff then one notice/manualseventhread expires. Original twoattempts14runs/pins/deadlines andsavedanswer retained. Results gated. Ego63 finished exactlyonce keep[], clock/fetch restored; no ownedprocess, peer5023untouched.
+- Root6/6 normalgroups exhausted. Runner3 link/nativebutton selector and runner4 too-short55s wait were QAerrors; recovered samepage withoutrearm. Group6 invariant1 wrongly assumed oneexpiry audit perattempt: actual active-run+overallend are two distinct legitimate audited transitions. Corrected source-only helper awaits rerun; actualreadonly audit before/after confirms no duplicate transition. Child6/6 used.
+- FinalSpec raises P2 commit-before-passive-effect stale-response interval. Workerff50cc02 asked to validate/prepare smallest source-only fence+actual-controller timing regression; no morelaunch authorized. F13ticket/feature andTA04 remaininprogress. Next: reconcile concrete repair/coldreviews then askuser explicit extra guardedgroup for repaired tests/type/lint/build andcorrected invariants. Epic tryout-f13-local-qa-20261015 has full receipts; do not repeat accepted livewrites or reuse finishedEgo63.
+
+## F-13 repair authorized; deterministic red confirmed (2026-10-15 WIB)
+
+- User authorized clean-context exact gpt-6.1-sol/high repair and local deadline reconciliation verification. Worker ff50cc02 verified that runtime and owns the isolated implementation; root retains TA-04 acceptance. Ticket is in progress; detailed D1–D8 matrix is epic tryout-f13-local-qa-20261015.
+- Original mounted one-shot deadline effects were extracted without a behavior change. Corrected mounted harness confirms an early successful-active response remains in_progress after 20 seconds instead of reconciling expiry. Group3 was a React host scheduling failure, not bug evidence; group4 is the intended red. Startup lint/build passed. Child4/6 groups consumed; root0/6; no emergency or extension.
+- Approved scope is finite/coalesced reconciliation with stable deadline identity, quiet automatic failures, explicit recovery and stale-generation cleanup. Preserve F-3/F-6 and peer dirty work; isolate HEAD-based product hunks and restoration proof. No passing fix or live rerun yet. Root prepares new future-only seeded fixtures, then requests exact route/role/checklist browser approval; Ego60 is already finished. Existing F12 attempt/pin/deadline remain unchanged.
+
+## F-12 accepted; F-13 deadline follow-up open (2026-10-15 WIB)
+
+- F-12 product/tests committed as 4aa36e91 (12 paths) by clean-context exact gpt-6.1-sol/high worker 49a6fe7f. Shared bounded recovery and independent authenticated read-only GET replace the queued inspection action. Known late refusal unlocks correction; unresolved writes remain fenced, manual same-intent replay is backed by actual server-lock tests, and late receipts do not navigate from stale callbacks.
+- Latest public controller/actual-handler/HTTP tests, real DB rejected-response/absent-read/original-commit overlap, ownership and exact future/end cutoff pass. Strict TypeScript, full lint/build pass; final pure/type/lint pass again with five unrelated warnings. Final committed Standards/Spec reviews clear. HEAD-only overlap blobs preserve F-3 source outside the commit; source hashes/restoration proof in epic tryout-f12-local-qa-20261014.
+- Mounted Ego 60 verifies registration around 16 seconds, independent absent/found GET while write held, cancel/Escape and 390px with 44px controls, pending detail, lost committed registration, bounded read at 15,805 ms, actual offline/reconnect and future Start gate. Start at 16 seconds recovers original attempt 598de67e, release 8bb79aef, exact deadline 2026-10-14T13:45:28.430Z. SQL: five distinct registrations, two open assignments, one attempt/seven runs; no replay audits, one expected expiry audit.
+- Deadline regression FAILED: UI hid next section 389 ms early; after cutoff attempt/runs stayed active/pending until reload. Existing ParticipantAttemptModule matches original excluded F-3 SHA e592d1bb. Captured F-13 ticket todo; no source repair authorized. Approved post-cutoff reload expired the same attempt/seven runs without changing pin/deadline; result stayed hidden (F-7/F-8 separate). TA-04 remains in progress for F-13; F-12 ticket complete.
+- Root used seven normal groups: six standard plus one of two explicitly approved extra groups; child six includes resource block. No emergency/bypass/new accounts/reset/production. Ego 60 finished exactly once with no retained tabs; clock/network/viewport restored, no owned shell/server; peer :5023 untouched. Runtime tests are mixed-worktree evidence, not a clean-checkout build claim. QA runner selector/body-null/stale-input/audit-expectation errors were corrected and are not product findings.
+- Next user decision: authorize clean-context exact 6.1-sol/high F-13 repair and rerun live expiry/uncertainty/retry-loop regressions. Root retains TA-04 QA role cea6434f. No required async reply or active background process remains.
+
+## F-12 repair authorized and delegated (2026-10-14 WIB)
+
+- User authorized clean-context exact gpt-6.1-sol/high repair and rerun of failed TA-04 recovery/deadline cases. Worker 49a6fe7f verified that runtime and owns F-12 implementation; root retains TA-04 acceptance coordination. Ticket status1; focused matrix is epic `tryout-f12-local-qa-20261014` (R1–R9).
+- Scope: bounded registration/Start busy state, authoritative owned inspection, unknown outcomes versus known refusal, single dispatch/replay safety, late-response intent, server-clock/cutoff/identity preservation. Before-images are in `.scratch/tryout-f12/before`; root source hashes are in `.scratch/tryout-f12/root-baseline.json`. F-3/F-6 dirty work and peer work must be preserved and excluded from commits.
+- New task standard resource allocations: child six guarded groups total, three per turn; root QA six total. Child startup lint/build then focused red use its first three. Root has launched no heavy QA or browser for F-12. No emergency/extra-group authorization assumed. Ego59 is already finished; fresh fixture routes require applicable explicit browser scope before checking.
+- Child owes checkpoint/committed handoff on thread 97b762a3; root should authorize ordinary continuation within the remaining allocation, perform independent reviews and rendered R1–R9 verification, then update F-12/TA-04/consolidated artifacts. No product repair or passing rerun is claimed at dispatch. F-7/F-8 remain separate.
+
+## TA-04 initial run executed; F-12 blocks acceptance (2026-10-14 WIB)
+
+- Normal open, approval and invitation workflows passed locally, including named review, contextual return, invitations/restoration, notification counts and 390px keyboard checks. Fresh TA-01/02/03 DB suites and relevant pure contracts passed. A retained fixture overlap correctly blocked the original F-11 rerun; an isolated repeat-safe copy passed. Detailed case limits are in the epic artifact `tryout-ta04-local-qa-20261014`.
+- F-12 P2 is confirmed in both student actions: an unresolved registration request leaves Batal/Mendaftarkan disabled after 26,008 ms; an unresolved Start leaves Menyiapkan disabled after 25,918 ms. No product repair was authorized or made. F-12 ticket is todo; TA-04 remains in progress with matrix M failed. Standards review is clear; Spec records this finding. Mentor offline and saved-write/failed-read recovery passed.
+- The primary student's retained overlapping TA-02 attempt was preserved; seeded Dimas exercised the short live session. Session b753fd1a ended at 09:34:08.463Z; attempt f7c502f0 has that exact deadline, the original release and seven expired runs. With the client clock ten minutes slow, the action disappeared 57 ms after cutoff without reload. Exact approval/invitation boundary contracts passed. TypeScript, lint and build passed; final lint retains five unrelated warnings. Result disclosure remains gated under the separately open F-7 workflow.
+- Eleven normal guarded groups were used with explicit extensions of six then two. Ego space 59 finished once with no tabs retained; clock/network/viewport and temporary names were restored. No owned persistent process remains; peer server :5023 was untouched. Five critical source hashes match the initial baseline. Excluded F-6/F-3 dirty work and peer work remain intact. Mixed-worktree results do not establish standalone clean-commit acceptance or both winning race orders.
+- Next: authorize clean-context exact 6.1-sol/high F-12 repair, then rerun interrupted-action recovery and affected deadline/identity/replay checks before closing TA-04. Root retains TA-04 QA role cea6434f for followthrough. F-7/F-8 remain separate. No required asynchronous verdict is pending.
+
+## Historical checkpoint — TA-04 authorized and started (2026-10-14 WIB)
+
+- User authorized combined A–P admission QA. Root09708a92 owns rolecea6434f, taskticket1, evidence epictryout-ta04-local-qa-20261014. Starting HEADd20d99cb; no product changes. F11 complete; F6/F3 dirt preserved. Normal3 root groups consumed; existing6/session leaves3. Browser approval/extension requested for fresh fixtures and seeded roles before Ego.
+- Fresh TA01/02/03 DB suites0. OriginalF11 rerun failed synthetic Start because retained priorF11 attempt overlapped newwindow; actual command refuses overlap as intended, no newattempt. Scratch repeat-safe copy moves racewindows after existing schedules, allsameassertions0; initial scratchrelative-import error retained. Pure invitation/recovery/expiry/workflow/disclosure0; fresh public all-mode fixtures0.
+- Open81d6c156/sessionb753fd1a; approval39ae65d9/session4c11834e; invitation48f272f6/session8bb30bf5. FullIDs/routes in .scratch/tryout-ta04/fixtures.json, futureOct16–17, noadmissions/attempts. Root DB peerhistory untouched; no reset/newaccounts/production, peer5023 untouched.
+- Paired static-only reviews required bycode-review: Standards374ddc97 thread4474903e, Spec0b77028c thread218a64af; configuredLuna/max perselectionguide, nofix/runtime. Baseline0df7d9d→d20d99cb scopes31files. Both async replies pending; don'tpoll. TA04 runtime/rendered/recovery/realF3 boundary/type/lint/build and closure remain pending.
+
+
+## F-11 accepted locally (2026-10-14 WIB)
+
+- Product `6ee19ee5`: private transient lifecycle helper5add4del plus293-line actual public DB regression. Clean-context exact6.1-sol/high child; final independent Standards/Spec clear. No-proof DB red→green, held-proof paths, ownership/leases/staleidentity/history/Start/grant, strictTS/full lint/build pass; five unrelated lint warnings.
+- Approved Kapten Ego58 hide/unhide/reloads, unpublish cancel/confirm and archive cancel/confirm/archived-history reload pass. UI had held proof; no-proof command evidence separate. SQL same session/release/payload; unpublish closes session, archive retains it. Existing20attempt history SHA unchanged. Browser scripts' path/API/wrongtab errors retained; no product failures attributed.
+- Child6 groups; root7 groups with explicit user extension after6 (up to2 approved, only1 used). Ego58 finished once keep[]; no owned server/worker; peer5023 untouched. Durable matrix/evidence epic tryout-f11-local-qa-20261013; ticket2/consolidated finding resolved. TA04 ticket remains0; not automatically started.
+- Repository F6 remaining64add4del byte-preserved/excluded; F3/peers untouched. Untouched draft deletion regression relies on preserved F6 dirty code; not clean standalone F11 pass. Race winners observed, both orders not forced. All previous checkpoints below are historical.
+
+
+## TA-01 approved and delegated (2026-10-10)
+
+- User approved the four-ticket breakdown and authorized TA-01 implementation/local verification, exact gpt-6.1-sol/high. Clean-context child `dcd238fc-12a7-4507-848a-0abec0ad045f` verified its model and owns participant review implementation; root coordinates final QA/reviews. Broker request `8633cad7-7fd8-4638-b55c-b16d76a34076` requires a completion reply.
+- Ticket/story execution state is in progress. D1–D8 and breakdown do not need further approval. Scope stays TA-01; TA-02/03/04 remain todo. Child preserves existing dirty work and records scoped commits/fixture IDs/gates in `tryout-ta01-implementation-evidence-20261010`.
+- Root acceptance matrix in epic `tryout-ta01-local-qa-20261010` covers navigation/no-attempt discovery, identity, decisions/replay, session end boundaries, archive staleness, ownership/disclosure, recovery/accessibility and regressions. All product verification remains pending at dispatch.
+- Local diagnostics: login HTTP 200, peer-owned dev server alive; Obscura :9222 absent. No root Node/browser/DB launch. Child performs guarded focused checks before final root local QA; do not launch parallel heavy groups or stop peer-owned servers. Completion depends on evidence and independent reviews, not source wiring alone.
+
+## F-9 / F-10 decisions approved; implementation tickets prepared (2026-10-10)
+
+- [x] User explicitly approved recommended D1–D8. Governing epic plan `tryout-f9-f10-admission-plan-20261010` now records approval, including mentor-only name/email identity, active-registration/revoked-session restoration, and archive history-only behavior.
+- [x] Prepared four todo ticket artifacts grouped by `tryout-admission-implementation-20261010`: TA-01 registration discovery/review; TA-02 draft/published modes; TA-03 invitations/restoration; TA-04 integrated A–P verification. Each feature slice includes its own checks and reviews.
+- [x] Dependencies: TA-01 first; TA-02/TA-03 depend on its navigation/identity contracts and are independent of one another; TA-04 depends on all three. Recommend sequential feature execution to avoid shared-workspace edits. Approved fix model remains gpt-6.1-sol/high.
+- [ ] Breakdown/execution review pending; no implementation, tests, browser checks or data mutations performed for ticket preparation. Consolidated report keeps F-9/F-10 unresolved until verified outcomes. No further D1–D8 approval needed.
+
+## F-9 / F-10 admission workflow planning (2026-10-10)
+
+- [x] Read-only source trace mapped admission modes, existing commands, participant/result projections, invitation search/notification/restoration behavior, and current route redirects. No application changes, tests, browser runs or data mutations in this planning task.
+- [x] Proposed plan in epic `tryout-f9-f10-admission-plan-20261010`: eight open product decisions, staged implementation and sixteen detailed acceptance-check groups. Configuration before publish avoids an unintended open-registration interval; pending review must not depend on the Hasil/attempt list.
+- [x] Independent plan critique incorporated: active registration can have revoked session access; explicit restoration and filters cover that case. D5 also requires a consistent approved identity/disambiguator for same-name invitation targets. Review artifact `tryout-f9-f10-admission-plan-review-20261010`; both clarifications added without settling decisions.
+- [ ] Product alignment remains open. Canonical `participants` currently maps to Hasil and rejects Operasional + participant delivery, so all route/context consumers need coordinated changes. Restore the existing admission flow only after supported modes, grant timing, directory scope, restoration and archive/hidden behavior are approved. F-9/F-10 remain unresolved.
+
+## F-5 Bank Soal creation accessible name complete (2026-10-10)
+
+- [x] Commit `89193b8` aligns the shared catalogue creation button's accessible name with visible “Buat Bank”. One source line only; unrelated dirty files preserved.
+- [x] Local Ego TaskSpace 50 passed the Tryout accessible snapshot/DOM, computed role/name click opening “Buat Bank Soal Tryout”, dismissal, reload, and shared Kuis label. No data mutation; space finished.
+- [x] Catalogue lifecycle contract, TypeScript and full `pnpm verify` pass, with two existing unrelated warnings. Clean-context gpt-6.1-sol/high Standards and Spec reviews report zero findings. Epic `tryout-f5-accessible-name-fix-20261010` and consolidated QA report record the resolution.
+
+## F-1 archived Tryout history complete (2026-10-10)
+
+- [x] Committed `53e1090` on local `dev`: archived catalogue cards open owned session/participant history, and archived attempt details show participant identity plus seven test records without mutation controls. Draft/published paths and edit exclusion remain intact.
+- [x] Approved local Ego verification passed catalogue navigation, history/attempt reload, parent return, the originally reported empty archived draft, mismatched participant refusal, and active-draft smoke check. A student session redirected to `/dashboard`. No Tryout data mutations; TaskSpace 49 finished.
+- [x] Focused ESLint, TypeScript, workflow projection contract, and full `pnpm verify` pass. Two existing unrelated lint warnings remain. Independent clean-context gpt-6.1-sol/high Standards and Spec reviews are clear.
+- [x] Epic `tryout-f1-history-fix-20261010` records evidence and limits; consolidated lifecycle report marks F-1 resolved. Archive recovery remains undecided; broader lifecycle rows retain their explicit partial/unverified outcomes. Unrelated dirty files were preserved.
+
+## KRF-03 attempt duration complete (2026-10-10)
+
+- Implemented and verified on isolated branch `krf-03-attempt-duration`; the shared `dev` checkout was left untouched. The work includes the per-attempt duration/start/deadline migration, pinned and disabled-cutover admission, request-time automatic submission, and student countdown/state.
+- Final normal guarded group passed migration backfill, KRF-03 DB/UI contracts, Start availability, KRF-02 continuation DB, KRF-01 pending-release DB, Kuis versioning, standalone version storage, TypeScript, lint, and `pnpm verify`. Spec and Standards follow-up reviews are clear. Full evidence: epic `krf03-implementation-evidence`.
+- Lint returned exit 0 with the existing Settings `Badge` warning and one unused UI-test counter warning. The database suite emitted the existing PostgreSQL concurrent-query deprecation warning. No browser or interactive verification was done.
+- Migration and fixtures targeted only disposable local `vecalss_dev`; other environments require the normal migration deployment. KRF-03 implementation is committed on its branch and ready for integration; KRF-04 remains independent.
+
+## KRF-02 active-attempt continuation complete (2026-10-10)
+
+- Integrated the reviewed six-commit KRF-02 series onto local `dev`, ending at `fd21155` before this tracking update. This includes `20261009090000_allow_quiz_resume_commands` and the route/mobile-label correction.
+- The approved policy is implemented: close/archive block discovery and new admission, while existing owned attempts remain resumable and can save, clear, change, and submit. Accepted Start keys stay tied to the same attempt, including after terminal submission; no duration deadline is added here.
+- Final guarded integration group passed `pnpm db:generate`, `pnpm test:quiz-active-continuation-db`, `pnpm exec tsc --noEmit --pretty false`, `pnpm lint`, and `pnpm verify` sequentially. Log: `/tmp/krf02-main-integration-checks.log`. Spec and Standards reviews are clear.
+- Verification ran with unrelated uncommitted Materi/quiz-editor changes present in the shared worktree; those changes were not staged or modified. The migration and test fixtures are local to disposable `vecalss_dev`. No browser/rendered UI verification was performed.
+- Full details: `.scratch/kuis-runtime-fixes/issues/02-active-attempt-continuation.md` and epic artifact `krf02-implementation-evidence`. KRF-03 is now unblocked.
+
+## KRF-02 continuation implementation checkpoint (2026-10-09; superseded by completion below)
+
+- Isolated branch `krf-02-active-attempt-continuation`, baseline `cadf375`, implementation `9cbf031`/`80d3b36`, test corrections `daaaeb3`/`4744281`. Fresh Start and no-ID loader were each reproduced red; final continuation DB suite passes across close -1/equal/+1 ms, both archive paths, hide/opening, legacy/versioned runtime, pins, valid pending/newer active assessments, ownership, answer changes/clears, results, caps/delays, distinct/repeated resume keys and bounded races.
+- Migration `20261009090000_allow_quiz_resume_commands` applied only to disposable local `vecalss_dev`: several accepted request keys can share an attempt; request uniqueness, legacy key and FKs remain. `migrate dev --create-only` failed on the historical guarded CBT shadow migration; the new two-statement forward SQL was reviewed and applied with `migrate deploy`, then local Prisma regenerated. Migration status: 85 migrations, up to date.
+- Availability, Kuis versioning/storage, owned editing, pending-release DB, dashboard pure/DB and resource-lock checks pass. Three source-shape checks retain baseline failures. Lint passes with one existing Settings warning. Full verify compiles successfully but fails existing Materi `parentHref` prop typing; final tsc has only that baseline error.
+- Fresh Luna/max Spec review clear; Standards mobile-label and source-regex findings resolved read-only. Labels now remain visible at all widths. Route decision uses real DB loaders, a required notFound callback injected by the authenticated page, and a throwing test 404 sentinel; available-preview control proves explicit invalid/foreign IDs cannot fall through.
+- Eight normal guarded groups used with explicit approvals for groups seven/eight. Seventh failed before fixtures at Next client-navigation import; callback injection avoids that import. Final eighth group: continuation DB exit 0, TypeScript exit 2 only on baseline Materi `parentHref`, lint exit 0 with existing Settings warning, verify exit 1 after production compilation on that same Materi error. Log `/tmp/krf02-review-final-checks.log`; guard status `/tmp/krf02-review-final-status.log`. No retry, emergency, browser, new accounts or owned server. Dependencies APFS-cloned locally; generated Prisma copied/regenerated locally. Full evidence: epic `krf02-implementation-evidence`. Ticket remains in progress pending coordinator integration/final gate.
+
+## KRF-01 pending result releases complete (2026-10-09)
+
+- `e45c355` on `dev`, baseline `4e056e8`; exact gpt-6.1-sol/high explicitly approved for this task. Stable-close save/result synchronization uses the existing scheduled-only transition across pinned policies; released and hidden results remain unchanged, and close removal is rejected atomically for pinned after-close dependents. Active work keeps its form/policy/start and can save/submit after close/archive.
+- Shared quiz locks for learner operations and exclusive mentor schedule lock precede deterministic participation/attempt locks; no learner lease requirement. Independent fresh exact Luna/max Standards and Spec reviews have no open findings after shared-lock/barrier and hidden-state/helper corrections.
+- Guarded DB regression, TypeScript, versioning/schedule, storage, resource lock and full `pnpm verify` pass. Six stale structural suites fail on baseline expectations; see epic `krf01-implementation/index.md` for exact commands/results. Existing Settings unused-Badge warning; pg concurrent-query deprecation comes from existing authoring writes.
+- Six normal sequential groups total (three original plus three of six additionally approved); no emergency mode, owned server/worker, migration/reset/account registration/dependency or browser work. Disposable local `vecalss_dev` test-owned fixtures cleaned in finally. Browser QA belongs to the coordinator after explicit route/role/checklist permission; KRF-02 can follow KRF-01. Unrelated Tryout source/test/package hunk preserved.
+
+## Mentor QA fixes (2026-10-07)
+
+- [x] Confirmed the reported Kuis is bank mode, with active same-owner quiz-purpose source Bank Soal Kuis UTBK. Added canonical bank-name read and shared desktop/mobile source context; regression reproduced missing title/link before the fix.
+- [x] Added purpose-aware Bank Soal error recovery; retained Kuis recovery, archived-route auth/notFound, legacy package guards, source revision checks and edit locks.
+- [x] Added explicit Prisma generation at dev startup/reset, documented full dev-process restart, and registered a read-only local catalogue/folder/category-count/editor smoke check.
+- [x] Eight focused regressions and full lint/production build pass in `/tmp/mentor-qa-final.log`. Eight sequential normal guard groups used with explicit user approval. No DB writes, resets, reseeds, migrations or browser saves.
+- Extra suite-manifest check fails on 15 pre-existing unregistered test files; Settings still has its pre-existing unused-Badge warning. User clarified that Tryout Bank Soal import rows must show answer mode, the new Bank Soal question default remains single-answer, and multi-answer CSV/XLSX template delivery is later work. `test:tryout-direct-question-picks` passed in one separately approved additional guarded group.
+- Independent Luna/max Standards is clear after the 44px recovery-action correction and source recheck. Spec's Tryout import-row P2 is resolved by the user decision and the focused regression pass. The prior lint/build pass predates this small UI follow-up. Native workers substituted after Traycer routing/access failure. Artifact: `mentor-qa-fixes-20261007` in epic `788a92f9-1c5a-4fc5-b873-76ac11c9949c`. No owned server or listener on port 5023.
+
+## Bank Soal deletion (2026-10-05)
+
+- [x] Confirmed deletion previously archived the bank and a fresh catalogue still returned it. Nullable deletion marker now separates deletion from restoration; historical question identities remain intact.
+- [x] Migration `5198842` applied to local/staging. `5fb1e56` adds reusable-package dependency guards and rejects adopted-create replay after deletion. Initial source changes were included externally in `eec7163`/`c551937`.
+- [x] Expanded deletion regression, pagination, resource-edit-lock and full `pnpm verify` pass; exact reported Tutor bank deleted and verified absent from staging catalogue/detail. Existing settings Badge warning only; unrelated Kuis static assertion still fails in authoring-lock-family.
+- Epic `question-bank-delete` holds intent and evidence. Final independent Luna/max review is clear; option-only package-version reference coverage remains a non-blocking note. No owned server or browser verification. Log `/tmp/question-bank-delete-verify.log`.
+
 ## Materi fullscreen footer widgets (2026-10-04)
 
 - [x] `7fa63a3`: omit the PDF action/completion row and helper text in fullscreen; keep exit at top-right and restore all normal-mode controls when fullscreen ends.
@@ -1167,3 +1308,83 @@ Live refresh/polling. AS-08 remains closed.
 - [x] Final guarded focused ESLint and staged whitespace checks pass. Full TypeScript reports no errors in the catalogue or MentorBadge change.
 - [ ] Repository-wide verification remains blocked outside this scope: prior `pnpm verify` stopped on unrelated mentor lint errors; final TypeScript still reports unrelated assessment, upload-slot, and student-preview diagnostics. Production build is unverified.
 - [ ] Browser QA is unverified: Obscura CDP was unavailable, and interactive ego-browser inspection requires route/role/checklist approval. No agent-owned server remains.
+
+
+## Materi auto-publication, deletion, and fullscreen focus (2026-10-04)
+
+- [x] New valid Materi publish atomically on creation, with immediate student visibility. Existing lifecycle states remain intact during edits.
+- [x] Catalogue/editor confirmed deletion enforces ownership/edit leases, removes lesson-owned records, preserves media/questions/topics and compacts remaining order. Shared commits `eec7163`, `ee2b3a9`; lint fixture correction `bfab462`.
+- [x] Fullscreen entry/exit restores focus to the active control; bottom widgets remain hidden.
+- [x] Materi save/delete, builder, resource, ordering and PDF regressions passed.
+- [x] Expanded deletion regression and full lint/production build passed on 2026-10-05 against `3e8292e`; one existing settings warning remains. Separately, writer-registry fails the unrelated stale script-entrypoint expectation.
+- [x] Independent Luna/max Spec/Standards reviews clear after copy/lock/focus and history-coverage fixes (`562a689`, `3e8292e`); no browser check performed.
+
+
+## Materi repeated create submissions (2026-10-05)
+
+- [x] Reproduced three records from concurrent submissions of one create request.
+- [x] Committed `921dfb0`: immediate form guard, pending through create navigation, stable tutor-scoped request identity with replay/conflict detection under subject locks.
+- [x] Concurrency/retry/separate-session/malformed-key/changed-input regression, builder validation, lock boundary and full lint/build pass; one existing settings warning.
+- [x] Addressed Spec pending-form finding in `a58c356`: disable fields/picker and reject queued changes while saving; public save regression and full verify pass (`/tmp/materi-duplicate-followup.log`).
+- [x] Independent exact Luna/max Spec recheck clear after `a58c356`; pending-form finding resolved.
+- [x] Independent exact Luna/max Standards review clear through `a58c356`. Duplicate-create task complete; no browser verification or owned server.
+
+## TA-01 root verification checkpoint (2026-10-11)
+
+- [x] Committed owner registration review (d65f355), focused fixtures/contracts (de7b80b), and valid expired-window test repair (4be83e3).
+- [x] Expanded local DB suite passed after repair: complete zero-attempt discovery, owner isolation, eligibility, duplicate/opposing decisions and counts, future Start, explicit restoration, archived refusal/history. Root strict TypeScript and focused repaired-test ESLint passed; child full lint/build passed.
+- [x] Final independent Standards/Spec reconciliation: zero actionable findings; shared pagination/filter P3s resolved.
+- [ ] Rendered mentor/student acceptance: Obscura timed out at seeded login navigation; no browser pass. Ego route/role/checklist approval required by AGENTS.md. Details in epic tryout-ta01-local-qa-20261010.
+- [ ] Finish recovery/responsive/keyboard/history checks and acceptance reconciliation before closing TA-01/F-10. F-9 and later tickets remain open; four baseline source-pattern failures recorded separately.
+
+## TA-01 approved Ego continuation (2026-10-11)
+
+- [x] Rendered same-name/email discovery, revoked access discovery/explicit confirmation, no-match/disabled boundaries, browser approval, student owner-directory refusal and rejected-student outcome. Persisted approval = one grant/audit; rejection = zero grants/one audit. All 13 existing attempt records/runs/answers remain unchanged.
+- [ ] Context return, responsive/keyboard, recovery overlay, archived detail/Hasil return and settled granted-student schedule remain unverified. Additional approved group stopped at a bad URL expectation and screenshot timeout; no new product bug established.
+- [ ] Resume retained Ego space 52 after further resource-budget authorization (seven root groups consumed, including one approved extension). Existing route/role/checklist approval persists. Ticket and F-10 remain open; later tickets not started.
+
+## 2026-10-11 — TA-01 three additional guarded QA groups
+
+- Retained Ego 52 verifies ordinary registration navigation/context return, archive/Hasil paths, mobile list keyboard/44px geometry, desktop dialog Escape/focus, bounded offline retry. Existing 13 attempts unchanged; prior approve/reject grant/audit counts unchanged; seeded names restored.
+- Screenshot export timeouts, keyboard login failure and root's relative-path runner error leave remaining recovery/student schedule/mobile detail/genuine empty acceptance incomplete. The runner's paths are corrected; no product edits or new confirmed defect. All three authorized groups consumed (ten root total); no owned processes. TA-01/F-10 remain open; TA-02/03/04 not started.
+- Current evidence and prepared next flow: epic tryout-ta01-local-qa-20261010. Further guarded launch requires explicit budget extension; space 52 and existing Ego route/role approval retained.
+
+## 2026-10-11 — TA-01 local acceptance complete; F-10 resolved
+
+- One further explicitly approved guarded group in retained Ego 52 completed saved-restoration/failed-refresh pointer recovery, mobile detail/dialog focus/Escape, genuine empty-registration rendering/restoration, and assigned student's future waiting screen/disabled Start. Existing navigation/named-review/context/archive/Hasil/offline checks also pass. Space finished exactly once; no owned processes.
+- All 13 prior attempts unchanged; approved/rejected counts preserved; Dimas restored to one active grant. Temporary names and five archived fixture registrations/three assignments restored exactly. Product commits unchanged; independent final reviews zero findings.
+- TA-01/shared-controls fixup complete, F-10 resolved, F-9 open. TA-02/03/04 remain todo. Final matrix/evidence/limits in epic tryout-ta01-local-qa-20261010. Screenshot export and four untouched source-pattern failures remain explicit limits; integrated exact command boundaries/races deferred to TA-04.
+
+## 2026-10-11 — TA-02 authorized and delegated
+
+- Fresh exact gpt-6.1-sol/high child 3bfcec39-734c-4f5e-8d4b-047872e06f57 implements TA-02 with required clean context. Root owns alignment, final Standards/Spec reviews and local browser acceptance. Ticket status1; R1–R14 QA matrix in epic tryout-ta02-local-qa-20261011. No pass/gate/browser claim at dispatch.
+- Draft create/edit/reopen/publication mode, published control/freeze and synchronized register/Start boundaries are covered; TA-03 invitation UI and TA-04 integrated work remain out of scope. Initial source seams suggest existing mutex/contracts can be reused without schema migration. Preserve unrelated dirty changes.
+
+## 2026-10-13 WIB — TA-02 local acceptance complete
+
+- [x] d9d537e all-three draft/published admission configuration, authoritative any-attempt/archive freeze, preserved queue/content/history and truthful recovery. Final independent 6.1-sol/high reviews clear; focused pure/complete local DB/type/full lint/build pass. Five unrelated warnings; untouched regex failures not claimed green.
+- [x] Final approved Ego55 verification passes forms/save/reopen, stay/save/discard and canonical navigation, locks, offline/pointer/read-failure recovery, 390px real keyboard/Escape/focus, student state preservation, and mounted delayed-create/newer-input/one-identity recovery. SQL two changes=one audit each; each new draft exists once; published history hashes unchanged.
+- [x] Ego55 finished once with p1 retained for user; no owned processes/source changes during QA. Ten root groups all authorized/guarded; no emergency/force-click bypass. TA-02 status2 and F-9 configuration resolved; invitation/restoration/integrated TA-03/04 remain todo.
+- Final matrix/receipts and practical limits: epic tryout-ta02-local-qa-20261011. Session windows elapsed while waiting for human approvals; fresh future fixtures required for subsequent eligibility tests. No new live F-3 cutoff, forced-both-orders race or cross-reload idempotency claim.
+
+## 2026-10-13 WIB — TA-03 authorized and delegated
+
+- [x] Fresh exact gpt-6.1-sol/high child 9fc64115 assigned approved TA-03; model verified and role claimed. TA-01/02 accepted; root owns Q1–Q14 acceptance and final independent reviews. D1–D8 remain approved.
+- [x] Ticket/story updated to in-progress scope; matrix epic tryout-ta03-local-qa-20261013 records detailed identity, grants/restoration/counts, locks/deadlines, races, recovery and accessibility checks. No product or runtime pass at dispatch.
+- [ ] Complete scoped implementation/gates/reviews and local invitation/restoration acceptance. No TA-04 start. Root0 guarded groups; child startup allocation3/turn, future windows and seeded local-only fixtures required; peer dev server preserved.
+
+## TA-03 startup accounting correction and continuation
+
+- Baseline install/lint/build and interface context passed; actual4 child launches, one above per-turn3. Recorded counting error; no retrospective approval. Remaining2/session allocated red then sequential focused/DB/type/lint/build; stop before any seventh launch.
+- Test/fixture slice7002146 committed but unrun; all TA-03 acceptance pending. Root0 heavy groups. Same-name rendered proof and fixture serialization constraints handed off.
+
+## 2026-10-13 WIB — TA-03 local acceptance complete
+
+- [x] Invitations/restoration and hidden assigned schedule/Start, precise server grant blockers and44px search control delivered in1857b4ab/1730003d with final independent exact6.1-sol/high reviews clear. Complete DB/pure/type/lint/build pass; five unrelated warnings.
+- [x] Actual same-name/email selection, reasoned invite/revoke/restore, preserved IDs/notification counts, offline/failed-read recovery, student schedule/no acceptance/futureStart and mobile/keyboard pass. Nine rootgroups normalguard, all extensions approved; no bypass/new accounts/production. Ego56 finished once keep[p1], overrides/names/eligibility restored, no ownedprocess.
+- [x] Durable evidence/receipts in epic tryout-ta03-local-qa-20261013; ticket2. F9 feature accepted; story1/TA04todo. Separate F11transientlock-order confirmed/open preparedticket, not autoimplemented. Preserve excludedF3/F6 and peerwork; no blanketfulllifecyclepass.
+
+## 2026-10-13 WIB — F-11 repair authorized
+
+- [x] Clean-context exact6.1-sol/high c5497398 verified/claimed isolated transient lifecycle repair; root acceptance role and Q1–Q12 matrix created. Ticket1; no implementation/gate pass yet.
+- [ ] Actual no-proof hide/archive/unpublish, shared caller/lease/owner/history/race regressions, localUI, final cold reviews/gates and finding closure. Preserve F6/F3/peerwork. Child startup2+redthird allocation, root0 launches; browser approval pending exactfixtures.

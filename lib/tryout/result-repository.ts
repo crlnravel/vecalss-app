@@ -7,7 +7,12 @@ import {
   toParticipantAssessmentReleaseMetadata,
 } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
+import { isUuid } from "@/lib/resource-edit-lock/canonical";
 import { aggregateTryoutScores, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { assertFrozenRunRelease, calculateFrozenTryoutRun, FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE } from "@/lib/tryout/frozen-run-scoring";
+import { isTryoutPolicyBaseline } from "@/lib/tryout/result-readiness";
+import type { TryoutPolicyBaseline, TryoutDefaultResultPolicy, TryoutPublicationReceipt, TryoutReadinessBlocker, TryoutResultReadinessScope, TryoutSessionReadiness } from "@/lib/tryout/result-readiness";
+import type { TryoutCalculationReceipt, TryoutResultRecoveryScope, TryoutResultRecoverySnapshot } from "@/lib/tryout/result-recovery";
 import {
   acquireTryoutIdentityMutex,
   assertTryoutIdentityStable,
@@ -54,10 +59,11 @@ function effectivePolicy(session: { resultReleasePolicy: TryoutResultReleasePoli
 }
 
 function explanationsComplete(run: { contentSnapshot: Prisma.JsonValue }) {
+  if (!run.contentSnapshot || typeof run.contentSnapshot !== "object" || Array.isArray(run.contentSnapshot)) return false;
   const content = run.contentSnapshot as { items?: Array<{ explanation?: string | null; explanationAssetId?: string | null; id: string }> };
-  const items = content.items ?? [];
-  return items.length > 0
-    && items.every((item) => Boolean(item.explanation?.trim() || item.explanationAssetId));
+  const items = content.items;
+  return Array.isArray(items) && items.length > 0
+    && items.every((item) => item && (typeof item.explanation === "string" && item.explanation.trim() || typeof item.explanationAssetId === "string" && item.explanationAssetId));
 }
 
 function frozenRunFields(
@@ -158,6 +164,53 @@ function terminalAttemptStateIsCalculable(attempt: { attemptState: AssessmentAtt
     && attempt.status !== AttemptStatus.abandoned;
 }
 
+const PUBLISHED_RESULT_REVIEW_MESSAGE = "Hasil yang sudah dirilis perlu diperiksa terlebih dahulu.";
+type PublishedRun = CanonicalRun & {
+  assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null;
+  calculationReleaseable: boolean; calculationResult: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue;
+  normalizedScore: Prisma.Decimal | null; rawScore: Prisma.Decimal | null; scaledScore: Prisma.Decimal | null;
+  scoringState: AssessmentScoringState; scoringVersion: string | null; status: TryoutAttemptTestRunStatus;
+};
+type PublishedAttempt = {
+  assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null;
+  attemptState: AssessmentAttemptState; status: AttemptStatus; releaseState: AssessmentResultReleaseState; releaseAt: Date | null;
+  score: Prisma.Decimal | null; normalizedScore: Prisma.Decimal | null; scaledScore: Prisma.Decimal | null;
+  scoringState: AssessmentScoringState; scoringVersion: string | null; tryoutId: string;
+  runs: PublishedRun[]; scoreBreakdowns: ReleaseBreakdown[];
+};
+
+/** Inspect stored publication integrity; never estimate or rewrite its scores. */
+function publishedAttemptIsConsistent(attempt: PublishedAttempt, tryout: { sections: CanonicalSection[] }, release: { id: string; releaseNumber: number; contentDigest: string; payload: Prisma.JsonValue } | null) {
+  const finite = (value: Prisma.Decimal | null) => value !== null && Number.isFinite(Number(value));
+  const normalized = (value: Prisma.Decimal | null) => finite(value) && Number(value) >= 0 && Number(value) <= 100;
+  if (!release || attempt.releaseState !== AssessmentResultReleaseState.released || !attempt.releaseAt
+    || attempt.scoringState !== AssessmentScoringState.scored || !attempt.scoringVersion || !normalized(attempt.score)
+    || (attempt.normalizedScore !== null && (!normalized(attempt.normalizedScore) || Number(attempt.normalizedScore) !== Number(attempt.score)))
+    || (attempt.scaledScore !== null && (!normalized(attempt.scaledScore) || Number(attempt.scaledScore) !== Number(attempt.score)))
+    || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout, runs: attempt.runs })
+    || !hasCanonicalSevenBreakdownSet({ tryout, breakdowns: attempt.scoreBreakdowns })
+    || attempt.assessmentReleaseId !== release.id || attempt.assessmentReleaseNumber !== release.releaseNumber || attempt.assessmentReleaseDigest !== release.contentDigest) return false;
+  try {
+    return attempt.runs.every((run) => {
+      if (run.scoringState !== AssessmentScoringState.scored || !run.scoringVersion || !run.calculationReleaseable
+        || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired)
+        || !normalized(run.normalizedScore) || !normalized(run.scaledScore) || !finite(run.rawScore) || !explanationsComplete(run)
+        || (run.calculationResult && typeof run.calculationResult === "object" && "validationFailure" in run.calculationResult)) return false;
+      assertFrozenRunRelease(run, run.section, release);
+      const breakdown = attempt.scoreBreakdowns.find((row) => row.subtestId === run.section.subtestId);
+      return Boolean(breakdown && normalized(breakdown.normalizedScore) && normalized(breakdown.scaledScore) && finite(breakdown.rawScore)
+        && Number(breakdown.normalizedScore) === Number(run.normalizedScore) && breakdown.rawScore!.equals(run.rawScore!.toDecimalPlaces(2)) && Number(breakdown.scaledScore) === Number(run.scaledScore));
+    });
+  } catch { return false; }
+}
+
+/** Participant calculations expose only established numeric result fields. */
+function participantRunCalculation(value: Prisma.JsonValue | null): Prisma.JsonValue | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const fields = ["ability", "answeredCount", "correctCount", "maxScore", "normalizedScore", "score", "unansweredCount", "wrongCount"];
+  return Object.fromEntries(Object.entries(value).filter(([key, value]) => fields.includes(key) && typeof value === "number" && Number.isFinite(value)));
+}
+
 async function upsertTryoutBreakdown(
   tx: Prisma.TransactionClient,
   attemptId: string,
@@ -187,20 +240,29 @@ async function upsertTryoutBreakdown(
   return tx.tryoutScoreBreakdown.create({ data: { ...data, attemptId, subtestId: run.section.subtestId, topicId: null } });
 }
 
-type MaterializeTryoutAttemptResult = { aggregationVersion: string; attemptId: string; finalScore?: number; runScores?: number[]; state?: "existing" | "review_required" };
+type MaterializeTryoutAttemptResult = { aggregationVersion: string; attemptId: string; finalScore?: number; runScores?: number[]; state?: "existing" | "review_required"; reason?: string };
 
 async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClient, attemptId: string, actorId: string, reason: string, strict = true): Promise<MaterializeTryoutAttemptResult> {
   const attempt = await tx.tryoutAttempt.findUnique({
     where: { id: attemptId },
     include: {
-      deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, availableUntil: true, rankingRule: true, releaseState: true, releasedAt: true, resultReleasePolicy: true, scheduledReleaseAt: true, tryout: { select: { defaultResultReleasePolicy: true } } } },
-      runs: { include: { section: { select: { durationSeconds: true, id: true, sequenceNo: true, subtestId: true, testType: true, title: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
+      deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, payload: true, releaseNumber: true } }, availableUntil: true, rankingRule: true, releaseState: true, releasedAt: true, resultReleasePolicy: true, scheduledReleaseAt: true, tryout: { select: { defaultResultReleasePolicy: true } } } },
+      runs: { include: { answers: { select: { selectedOptionId: true, selectedOptionIds: true, tryoutItemId: true } }, section: { select: { durationSeconds: true, id: true, sequenceNo: true, subtestId: true, testType: true, title: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
       scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } },
       tryout: { select: { createdByUserId: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
     },
   });
-  const review = async (message: string): Promise<MaterializeTryoutAttemptResult> => {
-    if (strict) throw new TryoutResultValidationError(message);
+  // Publication is an immutable receipt, including older scoring versions.
+  // Check it before validation/review paths can hide or rewrite stored results.
+  if (attempt?.releaseState === AssessmentResultReleaseState.released) {
+    if (!publishedAttemptIsConsistent(attempt, attempt.tryout, attempt.deliverySession.assessmentRelease)) {
+      if (strict) throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
+      return { aggregationVersion: attempt.scoringVersion ?? TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, state: "review_required", reason: PUBLISHED_RESULT_REVIEW_MESSAGE };
+    }
+    return { aggregationVersion: attempt.scoringVersion ?? TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, ...(attempt.score === null ? {} : { finalScore: Number(attempt.score) }), state: "existing" };
+  }
+  const review = async (message: string, cause?: unknown): Promise<MaterializeTryoutAttemptResult> => {
+    if (strict) throw new TryoutResultValidationError(message, { cause });
     if (attempt) await tx.tryoutAttempt.update({ where: { id: attempt.id }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: message, scoringState: AssessmentScoringState.review_required } });
     return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, state: "review_required" };
   };
@@ -214,6 +276,14 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   if (attempt.runs.some((run) => run.assessmentReleaseId !== attempt.assessmentReleaseId || run.assessmentReleaseNumber !== attempt.assessmentReleaseNumber || run.assessmentReleaseDigest !== attempt.assessmentReleaseDigest)) return review("Test run Tryout tidak cocok dengan AssessmentRelease attempt.");
   if (!terminalAttemptStateIsCalculable(attempt)) return review("Attempt belum berada pada state terminal yang dapat dihitung, atau telah abandoned/void.");
   if (!hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.tryout, runs: attempt.runs })) return review("Attempt tidak memiliki tepat tujuh Test kanonis untuk Tryout ini.");
+  try {
+    for (const run of attempt.runs) {
+      assertFrozenRunRelease(run, run.section, attempt.deliverySession.assessmentRelease);
+      calculateFrozenTryoutRun({ contentSnapshot: run.contentSnapshot, answers: run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId, selectedOptionIds: answer.selectedOptionIds })), expired: run.status === TryoutAttemptTestRunStatus.expired });
+    }
+  } catch (error) {
+    return review(FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE, error);
+  }
   if (attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.normalizedScore === null)) return review("Semua tujuh Test harus tersegel dan termaterialisasi sebelum hasil dapat dihitung.");
   const scores = attempt.runs.map((run) => Number(run.normalizedScore));
   const finalScore = aggregateTryoutScores(scores);
@@ -243,7 +313,7 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
         ? AttemptStatus.scored
         : AttemptStatus.submitted;
   await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState, correctCount, normalizedScore: finalScore, rawScore, releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scaledScore: finalScore, score: finalScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_SCORE_AGGREGATION_VERSION, status, unansweredCount, wrongCount } });
-  await tx.tryoutDeliveryAudit.create({ data: { action: "result.calculated", actorUserId: actorId, admissionId: attempt.admissionId, after: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, finalScore, runScores: scores }), reason: reason.trim(), tryoutId: attempt.tryoutId, deliverySessionId: attempt.deliverySessionId } });
+  await tx.tryoutDeliveryAudit.create({ data: { action: "result.calculated", actorUserId: actorId, admissionId: attempt.admissionId, after: json({ attemptId, aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, finalScore, runScores: scores }), reason: reason.trim(), tryoutId: attempt.tryoutId, deliverySessionId: attempt.deliverySessionId } });
   return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore, runScores: scores };
 }
 
@@ -311,62 +381,287 @@ async function lockTryoutResultScope(
   return { admissionIds, assignmentIds, attemptIds, runIds, sessionId: resolved.sessionId, tryoutId: resolved.tryoutId };
 }
 
-async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string, allowCrossOwner = false) {
+const recoveryInclude = {
+  deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, payload: true, releaseNumber: true } }, releaseState: true } },
+  runs: { include: { answers: true, section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
+  scoreBreakdowns: true,
+  tryout: { select: { createdByUserId: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
+} satisfies Prisma.TryoutAttemptInclude;
+type RecoveryAttempt = Prisma.TryoutAttemptGetPayload<{ include: typeof recoveryInclude }>;
+const recoveryUnavailable = "Pengerjaan Tryout tidak tersedia untuk perhitungan ini.";
+
+function storedScoreMatches(value: Prisma.Decimal | null, expected: number, decimalPlaces: number) {
+  return value !== null && Number.isFinite(Number(value)) && value.equals(new Prisma.Decimal(expected).toDecimalPlaces(decimalPlaces));
+}
+
+/** Reusing a scored run requires proof that its stored receipt agrees with frozen computation. */
+function validatedRecoveryRun(run: RecoveryAttempt["runs"][number], release: NonNullable<RecoveryAttempt["deliverySession"]["assessmentRelease"]>) {
+  if (run.status !== "expired" && run.status !== "sealed") throw new Error("Unfinished run");
+  assertFrozenRunRelease(run, run.section, release);
+  const calculation = calculateFrozenTryoutRun({ contentSnapshot: run.contentSnapshot, answers: run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId, selectedOptionIds: answer.selectedOptionIds })), expired: run.status === "expired" });
+  if (run.scoringState === "scored") {
+    const result = run.calculationResult;
+    if (!run.calculationReleaseable || run.scoringReviewReason !== null || run.scoringVersion !== calculation.scoringVersion || run.calculationVersion !== calculation.scoringVersion
+      || !storedScoreMatches(run.normalizedScore, calculation.normalizedScore, 2) || !storedScoreMatches(run.scaledScore, calculation.normalizedScore, 2)
+      || !storedScoreMatches(run.rawScore, calculation.rawScore, 4) || !storedScoreMatches(run.maxScore, calculation.maxScore, 4)
+      || run.correctCount !== calculation.correctCount || run.wrongCount !== calculation.wrongCount || run.unansweredCount !== calculation.unansweredCount
+      || !result || typeof result !== "object" || Array.isArray(result) || Object.hasOwn(result, "validationFailure")
+      || Object.entries(calculation.calculationResult).some(([key, value]) => result[key] !== value)) throw new Error("Stored run scoring is inconsistent with frozen computation");
+  }
+  return calculation;
+}
+
+function validateRecoveryRuns(attempt: RecoveryAttempt) {
+  const release = attempt.deliverySession.assessmentRelease;
+  if (!release || attempt.assessmentReleaseId !== release.id || attempt.assessmentReleaseNumber !== release.releaseNumber || attempt.assessmentReleaseDigest !== release.contentDigest
+    || !hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.tryout, runs: attempt.runs })) throw new TryoutResultValidationError("Tujuh tes dan konten tersimpan perlu diperiksa sebelum skor dapat dihitung.");
+  const calculations = attempt.runs.map((run) => {
+    try {
+      return validatedRecoveryRun(run, release);
+    } catch (cause) { throw new TryoutResultValidationError(FROZEN_TRYOUT_SCORING_REVIEW_MESSAGE, { cause }); }
+  });
+  if (attempt.scoringState === "scored") {
+    const expected = aggregateTryoutScores(calculations.map((calculation) => calculation.normalizedScore));
+    // Materialization sums persisted four-place run raw scores, then writes
+    // each same raw value into the breakdown's two-place storage column.
+    const storedRawScores = calculations.map((calculation) => new Prisma.Decimal(calculation.rawScore).toDecimalPlaces(4));
+    const expectedRawScore = storedRawScores.reduce((sum, value) => sum.add(value), new Prisma.Decimal(0)).toNumber();
+    if (!storedScoreMatches(attempt.score, expected, 2) || !storedScoreMatches(attempt.normalizedScore, expected, 2) || !storedScoreMatches(attempt.scaledScore, expected, 2)
+      || !storedScoreMatches(attempt.rawScore, expectedRawScore, 4)
+      || attempt.correctCount !== calculations.reduce((sum, calculation) => sum + calculation.correctCount, 0)
+      || attempt.wrongCount !== calculations.reduce((sum, calculation) => sum + calculation.wrongCount, 0)
+      || attempt.unansweredCount !== calculations.reduce((sum, calculation) => sum + calculation.unansweredCount, 0)
+      || !hasCanonicalSevenBreakdownSet({ tryout: attempt.tryout, breakdowns: attempt.scoreBreakdowns })
+      || attempt.runs.some((run, index) => {
+        const row = attempt.scoreBreakdowns.find((row) => row.subtestId === run.section.subtestId);
+        const calculation = calculations[index];
+        return !row || !storedScoreMatches(row.normalizedScore, calculation.normalizedScore, 2) || !storedScoreMatches(row.scaledScore, calculation.normalizedScore, 2)
+          || !storedScoreMatches(row.rawScore, storedRawScores[index].toNumber(), 2) || row.correctCount !== calculation.correctCount || row.wrongCount !== calculation.wrongCount || row.unansweredCount !== calculation.unansweredCount;
+      })) throw new TryoutResultValidationError("Skor tersimpan perlu diperiksa sebelum perhitungan dapat dilanjutkan.");
+  }
+  return calculations;
+}
+
+async function calculationReceipt(tx: Prisma.TransactionClient, attempt: RecoveryAttempt): Promise<TryoutCalculationReceipt | null> {
+  const receipt = await tx.tryoutDeliveryAudit.findFirst({ where: { action: "result.calculated", deliverySessionId: attempt.deliverySessionId, admissionId: attempt.admissionId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, createdAt: true, reason: true } });
+  return receipt ? { id: receipt.id, calculatedAt: receipt.createdAt.toISOString(), reason: receipt.reason } : null;
+}
+
+/** All seven proposals validate before scoring writes. Keep lifecycle/acknowledged history intact. */
+async function recoverExpiredRuns(tx: Prisma.TransactionClient, attempt: RecoveryAttempt) {
+  if (attempt.attemptState !== "expired" || attempt.status !== "expired") return;
+  const calculations = validateRecoveryRuns(attempt);
+  for (const [index, run] of attempt.runs.entries()) {
+    if (run.scoringState === "scored" && run.calculationReleaseable && run.normalizedScore !== null && run.rawScore !== null && run.scaledScore !== null && run.scoringVersion) continue;
+    if (run.status !== "expired") throw new TryoutResultValidationError("Skor tes yang sudah selesai perlu diperiksa terlebih dahulu.");
+    const calculation = calculations[index];
+    // react-doctor-disable-next-line async-await-in-loop -- persist seven prevalidated proposals atomically under canonical result locks.
+    await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: {
+      calculationInput: json(calculation.calculationInput), calculationResult: json(calculation.calculationResult), calculationVersion: calculation.scoringVersion, calculationReleaseable: true,
+      correctCount: calculation.correctCount, wrongCount: calculation.wrongCount, unansweredCount: calculation.unansweredCount, maxScore: calculation.maxScore,
+      normalizedScore: calculation.normalizedScore, rawScore: calculation.rawScore, scaledScore: calculation.normalizedScore,
+      scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: calculation.scoringVersion,
+    } });
+    const scoredAnswers = new Map(calculation.answers.map((answer) => [answer.itemId, answer]));
+    for (const answer of run.answers) {
+      const scored = scoredAnswers.get(answer.tryoutItemId)!;
+      // react-doctor-disable-next-line async-await-in-loop -- only derived score metadata changes; acknowledged selections/times remain immutable.
+      await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: scored.isCorrect, pointsAwarded: scored.pointsAwarded, scoringVersion: calculation.scoringVersion } });
+    }
+  }
+}
+
+async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string, allowCrossOwner = false, expectedScope?: TryoutResultRecoveryScope) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit perhitungan wajib diisi.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     await lockTryoutResultScope(tx, { id: attemptId, kind: "attempt" });
-    const target = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { tryout: { select: { createdByUserId: true } } } });
-    if (!target) throw new TryoutResultValidationError("Attempt Tryout tidak ditemukan.");
-    if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat menghitung hasil Tryout milik Kapten lain.");
-    return materializeTryoutAttemptInTransaction(tx, attemptId, actorId, reason, true);
-  });
+    const target = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: recoveryInclude });
+    if (!target || (target.tryout.createdByUserId !== actorId && !allowCrossOwner)
+      || (expectedScope && (expectedScope.attemptId !== attemptId || expectedScope.tryoutId !== target.tryoutId || expectedScope.sessionId !== target.deliverySessionId))) throw new TryoutResultValidationError(recoveryUnavailable);
+    if (target.deliverySession.releaseState === "released" && target.releaseState !== "released") throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
+    if (target.releaseState !== "released") await recoverExpiredRuns(tx, target);
+    const result = await materializeTryoutAttemptInTransaction(tx, attemptId, actorId, reason, true);
+    return { ...result, receipt: await calculationReceipt(tx, target) };
+  }, { timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
+}
+
+/** Read-only consistent snapshot: no synchronization, heartbeat, row/advisory locks or mutation. */
+async function inspectTryoutCalculation(scope: TryoutResultRecoveryScope, actorId: string, allowCrossOwner = false): Promise<TryoutResultRecoverySnapshot | null> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    const target = await tx.tryoutAttempt.findFirst({ where: { id: scope.attemptId, tryoutId: scope.tryoutId, deliverySessionId: scope.sessionId, ...(!allowCrossOwner ? { tryout: { createdByUserId: actorId } } : {}) }, include: recoveryInclude });
+    if (!target) return null;
+    const receipt = await calculationReceipt(tx, target);
+    const base = { scope, receipt, finalScore: null, sections: [] };
+    if (target.releaseState === "released" || target.deliverySession.releaseState === "released") {
+      const valid = publishedAttemptIsConsistent(target, target.tryout, target.deliverySession.assessmentRelease);
+      return { ...base, state: valid ? "released" : "blocked", message: valid ? "Hasil sudah dirilis dan tidak dapat dihitung ulang." : PUBLISHED_RESULT_REVIEW_MESSAGE };
+    }
+    const sections = target.runs.map((run) => {
+      let ready = false;
+      try {
+        if (!target.deliverySession.assessmentRelease || !["sealed", "expired"].includes(run.status)) throw new Error("Run unavailable");
+        validatedRecoveryRun(run, target.deliverySession.assessmentRelease);
+        ready = true;
+      } catch { /* Safe owner blocker; no frozen keys or raw diagnostics. */ }
+      return { sequenceNo: run.sequenceNo, ready, message: ready ? null : "Konten atau jawaban tersimpan pada tes ini perlu diperiksa." };
+    });
+    try {
+      if (!terminalAttemptStateIsCalculable(target)) throw new Error("Attempt unfinished");
+      validateRecoveryRuns(target);
+    } catch { return { ...base, sections, state: "blocked", message: "Perhitungan belum dapat dilakukan. Periksa tujuh tes dan konten tersimpan pada pengerjaan ini." }; }
+    const calculated = target.scoringState === "scored" && target.score !== null && Number.isFinite(Number(target.score)) && hasCanonicalSevenBreakdownSet({ tryout: target.tryout, breakdowns: target.scoreBreakdowns })
+      && target.runs.every((run) => run.scoringState === "scored" && run.calculationReleaseable && run.normalizedScore !== null && run.rawScore !== null && run.scaledScore !== null);
+    return { ...base, sections, state: calculated ? "calculated" : "ready", finalScore: calculated ? Number(target.score) : null, message: calculated ? "Skor sudah tersimpan. Hasil peserta tetap mengikuti aturan rilis sesi." : "Skor dapat dihitung dari konten dan jawaban tersimpan. Alasan tindakan wajib diisi." };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
+}
+
+const readinessInclude = {
+  assessmentRelease: { select: { contentDigest: true, id: true, payload: true, releaseNumber: true, tryoutId: true } },
+  tryout: { select: { createdByUserId: true, defaultResultReleasePolicy: true, status: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
+  attempts: { include: recoveryInclude, orderBy: { id: "asc" } },
+} satisfies Prisma.TryoutDeliverySessionInclude;
+type ReadinessSession = Prisma.TryoutDeliverySessionGetPayload<{ include: typeof readinessInclude }>;
+
+/** Lifecycle is authoritative even when excluded history contains stale result flags. */
+function excludedAttempt(attempt: { attemptState: AssessmentAttemptState; status: AttemptStatus }) {
+  return attempt.attemptState === "void" || attempt.attemptState === "abandoned" || attempt.status === "abandoned";
+}
+
+/** One evaluator for owner inspection, explicit publication and automatic synchronization. No writes. */
+function evaluateSessionCohort(session: ReadinessSession) {
+  const excluded = session.attempts.filter(excludedAttempt);
+  const candidates = session.attempts.filter((attempt) => !excludedAttempt(attempt));
+  const blockers: TryoutReadinessBlocker[] = [];
+  const readyIds: string[] = [];
+  const add = (category: TryoutReadinessBlocker["category"], message: string, attemptId: string | null = null, section: number | null = null) => blockers.push({ category, message, attemptId, section });
+  const release = session.assessmentRelease;
+  if (!release || release.tryoutId !== session.tryoutId) add("session", "Konten tersimpan untuk sesi ini perlu diperiksa.");
+  let policy: ReleasePolicy | null = null;
+  try { policy = effectivePolicy(session); } catch { add("session", "Aturan rilis hasil sesi belum lengkap."); }
+  if (!policy || !["immediate", "manual", "automatic_at_end", "scheduled"].includes(policy)) add("session", "Aturan rilis hasil sesi belum tersedia.");
+  if (policy === "scheduled" && !session.scheduledReleaseAt) add("session", "Waktu rilis hasil sesi belum ditentukan.");
+  if (!candidates.length) add("empty", "Belum ada pengerjaan yang dapat disertakan dalam rilis hasil.");
+  for (const attempt of candidates) {
+    const before = blockers.length;
+    if (!terminalAttemptStateIsCalculable(attempt)) add("unfinished", "Pengerjaan belum selesai. Periksa status pengerjaan terlebih dahulu.", attempt.id);
+    if (!release || attempt.assessmentReleaseId !== release.id || attempt.assessmentReleaseNumber !== release.releaseNumber || attempt.assessmentReleaseDigest !== release.contentDigest) add("binding", "Konten tersimpan pada pengerjaan tidak cocok dengan sesi.", attempt.id);
+    if (session.releaseState === "released" || attempt.releaseState === "released") {
+      if (!publishedAttemptIsConsistent(attempt, session.tryout, release)) add("published", PUBLISHED_RESULT_REVIEW_MESSAGE, attempt.id);
+    } else {
+      if (attempt.scoringState !== "scored" || attempt.score === null || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns })) {
+        add("scoring", "Tujuh tes dan skor pengerjaan perlu dihitung atau diperiksa.", attempt.id);
+      } else {
+        try { validateRecoveryRuns(attempt); } catch { add("scoring", "Skor atau konten tersimpan perlu diperiksa sebelum hasil dapat dirilis.", attempt.id); }
+      }
+      for (const run of attempt.runs) {
+        try {
+          if (!release) throw new Error("Missing release");
+          assertFrozenRunRelease(run, run.section, release);
+          frozenRunFields(run, true);
+        } catch { add("binding", "Konten tersimpan pada tes ini perlu diperiksa.", attempt.id, run.sequenceNo); }
+        if (run.scoringState !== "scored" || !run.calculationReleaseable || !["sealed", "expired"].includes(run.status)) add("scoring", "Skor tes ini belum siap. Buka pengerjaan untuk memeriksanya.", attempt.id, run.sequenceNo);
+        if (!explanationsComplete(run)) add("explanations", "Pembahasan pada konten tersimpan belum lengkap. Pembahasan ini tidak dapat diganti dari soal terbaru.", attempt.id, run.sequenceNo);
+      }
+    }
+    if (blockers.length === before) readyIds.push(attempt.id);
+  }
+  const counts = {
+    attempts: session.attempts.length, candidates: candidates.length, ready: readyIds.length, blocked: candidates.length - readyIds.length,
+    excluded: excluded.length, void: excluded.filter((attempt) => attempt.attemptState === "void").length,
+    abandoned: excluded.filter((attempt) => attempt.attemptState !== "void").length,
+  };
+  return { policy, readyIds, blockers, counts, ready: candidates.length > 0 && blockers.length === 0 };
 }
 
 async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySessionId: string) {
-  const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, tryout: { select: { defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } } } } } });
-  if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
-  if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
-  const policy = effectivePolicy(session);
-  if (!session.attempts.length) throw new TryoutResultValidationError("Belum ada attempt pada sesi ini untuk dirilis.");
-  for (const attempt of session.attempts) {
-    for (const run of attempt.runs) {
-      frozenRunFields(run, true);
-    }
-    assertResultReleaseBinding(
-      { assessmentReleaseDigest: session.assessmentRelease.contentDigest, assessmentReleaseId: session.assessmentRelease.id, assessmentReleaseNumber: session.assessmentRelease.releaseNumber },
-      { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
-      "Rilis diblokir: attempt tidak cocok dengan AssessmentRelease sesi.",
-    );
-    if (attempt.runs.some((run) => run.assessmentReleaseId !== session.assessmentRelease!.id || run.assessmentReleaseNumber !== session.assessmentRelease!.releaseNumber || run.assessmentReleaseDigest !== session.assessmentRelease!.contentDigest)) throw new TryoutResultValidationError("Rilis diblokir: Test run tidak cocok dengan AssessmentRelease sesi.");
-    if (attempt.score === null || attempt.scoringState !== AssessmentScoringState.scored || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns }) || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || attempt.runs.some((run) => run.scoringState !== AssessmentScoringState.scored || run.normalizedScore === null || !run.calculationReleaseable || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !explanationsComplete(run))) {
-      throw new TryoutResultValidationError("Rilis diblokir: seluruh attempt harus selesai, terhitung valid, dan memiliki penjelasan untuk semua item yang dikirim.");
-    }
-  }
-  return { policy, session };
+  const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: readinessInclude });
+  if (!session) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
+  return { session, ...evaluateSessionCohort(session) };
 }
 
-async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false) {
+/** Read the immutable release audit, never reconstruct its cohort from current history. */
+async function publicationReceipt(tx: Prisma.TransactionClient, scope: TryoutResultReadinessScope, releasedAt: Date | null): Promise<TryoutPublicationReceipt | null> {
+  if (!releasedAt) return null;
+  const record = await tx.tryoutDeliveryAudit.findFirst({ where: { tryoutId: scope.tryoutId, deliverySessionId: scope.sessionId, action: "result.bundle_released" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, actorUserId: true, actor: { select: { fullName: true } }, reason: true, after: true } });
+  const after = record?.after as { attemptIds?: unknown; policy?: unknown } | null;
+  if (!record || after?.policy !== "manual" || !Array.isArray(after.attemptIds) || !after.attemptIds.length || !after.attemptIds.every((id) => typeof id === "string" && isUuid(id)) || new Set(after.attemptIds).size !== after.attemptIds.length) return null;
+  return { ...scope, id: record.id, releasedAt: releasedAt.toISOString(), actorId: record.actorUserId, actorName: record.actor.fullName, reason: record.reason, participantCount: after.attemptIds.length };
+}
+
+/** Dedicated owner projection; no hidden scores, frozen keys or calculation diagnostics leave this boundary. */
+function policyAuditReceipt(record: { id: string; createdAt: Date; reason: string; after: Prisma.JsonValue | null } | null) {
+  const after = record?.after as { policy?: string; expectedBaseline?: TryoutPolicyBaseline } | null;
+  return record && after && ["immediate", "manual", "automatic_at_end"].includes(after.policy ?? "") ? { id: record.id, ...(isTryoutPolicyBaseline(after.expectedBaseline) ? { expectedBaseline: after.expectedBaseline } : {}), configuredAt: record.createdAt.toISOString(), reason: record.reason, policy: after.policy as TryoutDefaultResultPolicy } : null;
+}
+
+async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, actorId: string, allowCrossOwner = false, requestId?: string): Promise<TryoutSessionReadiness | null> {
+  if (requestId !== undefined && !isUuid(requestId)) return null;
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    const session = await tx.tryoutDeliverySession.findFirst({ where: { id: scope.sessionId, tryoutId: scope.tryoutId, ...(!allowCrossOwner ? { tryout: { createdByUserId: actorId } } : {}) }, include: readinessInclude });
+    if (!session) return null;
+    const evaluated = evaluateSessionCohort(session);
+    const now = new Date();
+    const blockers = [...evaluated.blockers];
+    if (evaluated.policy === "manual" && session.releaseState !== "released" && now < session.availableUntil) blockers.push({ category: "end", attemptId: null, section: null, message: "Sesi belum berakhir. Rilis manual tersedia setelah waktu selesai." });
+    const [started, sessions, receipt, noAttempt, intentReceipt, auditCount] = await Promise.all([
+      tx.tryoutAttempt.count({ where: { tryoutId: scope.tryoutId } }),
+      tx.tryoutDeliverySession.findMany({ where: { tryoutId: scope.tryoutId }, orderBy: [{ availableFrom: "asc" }, { id: "asc" }], select: { id: true, name: true, resultReleasePolicy: true } }),
+      tx.tryoutDeliveryAudit.findFirst({ where: { tryoutId: scope.tryoutId, action: "result_release.default_configured" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, createdAt: true, reason: true, after: true } }),
+      // Assignment uniqueness is (admissionId, deliverySessionId), so this
+      // focused count preserves distinct active admissions without an attempt.
+      tx.tryoutDeliveryAssignment.count({ where: { deliverySessionId: scope.sessionId, status: "active", admissionId: { notIn: session.attempts.map((attempt) => attempt.admissionId) } } }),
+      requestId ? tx.tryoutDeliveryAudit.findFirst({ where: { id: requestId.toLowerCase(), actorUserId: actorId, tryoutId: scope.tryoutId, action: "result_release.default_configured" }, select: { id: true, createdAt: true, reason: true, after: true } }) : null,
+      tx.tryoutDeliveryAudit.count({ where: { tryoutId: scope.tryoutId, action: "result_release.default_configured" } }),
+    ]);
+    const archived = session.tryout.status === "archived";
+    const editable = session.tryout.status === "published" && started === 0;
+    return {
+      scope, sessionName: session.name, availableUntil: session.availableUntil.toISOString(), serverNow: now.toISOString(),
+      effectivePolicy: evaluated.policy ?? "unavailable", inherited: session.resultReleasePolicy === "inherit", ready: blockers.length === 0 && evaluated.ready,
+      counts: { ...evaluated.counts, noAttempt }, blockers,
+      publication: session.releaseState === "released" && session.releasedAt ? { releasedAt: session.releasedAt.toISOString(), actorId: session.releasedByUserId, reason: session.releaseReason, receipt: await publicationReceipt(tx, scope, session.releasedAt) } : null,
+      policy: {
+        baseline: { auditCount, policy: session.tryout.defaultResultReleasePolicy },
+        editable, reason: editable ? null : archived ? "Tryout sudah diarsipkan. Aturan rilis tidak dapat diubah." : started ? "Aturan rilis terkunci karena peserta sudah mulai mengerjakan Tryout ini." : "Aturan rilis dapat diubah setelah Tryout diterbitkan.",
+        value: session.tryout.defaultResultReleasePolicy,
+        receipt: policyAuditReceipt(receipt),
+        ...(requestId ? { intentReceipt: policyAuditReceipt(intentReceipt) } : {}),
+        sessions: sessions.map((row) => ({ id: row.id, name: row.name, inherited: row.resultReleasePolicy === "inherit", effectivePolicy: row.resultReleasePolicy === "inherit" ? session.tryout.defaultResultReleasePolicy : row.resultReleasePolicy })),
+      },
+    };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
+}
+
+async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false, expectedTryoutId?: string) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit rilis wajib diisi.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     const scope = await lockTryoutResultScope(tx, { id: deliverySessionId, kind: "session" });
+    if (expectedTryoutId !== undefined && scope.tryoutId !== expectedTryoutId) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
     const target = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, select: { releasedAt: true, releaseState: true, tryout: { select: { createdByUserId: true } } } });
-    if (!target) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
+    if (!target) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
     if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat merilis hasil Tryout milik Kapten lain.");
-    const { policy } = await sessionReleaseReadiness(tx, deliverySessionId);
+    // A committed bundle is a stable receipt, even if later historical damage is reported separately.
+    if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const, receipt: await publicationReceipt(tx, { tryoutId: scope.tryoutId, sessionId: deliverySessionId }, target.releasedAt) };
+    const { policy, session, ready, readyIds, blockers } = await sessionReleaseReadiness(tx, deliverySessionId);
+    if (session.tryout.status !== "published" && session.tryout.status !== "archived") throw new TryoutResultValidationError("Hasil hanya dapat dirilis dari Tryout yang diterbitkan atau riwayat arsip.");
     if (policy !== "manual") throw new TryoutResultValidationError("Kontrol rilis master hanya digunakan untuk sesi dengan kebijakan manual.");
-    if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const };
+    // Fresh authoritative time AFTER the complete canonical lock scope is held.
     const releasedAt = new Date();
+    if (releasedAt < session.availableUntil) throw new TryoutResultValidationError("Hasil belum dapat dirilis karena sesi belum berakhir.");
+    if (!ready) throw new TryoutResultValidationError(blockers[0]?.message ?? "Hasil sesi belum siap dirilis.");
     await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { releaseReason: reason.trim(), releaseState: AssessmentResultReleaseState.released, releasedAt, releasedByUserId: actorId } });
-    await tx.tryoutAttempt.updateMany({ where: { id: { in: scope.attemptIds } }, data: { releaseAt: releasedAt, releaseState: AssessmentResultReleaseState.released } });
-    await tx.tryoutDeliveryAudit.create({ data: { action: "result.bundle_released", actorUserId: actorId, after: json({ bundle: ["score", "review", "explanations", "ranking", "report"], policy }), deliverySessionId, reason: reason.trim(), tryoutId: scope.tryoutId } });
-    return { deliverySessionId, releasedAt, state: "released" as const };
-  });
+    await tx.tryoutAttempt.updateMany({ where: { id: { in: readyIds }, releaseState: { not: "released" } }, data: { releaseAt: releasedAt, releaseState: AssessmentResultReleaseState.released } });
+    await tx.tryoutDeliveryAudit.create({ data: { action: "result.bundle_released", actorUserId: actorId, after: json({ bundle: ["score", "review", "explanations", "ranking", "report"], policy, attemptIds: readyIds }), deliverySessionId, reason: reason.trim(), tryoutId: scope.tryoutId } });
+    return { deliverySessionId, releasedAt, state: "released" as const, receipt: await publicationReceipt(tx, { tryoutId: scope.tryoutId, sessionId: deliverySessionId }, releasedAt) };
+  }, { timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
 }
 
-function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentResultReleaseState; score: Prisma.Decimal | null; scoringState?: AssessmentScoringState }>, attemptId: string) {
-  const scored = attempts.filter((attempt) => attempt.score !== null && (attempt.scoringState === undefined || attempt.scoringState === AssessmentScoringState.scored) && (attempt.releaseState === undefined || attempt.releaseState === AssessmentResultReleaseState.released)).sort((left, right) => Number(right.score) - Number(left.score) || left.id.localeCompare(right.id));
+function rankAttempts(attempts: Array<{ id: string; attemptState: AssessmentAttemptState; status: AttemptStatus; releaseState?: AssessmentResultReleaseState; score: Prisma.Decimal | null; scoringState?: AssessmentScoringState }>, attemptId: string) {
+  const scored = attempts.filter((attempt) => !excludedAttempt(attempt) && terminalAttemptStateIsCalculable(attempt) && attempt.score !== null && Number.isFinite(Number(attempt.score)) && (attempt.scoringState === undefined || attempt.scoringState === AssessmentScoringState.scored) && (attempt.releaseState === undefined || attempt.releaseState === AssessmentResultReleaseState.released)).sort((left, right) => Number(right.score) - Number(left.score) || left.id.localeCompare(right.id));
   if (scored.length < 2) return { rank: null, state: "unavailable" as const, total: scored.length };
   let rank = 0;
   let previous: number | null = null;
@@ -380,125 +675,24 @@ function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentRes
 }
 
 async function synchronizeTryoutSessionReleaseStateInTransaction(tx: Prisma.TransactionClient, deliverySessionId: string, now: Date) {
-    const session = await tx.tryoutDeliverySession.findUnique({
-      where: { id: deliverySessionId },
-      select: {
-        availableUntil: true,
-        id: true,
-        releaseReason: true,
-        releaseState: true,
-        releasedAt: true,
-        resultReleasePolicy: true,
-        scheduledReleaseAt: true,
-        tryoutId: true,
-        assessmentRelease: {
-          select: { contentDigest: true, id: true, releaseNumber: true },
-        },
-        tryout: {
-          select: {
-            id: true,
-            defaultResultReleasePolicy: true,
-            sections: {
-              select: { id: true, sequenceNo: true, subtestId: true },
-              orderBy: { sequenceNo: "asc" },
-            },
-          },
-        },
-        attempts: {
-          select: {
-            assessmentReleaseDigest: true,
-            assessmentReleaseId: true,
-            assessmentReleaseNumber: true,
-            attemptState: true,
-            id: true,
-            releaseAt: true,
-            releaseState: true,
-            score: true,
-            scoringState: true,
-            status: true,
-            runs: {
-              select: {
-                assessmentReleaseDigest: true,
-                assessmentReleaseId: true,
-                assessmentReleaseNumber: true,
-                calculationReleaseable: true,
-                contentSnapshot: true,
-                normalizedScore: true,
-                scoringState: true,
-                sequenceNo: true,
-                status: true,
-                tryoutSectionId: true,
-                section: {
-                  select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true },
-                },
-              },
-            },
-            scoreBreakdowns: {
-              select: {
-                normalizedScore: true,
-                rawScore: true,
-                scaledScore: true,
-                scoringProvenance: true,
-                scoringVersion: true,
-                subtestId: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
-    if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
-    const policy = effectivePolicy(session);
-    const releaseableAttemptIds = session.attempts.flatMap((attempt) => {
-      attempt.runs.forEach((run) => frozenRunFields(run, true));
-      assertResultReleaseBinding(
-        { assessmentReleaseDigest: session.assessmentRelease!.contentDigest, assessmentReleaseId: session.assessmentRelease!.id, assessmentReleaseNumber: session.assessmentRelease!.releaseNumber },
-        { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
-        "Rilis otomatis diblokir: attempt tidak cocok dengan AssessmentRelease sesi.",
-      );
-      const isReleaseable = attempt.score !== null
-        && attempt.scoringState === AssessmentScoringState.scored
-        && terminalAttemptStateIsCalculable(attempt)
-        && hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns })
-        && hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs })
-        && attempt.runs.every((run) => run.assessmentReleaseId === session.assessmentRelease!.id && run.assessmentReleaseNumber === session.assessmentRelease!.releaseNumber && run.assessmentReleaseDigest === session.assessmentRelease!.contentDigest && run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run));
-      return isReleaseable ? [attempt.id] : [];
-    });
-    const ready = session.attempts.length > 0
-      && releaseableAttemptIds.length === session.attempts.length;
-    if (policy === "scheduled" && !session.scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
-    const thresholdReached = policy === "immediate"
-      || (policy === "automatic_at_end" && session.availableUntil <= now)
-      || (policy === "scheduled" && session.scheduledReleaseAt !== null && session.scheduledReleaseAt <= now)
-      || (policy === "manual" && session.releaseState === AssessmentResultReleaseState.released);
-    let releaseState = session.releaseState;
-    let releaseAt = session.releasedAt;
-    if (session.releaseState !== AssessmentResultReleaseState.released && ready) {
-      if (thresholdReached && policy !== "manual") {
-        releaseState = AssessmentResultReleaseState.released;
-        releaseAt = session.releasedAt ?? (policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : now);
-      } else if (!thresholdReached && policy !== "manual") {
-        releaseState = AssessmentResultReleaseState.scheduled;
-        releaseAt = policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : null;
-      }
-    }
-    if (releaseState === AssessmentResultReleaseState.released && releaseAt === null) releaseAt = now;
-    if (releaseState !== session.releaseState || releaseAt?.getTime() !== session.releasedAt?.getTime()) {
-      await tx.tryoutDeliverySession.update({ where: { id: session.id }, data: { releaseState, releasedAt: releaseAt ?? undefined, releaseReason: session.releaseReason ?? (releaseState === AssessmentResultReleaseState.released ? "Rilis otomatis setelah seluruh bundle valid." : undefined) } });
-    }
-    if (releaseState === AssessmentResultReleaseState.released || releaseState === AssessmentResultReleaseState.scheduled) {
-      const releaseableIds = new Set(releaseableAttemptIds);
-      const attemptIdsNeedingUpdate = session.attempts
-        .filter((attempt) => releaseableIds.has(attempt.id))
-        .filter((attempt) => attempt.releaseState !== releaseState
-          || (attempt.releaseAt?.getTime() ?? null) !== (releaseAt?.getTime() ?? null))
-        .map((attempt) => attempt.id);
-      if (attemptIdsNeedingUpdate.length > 0) {
-        await tx.tryoutAttempt.updateMany({ where: { id: { in: attemptIdsNeedingUpdate } }, data: { releaseAt, releaseState } });
-      }
-    }
-    return { deliverySessionId: session.id, releaseAt, releaseState, ready };
+  const { session, policy, readyIds, ready, blockers } = await sessionReleaseReadiness(tx, deliverySessionId);
+  if (session.releaseState === "released") return { deliverySessionId: session.id, releaseAt: session.releasedAt, releaseState: session.releaseState, ready, ...(ready ? {} : { reason: PUBLISHED_RESULT_REVIEW_MESSAGE }) };
+  const thresholdReached = policy === "immediate"
+    || (policy === "automatic_at_end" && session.availableUntil <= now)
+    || (policy === "scheduled" && session.scheduledReleaseAt !== null && session.scheduledReleaseAt <= now);
+  let releaseState: AssessmentResultReleaseState = session.releaseState;
+  let releaseAt = session.releasedAt;
+  if (ready && policy !== "manual") {
+    releaseState = thresholdReached ? AssessmentResultReleaseState.released : AssessmentResultReleaseState.scheduled;
+    releaseAt = policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : now;
+  }
+  if (releaseState !== session.releaseState || releaseAt?.getTime() !== session.releasedAt?.getTime()) {
+    await tx.tryoutDeliverySession.update({ where: { id: session.id }, data: { releaseState, releasedAt: releaseAt ?? undefined, releaseReason: session.releaseReason ?? (releaseState === "released" ? "Rilis otomatis setelah seluruh hasil siap." : undefined) } });
+  }
+  if (ready && (releaseState === "released" || releaseState === "scheduled")) {
+    await tx.tryoutAttempt.updateMany({ where: { id: { in: readyIds }, releaseState: { not: "released" } }, data: { releaseAt, releaseState } });
+  }
+  return { deliverySessionId: session.id, releaseAt, releaseState, ready, ...(!ready ? { reason: blockers[0]?.message } : {}) };
 }
 
 async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, now: Date) {
@@ -553,7 +747,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
         include: {
           assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
           tryout: { select: { defaultResultReleasePolicy: true } },
-          attempts: { select: { id: true, releaseState: true, score: true, scoringState: true } },
+          attempts: { select: { id: true, attemptState: true, status: true, releaseState: true, score: true, scoringState: true } },
         },
       },
       student: {
@@ -599,6 +793,8 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   const afterClose = attempt.deliverySession.availableUntil <= new Date();
   const scheduledReleaseAt = attempt.deliverySession.scheduledReleaseAt;
   if (policy === "scheduled" && !scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
+  if (!legacyRead && attempt.releaseState === AssessmentResultReleaseState.released
+    && !publishedAttemptIsConsistent(attempt, attempt.tryout, sessionRelease)) throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
   const released = attempt.releaseState === AssessmentResultReleaseState.released
     && attempt.scoringState === AssessmentScoringState.scored
     && attempt.score !== null
@@ -678,7 +874,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       }, []) ?? [];
 
       return {
-        calculation: run.calculationResult,
+        calculation: participantRunCalculation(run.calculationResult),
         materializedScore: {
           correctCount: run.correctCount,
           maxScore: run.maxScore === null ? null : Number(run.maxScore),
@@ -705,4 +901,4 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   });
 }
 
-export { calculateTryoutAttempt, hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeAttemptReleaseState, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };
+export { calculateTryoutAttempt, inspectTryoutCalculation, inspectTryoutSessionReadiness, hasCanonicalSevenBreakdownSet, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeAttemptReleaseState, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };

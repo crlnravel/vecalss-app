@@ -38,8 +38,14 @@ import {
   AssessmentWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
 import { AssessmentNavigationFooter } from "@/modules/assessment/AssessmentNavigationFooter";
+import { QuizTimingNote } from "./QuizTimingNote";
+import { QuizAttemptTimer } from "./QuizAttemptTimer";
 
-import { saveQuizAnswerAction, submitQuizAction } from "./actions";
+import {
+  saveQuizAnswerAction,
+  submitQuizAction,
+  syncQuizAttemptClockAction,
+} from "./actions";
 
 import type { QuizAttempt, QuizAttemptNavState, QuizItem } from "./data";
 
@@ -57,6 +63,23 @@ function QuizOngoingPageModule({
   subjectTitle: string;
 }) {
   const router = useRouter();
+  const [isDeadlineReached, setIsDeadlineReached] = useState(false);
+  const syncAttemptClock = useCallback(async () => {
+    const response = await syncQuizAttemptClockAction(
+      subjectSlug,
+      quiz.slug,
+      attemptId,
+    );
+    return response.ok ? response.result : null;
+  }, [attemptId, quiz.slug, subjectSlug]);
+  const handleAutoSubmitted = useCallback(() => {
+    router.replace(
+      `/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(attemptId)}`,
+    );
+  }, [attemptId, quiz.slug, router, subjectSlug]);
+  const markDeadlineReached = useCallback(() => {
+    setIsDeadlineReached(true);
+  }, []);
   const [textScale, setTextScale] = useState<"compact" | "default" | "large">(
     "default",
   );
@@ -178,7 +201,8 @@ function QuizOngoingPageModule({
     if (
       !currentQuizQuestion ||
       savingQuestionSet.has(currentQuestion) ||
-      isSubmitting
+      isSubmitting ||
+      isDeadlineReached
     ) {
       return;
     }
@@ -205,6 +229,11 @@ function QuizOngoingPageModule({
         nextOptionIds,
       );
       if (!response.ok) saveError = response.message;
+      else if (response.result.state === "auto_submitted") {
+        router.replace(
+          `/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(attemptId)}`,
+        );
+      }
     } catch (error) {
       unstable_rethrow(error);
       saveError = "Jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.";
@@ -251,6 +280,7 @@ function QuizOngoingPageModule({
   return (
     <QuizOngoingScreen
       attempt={attempt}
+      answersTimeExpired={isDeadlineReached}
       currentQuestion={currentQuestion}
       currentQuizQuestion={currentQuizQuestion}
       currentSelectedOptionKeys={currentSelectedOptionKeys}
@@ -259,6 +289,10 @@ function QuizOngoingPageModule({
       onExit={() => router.push(`/quiz/${subjectSlug}`)}
       onExitDialogChange={setIsExitDialogOpen}
       onGoToQuestion={goToQuestion}
+      onAutoSubmitted={handleAutoSubmitted}
+      onDeadlineReached={markDeadlineReached}
+      onTimeLockChange={setIsDeadlineReached}
+      syncAttemptClock={syncAttemptClock}
       onSelectAnswer={selectAnswer}
       onSubmitDialogChange={setIsSubmitDialogOpen}
       onSubmitQuiz={() => {
@@ -289,6 +323,7 @@ function QuizOngoingPageModule({
 
 type QuizOngoingScreenProps = {
   attempt: QuizAttempt;
+  answersTimeExpired: boolean;
   currentQuestion: number;
   currentQuizQuestion: QuizAttempt["questions"][number] | undefined;
   currentSelectedOptionKeys: string[];
@@ -297,6 +332,14 @@ type QuizOngoingScreenProps = {
   onExit: () => void;
   onExitDialogChange: (open: boolean) => void;
   onGoToQuestion: (question: number) => void;
+  onAutoSubmitted: () => void;
+  onDeadlineReached: () => void;
+  onTimeLockChange: (locked: boolean) => void;
+  syncAttemptClock: () => Promise<{
+    isSubmitted: boolean;
+    remainingMilliseconds: number | null;
+    serverProcessingMilliseconds: number;
+  } | null>;
   onSelectAnswer: (optionId: string) => void;
   onSubmitDialogChange: (open: boolean) => void;
   onSubmitQuiz: () => void;
@@ -323,6 +366,7 @@ type QuizOngoingScreenProps = {
 
 function QuizOngoingScreen({
   attempt,
+  answersTimeExpired,
   currentQuestion,
   currentQuizQuestion,
   currentSelectedOptionKeys,
@@ -331,6 +375,10 @@ function QuizOngoingScreen({
   onExit,
   onExitDialogChange,
   onGoToQuestion,
+  onAutoSubmitted,
+  onDeadlineReached,
+  onTimeLockChange,
+  syncAttemptClock,
   onSelectAnswer,
   onSubmitDialogChange,
   onSubmitQuiz,
@@ -368,6 +416,7 @@ function QuizOngoingScreen({
     <AssessmentWorkspace
       content={
         <div className="mx-auto w-full max-w-[1650px]">
+          <QuizTimingNote status={attempt.timeLimitStatus} />
           <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16">
             <section className="min-w-0">
               <div className="flex min-h-12 items-center justify-between gap-4">
@@ -429,7 +478,8 @@ function QuizOngoingScreen({
                 <AssessmentAnswerOption
                   disabled={
                     savingQuestionSet.has(currentQuestion) ||
-                    viewState.submitting
+                    viewState.submitting ||
+                    answersTimeExpired
                   }
                   key={option.key}
                   onClick={() => void onSelectAnswer(option.id)}
@@ -537,7 +587,16 @@ function QuizOngoingScreen({
 
           <div className="absolute right-4 inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-700 px-3 py-1.5 text-sm font-semibold text-white shadow-sm sm:right-8">
             <Clock3 className="size-4 text-secondary-500" />
-            <span>{attempt.remainingTime}</span>
+            <QuizAttemptTimer
+              deadlineAt={attempt.deadlineAt}
+              fallbackTime={attempt.remainingTime}
+              initialRemainingSeconds={attempt.remainingSeconds}
+              onAutoSubmitted={onAutoSubmitted}
+              onExpired={onDeadlineReached}
+              onTimeLockChange={onTimeLockChange}
+              serverNowAt={attempt.serverNowAt}
+              syncAttempt={syncAttemptClock}
+            />
           </div>
         </div>
       }

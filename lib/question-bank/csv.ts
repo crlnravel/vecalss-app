@@ -415,7 +415,7 @@ function validateRow(
     errors.push(issue("row", "option_sequence_invalid", rowNumber));
   }
   for (const [label, content] of optionsRaw) {
-    if (codePointLength(content) > 5_000) errors.push(issue("row", "field_too_long", rowNumber, `option_${label.toLowerCase()}`));
+    if (codePointLength(content) > 6_000) errors.push(issue("row", "field_too_long", rowNumber, `option_${label.toLowerCase()}`));
   }
   const optionCount = optionsRaw.filter(([, content]) => content.trim()).length;
 

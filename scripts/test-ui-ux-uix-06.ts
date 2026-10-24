@@ -16,7 +16,7 @@ const permittedSourcePaths = [
   "modules/mentor/components/kapten-ui.tsx",
   "modules/quiz/QuizCataloguePageModule.tsx",
   "modules/quiz/QuizOngoingPageModule.tsx",
-  "modules/quiz/QuizResultPageModule.tsx",
+  "modules/quiz/QuizResultView.tsx",
   "modules/quiz/QuizStartPageModule.tsx",
   "modules/quiz/QuizSubjectDetailPageModule.tsx",
   "modules/student/components/onboarding-form.tsx",
@@ -104,11 +104,11 @@ excludes(enrollment, '<FormNotice tone="danger">{errorMessages[error] ?? error}<
 includes(sources["modules/quiz/QuizCataloguePageModule.tsx"], "Cari subjek kuis atau topik latihan…", "Quiz catalogue search copy uses a typographic ellipsis.");
 includes(sources["modules/quiz/QuizSubjectDetailPageModule.tsx"], "Paket latihan siap pakai untuk latihan", "Quiz detail uses the settled latihan vocabulary.");
 includes(sources["modules/quiz/QuizStartPageModule.tsx"], "Mulai kuis", "Quiz start action uses the settled Kuis vocabulary.");
-includes(sources["modules/quiz/QuizResultPageModule.tsx"], "Kuis belum dikirim", "Quiz result empty state uses the settled Kuis vocabulary.");
+includes(sources["modules/quiz/QuizResultView.tsx"], "Kuis belum dikirim", "Quiz result empty state uses the settled Kuis vocabulary.");
 includes(sources["modules/quiz/QuizOngoingPageModule.tsx"], "Jawaban yang sudah tersimpan tetap aman", "Quiz exit copy reflects resumable saved answers.");
 includes(sources["modules/quiz/QuizOngoingPageModule.tsx"], "Selesaikan kuis ini?", "Quiz submit confirmation uses Indonesian vocabulary.");
 excludes(sources["modules/quiz/QuizOngoingPageModule.tsx"], "Sayang banget", "Quiz exit copy does not use emoji or guilt language.");
-excludes(sources["modules/quiz/QuizResultPageModule.tsx"], "Kembali ke quiz", "Quiz result copy does not use the English product term.");
+excludes(sources["modules/quiz/QuizResultView.tsx"], "Kembali ke quiz", "Quiz result copy does not use the English product term.");
 
 const vera = sources["modules/vera-ai/VeraAiPageModule.tsx"];
 excludes(vera, "Status sumber data Vera", "Vera does not render the source-data status banner.");

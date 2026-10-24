@@ -1,6 +1,82 @@
 {
   "features": [
     {
+      "id": "tryout-f13-deadline-reconciliation",
+      "name": "Reconcile Tryout deadlines after early active reads",
+      "description": "Bound automatic deadline rechecks and preserve authoritative attempt expiry, stable request budgets and explicit recovery.",
+      "dependencies": [
+        "tryout-f12-student-recovery"
+      ],
+      "status": "complete",
+      "evidence": "6c2a84e1 +3fb78997; exact clean-context gpt-6.1-sol/high. Real early-active reply514ms before cutoff then automatic expiry157ms after, run-only continuation, six failures/one notice/manual recovery. Twelve actual mounted/controller cases include commit-before-passive and retained-callback red/green proof on working+HEAD candidate. F12 pure/HTTP, public DB exact cutoff/replay/ownership, TypeScript/full lint/build pass with five unrelated warnings. Both final committed reviews clear. Original attempt/run IDs, pins, deadlines and saved choiceA preserved; distinct run/session audits verified. Root7groups=6standard+1explicit approval, child6; Ego63 finished once, overrides restored, no process. F13 and TA04 complete within documented limits; F7/F8 remain product decisions. Epic tryout-f13-local-qa-20261015."
+    },
+    {
+      "id": "tryout-f12-student-recovery",
+      "name": "Bound student Tryout registration and Start recovery",
+      "description": "Bound stalled student actions and independent owned-state inspection while preserving frozen intent, safe replay and attempt/session deadlines.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "4aa36e91; clean-context exact gpt-6.1-sol/high. Actual-handler/controller/HTTP and public DB overlap/ownership/exact-cutoff pass, TypeScript/lint/build pass, final committed Standards/Spec clear. Ego60 verifies held/lost/failed/offline registration and Start recovery, independent GET, explicit destinations, future gate and 390px controls. Separate F-13 live expiry reconciliation failed in unchanged F-3 baseline and remains todo; TA-04 is still in progress. Original attempt/pin/deadline preserved; post-cutoff reload expired same seven runs and kept results gated. Safe evidence epic tryout-f12-local-qa-20261014; browser finished once; excluded F-3/F-6/peer work preserved."
+    },
+    {
+      "id": "tryout-f5-bank-accessible-name",
+      "name": "Bank creation control accessible name",
+      "description": "Align the shared mentor Bank Soal creation button's accessible name with its visible Buat Bank action.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "89193b8; one-line label correction. Local Ego accessible snapshot/DOM, role/name activation opening Tryout bank creation, dismissal, reload and Kuis label passed without data mutation. Catalogue lifecycle contract, TypeScript and full lint/build pass with two existing unrelated warnings. Independent gpt-6.1-sol/high Standards and Spec reviews clear. Epic tryout-f5-accessible-name-fix-20261010; consolidated QA report marks F-5 resolved."
+    },
+    {
+      "id": "tryout-f1-archived-history",
+      "name": "Mentor access to archived Tryout history",
+      "description": "Open owned archived Tryouts from the catalogue and inspect preserved sessions, participants and attempt details without authoring or operational mutation controls.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "53e1090 on local dev. Approved Ego checks passed catalogue/history/detail navigation, direct reloads, parent return, original empty archive, participant mismatch refusal and active-draft smoke check; student-session mentor access redirected to dashboard. No Tryout data mutations. Focused ESLint, TypeScript, workflow projection contract and full pnpm verify pass (two existing unrelated warnings). Independent gpt-6.1-sol/high Standards and Spec reviews clear. Evidence: epic tryout-f1-history-fix-20261010; consolidated lifecycle report marks F-1 resolved. Restore remains undecided; broader lifecycle rows retain partial/unverified status."
+    },
+    {
+      "id": "krf02-active-attempt-continuation",
+      "name": "Resume active Kuis after close or archive",
+      "description": "Recover owned active work before admission gates, preserve pins and answers, and keep accepted resume keys idempotent after submission.",
+      "dependencies": ["krf01-pending-result-release"],
+      "status": "complete",
+      "evidence": "Integrated onto local dev through fd21155. The approved forward migration allows multiple accepted resume keys per attempt while preserving request uniqueness and FKs. Fresh Luna/max Spec and Standards reviews are clear; the page injects actual Next notFound and route tests use a throwing 404 sentinel with real loaders and an available-preview negative control. On 2026-10-10, pnpm db:generate, test:quiz-active-continuation-db, tsc, lint, and pnpm verify all passed sequentially in one approved guarded integration group. Log /tmp/krf02-main-integration-checks.log. The shared worktree had unrelated uncommitted Materi/quiz-editor edits during verification; they were not staged or modified by KRF-02. The migration is applied only to disposable local vecalss_dev. No browser/rendered check. Evidence: epic krf02-implementation-evidence."
+    },
+    {
+      "id": "mentor-qa-source-recovery-contracts",
+      "name": "Mentor QA source attribution and recovery fixes",
+      "description": "Restore bank-mode Kuis source attribution, scope Bank Soal recovery, refresh Prisma client workflow and align extracted UI contracts without removing archive or ownership guards.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "Implementation through d094291; eight focused checks plus lint/production build pass via normal guard before size-only review correction. User clarified that Tryout Bank Soal import rows show answer mode, new Bank Soal questions remain single-answer by default, and multi-answer CSV/XLSX templates are later work. The focused follow-up test:tryout-direct-question-picks passes in one additional approved guarded group. Read-only local editor/catalogue/folder/category-count queries pass. Luna/max Standards clear after source recheck; Spec P2 decision is resolved. No DB/browser mutations. Pre-existing suite-manifest omissions and the follow-up verification evidence are documented in epic artifact mentor-qa-fixes-20261007. Full lint/build was not rerun after the UI-only follow-up."
+    },
+    {
+      "id": "materi-duplicate-create",
+      "name": "One Materi per repeated create submission",
+      "description": "Immediately fence repeated form submissions and reuse a tutor-scoped server request identity across concurrent creates and retries, without turning a replay into an unleased edit.",
+      "dependencies": ["materi-auto-publish-delete"],
+      "status": "complete",
+      "evidence": "921dfb0/a58c356; concurrent three-record repro red, replay/separate-create/changed-input/malformed-key regression green; builder/locks and full verify pass. Pending fields/picker frozen, follow-up public save regression/full verify pass. Independent Luna/max Spec/Standards reviews clear. One pre-existing settings warning, no browser verification. Logs /tmp/materi-duplicate-{verify,followup}.log; epic artifact materi-duplicate-create."
+    },
+    {
+      "id": "question-bank-delete",
+      "name": "Remove deleted Bank Soal from authoring surfaces",
+      "description": "Distinguish deletion from restorable archival while preserving question history and package references; prevent tombstone edits and adopted-create replay.",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "Real repository red reproduction; migration 5198842 applied local/staging; 5fb1e56 protects package bank/question/version/scope references and deleted create replay. Expanded deletion, pagination, resource-edit-lock and full verify pass on 2026-10-05. Reported Tutor bank deleted through a fresh lease and verified absent from staging catalogue/detail. Existing settings warning and unrelated authoring-lock-family Kuis static assertion recorded. Final independent Luna/max resolution review clear; option-only package-version fixture coverage is a non-blocking note. Epic artifact question-bank-delete; logs /tmp/question-bank-delete-{green,verify,repair}.log."
+    },
+    {
+      "id": "materi-auto-publish-delete",
+      "name": "Publish new Materi and support confirmed deletion",
+      "description": "New Materi are immediately published; catalogue and editor offer lease-protected deletion while preserving shared media and remaining order. Fullscreen focus follows the active control.",
+      "dependencies": [
+        "fix-materi-save-structure"
+      ],
+      "status": "complete",
+      "evidence": "eec7163/ee2b3a9 implement publication and deletion; 562a689/3e8292e resolve review recovery/copy/history coverage. Expanded deletion regression and full verify pass on 2026-10-05; earlier builder/resource/ordering/PDF checks pass. Independent Luna/max Standards and Spec reviews clear. One pre-existing settings warning; broader writer-registry script-list assertion fails independently. No browser verification. Log /tmp/materi-review-final-verify.log; epic artifact materi-publish-delete."
+    },
+    {
       "id": "fix-materi-save-structure",
       "name": "Save Materi without demo topics and quiet create-modal feedback",
       "description": "Initialize missing canonical Materi topic rows during valid saves, omit persistent top status in the create modal, and show submit failures through bottom Sonner while preserving form state and guards.",
@@ -353,6 +429,16 @@
       "dependencies": ["feat-040"],
       "status": "complete",
       "evidence": "2f11bd1 design contract; a64f5ba shared primitives; 778adf6 app consumers; 9a9457d agreed report primitive hunks; b4297f6 catalogue and Avatar guidelines. SSR state/disabled-anchor contract and shared/catalogue focused lint pass; independent standards and coverage reviews clear. Exact 20px audit correction is reviewed and applied in its owner's pending redesign. Global lint/types remain blocked by baseline errors; browser/build unverified."
+    },
+    {
+      "id": "krf-01",
+      "name": "Kuis Pending Result Release Schedule",
+      "description": "Move scheduled pinned after-close results atomically with the stable close while preserving active work and rejecting undefined release timing.",
+      "dependencies": [
+        "feat-029"
+      ],
+      "status": "complete",
+      "evidence": "e45c355; registered local DB edge/lock/race coverage, TypeScript and full verify pass; independent Luna/max reviews clear; six baseline structural-suite failures recorded in epic krf01-implementation evidence; browser QA delegated separately."
     }
   ]
 }
