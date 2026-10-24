@@ -39,14 +39,14 @@ states. Existing database data is deleted by the reset.
 
 Use these accounts for the principal test journeys:
 
-| Journey | Account | Password | Start page |
-| --- | --- | --- | --- |
-| Administrator enrollment | `admin@vecalss.local` | `Admin12345!` | `/login` |
-| Developer report inbox | `developer@vecalss.local` | `Developer12345!` | `/login` |
-| Returning student with learning history | `student@vecalss.local` | `Student12345!` | `/login` |
-| New student completing first login | `newstudent@vecalss.local` | `TempStudent123!` | `/login` |
-| Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/login` |
-| Affiliator conversion dashboard | `affiliator@vecalss.local` | `Affiliator12345!` | `/login` |
+| Journey                                 | Account                    | Password           | Start page |
+| --------------------------------------- | -------------------------- | ------------------ | ---------- |
+| Administrator enrollment                | `admin@vecalss.local`      | `Admin12345!`      | `/login`   |
+| Developer report inbox                  | `developer@vecalss.local`  | `Developer12345!`  | `/login`   |
+| Returning student with learning history | `student@vecalss.local`    | `Student12345!`    | `/login`   |
+| New student completing first login      | `newstudent@vecalss.local` | `TempStudent123!`  | `/login`   |
+| Tutor authoring and tryout operations   | `tutor@vecalss.local`      | `Tutor12345!`      | `/login`   |
+| Affiliator conversion dashboard         | `affiliator@vecalss.local` | `Affiliator12345!` | `/login`   |
 
 The assessment-only command expects the accounts and Materi taxonomy to exist.
 Use `pnpm db:seed-assessment` only when refreshing assessment data in an already
@@ -76,7 +76,7 @@ prompts, or assistant content.
 - `AFFILIATOR_PURCHASE_WEBHOOK_SECRET`: Required server-only HMAC secret for
   `POST /api/internal/package-purchases/succeeded`. The checkout service signs
   `{ event: "package.purchase.succeeded", studentId, packageCode,
-  providerReference, referralCode?, completedAt? }` with
+providerReference, referralCode?, completedAt? }` with
   `sha256=<hex-digest>` in `x-vecalss-purchase-signature`; the server resolves
   the active student and published package before recording a conversion.
 
