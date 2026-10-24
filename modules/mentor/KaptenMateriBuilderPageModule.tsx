@@ -1242,7 +1242,6 @@ function MateriBuilderContent({
     onRetryLock={resourceLock.retry}
     onPickerOpenChange={(open) => updateEditor({ isPickerOpen: open })}
     onUnsavedSave={() => void saveLesson()}
-    parentHref={parentHref}
     readiness={readiness}
     selectedDocumentName={selectedDocumentName}
     selectedSubjectName={selectedSubject?.name ?? "Materi"}
