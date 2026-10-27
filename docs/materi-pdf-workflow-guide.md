@@ -1,6 +1,6 @@
 # Materi Learning PDF Workflow Guide
 
-This guide documents the end-to-end workflow and tooling for retypesetting raw learning module PDFs (`materi/*.pdf`) into clean, selectable, brand-aligned Vecalss PDFs while preserving **100% of the source material verbatim**.
+This guide documents the end-to-end workflow and tooling for retypesetting raw learning module PDFs (`materi/*.pdf`) into clean, selectable, brand-aligned **PTN Pro** PDFs while preserving **100% of the source material verbatim**.
 
 The implementation lives in [`materi/_framework/`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/README.md).
 
@@ -15,9 +15,9 @@ The implementation lives in [`materi/_framework/`](file:///Users/ravel/Work/Free
 | [`materi/_framework/render.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/render.py) | ReportLab PDF renderer (reads palette directly from [`DESIGN.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/DESIGN.md)) |
 | [`materi/_framework/inspect_pdf.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/inspect_pdf.py) | Source extractor, page PNG/contact-sheet rasterizer, and bounds/glyph/round-trip auditor |
 | [`materi/_framework/check_fidelity.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/check_fidelity.py) | Strict character-and-word-boundary verifier comparing source PDF, editable JSON, and rendered PDF body |
-| [`materi/_framework/selfcheck.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/selfcheck.py) | Automated regression suite for validation, overflow rejection, list geometry, and UTF-16BE symbol encoding |
+| [`materi/_framework/selfcheck.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/selfcheck.py) | Automated regression suite for validation, overflow rejection, PTN Pro header, justified text, list geometry, and UTF-16BE symbol encoding |
 | [`materi/_framework/requirements.txt`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/requirements.txt) | Python dependencies (`reportlab`, `pymupdf`, `pillow`) installed in an isolated venv |
-| [`materi/_framework/assets/`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/assets) | Brand illustrations and logos (`logo-mark.png`, `mascot-veco-2.png`, etc.) |
+| [`materi/_framework/assets/`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/assets) | Brand illustrations and mascot artwork (`mascot-veco.png`, `mascot-veco-2.png`, `logo-mark.png`) |
 | [`materi/_framework/fonts/`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/fonts) | Embedded TTF fonts (`Plus Jakarta Sans`, `Manrope`, `Sports World`, `Noto Emoji/Symbols/Math`) |
 | [`materi/_framework/examples/prepare_pbm1.py`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/examples/prepare_pbm1.py) | Reference deterministic recipe slicing `pbm1.source.txt` into `pbm1.lesson.json` |
 | [`materi/_framework/examples/pbm1.lesson.json`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/examples/pbm1.lesson.json) | Complete editable lesson JSON example for PBM 01 |
@@ -30,7 +30,7 @@ The implementation lives in [`materi/_framework/`](file:///Users/ravel/Work/Free
 
 Use this prompt whenever you want an agent to convert another module PDF (such as `materi/pbm2.pdf`):
 
-> Retypeset `materi/<source>.pdf` using `docs/materi-pdf-workflow-guide.md` and `materi/_framework/README.md`. Keep the original material verbatim: all wording, headings, examples, tables, questions, choices, answer keys, explanations, tips, symbols, punctuation, and sequence. Build fresh selectable text and tables; never overlay or embed original PDF pages. Apply the framework's typography, hanging list indents, Veco Tip callouts, and colored top/bottom bands on every page. Compare the original text with both the editable source and final rendered body using `check_fidelity.py`. Inspect every final page visually using `inspect_pdf.py`. Deliver the PDF (`output/pdf/<slug>-vecalss.pdf`) and editable source (`materi/_framework/examples/<slug>.lesson.json`), with a short fidelity/formatting report. Flag possible content issues separately without changing them unless I explicitly authorize content editing.
+> Retypeset `materi/<source>.pdf` using `docs/materi-pdf-workflow-guide.md` and `materi/_framework/README.md`. Keep the original material verbatim: all wording, headings, examples, tables, questions, choices, answer keys, explanations, tips, symbols, punctuation, and sequence. Build fresh selectable text and tables; never overlay or embed original PDF pages. Apply PTN Pro branding with the mascot header logo, justified body text, hanging list indents, Veco Tip callouts, and colored top/bottom bands on every page. Compare the original text with both the editable source and final rendered body using `check_fidelity.py`. Inspect every final page visually using `inspect_pdf.py`. Deliver the PDF (`output/pdf/<slug>-vecalss.pdf`) and editable source (`materi/_framework/examples/<slug>.lesson.json`), with a short fidelity/formatting report. Flag possible content issues separately without changing them unless I explicitly authorize content editing.
 
 ---
 
@@ -141,14 +141,14 @@ Every lesson JSON file has the following top-level structure:
 
 | `type` | Required Fields | Optional Fields | Description |
 |---|---|---|---|
-| `"heading"` | `text` *(string)* | — | Section or subsection heading (`Plus Jakarta Sans Bold`, 14pt/20pt, `keepWithNext: true`). |
-| `"paragraph"` | `text` *(string)* | `small: true` | Standard body paragraph (10.5pt/16.5pt) or supporting paragraph (`small: true`, 9pt/13.5pt). |
-| `"bullets"` | `items` *(string[])* | `marker` *(string, default `"•"`)* | Bullet list with hanging indent (`bulletIndent: 6pt`, `leftIndent: 24pt`, `leading: 15pt`, `spaceAfter: 3pt`). |
-| `"steps"` | `items` *(string[])* | `start` *(int, default `1`)* | Numbered list (`1.`, `2.`, ...) using the same hanging indent and compact item spacing. |
-| `"table"` | `headers` *(string[])*, `rows` *(string[][])* | `widths` *(number[])* | 2-to-4 column table with mint header row (`#E6F4EE`) and padded cells. Use `headers: ["", ...]` on an unheaded continuation table. |
-| `"question"` | `id` *(string)*, `prompt` *(string)*, `options` *(5 strings)* | `labels` *(string, default `"ABCDE"`)* | Keeps question prompt and all 5 options together on one page (`KeepTogether`), with hanging-indented options. |
-| `"tip"` | `title` *(string)*, `text` *(string)* | — | Veco Tip callout rendered in a rounded Sea-Glass Wash (`#E6F4EE`) panel with a Warm Sun (`#FDE68A`) circle highlight behind the lightbulb icon. |
-| `"note"` | `title` *(string)*, `text` *(string)* | — | Compact bounded teaching note on a mint surface. |
+| `"heading"` | `text` *(string)* | — | Section or subsection heading (`Plus Jakarta Sans Bold`, 14pt/20pt, `TA_LEFT`, `keepWithNext: true`). |
+| `"paragraph"` | `text` *(string)* | `small: true` | Justified (`TA_JUSTIFY`) body paragraph (10.5pt/16.5pt) or supporting paragraph (`small: true`, 9pt/13.5pt). |
+| `"bullets"` | `items` *(string[])* | `marker` *(string, default `"•"`)* | Justified (`TA_JUSTIFY`) bullet list with hanging indent (`bulletIndent: 6pt`, `leftIndent: 24pt`, `leading: 15pt`, `spaceAfter: 3pt`). |
+| `"steps"` | `items` *(string[])* | `start` *(int, default `1`)* | Justified (`TA_JUSTIFY`) numbered list (`1.`, `2.`, ...) using the same hanging indent and compact item spacing. |
+| `"table"` | `headers` *(string[])*, `rows` *(string[][])* | `widths` *(number[])* | 2-to-4 column table with left-aligned (`TA_LEFT`) cells, mint header row (`#EEF8F1`), and padded cells. Use `headers: ["", ...]` on an unheaded continuation table. |
+| `"question"` | `id` *(string)*, `prompt` *(string)*, `options` *(5 strings)* | `labels` *(string, default `"ABCDE"`)* | Keeps question prompt and all 5 options together on one page (`KeepTogether`), with justified hanging-indented options. |
+| `"tip"` | `title` *(string)*, `text` *(string)* | — | Veco Tip callout rendered in a rounded Sea-Glass Wash (`#EEF8F1`) panel with a Warm Sun (`#FFD766`) circle highlight behind the lightbulb icon and justified body text. |
+| `"note"` | `title` *(string)*, `text` *(string)* | — | Compact bounded teaching note on a mint surface with justified supporting text. |
 | `"references"` | `items` *(`{label, url}`[])* | — | External `https://` reference links styled in Voyage Deep. |
 
 ### Inline Markup
@@ -167,7 +167,8 @@ Inside any `text`, `title`, `prompt`, `items`, `options`, `headers`, or `rows` s
 The renderer pulls color tokens directly from [`DESIGN.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/DESIGN.md).
 
 - **Page Geometry:** A4 portrait (`595.27pt × 841.89pt`), `48pt` left/right margins, content frame starting `82pt` from top and ending `65pt` from bottom.
-- **Top Band (`62pt` high):** Full-width Voyage Deep (`#014C38`) with a `2pt` Sea-Glass (`#6EE7B7`) inner border, subtle clipped geometric accents (one forest circle, one leaf diagonal ribbon, one fine mint arc), brand logo, wordmark, and right-aligned subject code (`PBM`).
+- **Top Band (`62pt` high):** Full-width Voyage Deep (`#014C38`) with a `2pt` Sea-Glass (`#B7DDC3`) inner border, subtle clipped geometric accents (one forest circle, one leaf diagonal ribbon, one fine mint arc), mascot logo (`mascot-veco.png`), `PTN PRO` (`LEARNING ACADEMY`) wordmark, and right-aligned subject code (`PBM`).
 - **Bottom Band (`47pt` high):** Full-width Voyage Deep (`#014C38`) with a `2pt` Sea-Glass inner border, one subtle clipped forest circle, left-aligned subject name (`Pemahaman Bacaan & Menulis`), and right-aligned plain page number (`1`, `2`, ...).
+- **Text Alignment:** Body paragraphs, tip text, supporting text, bullet items, numbered steps, and multiple-choice options are justified (`TA_JUSTIFY`). Page titles, section headings, and table cells remain left-aligned (`TA_LEFT`).
 - **Hanging Lists & Options:** Bullet items, numbered steps, and multiple-choice options place their text in front of the dot/number (`bulletIndent: 6pt`, `leftIndent: 24pt`) so wrapped continuation lines align cleanly with the first line's text rather than wrapping underneath the marker. Consecutive items use `15pt` leading and `3pt` spacing (`10pt` after the final item).
 - **Veco Tips:** Each tip heading and body is wrapped in a `tip` block (`sea-glass-wash` rounded panel with a `warm-sun` circular highlight behind the `💡` emoji), keeping common-mistakes sections outside the tip panel.

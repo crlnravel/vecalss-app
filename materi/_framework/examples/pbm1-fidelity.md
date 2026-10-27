@@ -1,7 +1,7 @@
 # PBM 01 formatting and fidelity record
 
 The user requires the **same material verbatim**. The output changes typography,
-spacing, tables, pagination and Vecalss branding only. Earlier editorial paraphrases
+spacing, tables, pagination and PTN Pro branding only. Earlier editorial paraphrases
 and content corrections are superseded and are not part of the delivered example.
 
 | Item | File |
@@ -31,12 +31,16 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 ## Formatting decisions
 
 - A4 portrait, readable Manrope/Plus Jakarta Sans type, consistent margins.
+- Body paragraphs, tip text, supporting text, bullet items, numbered steps and
+  answer options are justified (`TA_JUSTIFY`); headings and table cells remain
+  left-aligned (`TA_LEFT`).
 - Full-width Voyage Deep top and bottom bands with Sea-Glass inner accents.
-- Original graduation-cap logo with a restrained circular field, angled ribbon
-  and single mint arc in the header, plus a circular field in the footer.
+- Mascot logo (`mascot-veco.png`) and `PTN PRO` (`LEARNING ACADEMY`) wordmark with
+  a restrained circular field, angled ribbon and single mint arc in the header,
+  plus a circular field in the footer.
 - Header code is PBM; footer uses the plain current page number. No page badge,
   total-page suffix, progress bar or margin ornaments.
-- Footer subject is Pemahaman Bacaan & Menulis, with no Vecalss prefix.
+- Footer subject is Pemahaman Bacaan & Menulis, with no brand prefix.
 - Each original Veco Tip is grouped into a mint panel with a warm lightbulb
   highlight; all tip headings and paragraphs remain verbatim.
 - Bullet lists, numbered steps and multiple-choice options use hanging indents

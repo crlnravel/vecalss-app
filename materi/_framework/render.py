@@ -1,4 +1,4 @@
-"""Build a new Vecalss learning PDF from reviewed lesson JSON, never a source PDF."""
+"""Build a new PTN Pro learning PDF from reviewed lesson JSON, never a source PDF."""
 import argparse
 import json
 import re
@@ -6,7 +6,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
@@ -87,7 +87,7 @@ def rich(text):
 
 def styles():
     base = dict(fontName="Jakarta", fontSize=10.5, leading=16.5,
-                textColor=C["ink"], alignment=TA_LEFT, spaceAfter=10)
+                textColor=C["ink"], alignment=TA_JUSTIFY, spaceAfter=10)
     result = {"body": ParagraphStyle("body", **base)}
     result["list"] = ParagraphStyle("list", parent=result["body"], leading=15,
                                     leftIndent=24, bulletIndent=6,
@@ -97,13 +97,13 @@ def styles():
     result["small"] = ParagraphStyle("small", parent=result["body"], fontSize=9,
                                     leading=13.5, spaceAfter=7)
     result["cell"] = ParagraphStyle("cell", parent=result["body"], fontSize=9.5,
-                                   leading=14, spaceAfter=0)
+                                   leading=14, alignment=TA_LEFT, spaceAfter=0)
     result["headcell"] = ParagraphStyle("headcell", parent=result["cell"],
                                        fontName="Jakarta-Bold", textColor=C["voyage-deep"])
     result["title"] = ParagraphStyle("title", parent=result["body"], fontName="Manrope",
-                                    fontSize=26, leading=32, spaceAfter=16)
+                                    fontSize=26, leading=32, alignment=TA_LEFT, spaceAfter=16)
     result["heading"] = ParagraphStyle("heading", parent=result["body"], fontName="Jakarta-Bold",
-                                      fontSize=14, leading=20, spaceBefore=12,
+                                      fontSize=14, leading=20, alignment=TA_LEFT, spaceBefore=12,
                                       spaceAfter=8, keepWithNext=True)
     result["cover"] = ParagraphStyle("cover", parent=result["title"], fontSize=43,
                                     leading=49, textColor=C["voyage-deep"])
@@ -329,14 +329,14 @@ def page_frame(c, doc, lesson):
     c.rect(0, H - 64, W, 2, stroke=0, fill=1)
     c.rect(0, 47, W, 2, stroke=0, fill=1)
 
-    # Use the original brand illustration with its colors and proportions intact.
-    c.drawImage(str(ROOT / "assets" / "logo-mark.png"), MARGIN, H - 53,
-                width=48, height=38.5, preserveAspectRatio=True, mask="auto")
+    # Use the mascot illustration with its colors and proportions intact.
+    c.drawImage(str(ROOT / "assets" / "mascot-veco.png"), MARGIN, H - 55,
+                width=44, height=43.2, preserveAspectRatio=True, mask="auto")
     c.setFont("SportsWorld", 17)
     c.setFillColor(C["surface"])
-    c.drawString(MARGIN + 57, H - 33, "VECALSS")
+    c.drawString(MARGIN + 52, H - 33, "PTN PRO")
     c.setFont("Jakarta-Bold", 6.4)
-    text = c.beginText(MARGIN + 58, H - 46)
+    text = c.beginText(MARGIN + 53, H - 46)
     text.setCharSpace(1.05)
     text.textOut("LEARNING ACADEMY")
     text.setCharSpace(0)
@@ -365,7 +365,7 @@ def build(lesson, output):
             super().showPage()
 
     doc = LessonDoc(str(build_path), pagesize=A4, title=lesson["title"],
-                    author="Vecalss Learning Academy", subject=lesson["subject"],
+                    author="PTN Pro Learning Academy", subject=lesson["subject"],
                     leftMargin=MARGIN, rightMargin=MARGIN, topMargin=82, bottomMargin=65)
     frame = Frame(MARGIN, 65, WIDTH, H - 147, leftPadding=0, rightPadding=0,
                   topPadding=0, bottomPadding=0)

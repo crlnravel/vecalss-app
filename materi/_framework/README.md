@@ -1,22 +1,23 @@
-# Vecalss learning PDF framework
+# PTN Pro learning PDF framework
 
-Retypeset learning PDFs into a tidy, consistent Vecalss document while keeping
+Retypeset learning PDFs into a tidy, consistent PTN Pro document while keeping
 the **complete material verbatim**. “Rewrite” in this workflow means rebuilding
 the text and layout from editable content. It does not authorize paraphrasing,
 correcting, summarizing, adding, or omitting learning content.
 
 ## Copyable agent instruction
 
-> Retypeset `materi/<source>.pdf` using `materi/_framework/README.md`. Keep the
-> original material verbatim: all wording, headings, examples, tables, questions,
-> choices, answer keys, explanations, tips, symbols, punctuation and sequence.
-> Build fresh selectable text and tables; never overlay or embed original PDF
-> pages. Apply Vecalss typography and colors, with solid green top and bottom
-> bands on every page. Tidy the spacing, alignment, wrapping and page breaks.
-> Compare the original text with both the editable source and final rendered
-> body. Inspect every final page visually. Deliver the PDF and editable source,
-> with a short fidelity/formatting report. Flag possible content issues separately
-> without changing them unless I explicitly authorize content editing.
+> Retypeset `materi/<source>.pdf` using `docs/materi-pdf-workflow-guide.md` and
+> `materi/_framework/README.md`. Keep the original material verbatim: all wording,
+> headings, examples, tables, questions, choices, answer keys, explanations, tips,
+> symbols, punctuation and sequence. Build fresh selectable text and tables; never
+> overlay or embed original PDF pages. Apply PTN Pro typography, justified body
+> text, mascot header logo, and solid green top and bottom bands on every page.
+> Tidy the spacing, alignment, wrapping and page breaks. Compare the original text
+> with both the editable source and final rendered body. Inspect every final page
+> visually. Deliver the PDF and editable source, with a short fidelity/formatting
+> report. Flag possible content issues separately without changing them unless I
+> explicitly authorize content editing.
 
 ## Authority
 
@@ -60,32 +61,34 @@ Those editing rules never override a verbatim preservation request.
 | Role | Treatment |
 | --- | --- |
 | Paper and margins | A4 portrait; 48pt sides; content starts 82pt from top and stops 65pt from bottom |
-| Top band | Full-width Voyage Deep `#014C38`, 62pt high; original graduation-cap logo, white Vecalss wordmark and subject code only, such as PBM |
-| Bottom band | Full-width Voyage Deep, 47pt high; subject alone (no Vecalss prefix) and plain current page number, with no badge, total-page suffix or progress bar |
+| Top band | Full-width Voyage Deep `#014C38`, 62pt high; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark (`LEARNING ACADEMY` subtitle) and subject code only, such as PBM |
+| Bottom band | Full-width Voyage Deep, 47pt high; subject alone (no brand prefix) and plain current page number, with no badge, total-page suffix or progress bar |
 | Band accent | 2pt Sea-Glass strip along each inner edge |
 | Geometry | One green circular field, one angled ribbon and one fine mint arc in the header; one green circular field in the footer; no margin ornaments |
 | Reading surface | White; Ink `#173C2D` body text; no source-page background |
-| Wordmark | Existing Sports World face; reserved for the brand |
-| Main headings | Manrope 800, 26pt / 32pt |
-| Subheadings | Plus Jakarta Sans 700, 14pt / 20pt |
-| Body | Plus Jakarta Sans 500, 10.5pt / 16.5pt; left aligned |
-| Lists and options | Hanging indent (`bulletIndent: 6pt`, `leftIndent: 24pt`) so all wrapped lines align with the text in front of the bullet/number; compact 15pt leading and 3pt inter-item spacing (10pt after the list) |
-| Table cells | Plus Jakarta Sans 9.5pt / 14pt; generous cell padding; soft horizontal rules |
-| Table headings | Mint surface with dark green text |
-| Supporting text | 9pt / 13.5pt; furniture 8pt |
+| Wordmark | Existing Sports World face; reserved for the `PTN PRO` brand mark |
+| Main headings | Manrope 800, 26pt / 32pt; left aligned |
+| Subheadings | Plus Jakarta Sans 700, 14pt / 20pt; left aligned |
+| Body | Plus Jakarta Sans 500, 10.5pt / 16.5pt; justified (`TA_JUSTIFY`) |
+| Lists and options | Justified (`TA_JUSTIFY`) with hanging indent (`bulletIndent: 6pt`, `leftIndent: 24pt`) so all wrapped lines align with the text in front of the bullet/number; compact 15pt leading and 3pt inter-item spacing (10pt after the list) |
+| Table cells | Plus Jakarta Sans 9.5pt / 14pt; left aligned (`TA_LEFT`); generous cell padding; soft horizontal rules |
+| Table headings | Mint surface with dark green text; left aligned (`TA_LEFT`) |
+| Supporting text | 9pt / 13.5pt; justified (`TA_JUSTIFY`); furniture 8pt |
 | Symbols | Embedded Noto symbol/emoji faces when the brand fonts lack source characters |
 
 Keep headings with the next paragraph, questions with all options, and tables at
 readable size. Split long material across pages rather than shrinking type.
 Use consistent column widths, comfortable leading and clear paragraph spacing.
+Justify body paragraphs, tip text, supporting text, bullet lists, numbered steps,
+and answer options while keeping headings and narrow table cells left-aligned.
 In bullet lists, numbered steps, and answer options, place the text in front of
 its marker with a hanging indent so wrapped lines never tuck back under the dot,
 and keep tighter vertical spacing between items than between paragraphs.
 Avoid decorative shadows, nested boxes, or controls that appear interactive.
 Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
-lightbulb, a bold heading and full-size body text. Keep their wording exact;
+lightbulb, a bold heading and full-size justified body text. Keep their wording exact;
 the common-mistakes section stays outside the tip panels.
-Preserve the original logo artwork's colors and proportions. Geometric accents
+Preserve the mascot artwork's colors and proportions. Geometric accents
 belong to the colored bands; keep them away from text and table cells. Keep this
 reduced set of shapes rather than adding repeated rings, dots or extra ribbons.
 

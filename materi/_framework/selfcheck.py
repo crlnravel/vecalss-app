@@ -5,9 +5,10 @@ import tempfile
 from pathlib import Path
 
 import pymupdf
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
 
 from inspect_pdf import inspect
-from render import build, validate
+from render import build, styles, validate
 from check_fidelity import canonical
 
 
@@ -19,7 +20,12 @@ def require(condition, message):
 def run():
     require(canonical("di mana") != canonical("dimana"), "Fidelity check erased word boundaries")
     require(canonical("dua\n kata") == canonical("dua kata"), "Fidelity check rejected line wrapping")
-    print("PASS fidelity preserves word boundaries and normalizes line wrapping")
+    s = styles()
+    require(s["body"].alignment == TA_JUSTIFY, "Body text must be justified")
+    require(s["list"].alignment == TA_JUSTIFY, "List text must be justified")
+    require(s["heading"].alignment == TA_LEFT, "Headings must remain left-aligned")
+    require(s["cell"].alignment == TA_LEFT, "Table cells must remain left-aligned")
+    print("PASS fidelity preserves word boundaries, normalizes line wrapping, and enforces justified body styles")
     base = json.loads((Path(__file__).parent / "examples/pbm1.lesson.json").read_text())
     cases = []
     broken = copy.deepcopy(base)
@@ -42,7 +48,7 @@ def run():
             print(f"PASS rejected {label}")
         else:
             raise AssertionError(f"Accepted invalid input: {label}")
-    with tempfile.TemporaryDirectory(prefix="vecalss-pdf-check-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="ptn-pro-pdf-check-") as scratch:
         scratch = Path(scratch)
         output = scratch / "existing.pdf"
         output.write_bytes(b"prior artifact")
@@ -74,6 +80,9 @@ def run():
         inspect(output, scratch / "inspection", lesson_file)
         pdf = pymupdf.open(output)
         require(len(pdf) == 1, "Unexpected page count")
+        header_text = pdf[0].get_text(clip=pymupdf.Rect(0, 0, pdf[0].rect.width, 68))
+        require("PTN PRO" in header_text and "VECALSS" not in header_text,
+                "Header wordmark must read PTN PRO instead of VECALSS")
         body = pymupdf.Rect(0, 68, pdf[0].rect.width, pdf[0].rect.height - 54)
         image_rects = [rect for image in pdf[0].get_images() for rect in pdf[0].get_image_rects(image[0])]
         require(image_rects and all(not rect.intersects(body) for rect in image_rects),
@@ -90,7 +99,7 @@ def run():
         require(pdf[0].get_links(), "Reference is not clickable")
         require(len(pdf.get_toc()) == 1, "Single-page lesson has no bookmark")
         pdf.close()
-        print("PASS line breaks, hanging list indentation, embedded emphasis, selectable text and clickable references")
+        print("PASS PTN PRO header, mascot artwork, justified body, hanging list indentation, selectable text and clickable references")
 
 
 if __name__ == "__main__":
