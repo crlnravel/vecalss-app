@@ -68,7 +68,11 @@ def run():
         build(lesson, output)
         inspect(output, scratch / "inspection", lesson_file)
         pdf = pymupdf.open(output)
-        require(len(pdf) == 1 and not pdf[0].get_images(), "Text-only build imported a page image")
+        require(len(pdf) == 1, "Unexpected page count")
+        body = pymupdf.Rect(0, 68, pdf[0].rect.width, pdf[0].rect.height - 54)
+        image_rects = [rect for image in pdf[0].get_images() for rect in pdf[0].get_image_rects(image[0])]
+        require(image_rects and all(not rect.intersects(body) for rect in image_rects),
+                "Brand artwork is missing or an image entered the lesson body")
         require(pdf[0].get_links(), "Reference is not clickable")
         require(len(pdf.get_toc()) == 1, "Single-page lesson has no bookmark")
         pdf.close()

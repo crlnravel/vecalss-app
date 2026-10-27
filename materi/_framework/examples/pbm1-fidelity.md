@@ -32,6 +32,8 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 
 - A4 portrait, readable Manrope/Plus Jakarta Sans type, consistent margins.
 - Full-width Voyage Deep top and bottom bands with Sea-Glass inner accents.
+- Original graduation-cap logo, layered arcs and angled ribbons in the bands;
+  quiet margin geometry and a page-progress marker.
 - Rebuilt tables with mint headings and consistent padding.
 - New page breaks at section boundaries; table continuations retain the source
   order. No invented headings are inserted on continuation pages.
