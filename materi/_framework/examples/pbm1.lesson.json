@@ -709,11 +709,8 @@
           "text": "Jangan otomatis pilih kalimat pertama! Paragraf induktif taruh ide pokok di akhir. Selalu baca sampai habis sebelum memutuskan mana kalimat utamanya!"
         },
         {
-          "type": "heading",
-          "text": "⚠️ Kesalahan Umum yang Sering Terjadi"
-        },
-        {
-          "type": "bullets",
+          "type": "tip",
+          "title": "⚠️ Kesalahan Umum yang Sering Terjadi",
           "items": [
             "Memilih kalimat penjelas yang mengandung data/contoh sebagai ide pokok",
             "Otomatis memilih kalimat pertama tanpa membaca keseluruhan paragraf",

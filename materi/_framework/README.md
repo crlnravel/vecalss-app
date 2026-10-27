@@ -85,9 +85,10 @@ In bullet lists, numbered steps, and answer options, place the text in front of
 its marker with a hanging indent so wrapped lines never tuck back under the dot,
 and keep tighter vertical spacing between items than between paragraphs.
 Avoid decorative shadows, nested boxes, borders, or controls that appear interactive.
-Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
-lightbulb, a bold heading and full-size justified body text. Keep their wording exact;
-the common-mistakes section stays outside the tip panels.
+Veco Tips and the `Kesalahan Umum yang Sering Terjadi` warning section use a distinct
+mint callout panel (`sea-glass-wash`), a Warm Sun highlight behind the original
+icon (`💡` or `⚠️`), a bold heading, and full-size justified body or hanging-indented
+bullet items. Keep their wording exact.
 Preserve the mascot artwork's colors and proportions. Keep all background and
 header/footer geometry borderless (`stroke=0`) with soft light-yellowish fills
 (`#FFF7D6`) on the reading surface.
@@ -118,7 +119,7 @@ and `continuation: true`. Do not invent a new instructional title to fill space.
 | `bullets` | Exact `items`; original `marker` defaults to `•` |
 | `steps` | Exact `items`; optional `start` for original numbering |
 | `question` | Original `id`, `prompt`, five `options`, original `labels` such as `abcde` |
-| `tip` | Exact original `title` and `text`; groups a tip heading with its paragraph in a mint callout |
+| `tip` | Exact original `title` and either `text` (paragraph) or `items` (with optional `marker`); groups a tip or common-mistakes warning heading with its content in a mint callout |
 
 `**bold**`, `*italic*` and line breaks are layout markup; other markup is escaped.
 Use an empty-string header row on a continued table only when no additional

@@ -44,8 +44,10 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 - Header code is PBM; footer uses the plain current page number. No page badge,
   total-page suffix, progress bar or borders.
 - Footer subject is Pemahaman Bacaan & Menulis, with no brand prefix.
-- Each original Veco Tip is grouped into a mint panel with a warm lightbulb
-  highlight; all tip headings and paragraphs remain verbatim.
+- Each original Veco Tip and the `Kesalahan Umum yang Sering Terjadi` warning
+  section are grouped into mint callout panels (`sea-glass-wash`) with a Warm Sun
+  icon highlight (`💡` / `⚠️`); all headings, paragraphs and bullet items remain
+  verbatim.
 - Bullet lists, numbered steps and multiple-choice options use hanging indents
   (`bulletIndent: 6pt`, `leftIndent: 24pt`) so wrapped lines align with the text
   in front of the dot/marker, with compact 15pt leading and 3pt inter-item spacing.

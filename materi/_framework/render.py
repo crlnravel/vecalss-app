@@ -135,12 +135,27 @@ class Note(Flowable):
 
 
 class Tip(Note):
-    """A distinct teaching callout using the original lightbulb and wording."""
-    def __init__(self, title, text, s):
-        super().__init__(title, text, s)
+    """A distinct teaching callout using the original icon and wording."""
+    def __init__(self, title, s, text=None, items=None, marker="•"):
+        Flowable.__init__(self)
         self.title = Paragraph(rich(title), s["heading"])
-        self.body = Paragraph(rich(text), s["body"])
+        if items:
+            m = rich(marker)
+            self.items = [Paragraph(f"<bullet>{m} </bullet>{rich(i)}", s["list"]) for i in items]
+        else:
+            self.items = [Paragraph(rich(text), s["body"])]
         self.spaceBefore = 12
+        self.spaceAfter = 14
+
+    def wrap(self, width, height):
+        self.width = width
+        inner = width - 28
+        self.th = self.title.wrap(inner, height)[1]
+        self.item_heights = [item.wrap(inner, height)[1] for item in self.items]
+        gap = 3 * max(0, len(self.items) - 1)
+        self.bh = sum(self.item_heights) + gap
+        self.height = 28 + self.th + 7 + self.bh
+        return width, self.height
 
     def draw(self):
         c = self.canv
@@ -149,7 +164,11 @@ class Tip(Note):
         c.setFillColor(C["warm-sun"])
         c.circle(23, self.height - 24, 10, stroke=0, fill=1)
         self.title.drawOn(c, 14, self.height - 14 - self.th)
-        self.body.drawOn(c, 14, 14)
+        y = 14 + self.bh
+        for item, h in zip(self.items, self.item_heights):
+            y -= h
+            item.drawOn(c, 14, y)
+            y -= 3
 
 
 class Voyage(Flowable):
@@ -199,8 +218,10 @@ def validate(lesson):
             kind = block.get("type")
             if kind in ("paragraph", "heading"):
                 require(isinstance(block.get("text"), str) and block["text"], "Empty text")
-            elif kind in ("note", "tip"):
+            elif kind == "note":
                 require(block.get("title") and block.get("text"), "Incomplete note")
+            elif kind == "tip":
+                require(block.get("title") and (block.get("text") or block.get("items")), "Incomplete tip")
             elif kind == "table":
                 n = len(block["headers"])
                 require(2 <= n <= 4, "Use two to four table columns")
@@ -235,7 +256,8 @@ def make_blocks(blocks, s):
         elif kind == "note":
             result.append(Note(block["title"], block["text"], s))
         elif kind == "tip":
-            result.append(Tip(block["title"], block["text"], s))
+            result.append(Tip(block["title"], s, text=block.get("text"),
+                              items=block.get("items"), marker=block.get("marker", "•")))
         elif kind == "table":
             weights = block.get("widths", [1] * len(block["headers"]))
             has_header = any(block["headers"])

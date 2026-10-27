@@ -211,12 +211,12 @@ def prepare():
     if source.text:
         raise ValueError("Unconsumed source content")
 
-    # Presentation only: group each original tip heading with its paragraph.
+    # Presentation only: group each original tip/warning heading with its paragraph or bullets.
     tip_blocks = pages[-1]["blocks"]
     pages[-1]["blocks"] = [
         {"type": "tip", "title": tip_blocks[0]["text"], "text": tip_blocks[1]["text"]},
         {"type": "tip", "title": tip_blocks[2]["text"], "text": tip_blocks[3]["text"]},
-        *tip_blocks[4:],
+        {"type": "tip", "title": tip_blocks[4]["text"], "items": tip_blocks[5]["items"], "marker": tip_blocks[5]["marker"]},
     ]
 
     # Reapply source italic semantics to examples; words are not changed.
@@ -230,7 +230,7 @@ def prepare():
             for key in ("text",):
                 if key in block:
                     block[key] = emphasize(block[key])
-            if block["type"] == "bullets":
+            if block["type"] in ("bullets", "tip") and "items" in block:
                 block["items"] = [emphasize(i) for i in block["items"]]
             if block["type"] == "table":
                 block["rows"] = [[emphasize(v) for v in row] for row in block["rows"]]

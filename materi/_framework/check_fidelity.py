@@ -23,7 +23,12 @@ def authored_text(lesson):
             if kind in ("paragraph", "heading"):
                 text.append(block["text"])
             elif kind == "tip":
-                text.extend((block["title"], block["text"]))
+                text.append(block["title"])
+                if "text" in block:
+                    text.append(block["text"])
+                if "items" in block:
+                    marker = block.get("marker", "•")
+                    text.extend(marker + " " + i for i in block["items"])
             elif kind == "table":
                 text.extend(block["headers"])
                 text.extend(v for row in block["rows"] for v in row)
