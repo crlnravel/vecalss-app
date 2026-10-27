@@ -39,6 +39,9 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 - Footer subject is Pemahaman Bacaan & Menulis, with no Vecalss prefix.
 - Each original Veco Tip is grouped into a mint panel with a warm lightbulb
   highlight; all tip headings and paragraphs remain verbatim.
+- Bullet lists, numbered steps and multiple-choice options use hanging indents
+  (`bulletIndent: 6pt`, `leftIndent: 24pt`) so wrapped lines align with the text
+  in front of the dot/marker, with compact 15pt leading and 3pt inter-item spacing.
 - Rebuilt tables with mint headings and consistent padding.
 - New page breaks at section boundaries; table continuations retain the source
   order. No invented headings are inserted on continuation pages.

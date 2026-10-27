@@ -69,6 +69,7 @@ Those editing rules never override a verbatim preservation request.
 | Main headings | Manrope 800, 26pt / 32pt |
 | Subheadings | Plus Jakarta Sans 700, 14pt / 20pt |
 | Body | Plus Jakarta Sans 500, 10.5pt / 16.5pt; left aligned |
+| Lists and options | Hanging indent (`bulletIndent: 6pt`, `leftIndent: 24pt`) so all wrapped lines align with the text in front of the bullet/number; compact 15pt leading and 3pt inter-item spacing (10pt after the list) |
 | Table cells | Plus Jakarta Sans 9.5pt / 14pt; generous cell padding; soft horizontal rules |
 | Table headings | Mint surface with dark green text |
 | Supporting text | 9pt / 13.5pt; furniture 8pt |
@@ -77,6 +78,9 @@ Those editing rules never override a verbatim preservation request.
 Keep headings with the next paragraph, questions with all options, and tables at
 readable size. Split long material across pages rather than shrinking type.
 Use consistent column widths, comfortable leading and clear paragraph spacing.
+In bullet lists, numbered steps, and answer options, place the text in front of
+its marker with a hanging indent so wrapped lines never tuck back under the dot,
+and keep tighter vertical spacing between items than between paragraphs.
 Avoid decorative shadows, nested boxes, or controls that appear interactive.
 Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
 lightbulb, a bold heading and full-size body text. Keep their wording exact;

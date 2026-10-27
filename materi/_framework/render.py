@@ -89,6 +89,11 @@ def styles():
     base = dict(fontName="Jakarta", fontSize=10.5, leading=16.5,
                 textColor=C["ink"], alignment=TA_LEFT, spaceAfter=10)
     result = {"body": ParagraphStyle("body", **base)}
+    result["list"] = ParagraphStyle("list", parent=result["body"], leading=15,
+                                    leftIndent=24, bulletIndent=6,
+                                    bulletFontName="Jakarta", bulletFontSize=10.5,
+                                    spaceAfter=3)
+    result["list_end"] = ParagraphStyle("list_end", parent=result["list"], spaceAfter=10)
     result["small"] = ParagraphStyle("small", parent=result["body"], fontSize=9,
                                     leading=13.5, spaceAfter=7)
     result["cell"] = ParagraphStyle("cell", parent=result["body"], fontSize=9.5,
@@ -250,16 +255,23 @@ def make_blocks(blocks, s):
             ]))
             result.append(table)
         elif kind == "steps":
-            for i, item in enumerate(block["items"], block.get("start", 1)):
-                result.append(Paragraph(rich(f"**{i}.**  {item}"), s["body"]))
+            items = block["items"]
+            for n, (i, item) in enumerate(enumerate(items, block.get("start", 1))):
+                style = s["list_end" if n == len(items) - 1 else "list"]
+                result.append(Paragraph(f"<bullet><b>{i}.</b> </bullet>{rich(item)}", style))
         elif kind == "bullets":
-            for item in block["items"]:
-                result.append(Paragraph(rich(block.get("marker", "•") + " " + item), s["body"]))
+            items = block["items"]
+            marker = rich(block.get("marker", "\u2022"))
+            for n, item in enumerate(items):
+                style = s["list_end" if n == len(items) - 1 else "list"]
+                result.append(Paragraph(f"<bullet>{marker} </bullet>{rich(item)}", style))
         elif kind == "question":
             items = [Paragraph(rich(f"{block['id']}. {block['prompt']}"), s["heading"])]
-            for letter, option in zip(block.get("labels", "ABCDE"), block["options"]):
-                items.append(Paragraph(rich(f"{letter}.  {option}"), s["body"]))
-            items.append(Spacer(1, 16))
+            options = block["options"]
+            for n, (letter, option) in enumerate(zip(block.get("labels", "ABCDE"), options)):
+                style = s["list_end" if n == len(options) - 1 else "list"]
+                items.append(Paragraph(f"<bullet>{escape(letter)}. </bullet>{rich(option)}", style))
+            items.append(Spacer(1, 6))
             result.append(KeepTogether(items))
         elif kind == "references":
             for item in block["items"]:

@@ -61,6 +61,10 @@ def run():
         lesson = copy.deepcopy(base)
         lesson["pages"] = [{"id": "roundtrip", "title": "Round-trip check", "source_pages": [1], "blocks": [
             {"type": "paragraph", "text": "First line.\nSecond line with **bold** and *italic*. Symbols → ↔ ≠ ≥ • ● and 🦆 💡 ⚠."},
+            {"type": "bullets", "marker": "•", "items": [
+                "Wrapped list item that continues onto a second line so hanging indentation and horizontal text alignment can be verified against the bullet marker.",
+                "Second list item immediately below with compact spacing."
+            ]},
             {"type": "tip", "title": "💡 Veco Tips", "text": "Original wording stays selectable."},
             {"type": "references", "items": [{"label": "Official reference", "url": "https://ejaan.kemendikdasmen.go.id/"}]}
         ]}]
@@ -74,10 +78,19 @@ def run():
         image_rects = [rect for image in pdf[0].get_images() for rect in pdf[0].get_image_rects(image[0])]
         require(image_rects and all(not rect.intersects(body) for rect in image_rects),
                 "Brand artwork is missing or an image entered the lesson body")
+        spans = [span for block in pdf[0].get_text("dict")["blocks"]
+                 for line in block.get("lines", []) for span in line["spans"]]
+        bullet_span = next(s for s in spans if s["text"].strip() == "•")
+        line1_span = next(s for s in spans if s["text"].startswith("Wrapped list item"))
+        line2_span = next(s for s in spans if "bullet marker." in s["text"] and s is not line1_span)
+        item2_span = next(s for s in spans if s["text"].startswith("Second list item"))
+        require(line1_span["bbox"][0] > bullet_span["bbox"][2], "List text is not positioned in front of the bullet")
+        require(abs(line1_span["bbox"][0] - line2_span["bbox"][0]) < 0.5, "Wrapped list line did not align with first line text")
+        require(item2_span["bbox"][1] - line2_span["bbox"][1] < 20, "List item spacing is not compact")
         require(pdf[0].get_links(), "Reference is not clickable")
         require(len(pdf.get_toc()) == 1, "Single-page lesson has no bookmark")
         pdf.close()
-        print("PASS line breaks, embedded emphasis, selectable text and clickable references")
+        print("PASS line breaks, hanging list indentation, embedded emphasis, selectable text and clickable references")
 
 
 if __name__ == "__main__":
