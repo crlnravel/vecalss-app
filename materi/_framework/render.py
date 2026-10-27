@@ -261,7 +261,7 @@ def make_blocks(blocks, s):
                 result.append(Paragraph(f"<bullet><b>{i}.</b> </bullet>{rich(item)}", style))
         elif kind == "bullets":
             items = block["items"]
-            marker = rich(block.get("marker", "\u2022"))
+            marker = rich(block.get("marker", "•"))
             for n, item in enumerate(items):
                 style = s["list_end" if n == len(items) - 1 else "list"]
                 result.append(Paragraph(f"<bullet>{marker} </bullet>{rich(item)}", style))
@@ -293,22 +293,14 @@ class LessonDoc(BaseDocTemplate):
 
 def page_frame(c, doc, lesson):
     c.saveState()
-    # Borderless (`stroke=0`) soft yellowish background shapes on the reading surface.
+    # Borderless (`stroke=0`) soft yellowish background shapes on the reading surface:
+    # one circle on the top right and one diagonal band on the bottom left.
     c.saveState()
     body_clip = c.beginPath()
     body_clip.rect(0, 47, W, H - 109)
     c.clipPath(body_clip, stroke=0)
     c.setFillColor(colors.HexColor("#FFF7D6"))
     c.circle(W + 10, H - 150, 95, stroke=0, fill=1)
-    c.circle(-20, 140, 85, stroke=0, fill=1)
-    c.setFillColor(colors.HexColor("#FFFBEB"))
-    ribbon = c.beginPath()
-    ribbon.moveTo(W - 155, H - 62)
-    ribbon.lineTo(W - 115, H - 62)
-    ribbon.lineTo(W, H - 177)
-    ribbon.lineTo(W, H - 217)
-    ribbon.close()
-    c.drawPath(ribbon, stroke=0, fill=1)
     lower_ribbon = c.beginPath()
     lower_ribbon.moveTo(0, 185)
     lower_ribbon.lineTo(0, 145)

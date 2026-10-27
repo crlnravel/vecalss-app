@@ -38,8 +38,9 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 - Mascot logo (`mascot-veco.png`) and `PTN PRO` (`LEARNING ACADEMY`) wordmark with
   a borderless circular field and angled ribbon in the header, plus a borderless
   circular field in the footer.
-- Borderless (`stroke=0`) soft light-yellowish (`#FFF7D6` circles and `#FFFBEB`
-  diagonal bands) on the white reading surface behind the lesson body.
+- Borderless (`stroke=0`) soft light-yellowish (`#FFF7D6`) accents on the white
+  reading surface behind the lesson body: one circle on the top right and one
+  diagonal band on the bottom left.
 - Header code is PBM; footer uses the plain current page number. No page badge,
   total-page suffix, progress bar or borders.
 - Footer subject is Pemahaman Bacaan & Menulis, with no brand prefix.
