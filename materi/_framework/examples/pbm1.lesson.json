@@ -699,19 +699,13 @@
       ],
       "blocks": [
         {
-          "type": "heading",
-          "text": "💡 Veco Tips 1: Trik Hapus Mental!"
-        },
-        {
-          "type": "paragraph",
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Trik Hapus Mental!",
           "text": "Bingung mana kalimat utama? Coba 'hapus' tiap kalimat secara mental. Kalimat yang kalau dihapus bikin paragraf kehilangan makna utamanya — itulah kalimat utama!"
         },
         {
-          "type": "heading",
-          "text": "💡 Veco Tips 2: Ide Pokok ≠ Kalimat Pertama"
-        },
-        {
-          "type": "paragraph",
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Ide Pokok ≠ Kalimat Pertama",
           "text": "Jangan otomatis pilih kalimat pertama! Paragraf induktif taruh ide pokok di akhir. Selalu baca sampai habis sebelum memutuskan mana kalimat utamanya!"
         },
         {

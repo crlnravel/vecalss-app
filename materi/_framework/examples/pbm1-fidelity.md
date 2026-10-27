@@ -36,6 +36,9 @@ page markers; they are not lesson text and do not appear in the designed PDF.
   and single mint arc in the header, plus a circular field in the footer.
 - Header code is PBM; footer uses the plain current page number. No page badge,
   total-page suffix, progress bar or margin ornaments.
+- Footer subject is Pemahaman Bacaan & Menulis, with no Vecalss prefix.
+- Each original Veco Tip is grouped into a mint panel with a warm lightbulb
+  highlight; all tip headings and paragraphs remain verbatim.
 - Rebuilt tables with mint headings and consistent padding.
 - New page breaks at section boundaries; table continuations retain the source
   order. No invented headings are inserted on continuation pages.

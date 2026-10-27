@@ -61,6 +61,7 @@ def run():
         lesson = copy.deepcopy(base)
         lesson["pages"] = [{"id": "roundtrip", "title": "Round-trip check", "source_pages": [1], "blocks": [
             {"type": "paragraph", "text": "First line.\nSecond line with **bold** and *italic*. Symbols → ↔ ≠ ≥ • ● and 🦆 💡 ⚠."},
+            {"type": "tip", "title": "💡 Veco Tips", "text": "Original wording stays selectable."},
             {"type": "references", "items": [{"label": "Official reference", "url": "https://ejaan.kemendikdasmen.go.id/"}]}
         ]}]
         lesson_file = scratch / "lesson.json"

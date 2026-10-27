@@ -129,6 +129,24 @@ class Note(Flowable):
         self.body.drawOn(c, 14, 14)
 
 
+class Tip(Note):
+    """A distinct teaching callout using the original lightbulb and wording."""
+    def __init__(self, title, text, s):
+        super().__init__(title, text, s)
+        self.title = Paragraph(rich(title), s["heading"])
+        self.body = Paragraph(rich(text), s["body"])
+        self.spaceBefore = 12
+
+    def draw(self):
+        c = self.canv
+        c.setFillColor(C["sea-glass-wash"])
+        c.roundRect(0, 0, self.width, self.height, 9, stroke=0, fill=1)
+        c.setFillColor(C["warm-sun"])
+        c.circle(23, self.height - 24, 10, stroke=0, fill=1)
+        self.title.drawOn(c, 14, self.height - 14 - self.th)
+        self.body.drawOn(c, 14, 14)
+
+
 class Voyage(Flowable):
     def __init__(self):
         super().__init__()
@@ -176,7 +194,7 @@ def validate(lesson):
             kind = block.get("type")
             if kind in ("paragraph", "heading"):
                 require(isinstance(block.get("text"), str) and block["text"], "Empty text")
-            elif kind == "note":
+            elif kind in ("note", "tip"):
                 require(block.get("title") and block.get("text"), "Incomplete note")
             elif kind == "table":
                 n = len(block["headers"])
@@ -211,6 +229,8 @@ def make_blocks(blocks, s):
                                                             "heading" if kind == "heading" else "body"]))
         elif kind == "note":
             result.append(Note(block["title"], block["text"], s))
+        elif kind == "tip":
+            result.append(Tip(block["title"], block["text"], s))
         elif kind == "table":
             weights = block.get("widths", [1] * len(block["headers"]))
             has_header = any(block["headers"])
@@ -314,7 +334,7 @@ def page_frame(c, doc, lesson):
     c.drawRightString(W - MARGIN, H - 40, lesson["code"])
     c.setFont("Jakarta", 8)
     c.setFillColor(C["surface"])
-    c.drawString(MARGIN, 27, "Vecalss  /  " + lesson["subject"])
+    c.drawString(MARGIN, 27, lesson["subject"])
     c.drawRightString(W - MARGIN, 27, str(doc.page))
     c.restoreState()
 

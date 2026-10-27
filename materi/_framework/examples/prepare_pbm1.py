@@ -211,6 +211,14 @@ def prepare():
     if source.text:
         raise ValueError("Unconsumed source content")
 
+    # Presentation only: group each original tip heading with its paragraph.
+    tip_blocks = pages[-1]["blocks"]
+    pages[-1]["blocks"] = [
+        {"type": "tip", "title": tip_blocks[0]["text"], "text": tip_blocks[1]["text"]},
+        {"type": "tip", "title": tip_blocks[2]["text"], "text": tip_blocks[3]["text"]},
+        *tip_blocks[4:],
+    ]
+
     # Reapply source italic semantics to examples; words are not changed.
     italics = ("Salah Asuhan", "Habibie dan Ainun", "tut wuri handayani", "Garcinia mangostana", "ora et labora", "Dari Ave Maria ke Jalan Lain ke Roma")
     def emphasize(text):

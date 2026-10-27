@@ -61,7 +61,7 @@ Those editing rules never override a verbatim preservation request.
 | --- | --- |
 | Paper and margins | A4 portrait; 48pt sides; content starts 82pt from top and stops 65pt from bottom |
 | Top band | Full-width Voyage Deep `#014C38`, 62pt high; original graduation-cap logo, white Vecalss wordmark and subject code only, such as PBM |
-| Bottom band | Full-width Voyage Deep, 47pt high; subject and plain current page number, with no badge, total-page suffix or progress bar |
+| Bottom band | Full-width Voyage Deep, 47pt high; subject alone (no Vecalss prefix) and plain current page number, with no badge, total-page suffix or progress bar |
 | Band accent | 2pt Sea-Glass strip along each inner edge |
 | Geometry | One green circular field, one angled ribbon and one fine mint arc in the header; one green circular field in the footer; no margin ornaments |
 | Reading surface | White; Ink `#173C2D` body text; no source-page background |
@@ -78,7 +78,9 @@ Keep headings with the next paragraph, questions with all options, and tables at
 readable size. Split long material across pages rather than shrinking type.
 Use consistent column widths, comfortable leading and clear paragraph spacing.
 Avoid decorative shadows, nested boxes, or controls that appear interactive.
-Original tips can receive a mint note treatment, but their wording stays exact.
+Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
+lightbulb, a bold heading and full-size body text. Keep their wording exact;
+the common-mistakes section stays outside the tip panels.
 Preserve the original logo artwork's colors and proportions. Geometric accents
 belong to the colored bands; keep them away from text and table cells. Keep this
 reduced set of shapes rather than adding repeated rings, dots or extra ribbons.
@@ -109,6 +111,7 @@ and `continuation: true`. Do not invent a new instructional title to fill space.
 | `bullets` | Exact `items`; original `marker` defaults to `•` |
 | `steps` | Exact `items`; optional `start` for original numbering |
 | `question` | Original `id`, `prompt`, five `options`, original `labels` such as `abcde` |
+| `tip` | Exact original `title` and `text`; groups a tip heading with its paragraph in a mint callout |
 
 `**bold**`, `*italic*` and line breaks are layout markup; other markup is escaped.
 Use an empty-string header row on a continued table only when no additional
