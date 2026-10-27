@@ -293,7 +293,30 @@ class LessonDoc(BaseDocTemplate):
 
 def page_frame(c, doc, lesson):
     c.saveState()
-    # Keep geometry inside the colored bands, away from lesson text.
+    # Subtle light-yellowish background circles and thin lines on the reading surface.
+    c.saveState()
+    body_clip = c.beginPath()
+    body_clip.rect(0, 49, W, H - 113)
+    c.clipPath(body_clip, stroke=0)
+    warm_wash = colors.HexColor("#FFF9E5")
+    warm_line = colors.HexColor("#F3D578")
+    warm_faint = colors.HexColor("#F8E5A6")
+    c.setFillColor(warm_wash)
+    c.circle(W + 14, H - 155, 86, stroke=0, fill=1)
+    c.circle(-22, 145, 74, stroke=0, fill=1)
+    c.setStrokeColor(warm_line)
+    c.setLineWidth(0.9)
+    c.circle(W + 14, H - 155, 86, stroke=1, fill=0)
+    c.circle(-22, 145, 74, stroke=1, fill=0)
+    c.setStrokeColor(warm_faint)
+    c.setLineWidth(0.65)
+    c.circle(W + 14, H - 155, 108, stroke=1, fill=0)
+    c.circle(-22, 145, 94, stroke=1, fill=0)
+    c.line(W - 96, H - 64, W, H - 160)
+    c.line(0, 215, 84, 49)
+    c.restoreState()
+
+    # Keep band geometry inside the colored bands, away from lesson text.
     c.setFillColor(C["voyage-deep"])
     c.rect(0, H - 62, W, 62, stroke=0, fill=1)
     c.rect(0, 0, W, 47, stroke=0, fill=1)
@@ -315,6 +338,10 @@ def page_frame(c, doc, lesson):
     c.setStrokeColor(C["sea-glass"])
     c.setLineWidth(0.65)
     c.circle(W - 8, H - 8, 65, stroke=1, fill=0)
+    c.setStrokeColor(C["warm-sun"])
+    c.setLineWidth(0.75)
+    c.circle(W - 8, H - 8, 82, stroke=1, fill=0)
+    c.line(W - 230, H, W - 188, H - 62)
     c.restoreState()
 
     c.saveState()
@@ -323,6 +350,9 @@ def page_frame(c, doc, lesson):
     c.clipPath(footer_clip, stroke=0)
     c.setFillColor(C["voyage-forest"])
     c.circle(-18, -4, 79, stroke=0, fill=1)
+    c.setStrokeColor(C["warm-sun"])
+    c.setLineWidth(0.7)
+    c.circle(-18, -4, 58, stroke=1, fill=0)
     c.restoreState()
 
     c.setFillColor(C["sea-glass"])

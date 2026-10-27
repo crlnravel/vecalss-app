@@ -12,12 +12,13 @@ correcting, summarizing, adding, or omitting learning content.
 > headings, examples, tables, questions, choices, answer keys, explanations, tips,
 > symbols, punctuation and sequence. Build fresh selectable text and tables; never
 > overlay or embed original PDF pages. Apply PTN Pro typography, justified body
-> text, mascot header logo, and solid green top and bottom bands on every page.
-> Tidy the spacing, alignment, wrapping and page breaks. Compare the original text
-> with both the editable source and final rendered body. Inspect every final page
-> visually. Deliver the PDF and editable source, with a short fidelity/formatting
-> report. Flag possible content issues separately without changing them unless I
-> explicitly authorize content editing.
+> text, mascot header logo, subtle light-yellowish background circle/line accents,
+> and solid green top and bottom bands on every page. Tidy the spacing, alignment,
+> wrapping and page breaks. Compare the original text with both the editable source
+> and final rendered body. Inspect every final page visually. Deliver the PDF and
+> editable source, with a short fidelity/formatting report. Flag possible content
+> issues separately without changing them unless I explicitly authorize content
+> editing.
 
 ## Authority
 
@@ -64,8 +65,8 @@ Those editing rules never override a verbatim preservation request.
 | Top band | Full-width Voyage Deep `#014C38`, 62pt high; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark (`LEARNING ACADEMY` subtitle) and subject code only, such as PBM |
 | Bottom band | Full-width Voyage Deep, 47pt high; subject alone (no brand prefix) and plain current page number, with no badge, total-page suffix or progress bar |
 | Band accent | 2pt Sea-Glass strip along each inner edge |
-| Geometry | One green circular field, one angled ribbon and one fine mint arc in the header; one green circular field in the footer; no margin ornaments |
-| Reading surface | White; Ink `#173C2D` body text; no source-page background |
+| Geometry | Header/footer green circular fields, header angled ribbon, mint & Warm Sun (`#FFD766`) thin arcs/lines in the bands, plus soft light-yellowish (`#FFF9E5` wash, `#F3D578` / `#F8E5A6` thin lines & concentric circles) background accents on the reading surface |
+| Reading surface | White with subtle light-yellowish corner circles/lines behind the body frame; Ink `#173C2D` body text; no source-page background |
 | Wordmark | Existing Sports World face; reserved for the `PTN PRO` brand mark |
 | Main headings | Manrope 800, 26pt / 32pt; left aligned |
 | Subheadings | Plus Jakarta Sans 700, 14pt / 20pt; left aligned |
@@ -88,9 +89,9 @@ Avoid decorative shadows, nested boxes, or controls that appear interactive.
 Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
 lightbulb, a bold heading and full-size justified body text. Keep their wording exact;
 the common-mistakes section stays outside the tip panels.
-Preserve the mascot artwork's colors and proportions. Geometric accents
-belong to the colored bands; keep them away from text and table cells. Keep this
-reduced set of shapes rather than adding repeated rings, dots or extra ribbons.
+Preserve the mascot artwork's colors and proportions. Keep background light-yellow
+circles and thin lines subtle (`#FFF9E5` wash, `#F3D578` / `#F8E5A6` strokes) so body
+text and tables maintain full readability and contrast.
 
 ## Workflow and completion gates
 
