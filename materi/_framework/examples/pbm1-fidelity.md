@@ -41,8 +41,9 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 ## Verification
 
 `check_fidelity.py` compares the original PDF's complete extracted text with both
-the JSON lesson text and the new PDF body. Only layout whitespace, zero-width
-extraction artifacts and emoji presentation selectors are normalized. Spelling,
+the JSON lesson text and the new PDF body. Runs of layout whitespace collapse to
+one space, preserving word boundaries; zero-width extraction artifacts and emoji
+presentation selectors are removed. Spelling,
 case, punctuation, numbers, markers and order must match.
 
 The final page count, comparison outcome and visual QA are recorded in the

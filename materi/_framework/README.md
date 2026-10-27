@@ -117,6 +117,9 @@ Run from the repository root. Follow the resource guard and its launch budget;
 these are stages, not permission to run several heavy groups at once. Keep the
 Python environment separate from website dependencies.
 
+Batch related sequential render, audit and fidelity commands into one guarded
+command group when needed to stay within the project launch budget.
+
 ```sh
 ./_harness/resource-guard.sh status
 ./_harness/resource-guard.sh run -- uv venv /tmp/vecalss-pdf-venv
@@ -141,8 +144,9 @@ Python environment separate from website dependencies.
 ./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python materi/_framework/selfcheck.py
 ```
 
-`check_fidelity.py` ignores whitespace, extraction zero-width spaces and emoji
-presentation selectors only. All other characters and order must agree. For
+`check_fidelity.py` collapses runs of layout whitespace while preserving word
+boundaries; `di mana` never equals `dimana`. It removes extraction zero-width
+spaces and emoji presentation selectors only. All other characters and order must agree. For
 reading-order changes such as a complex diagram or multicolumn source, establish
 and document the intended reading order from the source images before authoring
 a separate adapter; do not weaken this comparison to an unordered word count.

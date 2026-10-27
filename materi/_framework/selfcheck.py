@@ -8,9 +8,18 @@ import pymupdf
 
 from inspect_pdf import inspect
 from render import build, validate
+from check_fidelity import canonical
+
+
+def require(condition, message):
+    if not condition:
+        raise AssertionError(message)
 
 
 def run():
+    require(canonical("di mana") != canonical("dimana"), "Fidelity check erased word boundaries")
+    require(canonical("dua\n kata") == canonical("dua kata"), "Fidelity check rejected line wrapping")
+    print("PASS fidelity preserves word boundaries and normalizes line wrapping")
     base = json.loads((Path(__file__).parent / "examples/pbm1.lesson.json").read_text())
     cases = []
     broken = copy.deepcopy(base)
@@ -43,9 +52,9 @@ def run():
         try:
             build(broken, output)
         except Exception as error:
-            assert "overflow" in str(error).lower() or "too large" in str(error).lower(), error
-            assert output.read_bytes() == b"prior artifact", "Failed build replaced prior artifact"
-            assert not output.with_name(f".{output.name}.tmp").exists(), "Failed build left temp output"
+            require("overflow" in str(error).lower() or "too large" in str(error).lower(), str(error))
+            require(output.read_bytes() == b"prior artifact", "Failed build replaced prior artifact")
+            require(not output.with_name(f".{output.name}.tmp").exists(), "Failed build left temp output")
             print("PASS overflow rejected and prior artifact preserved")
         else:
             raise AssertionError("Accepted an overflowing page")
@@ -59,9 +68,9 @@ def run():
         build(lesson, output)
         inspect(output, scratch / "inspection", lesson_file)
         pdf = pymupdf.open(output)
-        assert len(pdf) == 1 and not pdf[0].get_images(), "Text-only build imported a page image"
-        assert pdf[0].get_links(), "Reference is not clickable"
-        assert len(pdf.get_toc()) == 1, "Single-page lesson has no bookmark"
+        require(len(pdf) == 1 and not pdf[0].get_images(), "Text-only build imported a page image")
+        require(pdf[0].get_links(), "Reference is not clickable")
+        require(len(pdf.get_toc()) == 1, "Single-page lesson has no bookmark")
         pdf.close()
         print("PASS line breaks, embedded emphasis, selectable text and clickable references")
 

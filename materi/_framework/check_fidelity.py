@@ -8,9 +8,10 @@ import pymupdf
 
 
 def canonical(text):
-    # Ignore only layout whitespace, extraction zero-width spaces and emoji
-    # presentation selectors. Words, case, punctuation, numbers and order stay exact.
-    return re.sub(r"[\s\u200b\ufeff\ufe0f]", "", text)
+    # Collapse layout whitespace without deleting word boundaries: di mana must
+    # never compare equal to dimana. Remove only nonsemantic extraction controls.
+    text = re.sub(r"[\u200b\ufeff\ufe0f]", "", text)
+    return " ".join(text.split())
 
 
 def authored_text(lesson):
@@ -25,12 +26,12 @@ def authored_text(lesson):
                 text.extend(block["headers"])
                 text.extend(v for row in block["rows"] for v in row)
             elif kind == "bullets":
-                text.extend(block.get("marker", "•") + i for i in block["items"])
+                text.extend(block.get("marker", "•") + " " + i for i in block["items"])
             elif kind == "steps":
-                text.extend(f"{n}." + i for n, i in enumerate(block["items"], block.get("start", 1)))
+                text.extend(f"{n}. " + i for n, i in enumerate(block["items"], block.get("start", 1)))
             elif kind == "question":
-                text.append(block["id"] + "." + block["prompt"])
-                text.extend(label + "." + i for label, i in zip(block.get("labels", "ABCDE"), block["options"]))
+                text.append(block["id"] + ". " + block["prompt"])
+                text.extend(label + ". " + i for label, i in zip(block.get("labels", "ABCDE"), block["options"]))
             else:
                 raise ValueError(f"Verbatim fidelity needs an explicit text contract for {kind}")
     return re.sub(r"\*\*|\*", "", "\n".join(text))
@@ -44,7 +45,8 @@ def require_equal(expected, actual, label, report):
                          "expected": a[max(0, first-60):first+140],
                          "actual": b[max(0, first-60):first+140]}
         raise ValueError(f"{label}: {json.dumps(report[label], ensure_ascii=False)}")
-    report[label] = {"passed": True, "non_whitespace_characters": len(a)}
+    report[label] = {"passed": True, "normalized_characters": len(a),
+                     "non_whitespace_characters": len(re.sub(r"\s", "", a))}
 
 
 def check(source_path, lesson_path, output_path, report_path):
