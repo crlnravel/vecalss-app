@@ -12,8 +12,8 @@ correcting, summarizing, adding, or omitting learning content.
 > headings, examples, tables, questions, choices, answer keys, explanations, tips,
 > symbols, punctuation and sequence. Build fresh selectable text and tables; never
 > overlay or embed original PDF pages. Apply PTN Pro typography, justified body
-> text, mascot header logo, whisper-thin low-contrast light-yellowish background
-> circle/line traces, and solid green top and bottom bands on every page. Tidy the
+> text, mascot header logo, borderless soft light-yellowish background circles and
+> diagonal bands, and solid green top and bottom bands on every page. Tidy the
 > spacing, alignment, wrapping and page breaks. Compare the original text with both
 > the editable source and final rendered body. Inspect every final page visually.
 > Deliver the PDF and editable source, with a short fidelity/formatting report. Flag
@@ -62,11 +62,10 @@ Those editing rules never override a verbatim preservation request.
 | Role | Treatment |
 | --- | --- |
 | Paper and margins | A4 portrait; 48pt sides; content starts 82pt from top and stops 65pt from bottom |
-| Top band | Full-width Voyage Deep `#014C38`, 62pt high; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark (`LEARNING ACADEMY` subtitle) and subject code only, such as PBM |
-| Bottom band | Full-width Voyage Deep, 47pt high; subject alone (no brand prefix) and plain current page number, with no badge, total-page suffix or progress bar |
-| Band accent | 2pt Sea-Glass strip along each inner edge |
-| Geometry | One green circular field, one angled ribbon and one fine mint arc in the header; one green circular field in the footer; whisper-thin low-contrast light-yellowish (`#FAF1CE`, `0.35pt`, stroke-only) circle and line traces on the reading background |
-| Reading surface | White with whisper-thin (`0.35pt`) pale-yellowish `#FAF1CE` circle/line traces (no filled shapes or high-contrast borders); Ink `#173C2D` body text; no source-page background |
+| Top band | Full-width Voyage Deep `#014C38`, 62pt high, borderless; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark (`LEARNING ACADEMY` subtitle) and subject code only, such as PBM |
+| Bottom band | Full-width Voyage Deep, 47pt high, borderless; subject alone (no brand prefix) and plain current page number, with no badge, total-page suffix or progress bar |
+| Geometry | Borderless (`stroke=0`) shapes only: one green circular field and one angled ribbon in the header, one green circular field in the footer, plus soft light-yellowish (`#FFF7D6` circles and `#FFFBEB` angled bands) on the reading background |
+| Reading surface | White with borderless (`stroke=0`) soft light-yellowish `#FFF7D6` / `#FFFBEB` circles and diagonal bands behind the body frame; Ink `#173C2D` body text; no source-page background |
 | Wordmark | Existing Sports World face; reserved for the `PTN PRO` brand mark |
 | Main headings | Manrope 800, 26pt / 32pt; left aligned |
 | Subheadings | Plus Jakarta Sans 700, 14pt / 20pt; left aligned |
@@ -85,13 +84,13 @@ and answer options while keeping headings and narrow table cells left-aligned.
 In bullet lists, numbered steps, and answer options, place the text in front of
 its marker with a hanging indent so wrapped lines never tuck back under the dot,
 and keep tighter vertical spacing between items than between paragraphs.
-Avoid decorative shadows, nested boxes, high-contrast borders, or controls that appear interactive.
+Avoid decorative shadows, nested boxes, borders, or controls that appear interactive.
 Veco Tips use a distinct mint panel, a Warm Sun highlight behind the original
 lightbulb, a bold heading and full-size justified body text. Keep their wording exact;
 the common-mistakes section stays outside the tip panels.
-Preserve the mascot artwork's colors and proportions. Keep background yellowish
-circle/line traces ultra-thin (`0.35pt` `#FAF1CE`, stroke-only, no filled shapes)
-so they never look like bordered components.
+Preserve the mascot artwork's colors and proportions. Keep all background and
+header/footer geometry borderless (`stroke=0`) with soft light-yellowish fills
+(`#FFF7D6` / `#FFFBEB`) on the reading surface.
 
 ## Workflow and completion gates
 

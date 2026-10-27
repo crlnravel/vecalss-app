@@ -34,15 +34,14 @@ page markers; they are not lesson text and do not appear in the designed PDF.
 - Body paragraphs, tip text, supporting text, bullet items, numbered steps and
   answer options are justified (`TA_JUSTIFY`); headings and table cells remain
   left-aligned (`TA_LEFT`).
-- Full-width Voyage Deep top and bottom bands with Sea-Glass inner accents.
+- Full-width Voyage Deep top and bottom bands with no inner borders.
 - Mascot logo (`mascot-veco.png`) and `PTN PRO` (`LEARNING ACADEMY`) wordmark with
-  a restrained circular field, angled ribbon, and single mint arc in the header,
-  plus a circular field in the footer.
-- Whisper-thin (`0.35pt`), low-contrast light-yellowish (`#FAF1CE`) stroke-only
-  circle and line traces on the white reading surface behind the lesson body (no
-  filled background shapes or high-contrast borders).
+  a borderless circular field and angled ribbon in the header, plus a borderless
+  circular field in the footer.
+- Borderless (`stroke=0`) soft light-yellowish (`#FFF7D6` circles and `#FFFBEB`
+  diagonal bands) on the white reading surface behind the lesson body.
 - Header code is PBM; footer uses the plain current page number. No page badge,
-  total-page suffix, progress bar or intrusive ornaments.
+  total-page suffix, progress bar or borders.
 - Footer subject is Pemahaman Bacaan & Menulis, with no brand prefix.
 - Each original Veco Tip is grouped into a mint panel with a warm lightbulb
   highlight; all tip headings and paragraphs remain verbatim.

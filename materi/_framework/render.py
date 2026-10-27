@@ -293,21 +293,32 @@ class LessonDoc(BaseDocTemplate):
 
 def page_frame(c, doc, lesson):
     c.saveState()
-    # Whisper-thin, low-contrast light-yellowish circle/line trace on the white background
-    # (no filled circle component or high-contrast border).
+    # Borderless (`stroke=0`) soft yellowish background shapes on the reading surface.
     c.saveState()
     body_clip = c.beginPath()
-    body_clip.rect(0, 49, W, H - 113)
+    body_clip.rect(0, 47, W, H - 109)
     c.clipPath(body_clip, stroke=0)
-    c.setStrokeColor(colors.HexColor("#FAF1CE"))
-    c.setLineWidth(0.35)
-    c.circle(W + 18, H - 150, 92, stroke=1, fill=0)
-    c.circle(-24, 140, 80, stroke=1, fill=0)
-    c.line(W - 88, H - 64, W, H - 152)
-    c.line(0, 205, 76, 49)
+    c.setFillColor(colors.HexColor("#FFF7D6"))
+    c.circle(W + 10, H - 150, 95, stroke=0, fill=1)
+    c.circle(-20, 140, 85, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor("#FFFBEB"))
+    ribbon = c.beginPath()
+    ribbon.moveTo(W - 155, H - 62)
+    ribbon.lineTo(W - 115, H - 62)
+    ribbon.lineTo(W, H - 177)
+    ribbon.lineTo(W, H - 217)
+    ribbon.close()
+    c.drawPath(ribbon, stroke=0, fill=1)
+    lower_ribbon = c.beginPath()
+    lower_ribbon.moveTo(0, 185)
+    lower_ribbon.lineTo(0, 145)
+    lower_ribbon.lineTo(98, 47)
+    lower_ribbon.lineTo(138, 47)
+    lower_ribbon.close()
+    c.drawPath(lower_ribbon, stroke=0, fill=1)
     c.restoreState()
 
-    # Keep band geometry inside the colored bands, away from lesson text.
+    # Keep band geometry inside the colored bands, away from lesson text, with no borders.
     c.setFillColor(C["voyage-deep"])
     c.rect(0, H - 62, W, 62, stroke=0, fill=1)
     c.rect(0, 0, W, 47, stroke=0, fill=1)
@@ -326,9 +337,6 @@ def page_frame(c, doc, lesson):
     diagonal.lineTo(W - 208, H - 62)
     diagonal.close()
     c.drawPath(diagonal, stroke=0, fill=1)
-    c.setStrokeColor(C["sea-glass"])
-    c.setLineWidth(0.65)
-    c.circle(W - 8, H - 8, 65, stroke=1, fill=0)
     c.restoreState()
 
     c.saveState()
@@ -338,10 +346,6 @@ def page_frame(c, doc, lesson):
     c.setFillColor(C["voyage-forest"])
     c.circle(-18, -4, 79, stroke=0, fill=1)
     c.restoreState()
-
-    c.setFillColor(C["sea-glass"])
-    c.rect(0, H - 64, W, 2, stroke=0, fill=1)
-    c.rect(0, 47, W, 2, stroke=0, fill=1)
 
     # Use the mascot illustration with its colors and proportions intact.
     c.drawImage(str(ROOT / "assets" / "mascot-veco.png"), MARGIN, H - 55,
