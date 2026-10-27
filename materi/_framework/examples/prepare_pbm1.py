@@ -226,7 +226,7 @@ def prepare():
                 block["items"] = [emphasize(i) for i in block["items"]]
             if block["type"] == "table":
                 block["rows"] = [[emphasize(v) for v in row] for row in block["rows"]]
-    lesson = {"title": "MATERI 01 — Ejaan & Tanda Baca", "code": "PBM / 01",
+    lesson = {"title": "MATERI 01 — Ejaan & Tanda Baca", "code": "PBM",
               "subject": "Pemahaman Bacaan & Menulis", "source": "materi/pbm1.pdf",
               "verbatim": True, "pages": pages}
     (ROOT / "pbm1.lesson.json").write_text(json.dumps(lesson, ensure_ascii=False, indent=2) + "\n")

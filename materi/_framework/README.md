@@ -60,10 +60,10 @@ Those editing rules never override a verbatim preservation request.
 | Role | Treatment |
 | --- | --- |
 | Paper and margins | A4 portrait; 48pt sides; content starts 82pt from top and stops 65pt from bottom |
-| Top band | Full-width Voyage Deep `#014C38`, 62pt high; original graduation-cap logo, white Vecalss wordmark and module code |
-| Bottom band | Full-width Voyage Deep, 47pt high; subject, rounded page-number inset and a quiet page-progress line |
+| Top band | Full-width Voyage Deep `#014C38`, 62pt high; original graduation-cap logo, white Vecalss wordmark and subject code only, such as PBM |
+| Bottom band | Full-width Voyage Deep, 47pt high; subject and plain current page number, with no badge, total-page suffix or progress bar |
 | Band accent | 2pt Sea-Glass strip along each inner edge |
-| Geometry | Layered green circles, fine mint arcs and angled ribbons clipped inside the bands; faint arcs stay outside the reading frame |
+| Geometry | One green circular field, one angled ribbon and one fine mint arc in the header; one green circular field in the footer; no margin ornaments |
 | Reading surface | White; Ink `#173C2D` body text; no source-page background |
 | Wordmark | Existing Sports World face; reserved for the brand |
 | Main headings | Manrope 800, 26pt / 32pt |
@@ -80,8 +80,8 @@ Use consistent column widths, comfortable leading and clear paragraph spacing.
 Avoid decorative shadows, nested boxes, or controls that appear interactive.
 Original tips can receive a mint note treatment, but their wording stays exact.
 Preserve the original logo artwork's colors and proportions. Geometric accents
-belong to the band and margin system; keep them away from text and table cells.
-Warm Sun remains a tiny accent at the header landmark and page-progress marker.
+belong to the colored bands; keep them away from text and table cells. Keep this
+reduced set of shapes rather than adding repeated rings, dots or extra ribbons.
 
 ## Workflow and completion gates
 
