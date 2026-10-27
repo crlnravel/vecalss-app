@@ -710,6 +710,7 @@
         },
         {
           "type": "tip",
+          "tone": "warning",
           "title": "⚠️ Kesalahan Umum yang Sering Terjadi",
           "items": [
             "Memilih kalimat penjelas yang mengandung data/contoh sebagai ide pokok",

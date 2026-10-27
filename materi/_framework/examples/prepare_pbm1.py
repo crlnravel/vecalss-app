@@ -216,7 +216,7 @@ def prepare():
     pages[-1]["blocks"] = [
         {"type": "tip", "title": tip_blocks[0]["text"], "text": tip_blocks[1]["text"]},
         {"type": "tip", "title": tip_blocks[2]["text"], "text": tip_blocks[3]["text"]},
-        {"type": "tip", "title": tip_blocks[4]["text"], "items": tip_blocks[5]["items"], "marker": tip_blocks[5]["marker"]},
+        {"type": "tip", "tone": "warning", "title": tip_blocks[4]["text"], "items": tip_blocks[5]["items"], "marker": tip_blocks[5]["marker"]},
     ]
 
     # Reapply source italic semantics to examples; words are not changed.

@@ -147,7 +147,7 @@ Every lesson JSON file has the following top-level structure:
 | `"steps"` | `items` *(string[])* | `start` *(int, default `1`)* | Justified (`TA_JUSTIFY`) numbered list (`1.`, `2.`, ...) using the same hanging indent and compact item spacing. |
 | `"table"` | `headers` *(string[])*, `rows` *(string[][])* | `widths` *(number[])* | 2-to-4 column table with left-aligned (`TA_LEFT`) cells, mint header row (`#EEF8F1`), and padded cells. Use `headers: ["", ...]` on an unheaded continuation table. |
 | `"question"` | `id` *(string)*, `prompt` *(string)*, `options` *(5 strings)* | `labels` *(string, default `"ABCDE"`)* | Keeps question prompt and all 5 options together on one page (`KeepTogether`), with justified hanging-indented options. |
-| `"tip"` | `title` *(string)*, and `text` *(string)* or `items` *(string[])* | `marker` *(string, default `"•"`)* | Veco Tip or Common Mistakes callout rendered in a rounded Sea-Glass Wash (`#EEF8F1`) panel with a Warm Sun (`#FFD766`) circle highlight behind the leading icon (`💡` or `⚠️`) and justified body or hanging-indented bullet items. |
+| `"tip"` | `title` *(string)*, and `text` *(string)* or `items` *(string[])* | `marker` *(string, default `"•"`)*, `tone` *(string, e.g. `"warning"`)* | Highlighted callout block with no background circle behind the icon: Veco Tips use a Sea-Glass Wash (`#EEF8F1`) panel with a yellow (`#E8AD16`) `💡` icon; `Kesalahan Umum` (`tone: "warning"`) uses a soft light-yellowish (`#FFF7D6`) panel with a dark green (`#014C38`) `⚠️` icon. |
 | `"note"` | `title` *(string)*, `text` *(string)* | — | Compact bounded teaching note on a mint surface with justified supporting text. |
 | `"references"` | `items` *(`{label, url}`[])* | — | External `https://` reference links styled in Voyage Deep. |
 
@@ -172,4 +172,14 @@ The renderer pulls color tokens directly from [`DESIGN.md`](file:///Users/ravel/
 - **Borderless Light-Yellowish Background Shapes:** Clipped to the reading canvas (`y: 47pt..H-62pt`) behind all text and tables: borderless (`stroke=0`, `fill=1`) soft light-yellowish (`#FFF7D6`) accents consisting of one circle on the top right and one diagonal band on the bottom left.
 - **Text Alignment:** Body paragraphs, tip text, supporting text, bullet items, numbered steps, and multiple-choice options are justified (`TA_JUSTIFY`). Page titles, section headings, and table cells remain left-aligned (`TA_LEFT`).
 - **Hanging Lists & Options:** Bullet items, numbered steps, and multiple-choice options place their text in front of the dot/number (`bulletIndent: 6pt`, `leftIndent: 24pt`) so wrapped continuation lines align cleanly with the first line's text rather than wrapping underneath the marker. Consecutive items use `15pt` leading and `3pt` spacing (`10pt` after the final item).
-- **Veco Tips & Common Mistakes (`Kesalahan Umum yang Sering Terjadi`):** Both Veco Tip paragraphs and the `⚠️ Kesalahan Umum yang Sering Terjadi` bullet list are wrapped in `tip` callout blocks (`sea-glass-wash` rounded panel with a `warm-sun` circular highlight behind the `💡` or `⚠️` emoji).
+- **Veco Tips & Common Mistakes (`Kesalahan Umum yang Sering Terjadi`):** Both use `tip` callout panels with no circle behind the icon. Veco Tips use a `sea-glass-wash` (`#EEF8F1`) panel with a yellow (`#E8AD16`) `💡` icon; `Kesalahan Umum yang Sering Terjadi` (`tone: "warning"`) uses a thin yellow (`#FFF7D6`) panel with a dark green (`#014C38`) `⚠️` icon.
+
+---
+
+## 7. Reference Example: PBM 01 (`materi/pbm1.pdf`)
+
+PBM 01 (`MATERI 01 — Ejaan & Tanda Baca`) is the reference implementation:
+- **Source:** `materi/pbm1.pdf` (`12` pages, SHA-256 `1c267d58bce6823fcd32fd65e6ac326b4dc414e947bd15211c5a1b554961d85e`)
+- **Output:** [`output/pdf/pbm1-vecalss.pdf`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/output/pdf/pbm1-vecalss.pdf) (`16` pages)
+- **Fidelity Check:** `16,260 / 16,260` normalized characters matched (`13,896 / 13,896` non-whitespace characters matched) across both `source_to_editable_lesson` and `source_to_rendered_body`.
+- **Detailed Provenance:** [`materi/_framework/examples/pbm1-fidelity.md`](file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/materi/_framework/examples/pbm1-fidelity.md).

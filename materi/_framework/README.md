@@ -85,10 +85,12 @@ In bullet lists, numbered steps, and answer options, place the text in front of
 its marker with a hanging indent so wrapped lines never tuck back under the dot,
 and keep tighter vertical spacing between items than between paragraphs.
 Avoid decorative shadows, nested boxes, borders, or controls that appear interactive.
-Veco Tips and the `Kesalahan Umum yang Sering Terjadi` warning section use a distinct
-mint callout panel (`sea-glass-wash`), a Warm Sun highlight behind the original
-icon (`💡` or `⚠️`), a bold heading, and full-size justified body or hanging-indented
-bullet items. Keep their wording exact.
+Veco Tips use a mint callout panel (`sea-glass-wash` `#EEF8F1`) with a yellow
+(`#E8AD16`) `💡` icon and no circle behind the icon. The `Kesalahan Umum yang Sering Terjadi`
+warning callout (`tone: "warning"`) uses a thin yellow background (`#FFF7D6`) with a
+dark green (`#014C38`) `⚠️` icon and no circle behind the icon. Both keep their
+wording exact with a bold heading and full-size justified body or hanging-indented
+bullet items.
 Preserve the mascot artwork's colors and proportions. Keep all background and
 header/footer geometry borderless (`stroke=0`) with soft light-yellowish fills
 (`#FFF7D6`) on the reading surface.
@@ -119,7 +121,7 @@ and `continuation: true`. Do not invent a new instructional title to fill space.
 | `bullets` | Exact `items`; original `marker` defaults to `•` |
 | `steps` | Exact `items`; optional `start` for original numbering |
 | `question` | Original `id`, `prompt`, five `options`, original `labels` such as `abcde` |
-| `tip` | Exact original `title` and either `text` (paragraph) or `items` (with optional `marker`); groups a tip or common-mistakes warning heading with its content in a mint callout |
+| `tip` | Exact original `title` and either `text` (paragraph) or `items` (with optional `marker`), plus optional `tone: "warning"`; renders a mint callout with yellow icon (or thin yellow callout with dark green icon for warnings) |
 
 `**bold**`, `*italic*` and line breaks are layout markup; other markup is escaped.
 Use an empty-string header row on a continued table only when no additional

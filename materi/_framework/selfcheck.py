@@ -72,6 +72,7 @@ def run():
                 "Second list item immediately below with compact spacing."
             ]},
             {"type": "tip", "title": "💡 Veco Tips", "text": "Original wording stays selectable."},
+            {"type": "tip", "tone": "warning", "title": "⚠️ Kesalahan Umum", "items": ["First common mistake."], "marker": "●"},
             {"type": "references", "items": [{"label": "Official reference", "url": "https://ejaan.kemendikdasmen.go.id/"}]}
         ]}]
         lesson_file = scratch / "lesson.json"
@@ -93,6 +94,10 @@ def run():
         line1_span = next(s for s in spans if s["text"].startswith("Wrapped list item"))
         line2_span = next(s for s in spans if "bullet marker." in s["text"] and s is not line1_span)
         item2_span = next(s for s in spans if s["text"].startswith("Second list item"))
+        tip_icon = [s for s in spans if s["text"].strip() == "💡"][-1]
+        warn_icon = [s for s in spans if s["text"].strip() == "⚠"][-1]
+        require(tip_icon["color"] == 0xE8AD16, "Tip callout icon must be yellow")
+        require(warn_icon["color"] == 0x014C38, "Warning callout icon must be dark green")
         require(line1_span["bbox"][0] > bullet_span["bbox"][2], "List text is not positioned in front of the bullet")
         require(abs(line1_span["bbox"][0] - line2_span["bbox"][0]) < 0.5, "Wrapped list line did not align with first line text")
         require(item2_span["bbox"][1] - line2_span["bbox"][1] < 20, "List item spacing is not compact")

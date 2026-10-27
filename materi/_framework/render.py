@@ -23,6 +23,7 @@ REPO = ROOT.parent.parent
 W, H = A4
 MARGIN = 48
 WIDTH = W - 2 * MARGIN
+YELLOW_WASH = colors.HexColor("#FFF7D6")
 
 
 def load_palette():
@@ -68,13 +69,14 @@ def register_fonts():
                                 italic="Jakarta-Italic", boldItalic="Jakarta-BoldItalic")
 
 
-def rich(text):
+def rich(text, emoji_color=None):
     """Only **bold**, *italic*, and line breaks; arbitrary PDF markup is escaped."""
     text = text.replace("\ufe0f", "")
     text = escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", text)
-    text = re.sub(r"([🦆💡⚠]\ufe0f?)", r'<font name="NotoEmoji">\1</font>', text)
+    emoji_font = f'<font name="NotoEmoji" color="{emoji_color}">\\1</font>' if emoji_color else r'<font name="NotoEmoji">\1</font>'
+    text = re.sub(r"([🦆💡⚠]\ufe0f?)", emoji_font, text)
     def symbol(match):
         character = match.group(0)
         for family in ("Jakarta", "NotoSymbols", "NotoMath", "NotoEmoji"):
@@ -136,9 +138,12 @@ class Note(Flowable):
 
 class Tip(Note):
     """A distinct teaching callout using the original icon and wording."""
-    def __init__(self, title, s, text=None, items=None, marker="•"):
+    def __init__(self, title, s, text=None, items=None, marker="•", tone=None):
         Flowable.__init__(self)
-        self.title = Paragraph(rich(title), s["heading"])
+        is_warning = tone == "warning" or "⚠" in title or "kesalahan umum" in title.lower()
+        self.bg_color = YELLOW_WASH if is_warning else C["sea-glass-wash"]
+        icon_color = C["voyage-deep"].hexval().replace("0x", "#") if is_warning else C["rating-gold"].hexval().replace("0x", "#")
+        self.title = Paragraph(rich(title, emoji_color=icon_color), s["heading"])
         if items:
             m = rich(marker)
             self.items = [Paragraph(f"<bullet>{m} </bullet>{rich(i)}", s["list"]) for i in items]
@@ -159,10 +164,8 @@ class Tip(Note):
 
     def draw(self):
         c = self.canv
-        c.setFillColor(C["sea-glass-wash"])
+        c.setFillColor(self.bg_color)
         c.roundRect(0, 0, self.width, self.height, 9, stroke=0, fill=1)
-        c.setFillColor(C["warm-sun"])
-        c.circle(23, self.height - 24, 10, stroke=0, fill=1)
         self.title.drawOn(c, 14, self.height - 14 - self.th)
         y = 14 + self.bh
         for item, h in zip(self.items, self.item_heights):
@@ -257,7 +260,8 @@ def make_blocks(blocks, s):
             result.append(Note(block["title"], block["text"], s))
         elif kind == "tip":
             result.append(Tip(block["title"], s, text=block.get("text"),
-                              items=block.get("items"), marker=block.get("marker", "•")))
+                              items=block.get("items"), marker=block.get("marker", "•"),
+                              tone=block.get("tone")))
         elif kind == "table":
             weights = block.get("widths", [1] * len(block["headers"]))
             has_header = any(block["headers"])
@@ -321,7 +325,7 @@ def page_frame(c, doc, lesson):
     body_clip = c.beginPath()
     body_clip.rect(0, 47, W, H - 109)
     c.clipPath(body_clip, stroke=0)
-    c.setFillColor(colors.HexColor("#FFF7D6"))
+    c.setFillColor(YELLOW_WASH)
     c.circle(W + 10, H - 150, 95, stroke=0, fill=1)
     lower_ribbon = c.beginPath()
     lower_ribbon.moveTo(0, 185)
