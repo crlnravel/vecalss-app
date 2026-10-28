@@ -107,19 +107,19 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
           />
         </div>
         <div className="mt-5 overflow-x-auto rounded-2xl border border-primary-100">
-          <Table className="min-w-[640px]">
+          <Table className="sm:min-w-[640px]">
             <TableHeader className="bg-primary-50/75">
               <TableRow className="hover:bg-primary-50/75">
                 <TableHead className="h-auto px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
                   Nama
                 </TableHead>
-                <TableHead className="h-auto w-28 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
+                <TableHead className="h-auto w-20 px-3 py-3 sm:w-28 sm:px-4 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
                   Skor
                 </TableHead>
-                <TableHead className="h-auto w-36 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
+                <TableHead className="h-auto w-32 px-3 py-3 sm:w-36 sm:px-4 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
                   Status
                 </TableHead>
-                <TableHead className="h-auto w-44 px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">
+                <TableHead className="hidden h-auto w-44 px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase sm:table-cell">
                   Mulai
                 </TableHead>
               </TableRow>
@@ -184,7 +184,7 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
           </span>
         </Link>
       </TableCell>
-      <TableCell className="px-4 py-4">
+      <TableCell className="px-3 py-4 sm:px-4">
         <span className="text-center justify-center tabular-nums text-secondary-900">
           {isSubmitted
             ? (attempt.aggregateScore ??
@@ -194,14 +194,14 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
             : "—"}
         </span>
       </TableCell>
-      <TableCell className="px-4 py-4">
+      <TableCell className="px-3 py-4 sm:px-4">
         <ReferenceStatusBadge
           label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"}
           size="xs"
           status={isSubmitted ? "completed" : "in_progress"}
         />
       </TableCell>
-      <TableCell className="px-5 py-4 text-sm text-secondary-600">
+      <TableCell className="hidden px-5 py-4 text-sm text-secondary-600 sm:table-cell">
         <time dateTime={attempt.createdAt}>
           {dateTime.format(new Date(attempt.createdAt))}
         </time>

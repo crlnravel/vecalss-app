@@ -441,7 +441,7 @@ function QuizDescriptionField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah deskripsi Kuis"
-            className="text-secondary-400 hover:text-secondary-900"
+            className="-my-2 text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
@@ -530,7 +530,7 @@ function QuizSubjectField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah subjek Kuis"
-            className="text-secondary-400 hover:text-secondary-900"
+            className="-my-2 text-secondary-400 hover:text-secondary-900"
             onClick={() => {
               setDraft(value);
               setEditing(true);
@@ -617,7 +617,7 @@ function QuizMetadataCard({
           onChange={(title) => onChange({ title })}
           value={form.title}
         />
-        <div className="space-y-5">
+        <div className="space-y-4">
           <QuizDescriptionField
             disabled={disabled}
             isSaving={isSaving}
@@ -659,7 +659,7 @@ function QuizSettings({
 
   return (
     <div className="grid gap-6">
-      <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7">
+      <ReferenceSurface as="section" className="p-5 md:p-7">
         <div>
           <h2 className="text-lg font-semibold text-secondary-900">
             Pengaturan Kuis
@@ -770,7 +770,7 @@ function QuizSettings({
         ) : null}
         <Button
           aria-busy={isSaving}
-          className="mt-5 w-full"
+          className="mt-5 w-full sm:ml-auto sm:flex sm:w-auto"
           data-quiz-settings-save="primary"
           disabled={
             disabled || isSaving || Boolean(scheduleError || durationError)
@@ -828,7 +828,7 @@ function QuizLifecycleSettings({
       {onArchive || onSetHidden ? (
         <ReferenceSurface
           as="section"
-          className="max-w-6xl p-5 md:p-7"
+          className="p-5 md:p-7"
           data-quiz-settings-card="lifecycle"
         >
           <div className="space-y-5">
