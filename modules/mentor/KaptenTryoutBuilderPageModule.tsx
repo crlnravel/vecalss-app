@@ -1591,7 +1591,7 @@ function TryoutSubtestMetadataField({
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-secondary-500">
           {label}
-          {required ? <RequiredMark /> : null}
+          {required && !disabled ? <RequiredMark /> : null}
         </p>
         {editing ? (
           <div className="flex shrink-0 items-center gap-1">
@@ -1687,12 +1687,13 @@ function TryoutSubtestMetadataCard({
     >
       <div className="space-y-6">
         <h1
-          className="mt-3 text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl"
+          className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl"
           id="tryout-subtest-title"
         >
           {subjectName}
         </h1>
         <div className="space-y-5">
+        <div className="grid gap-5 sm:grid-cols-2">
         <TryoutSubtestMetadataField
           canSave={durationIsValid}
           disabled={!canEdit}
@@ -1794,6 +1795,7 @@ function TryoutSubtestMetadataCard({
             value={scoringMethodDraft}
           />
         </TryoutSubtestMetadataField>
+        </div>
 
           <TryoutSubtestMetadataField
             disabled={!canEdit}
