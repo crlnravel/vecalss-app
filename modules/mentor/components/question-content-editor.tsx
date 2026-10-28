@@ -300,7 +300,7 @@ function QuestionChoicesEditor({ correctChoiceIdSet, disabled, idPrefix, onOpenM
 }) {
   const questionType = questionTypeFor(question);
   return (
-    <fieldset aria-required="true" className="grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2" disabled={disabled}>
+    <fieldset aria-required="true" className="grid min-w-0 gap-3 border-0 p-0" disabled={disabled}>
       <legend className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "col-span-full")}>
         Pilihan jawaban <span aria-hidden="true" className="text-student-status-danger-fg">*</span>
       </legend>
@@ -326,7 +326,7 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
   const isCorrect = correctChoiceIdSet.has(choice.id);
   return (
     <div className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "min-w-0 flex-col items-stretch gap-3 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50", disabled && "cursor-not-allowed opacity-55")}>
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
         <input
           aria-label={`Opsi ${optionLabel} adalah jawaban benar`}
           checked={isCorrect}
@@ -346,7 +346,7 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
         <span className="text-sm font-semibold text-primary-800">{optionLabel}</span>
         <input
           aria-label={`Opsi ${optionLabel}`}
-          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-w-0 flex-1")}
+          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "order-last min-w-0 basis-full sm:order-none sm:basis-0 sm:flex-1")}
           disabled={disabled}
           id={textInputId}
           onChange={(event) => updateQuestion(question.id, (current) => ({
@@ -357,6 +357,7 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
           required
           value={choice.text}
         />
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
         <QuestionMediaActions assetId={choice.mediaAssetId} compact disabled={disabled} label={`Gambar opsi ${optionLabel}`} onOpen={() => onOpenMedia(mediaTarget)} onRemove={() => updateQuestion(question.id, (current) => setQuestionMediaAsset(current, mediaTarget, undefined))} />
         <Button
           aria-label={`Hapus opsi ${optionLabel}`}
@@ -368,8 +369,9 @@ function QuestionChoiceRow({ choice, correctChoiceIdSet, disabled, idPrefix, onO
           size="icon-sm"
           title={`Hapus opsi ${optionLabel}`}
           type="button"
-          variant="outline"
+          variant="quiet"
         ><Trash2 aria-hidden="true" /></Button>
+        </div>
       </div>
       {choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${optionLabel}`} assetId={choice.mediaAssetId} className="max-h-36 bg-white" /> : null}
     </div>

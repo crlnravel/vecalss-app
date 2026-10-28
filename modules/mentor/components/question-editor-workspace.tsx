@@ -44,7 +44,7 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
     variant: "info",
   });
 
-  return <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0">
+  return <header className="z-10 flex min-h-14 shrink-0 items-center gap-x-3 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:px-6 md:py-0">
     <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
       {backControl}
       <div className="flex min-w-0 items-center gap-2.5">
@@ -52,7 +52,7 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
         {category ? <Badge className="hidden sm:inline-flex" size="xs" tone="category">{category}</Badge> : null}
       </div>
     </div>
-    {onSave ? <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
+    {onSave ? <div className="flex shrink-0 items-center justify-end gap-2">
       <Button aria-busy={saving} aria-label="Simpan" disabled={saveDisabled} id={saveId} onClick={onSave} size="sm" title="Simpan perubahan" type="button" variant="default"><Save aria-hidden="true" />{saving ? "Menyimpan…" : "Simpan"}</Button>
     </div> : null}
   </header>;
@@ -118,10 +118,10 @@ export function EditorQuestionInventory(props: InventoryProps) {
                     <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900"><span className="min-w-0 flex-1 truncate">{index + 1}. {question.prompt || "Soal tanpa pertanyaan"}</span></span>
                     {issueCount > 0 ? <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5"><Badge aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`} className="size-7 justify-center !px-0 !py-0" role="img" size="xs" title={`Soal ${index + 1} memiliki ${issueCount} masalah`} tone="attention"><AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" /></Badge></span> : null}
                   </button>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="outline"><ArrowUp className="size-3.5" /></Button>
-                    <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="outline"><ArrowDown className="size-3.5" /></Button>
-                    <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="outline"><Trash2 className="size-3.5" /></Button>
+                  <div className={cn("shrink-0 items-center gap-0.5", isActive ? "flex" : "hidden group-focus-within:flex")}>
+                    <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="quiet"><ArrowUp className="size-3.5" /></Button>
+                    <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="quiet"><ArrowDown className="size-3.5" /></Button>
+                    <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="quiet"><Trash2 className="size-3.5" /></Button>
                   </div>
                 </li>
               );
