@@ -20,7 +20,11 @@ and border, no resting/hover/pressed shadow or translation, and only a subtle
 icon-color change on hover. Use `size="icon"` (44px), an accessible name and
 a visible keyboard focus ring. Dialog/Sheet/modal X controls, notification and
 sidebar triggers, search/filter clearing, explanatory tooltip icons and local
-attachment removal use this treatment. On dark surfaces, adapt only icon and
+attachment removal use this treatment. So do most icon-only buttons attached
+to a label or title: the edit pencil beside a heading or a field label, help
+(“?”) icons and lock icons. Keep the icon visually small (`size-3.5`/`size-4`)
+and use `-my-2` so the 44px hit area does not push the label row taller. The
+Kuis detail header is the reference. On dark surfaces, adapt only icon and
 focus colors for contrast. Keep save, submit, destructive mutations and
 consequential cancellation/exit actions tactile; do not use quiet for text buttons.
 
@@ -36,8 +40,9 @@ consequential cancellation/exit actions tactile; do not use quiet for text butto
 - **States:** Keep visible focus, disabled and loading cues, and consistent
   hover/press behavior. Reduced motion removes transforms and transitions
   while preserving color, border, focus, and loading state.
-- **Use by intent:** Save/start/submit uses primary; cancel/back/secondary uses
-  outline; destructive mutations use destructive; exceptional attention uses
+- **Use by intent:** Save/start/submit uses primary; cancel/secondary uses
+  outline; a “Kembali” button (only where a page has no breadcrumb, see
+  navigation.md) is a text outline button with no icon; destructive mutations use destructive; exceptional attention uses
   warning. Inverse provides a readable white action on a dark surface.
 - **Navigation and filters:** Ordinary text links remain links. Collections
   use specialty tabs, rather than a selected Button variant. Menu items and

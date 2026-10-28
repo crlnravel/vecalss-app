@@ -15,8 +15,11 @@ Use this file before introducing a new pattern or visual exception.
   headings.
 - **Do** make page titles direct and concise: name the current destination once,
   such as “Tryout Workspace.”
-- **Do** use a chevron-left back control that returns exactly one level to the
-  immediate parent, with an accessible parent-specific name.
+- **Do** let the header breadcrumb carry the way back, with the immediate
+  parent as a crumb. Where a page has no breadcrumb, use a plain text “Kembali”
+  button without an icon.
+- **Do** use `variant="quiet"` for an icon-only button that is attached to a
+  label or title (edit pencil, help, lock) so it reads as part of the text.
 - **Do** choose the shared sunken tabs layout by intent: content-sized tabs for
   compact filters and equal-width tabs for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
@@ -64,8 +67,11 @@ Use this file before introducing a new pattern or visual exception.
   every surface.
 - **Don't** build page headers from an eyebrow, title, and subtitle/description
   stack when the title alone communicates the destination.
-- **Don't** make Back jump from a child page to its grandparent, a broad
+- **Don't** add a back chevron or back arrow anywhere in the app, and don't
+  make a back control jump from a child page to its grandparent, a broad
   catalogue, or an arbitrary history entry.
+- **Don't** give an icon-only button beside a label or title a border and
+  tactile shadow; that weight is for real actions such as save and cancel.
 - **Don't** invent another tab style or use content-sized tabs when a tab bar
   needs to span the full available width.
 - **Don't** use a raw `<select>` or one-off dropdown implementation when the
