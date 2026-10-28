@@ -1,8 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import Link from "next/link";
 
-import { ChevronLeft } from "@/lib/icons";
-
 import { Button } from "./button";
 
 type BackButtonProps = Omit<
@@ -15,11 +13,11 @@ type BackButtonProps = Omit<
 };
 
 function BackButton({
-  children = <ChevronLeft aria-hidden="true" />,
+  children,
   href,
   label,
-  size = "icon",
-  variant,
+  size = "default",
+  variant = "outline",
   ...props
 }: BackButtonProps) {
   return (
@@ -29,10 +27,10 @@ function BackButton({
       render={<Link href={href} />}
       size={size}
       title={label}
-      variant={variant ?? (size?.startsWith("icon") ? "quiet" : "outline")}
+      variant={variant}
       {...props}
     >
-      {children}
+      {children ?? label}
     </Button>
   );
 }

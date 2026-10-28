@@ -2,10 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import type { DeveloperReportDetail } from "@/lib/reports";
-import { ChevronLeft, ArrowUpRight, Download, FileText } from "@/lib/icons";
+import { ArrowUpRight, Download, FileText } from "@/lib/icons";
 
 import { DeveloperWorkspaceShell } from "./components/developer-workspace-shell";
 
@@ -87,12 +86,6 @@ function DeveloperReportDetailPageModule({
     <DeveloperWorkspaceShell isDetailPage accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
       <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-report-title">
         <header className="flex items-start gap-4">
-          <Tooltip>
-            <TooltipTrigger render={<Button aria-label="Kembali ke laporan" className="size-11 shrink-0" render={<Link href="/developer/reports" />} variant="outline" />}>
-              <ChevronLeft aria-hidden="true" className="size-5" />
-            </TooltipTrigger>
-            <TooltipContent>Kembali ke laporan</TooltipContent>
-          </Tooltip>
           <div className="min-w-0">
             <h1 className="max-w-[32ch] break-words font-heading text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance text-voyage-ink sm:text-3xl" id="developer-report-title">
               {report.title}

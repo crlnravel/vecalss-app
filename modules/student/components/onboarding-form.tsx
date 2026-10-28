@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useActionState, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   GraduationCap,
@@ -201,11 +200,10 @@ function OnboardingForm({
               aria-label="Kembali ke langkah sebelumnya"
               className="mt-5"
               onClick={() => setStep((current) => Math.max(0, current - 1))}
-              size="icon"
               type="button"
               variant="outline"
             >
-              <ArrowLeft size={23} weight="bold" />
+              Kembali
             </Button>
           </>
         ) : null}

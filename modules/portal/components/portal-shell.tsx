@@ -55,6 +55,7 @@ const adminSectionRootHrefs = {
 function PortalShell({
   audience,
   activeAdminSection,
+  breadcrumbHref,
   children,
   description,
   session,
@@ -62,6 +63,7 @@ function PortalShell({
 }: {
   audience: LoginAudience;
   activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs" | "table-demo";
+  breadcrumbHref?: string;
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -72,7 +74,7 @@ function PortalShell({
       ? "students"
       : activeAdminSection ?? "overview";
     const activeLabel = adminSectionLabels[activeSection];
-    const rootHref = adminSectionRootHrefs[activeSection];
+    const rootHref = breadcrumbHref ?? adminSectionRootHrefs[activeSection];
     const isRootPage = title === activeLabel;
     return (
       <SidebarProvider className="workspace-page-canvas lg:gap-2 lg:p-6">
@@ -90,9 +92,9 @@ function PortalShell({
                   className="size-[44px] min-h-[44px] min-w-[44px] shrink-0 lg:hidden"
                 />
 
-                <div className="hidden min-w-0 flex-1 md:block">
+                <div className="min-w-0 flex-1">
                   <Breadcrumb>
-                    <BreadcrumbList>
+                    <BreadcrumbList className="flex-nowrap overflow-hidden">
                       <BreadcrumbItem>
                         <BreadcrumbLink className="text-secondary-500" href={rootHref}>
                           {activeLabel}
@@ -102,7 +104,7 @@ function PortalShell({
                         <>
                           <BreadcrumbSeparator />
                           <BreadcrumbItem>
-                            <BreadcrumbPage>{title}</BreadcrumbPage>
+                            <BreadcrumbPage className="block truncate">{title}</BreadcrumbPage>
                           </BreadcrumbItem>
                         </>
                       ) : null}

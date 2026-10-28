@@ -44,9 +44,9 @@ function AffiliatorWorkspaceShell({
             <div className="relative z-10 flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0 lg:hidden" />
 
-              <div className="hidden min-w-0 flex-1 md:block">
+              <div className="min-w-0 flex-1">
                 <Breadcrumb>
-                  <BreadcrumbList>
+                  <BreadcrumbList className="flex-nowrap overflow-hidden">
                     <BreadcrumbItem>
                       <BreadcrumbLink className="text-secondary-500" href={rootHref}>
                         Dashboard
@@ -56,7 +56,7 @@ function AffiliatorWorkspaceShell({
                       <>
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
-                          <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                          <BreadcrumbPage className="block truncate">{breadcrumbLabel}</BreadcrumbPage>
                         </BreadcrumbItem>
                       </>
                     ) : null}

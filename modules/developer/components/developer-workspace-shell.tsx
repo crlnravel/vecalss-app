@@ -119,15 +119,15 @@ function DeveloperWorkspaceShell({
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger aria-label="Buka atau tutup navigasi" className="size-[44px] min-h-[44px] min-w-[44px] shrink-0 motion-reduce:transition-none lg:hidden" />
 
-              <Breadcrumb className="hidden min-w-0 flex-1 md:block">
-                <BreadcrumbList>
+              <Breadcrumb className="min-w-0 flex-1">
+                <BreadcrumbList className="flex-nowrap overflow-hidden">
                   <BreadcrumbItem>
-                    {activePage === "components" ? <BreadcrumbPage>Komponen</BreadcrumbPage> : isDetailPage ? <BreadcrumbLink href="/developer/reports">Laporan</BreadcrumbLink> : <BreadcrumbPage>Laporan</BreadcrumbPage>}
+                    {activePage === "components" ? <BreadcrumbPage className="block truncate">Komponen</BreadcrumbPage> : isDetailPage ? <BreadcrumbLink href="/developer/reports">Laporan</BreadcrumbLink> : <BreadcrumbPage className="block truncate">Laporan</BreadcrumbPage>}
                   </BreadcrumbItem>
                   {isDetailPage && activePage === "reports" ? (
                     <>
                       <BreadcrumbSeparator />
-                      <BreadcrumbItem><BreadcrumbPage>Detail laporan</BreadcrumbPage></BreadcrumbItem>
+                      <BreadcrumbItem><BreadcrumbPage className="block truncate">Detail laporan</BreadcrumbPage></BreadcrumbItem>
                     </>
                   ) : null}
                 </BreadcrumbList>

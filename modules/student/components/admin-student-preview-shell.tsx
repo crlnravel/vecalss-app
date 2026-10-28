@@ -67,12 +67,12 @@ function AdminStudentPreviewShell({
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0" size="icon" />
 
-              <div className="hidden min-w-0 flex-1 md:block">
+              <div className="min-w-0 flex-1">
                 <Breadcrumb>
-                  <BreadcrumbList>
+                  <BreadcrumbList className="flex-nowrap overflow-hidden">
                     <BreadcrumbItem>
                       {isRootPage ? (
-                        <BreadcrumbPage>{activeLabel}</BreadcrumbPage>
+                        <BreadcrumbPage className="block truncate">{activeLabel}</BreadcrumbPage>
                       ) : (
                         <BreadcrumbLink className="text-secondary-700" href={rootHref}>
                           {activeLabel}
@@ -83,7 +83,7 @@ function AdminStudentPreviewShell({
                       <>
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
-                          <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                          <BreadcrumbPage className="block truncate">{breadcrumbLabel}</BreadcrumbPage>
                         </BreadcrumbItem>
                       </>
                     ) : null}

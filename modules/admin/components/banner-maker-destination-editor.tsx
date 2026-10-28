@@ -285,7 +285,7 @@ function DestinationEditorHeader({
   const label = getBannerDestinationLabel(destination);
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="icon-sm" variant="inverse"><ArrowLeft aria-hidden="true" className="size-5" /></Button>
+      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="sm" variant="inverse">Kembali</Button>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Editor banner</p>
         <h1 className="truncate text-base font-semibold">{label}</h1>

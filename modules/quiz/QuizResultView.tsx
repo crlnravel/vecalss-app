@@ -178,9 +178,7 @@ function QuizNotSubmitted({ subjectSlug }: { subjectSlug: string }) {
         href={`/quiz/${subjectSlug}`}
         label="Kembali ke daftar kuis"
         variant="default"
-      >
-        <ArrowLeft />
-      </BackButton>
+      />
     </main>
   );
 }

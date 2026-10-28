@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
-  ChevronLeft,
   CircleAlert,
   CircleX,
   Download,
@@ -1138,9 +1137,6 @@ type ImportDetailViewProps = {
 function ImportDetailHeader({ copy, loadStatus, refreshing, status }: { copy: ReturnType<typeof statusCopy>; loadStatus: ImportStatusLoader; refreshing: boolean; status: string }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke daftar akun" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/admin/enrollment" />} size="icon" title="Kembali ke daftar akun" variant="outline">
-        <ChevronLeft aria-hidden="true" size={18} />
-      </Button>
       <ReferencePageHeader
         actions={(
           <div className="flex flex-wrap items-center gap-2">

@@ -31,7 +31,6 @@ import { BrandMark } from "@/modules/home/components/home-primitives";
 import { showToast } from "@/components/ui/toast";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
-  ArrowLeft,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
@@ -955,8 +954,8 @@ function BannerMakerEditorHeader({ controller, session }: { controller: BannerMa
 
   return (
     <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-white/15 bg-voyage-deep px-3 py-3 text-white sm:px-4">
-      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="icon-sm" variant="inverse">
-        <ArrowLeft aria-hidden="true" className="size-5" />
+      <Button aria-label="Kembali ke dashboard admin" nativeButton={false} render={<Link href="/admin" />} size="sm" variant="inverse">
+        Kembali
       </Button>
       <div className="flex min-w-0 items-center gap-2">
         <span className="hidden sm:block"><BrandMark compact /></span>

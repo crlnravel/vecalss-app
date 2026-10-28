@@ -1,9 +1,7 @@
-import Link from "next/link";
 
 import {
   Buildings,
   CalendarDays,
-  ChevronLeft,
   Target,
 } from "@/lib/icons";
 import { StudentDetailTargetExamSelect } from "./components/student-detail-target-exam-select";
@@ -323,26 +321,13 @@ function StudentDetailPageModule({
     <PortalShell
       activeAdminSection="students"
       audience="admin"
+      breadcrumbHref={backHref}
       description={`Kelola akun ${student.fullName}.`}
       session={session}
       title="Detail siswa"
     >
       <div className="space-y-8">
         <div className="flex min-w-0 items-start gap-3">
-          <nav aria-label="Navigasi siswa" className="shrink-0">
-            <Button
-              aria-label="Kembali ke siswa"
-              className="mt-1 shrink-0"
-              nativeButton={false}
-              render={<Link href={backHref} />}
-              size="icon"
-              title="Kembali ke siswa"
-              variant="outline"
-            >
-              <ChevronLeft aria-hidden="true" size={22} />
-              <span className="sr-only">Kembali ke siswa</span>
-            </Button>
-          </nav>
           <ReferencePageHeader
             actions={(
               <div className="w-full min-w-0 sm:w-48">

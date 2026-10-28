@@ -119,7 +119,7 @@ export function BreadcrumbsPaginationPreview() {
         </Breadcrumb>
         <div className="flex items-center gap-2">
           <BackButton href="/developer/reports" label="Kembali ke laporan" />
-          <span className="text-xs text-secondary-600">Tombol kembali dengan ikon chevron</span>
+          <span className="text-xs text-secondary-600">Tombol kembali berupa teks, tanpa ikon</span>
         </div>
       </div>
 

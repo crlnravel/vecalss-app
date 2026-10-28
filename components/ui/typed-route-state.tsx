@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   AlertCircle,
   Archive,
-  ArrowLeft,
   CircleHelp,
   Info,
   LoaderCircle,
@@ -113,7 +112,6 @@ function TypedRouteStateContent({
           ) : null}
           {returnHref ? (
             <Button nativeButton={false} render={<Link href={returnHref} />} variant="outline">
-              <ArrowLeft aria-hidden="true" />
               {returnLabel}
             </Button>
           ) : null}
