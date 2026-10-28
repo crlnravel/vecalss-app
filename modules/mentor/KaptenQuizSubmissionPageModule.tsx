@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Check, ChevronLeft } from "@/lib/icons";
+import { Badge } from "@/components/ui/badge";
 
 import {
   ReferencePageHeader,
@@ -129,6 +130,12 @@ function SubmissionQuestion({
       ? [question.selectedOptionId]
       : [];
   const selectedOptionIdSet = new Set(selectedOptionIds);
+  const correctOptionIds = question.options.filter((option) => option.correct).map((option) => option.id);
+  const verdict = !selectedOptionIds.length
+    ? "blank"
+    : selectedOptionIds.length === correctOptionIds.length && correctOptionIds.every((id) => selectedOptionIdSet.has(id))
+      ? "correct"
+      : "wrong";
   return (
     <li className="rounded-3xl border border-primary-100/80 bg-secondary-50/35 p-4 sm:p-5">
       <div className="flex items-start gap-3">
@@ -136,10 +143,17 @@ function SubmissionQuestion({
           {sequence}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm leading-6 text-secondary-900">
-            {question.prompt}
-          </p>
-          <ul className="mt-3 grid gap-2">
+          <div className="flex items-start justify-between gap-3 max-sm:flex-col-reverse max-sm:gap-2">
+            <p className="min-w-0 text-sm leading-6 text-secondary-900">
+              {question.prompt}
+            </p>
+            {isSubmitted ? (
+              <Badge className="shrink-0" tone={verdict === "correct" ? "success" : verdict === "wrong" ? "danger" : "neutral"}>
+                {verdict === "correct" ? "Benar" : verdict === "wrong" ? "Salah" : "Tidak dijawab"}
+              </Badge>
+            ) : null}
+          </div>
+          <ul className="mt-3 grid gap-2 max-sm:-ml-11">
             {question.options.map((option) => (
               <OptionReview
                 isSubmitted={isSubmitted}
@@ -170,7 +184,7 @@ function OptionReview({
   return (
     <li
       className={cn(
-        "flex gap-2 rounded-xl border px-3 py-2 text-sm",
+        "flex flex-wrap gap-x-2 rounded-xl border px-3 py-2 text-sm sm:flex-nowrap",
         isSubmitted && isCorrect
           ? "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg"
           : isIncorrectSelection
@@ -181,22 +195,17 @@ function OptionReview({
       )}
     >
       <span className="font-semibold">{option.key}.</span>
-      <span>{option.text}</span>
+      <span className="min-w-0 flex-1 max-sm:basis-0">{option.text}</span>
+      {selected ? (
+        <span className={cn("ml-auto shrink-0 text-xs font-semibold max-sm:order-last max-sm:ml-0 max-sm:basis-full max-sm:pl-7", isIncorrectSelection ? "text-student-status-danger-fg" : "text-secondary-600")}>
+          Dipilih siswa
+        </span>
+      ) : null}
       {isCorrect ? (
         <Check
           aria-label="Jawaban benar"
-          className="ml-auto size-4 shrink-0 text-primary-700"
+          className={cn("size-4 shrink-0 text-primary-700", !selected && "ml-auto")}
         />
-      ) : null}
-      {selected && !isSubmitted ? (
-        <span className="ml-auto shrink-0 text-xs font-semibold text-secondary-600">
-          Dipilih siswa
-        </span>
-      ) : null}
-      {isIncorrectSelection ? (
-        <span className="ml-auto shrink-0 text-xs font-semibold text-student-status-danger-fg">
-          Dipilih siswa
-        </span>
       ) : null}
     </li>
   );

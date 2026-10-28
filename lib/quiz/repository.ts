@@ -411,6 +411,22 @@ function storedAnswerSelectionIds(answer: {
   return decoded.ok ? decoded.selectedOptionIds : null;
 }
 
+/**
+ * Display-only selection for review pages. Legacy scalar answers store a null
+ * list next to the single option, which the strict decoder rejects, so fall
+ * back to the stored values instead of showing the question as unanswered.
+ */
+function reviewAnswerSelectionIds(answer: {
+  selectedOptionId: string | null;
+  selectedOptionIds: Prisma.JsonValue | null;
+}) {
+  return (
+    storedAnswerSelectionIds(answer) ??
+    jsonStringArray(answer.selectedOptionIds) ??
+    (answer.selectedOptionId ? [answer.selectedOptionId] : [])
+  );
+}
+
 const quizSourceInclude = {
   currentRevision: {
     include: {
@@ -3986,7 +4002,7 @@ async function getMentorStandaloneQuizSubmission(
   const selectedOptionIdsByItem = new Map(
     attempt.answers.map((answer) => [
       answer.quizItemId,
-      storedAnswerSelectionIds(answer) ?? [],
+      reviewAnswerSelectionIds(answer),
     ]),
   );
   return {
