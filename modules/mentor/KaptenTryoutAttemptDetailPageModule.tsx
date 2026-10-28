@@ -47,11 +47,15 @@ function formatTimestamp(value: string | null) {
 type AttemptRecord = TryoutOperationsView["sessions"][number]["attempts"][number];
 type AttemptRun = AttemptRecord["runs"][number];
 
-function AttemptRunCard({ run }: { run: AttemptRun }) {
+function AttemptRunRow({ run }: { run: AttemptRun }) {
   return (
-    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")} size="sm">
-      <CardHeader><CardTitle className="font-semibold">Tes {run.sequenceNo}</CardTitle>{run.integrityEvents > 0 ? <CardDescription>{run.integrityEvents} catatan pemantauan</CardDescription> : null}<CardAction><StatusBadge status={run.status} /></CardAction></CardHeader>
-    </Card>
+    <li className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+      <div className="min-w-0">
+        <p className="font-semibold text-secondary-900">Tes {run.sequenceNo}</p>
+        {run.integrityEvents > 0 ? <p className="mt-0.5 text-sm text-secondary-600">{run.integrityEvents} catatan pemantauan</p> : null}
+      </div>
+      <StatusBadge status={run.status} />
+    </li>
   );
 }
 
@@ -59,10 +63,15 @@ function AttemptRunsSection({ attempt }: { attempt: AttemptRecord }) {
   return (
     <section aria-labelledby="attempt-runs-title" className="grid content-start gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h2 id="attempt-runs-title" className="text-xl font-semibold">Tujuh tes tryout</h2><span className="text-sm font-medium text-secondary-700">Skor dari 100: {attempt.score !== null ? Number(attempt.score).toFixed(2) : "belum dihitung"}</span></div>
-      {attempt.runs.map((run) => <AttemptRunCard key={run.id} run={run} />)}
+      {attempt.runs.length ? (
+        <ReferenceSurface as="div" className="overflow-hidden" variant="raised">
+          <ul className="divide-y divide-primary-100">{attempt.runs.map((run) => <AttemptRunRow key={run.id} run={run} />)}</ul>
+        </ReferenceSurface>
+      ) : <p className="rounded-2xl border border-dashed border-primary-100 px-4 py-6 text-center text-sm text-secondary-600">Belum ada tes yang tercatat.</p>}
     </section>
   );
 }
+
 
 function AttemptDisconnectStatus({ activeRun, attempt, auditReason, busy, onReconcile, onStart }: { activeRun: AttemptRun | null; attempt: AttemptRecord; auditReason: string; busy: string | null; onReconcile: () => void; onStart: () => void }) {
   return (
@@ -140,12 +149,12 @@ function KaptenTryoutAttemptDetailPageModule({
   return (
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "operations" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="outline"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" title={attempt.student} /></div>}
-      {embedded && backHref ? <Button className="mb-4 min-h-11" nativeButton={false} render={<Link href={backHref} />} variant="outline"><ChevronLeft aria-hidden="true" />{backLabel}</Button> : null}
+      {embedded && backHref && !readOnly ? <Button className="mb-4 min-h-11" nativeButton={false} render={<Link href={backHref} />} variant="outline"><ChevronLeft aria-hidden="true" />{backLabel}</Button> : null}
       {embedded && readOnly ? <ReferenceSectionHeading action={<StatusBadge status={attempt.status} />} title={attempt.student} /> : null}
       <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />
       <div className={cn("mt-5 grid gap-5", (resultRecovery || !readOnly) && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>
         <AttemptRunsSection attempt={attempt} />
-        <aside className="grid min-w-0 content-start gap-4">{resultRecovery ? <TryoutAttemptResultRecovery key={`${resultRecovery.scope.attemptId}:${resultRecovery.scope.sessionId}`} initial={resultRecovery} refresh={() => router.refresh()} /> : null}{readOnly ? null : <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />}</aside>
+        <aside className="grid min-w-0 content-start gap-4">{resultRecovery ? <TryoutAttemptResultRecovery readOnly={readOnly} key={`${resultRecovery.scope.attemptId}:${resultRecovery.scope.sessionId}`} initial={resultRecovery} refresh={() => router.refresh()} /> : null}{readOnly ? null : <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />}</aside>
       </div>
     </div>
   );
