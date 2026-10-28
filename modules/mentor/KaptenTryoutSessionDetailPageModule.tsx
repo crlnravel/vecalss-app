@@ -109,15 +109,15 @@ function SessionScheduleCard({
       </header>
       <div className="mt-6 grid gap-6">
         <div className="grid gap-5 text-sm md:grid-cols-2">
-          <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
-          <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
+          <Field><HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required={!scheduleLocked} tooltip="Peserta baru bisa memulai pengerjaan setelah waktu ini." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-from" onChange={(event) => onScheduleChange({ ...schedule, availableFrom: event.target.value })} type="datetime-local" value={schedule.availableFrom} /></Field>
+          <Field><HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required={!scheduleLocked} tooltip="Setelah waktu ini peserta tidak bisa memulai pengerjaan baru." /><FieldInput aria-describedby={validationMessage ? "session-detail-schedule-error" : undefined} aria-invalid={Boolean(validationMessage) || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={scheduleLocked || scheduleBusy} id="session-detail-until" min={schedule.availableFrom || undefined} onChange={(event) => onScheduleChange({ ...schedule, availableUntil: event.target.value })} type="datetime-local" value={schedule.availableUntil} /></Field>
         </div>
         <FieldError error={validationMessage ?? undefined} id="session-detail-schedule-error" />
         <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-sm">
-            {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p> : null}
+            {scheduleLocked ? <p className="mt-2 text-xs text-secondary-600">Jadwal terkunci karena sudah ada pengerjaan atau sesi sudah ditutup.</p> : null}
           </div>
-          <Button disabled={scheduleLocked || scheduleBusy || !scheduleChanged} onClick={onSave} variant="outline">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>
+          {scheduleLocked ? null : <Button disabled={scheduleBusy || !scheduleChanged} onClick={onSave} variant="outline">{scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}</Button>}
         </div>
       </div>
     </section>
@@ -127,13 +127,13 @@ function SessionScheduleCard({
 function SessionAttemptsTable({ delivery, tryoutId }: { delivery: DeliverySession; tryoutId: string }) {
   return (
     <section aria-labelledby="session-attempts-title" className="mt-8">
-      <div className="flex items-center justify-between gap-3"><h2 id="session-attempts-title" className="text-xl font-semibold">Attempt peserta</h2><span className="text-sm text-secondary-600">{delivery.attempts.length} attempt</span></div>
+      <div className="flex items-center justify-between gap-3"><h2 id="session-attempts-title" className="text-xl font-semibold">Pengerjaan peserta</h2><span className="text-sm text-secondary-600">{delivery.attempts.length} pengerjaan</span></div>
       <ReferenceSurface className="mt-4 overflow-hidden p-0">
         <Table className="min-w-[760px]">
-          <caption className="sr-only">Attempt peserta untuk {delivery.name}</caption>
+          <caption className="sr-only">Pengerjaan peserta untuk {delivery.name}</caption>
           <TableHeader className="bg-secondary-50/80"><TableRow className="border-primary-100 hover:bg-secondary-50/80"><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Test selesai</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Status</TableHead><TableHead className="h-11 w-24 px-4 py-2.5 text-right text-xs font-semibold text-secondary-700 sm:px-5">Aksi</TableHead></TableRow></TableHeader>
           <TableBody>
-            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} tryoutId={tryoutId} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada attempt. Attempt muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
+            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} tryoutId={tryoutId} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada pengerjaan. Daftar muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </ReferenceSurface>

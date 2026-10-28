@@ -6,6 +6,7 @@ import type { NavigationQueryValue } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutSessionDetailPageModule } from "@/modules/mentor/KaptenTryoutSessionDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
+import { TryoutOperationsNavigation } from "@/modules/mentor/TryoutOperationsNavigation";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Detail Sesi Tryout | Vecalss LMS" };
@@ -45,6 +46,7 @@ export default async function TryoutSessionDetailPage({
         initial={operations}
         parentId={typeof query.parent === "string" ? query.parent : undefined}
       >
+        <TryoutOperationsNavigation initial={operations} active="sessions" parentId={typeof query.parent === "string" ? query.parent : undefined} />
         <KaptenTryoutSessionDetailPageModule embedded initial={operations} sessionId={sessionId} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>

@@ -98,10 +98,10 @@ export function KaptenTryoutAccessPageModule({ initial, parentId }: { initial: T
   return <section className="grid min-w-0 gap-6" aria-labelledby="tryout-access-title">
     <TryoutOperationsNavigation initial={view} active="policy" parentId={parentId} />
     <div className="grid max-w-2xl gap-5">
-      <div><h2 id="tryout-access-title" className="text-xl font-semibold text-secondary-900">Akses peserta</h2><p className="mt-2 text-sm text-secondary-700">Akses saat ini: <strong>{modeLabels[view.admissionMode]}</strong>.</p></div>
-      {locked ? <p className="text-sm leading-6 text-secondary-700">{view.status === "archived" ? "Tryout sudah diarsipkan. Pengaturan akses hanya dapat dilihat sebagai riwayat." : "Akses terkunci karena sudah ada catatan pengerjaan peserta, termasuk yang belum dimulai atau sudah selesai."}</p> : <>
+      <div><h2 id="tryout-access-title" className="sr-only">Akses peserta</h2><dl className="text-sm leading-6"><dt className="text-xs text-secondary-600">Akses saat ini</dt><dd className="text-base font-semibold text-secondary-900">{modeLabels[view.admissionMode]}</dd></dl></div>
+      {locked ? <p className="text-sm leading-6 text-secondary-700">{view.status === "archived" ? "Tryout sudah diarsipkan, jadi akses hanya bisa dilihat." : "Akses terkunci karena sudah ada pengerjaan peserta."}</p> : <>
         <TryoutAdmissionModeField value={selected} onChange={setSelected} disabled={busy || refreshFailed} />
-        <p className="text-sm leading-6 text-secondary-700">Perubahan berlaku untuk pendaftaran baru. Pendaftaran dan penugasan yang sudah ada tetap pada statusnya. Peserta yang menunggu persetujuan tetap perlu ditinjau di Peserta.</p>
+        <p className="text-sm leading-6 text-secondary-700">Perubahan hanya berlaku untuk pendaftaran baru. Peserta yang menunggu persetujuan tetap ditinjau di tab Peserta.</p>
         <Field><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="tryout-access-reason" required>Alasan perubahan</FieldLabel><FieldInput id="tryout-access-reason" required disabled={busy} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Jelaskan alasan perubahan akses" /></Field>
         <div className="flex flex-wrap gap-3"><Button disabled={busy || refreshFailed || !changed || !reason.trim()} onClick={() => { setPendingHref(null); setConfirmation(true); }}>Simpan akses</Button>{dirty ? <Button variant="outline" disabled={busy} onClick={() => { setSelected(view.admissionMode); setReason(""); }}>Batalkan perubahan</Button> : null}</div>
       </>}
