@@ -614,7 +614,7 @@ async function updateTryoutDeliverySessionSchedule(
       select: { id: true },
     });
     if (existingAttempt) {
-      throw new TryoutDeliveryValidationError("Jadwal sesi yang sudah memiliki attempt tidak dapat diubah.");
+      throw new TryoutDeliveryValidationError("Jadwal sesi yang sudah memiliki pengerjaan tidak dapat diubah.");
     }
 
     const updated = await tx.tryoutDeliverySession.update({

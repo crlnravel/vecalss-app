@@ -133,10 +133,10 @@ function deriveTryoutLiveProjection(input: {
       integrityEventCount: 0,
       label: liveStateLabels.registered,
       reason: input.admissionStatus === "pending"
-        ? "Registrasi menunggu keputusan Kapten; belum ada attempt."
+        ? "Registrasi menunggu keputusan Kapten; belum ada pengerjaan."
         : input.sessionState === "assigned"
           ? "Peserta terdaftar dan sudah mendapat jadwal, tetapi belum check-in."
-          : "Peserta terdaftar, tetapi belum memiliki attempt.",
+          : "Peserta terdaftar, tetapi belum memulai pengerjaan.",
       severity: "neutral",
       state: "registered",
       reconciledAt: null,
@@ -168,7 +168,7 @@ function deriveTryoutLiveProjection(input: {
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.disconnected,
-      reason: "Koneksi peserta masih terputus; periksa attempt secara manual sebelum mengambil tindakan.",
+      reason: "Koneksi peserta masih terputus; periksa pengerjaannya secara manual sebelum mengambil tindakan.",
       severity: "critical",
       state: "disconnected",
     };
@@ -182,8 +182,8 @@ function deriveTryoutLiveProjection(input: {
       integrityEventCount,
       label: liveStateLabels.submitted,
       reason: attempt.attemptState === "expired"
-        ? "Attempt berakhir karena waktu; status tetap dapat ditinjau dari detail attempt."
-        : "Attempt sudah dikirim dan menunggu atau telah melewati tahap rilis hasil.",
+        ? "Pengerjaan berakhir karena waktu; statusnya tetap bisa dilihat di detail pengerjaan."
+        : "Pengerjaan sudah dikirim dan menunggu atau telah melewati tahap rilis hasil.",
       severity: "neutral",
       state: "submitted",
     };
@@ -211,7 +211,7 @@ function deriveTryoutLiveProjection(input: {
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
-      reason: `Timer Test ${activeRun?.sequenceNo ?? "aktif"} sudah mencapai batas; verifikasi attempt dari detail sebelum mengambil tindakan.`,
+      reason: `Timer Test ${activeRun?.sequenceNo ?? "aktif"} sudah mencapai batas; periksa pengerjaan dari detailnya sebelum mengambil tindakan.`,
       severity: "attention",
       state: "needs_attention",
     };
@@ -224,7 +224,7 @@ function deriveTryoutLiveProjection(input: {
       ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
-      reason: `Test ${expiredRun.sequenceNo} berakhir karena batas waktu server; verifikasi attempt sebelum melanjutkan atau menutup submission.`,
+      reason: `Test ${expiredRun.sequenceNo} berakhir karena batas waktu server; periksa pengerjaan sebelum melanjutkan atau menutup submission.`,
       severity: "attention",
       state: "needs_attention",
     };
@@ -239,7 +239,7 @@ function deriveTryoutLiveProjection(input: {
       label: liveStateLabels.in_progress,
       reason: activeRun
         ? `Peserta sedang mengerjakan Test ${activeRun.sequenceNo}.`
-        : "Attempt masih berjalan dan menunggu Test aktif berikutnya.",
+        : "Pengerjaan masih berjalan dan menunggu Test aktif berikutnya.",
       severity: "neutral",
       state: "in_progress",
     };
@@ -251,7 +251,7 @@ function deriveTryoutLiveProjection(input: {
     ...lifecycle,
     integrityEventCount,
     label: liveStateLabels.checked_in,
-    reason: "Attempt sudah dibuat; peserta belum memiliki Test aktif.",
+    reason: "Pengerjaan sudah dibuat; peserta belum memiliki Test aktif.",
     severity: "neutral",
     state: "checked_in",
   };

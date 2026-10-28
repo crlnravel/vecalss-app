@@ -42,7 +42,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
       </header>
       <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]">
         <Table className="min-w-[680px]">
-          <caption className="sr-only">Daftar attempt peserta yang tercatat</caption>
+          <caption className="sr-only">Daftar pengerjaan peserta yang tercatat</caption>
           <TableHeader className="[&_tr]:border-0">
             <TableRow className="border-0 bg-primary-50/60 hover:bg-primary-50/60">
               <TableHead className="h-11 px-4 text-xs font-semibold text-secondary-600 sm:px-5">Peserta</TableHead>
@@ -88,7 +88,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
             }) : (
               <TableRow className="border-0 hover:bg-transparent">
                 <TableCell className="h-32 px-5 text-center text-sm text-secondary-500" colSpan={6}>
-                  Belum ada attempt yang tercatat.
+                  Belum ada pengerjaan yang tercatat.
                 </TableCell>
               </TableRow>
             )}

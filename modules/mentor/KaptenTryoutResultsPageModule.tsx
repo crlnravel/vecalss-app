@@ -61,7 +61,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                         </TableCell>
                         <TableCell className="px-4 py-3.5 align-top sm:px-5">{result.scoreVisible && result.displayScore !== null ? <span className="font-semibold tabular-nums text-secondary-900">{Number(result.displayScore).toFixed(2)}</span> : <span className="text-sm text-secondary-500">Belum tersedia</span>}</TableCell>
                       </TableRow>
-                    )) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={2}>{session.status === "closed" ? "Tidak ada attempt untuk sesi ini. Sesi tetap tersimpan untuk audit." : "Belum ada attempt untuk sesi ini."}</TableCell></TableRow>}
+                    )) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={2}>{session.status === "closed" ? "Tidak ada pengerjaan untuk sesi ini. Sesi tetap tersimpan untuk audit." : "Belum ada pengerjaan untuk sesi ini."}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
