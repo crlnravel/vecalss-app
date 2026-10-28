@@ -57,7 +57,7 @@ function ReferenceSelectField({
         </FieldLabel>
         {help ? (
           <Tooltip>
-            <TooltipTrigger render={<Button aria-label={`${ariaLabel ?? "Field"} guidance`} size="icon" type="button" variant="outline" />}>
+            <TooltipTrigger render={<Button aria-label={`${ariaLabel ?? "Field"} guidance`} className="-my-2" size="icon" type="button" variant="quiet" />}>
               <CircleHelp aria-hidden="true" size={15} />
             </TooltipTrigger>
             <TooltipContent>{help}</TooltipContent>

@@ -106,9 +106,9 @@ function TryoutWorkspaceHeader({
                         render={(
                           <Button
                             aria-label="Konfigurasi Tryout terkunci"
-                            size="icon-sm"
+                            size="icon"
                             type="button"
-                            variant="outline"
+                            variant="quiet"
                           />
                         )}
                       >

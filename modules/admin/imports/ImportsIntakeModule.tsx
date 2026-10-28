@@ -192,7 +192,7 @@ function ImportRoleSelection({ busy, onRoleChange, role }: { busy: boolean; onRo
       <div className="flex items-center gap-1.5">
         <label className={`block ${fieldLabelClassName}`} htmlFor="import-role">1. Pilih jenis akun<FieldRequiredMark /></label>
         <Tooltip>
-          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" size="icon-sm" type="button" variant="outline" />}>
+          <TooltipTrigger render={<Button aria-label="Panduan jenis akun" className="-my-2" size="icon" type="button" variant="quiet" />}>
             <CircleHelp aria-hidden="true" size={15} />
           </TooltipTrigger>
           <TooltipContent>Satu file hanya boleh berisi data untuk satu jenis akun.</TooltipContent>

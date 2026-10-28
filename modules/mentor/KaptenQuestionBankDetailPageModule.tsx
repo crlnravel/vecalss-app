@@ -346,15 +346,15 @@ function QuestionBankMetadataCard({
               {!isMetadataLocked ? (
                 <Button
                   aria-label="Ubah judul bank soal"
-                  className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
+                  className="mt-1 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
                   onClick={() => {
                     setTitleInput(bank.title);
                     setIsEditingTitle(true);
                   }}
-                  size="icon-sm"
+                  size="icon"
                   title="Ubah judul bank soal"
                   type="button"
-                  variant="outline"
+                  variant="quiet"
                 >
                   <Pencil className="size-4" />
                 </Button>
@@ -381,15 +381,15 @@ function QuestionBankMetadataCard({
               {!isEditingDescription && !isMetadataLocked ? (
                 <Button
                   aria-label="Ubah deskripsi bank"
-                  className="size-7 text-secondary-400 hover:text-secondary-900"
+                  className="-my-2 text-secondary-400 hover:text-secondary-900"
                   onClick={() => {
                     setDescriptionInput(bank.description ?? "");
                     setIsEditingDescription(true);
                   }}
-                  size="icon-sm"
+                  size="icon"
                   title="Ubah deskripsi"
                   type="button"
-                  variant="outline"
+                  variant="quiet"
                 >
                   <Pencil className="size-3.5" />
                 </Button>

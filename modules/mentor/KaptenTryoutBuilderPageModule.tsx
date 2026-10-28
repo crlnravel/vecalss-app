@@ -903,12 +903,12 @@ function TryoutTitleReadView({
       {!disabled ? (
         <Button
           aria-label="Ubah judul Tryout"
-          className="mt-1 size-8 shrink-0 text-secondary-400 opacity-70 hover:text-secondary-900 group-hover:opacity-100"
+          className="mt-1 shrink-0 text-secondary-400 opacity-70 hover:text-secondary-900 group-hover:opacity-100"
           onClick={onEdit}
-          size="icon-sm"
+          size="icon"
           title="Ubah judul Tryout"
           type="button"
-          variant="outline"
+          variant="quiet"
         >
           <Pencil aria-hidden="true" className="size-4" />
         </Button>
@@ -1035,12 +1035,12 @@ function TryoutDescriptionPageField({
         {!editing && !disabled ? (
           <Button
             aria-label="Ubah deskripsi Tryout"
-            className="size-7 text-secondary-400 hover:text-secondary-900"
+            className="-my-2 text-secondary-400 hover:text-secondary-900"
             onClick={onEdit}
-            size="icon-sm"
+            size="icon"
             title="Ubah deskripsi Tryout"
             type="button"
-            variant="outline"
+            variant="quiet"
           >
             <Pencil aria-hidden="true" className="size-3.5" />
           </Button>
@@ -1617,10 +1617,11 @@ function TryoutSubtestMetadataField({
         ) : disabled ? null : (
           <Button
             aria-label={`Edit ${label.toLowerCase()}`}
+            className="-my-2 text-secondary-400 hover:text-secondary-900"
             onClick={onEdit}
             size="icon"
             type="button"
-            variant="outline"
+            variant="quiet"
           >
             <Pencil aria-hidden="true" />
           </Button>
