@@ -3,7 +3,7 @@ import { TypedRouteState } from "@/components/ui/typed-route-state";
 export default function TryoutNotFound() {
   return (
     <TypedRouteState
-      className="student-page-canvas"
+      className="student-page-canvas min-h-svh"
       description="Tryout yang kamu cari tidak tersedia atau sudah tidak dipublikasikan. Kembali ke katalog untuk memilih Tryout lain."
       kind="not-found"
       returnHref="/tryout"
