@@ -545,13 +545,13 @@ function evaluateSessionCohort(session: ReadinessSession) {
   if (!candidates.length) add("empty", "Belum ada pengerjaan yang dapat disertakan dalam rilis hasil.");
   for (const attempt of candidates) {
     const before = blockers.length;
-    if (!terminalAttemptStateIsCalculable(attempt)) add("unfinished", "Pengerjaan belum selesai. Periksa status pengerjaan terlebih dahulu.", attempt.id);
+    if (!terminalAttemptStateIsCalculable(attempt)) add("unfinished", "Pengerjaan belum selesai.", attempt.id);
     if (!release || attempt.assessmentReleaseId !== release.id || attempt.assessmentReleaseNumber !== release.releaseNumber || attempt.assessmentReleaseDigest !== release.contentDigest) add("binding", "Konten tersimpan pada pengerjaan tidak cocok dengan sesi.", attempt.id);
     if (session.releaseState === "released" || attempt.releaseState === "released") {
       if (!publishedAttemptIsConsistent(attempt, session.tryout, release)) add("published", PUBLISHED_RESULT_REVIEW_MESSAGE, attempt.id);
     } else {
       if (attempt.scoringState !== "scored" || attempt.score === null || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns })) {
-        add("scoring", "Tujuh tes dan skor pengerjaan perlu dihitung atau diperiksa.", attempt.id);
+        add("scoring", "Skor perlu dihitung atau diperiksa.", attempt.id);
       } else {
         try { validateRecoveryRuns(attempt); } catch { add("scoring", "Skor atau konten tersimpan perlu diperiksa sebelum hasil dapat dirilis.", attempt.id); }
       }
@@ -561,7 +561,7 @@ function evaluateSessionCohort(session: ReadinessSession) {
           assertFrozenRunRelease(run, run.section, release);
           frozenRunFields(run, true);
         } catch { add("binding", "Konten tersimpan pada tes ini perlu diperiksa.", attempt.id, run.sequenceNo); }
-        if (run.scoringState !== "scored" || !run.calculationReleaseable || !["sealed", "expired"].includes(run.status)) add("scoring", "Skor tes ini belum siap. Buka pengerjaan untuk memeriksanya.", attempt.id, run.sequenceNo);
+        if (run.scoringState !== "scored" || !run.calculationReleaseable || !["sealed", "expired"].includes(run.status)) add("scoring", "Skor belum siap.", attempt.id, run.sequenceNo);
         if (!explanationsComplete(run)) add("explanations", "Pembahasan pada konten tersimpan belum lengkap. Pembahasan ini tidak dapat diganti dari soal terbaru.", attempt.id, run.sequenceNo);
       }
     }

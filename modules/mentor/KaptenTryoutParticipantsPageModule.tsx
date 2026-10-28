@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
@@ -222,27 +223,30 @@ function KaptenTryoutParticipantsPageModule({
       <h2 className="sr-only" id="tryout-results-title">
         Hasil Tryout
       </h2>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {selectedSession ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" className="min-h-11 w-full max-w-full justify-start whitespace-normal text-left sm:w-auto" />}>
-              Sesi: {selectedSession.name}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {initial.sessions.map((session) => (
-                <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
-                  {session.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-        <Link className="inline-flex min-h-11 w-fit items-center text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:rounded-control focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}>
-          Kelola peserta
-        </Link>
-      </div>
       {selectedSession ? (
-        <TryoutSessionResultReadiness key={selectedSession.id} scope={{ tryoutId: initial.id, sessionId: selectedSession.id }} tryoutTitle={initial.title} allowPublication={resultMaintenance} context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }} />
+        <TryoutSessionResultReadiness
+          key={selectedSession.id}
+          scope={{ tryoutId: initial.id, sessionId: selectedSession.id }}
+          tryoutTitle={initial.title}
+          allowPublication={resultMaintenance}
+          context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }}
+          manageHref={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}
+          sessionPicker={
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" aria-label={`Pilih sesi. Sesi saat ini: ${selectedSession.name}`} className="min-h-11 w-full max-w-full justify-between gap-2 text-left sm:w-auto" />}>
+                <span className="min-w-0 truncate">{selectedSession.name}</span>
+                <ChevronDown aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {initial.sessions.map((session) => (
+                  <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
+                    {session.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
       ) : null}
       <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className="mt-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary-100 px-4 py-4 sm:px-5">

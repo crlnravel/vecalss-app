@@ -67,11 +67,8 @@ export function TryoutResultPolicyForm({ initial, refresh }: { initial: TryoutSe
   }
   const receipt = state.receipt ?? initial.policy.receipt;
   return <section aria-labelledby="result-policy-title" className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
-    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 max-w-prose">
-        <h3 className="text-lg font-semibold text-secondary-900" id="result-policy-title">Aturan rilis hasil</h3>
-        <p className="mt-1 text-sm leading-6 text-secondary-700">Aturan bawaan berlaku untuk sesi yang mengikuti pengaturan Tryout. Sesi dengan aturan sendiri tetap memakai pilihannya.</p>
-      </div>
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <h3 className="min-w-0 text-base font-semibold text-secondary-900" id="result-policy-title">Aturan rilis hasil</h3>
       <p className="shrink-0 text-sm font-medium leading-6 text-secondary-900">{resultPolicyLabels[initial.policy.value] ?? "Belum tersedia"}</p>
     </div>
     {receipt && state.receipt ? <p className="break-words text-sm leading-6 text-secondary-600">Penyimpanan ini tercatat {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.configuredAt))}. Alasan: {receipt.reason}</p> : null}
