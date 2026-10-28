@@ -95,18 +95,15 @@ function AssessmentReleaseNotice({
       )}
       <div className="min-w-0">
         <p className="font-semibold">
-          {release ? `${label} · Versi konten ${release.number}${historical ? " (versi sebelumnya)" : ""}` : `${label} belum tersedia`}
+          {release ? `${label} · Versi konten ${release.number}${historical ? " (versi sebelumnya)" : ""}${publishedAt ? ` · Terbit ${publishedAt}` : ""}` : `${label} belum tersedia`}
         </p>
         <p className="mt-0.5 text-xs leading-5 opacity-85">
           {release
             ? historical
               ? "Isi Tryout saat ini mungkin berbeda dari versi ini. Sesi yang sudah dibuka tetap menggunakan versi ini; perubahan berikutnya berlaku untuk sesi baru setelah Tryout diterbitkan lagi."
-              : "Peserta yang sudah mulai mengerjakan tetap memakai salinan ini. Perubahan pada Tryout tidak mengubah soal di sesi yang sudah dibuka."
+              : "Peserta yang sudah mulai tetap memakai salinan ini, meski Tryout diubah."
             : missingDescription}
         </p>
-        {publishedAt ? (
-          <p className="mt-1 text-xs font-medium leading-5 opacity-75">Versi ini diterbitkan {publishedAt}</p>
-        ) : null}
       </div>
     </div>
   );

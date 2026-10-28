@@ -505,12 +505,12 @@ async function inspectTryoutCalculation(scope: TryoutResultRecoveryScope, actorI
         validatedRecoveryRun(run, target.deliverySession.assessmentRelease);
         ready = true;
       } catch { /* Safe owner blocker; no frozen keys or raw diagnostics. */ }
-      return { sequenceNo: run.sequenceNo, ready, message: ready ? null : "Konten atau jawaban tersimpan pada tes ini perlu diperiksa." };
+      return { sequenceNo: run.sequenceNo, ready, message: ready ? null : "Konten atau jawaban perlu diperiksa." };
     });
     try {
       if (!terminalAttemptStateIsCalculable(target)) throw new Error("Attempt unfinished");
       validateRecoveryRuns(target);
-    } catch { return { ...base, sections, state: "blocked", message: "Perhitungan belum dapat dilakukan. Periksa tujuh tes dan konten tersimpan pada pengerjaan ini." }; }
+    } catch { return { ...base, sections, state: "blocked", message: "Perhitungan belum dapat dilakukan." }; }
     const calculated = target.scoringState === "scored" && target.score !== null && Number.isFinite(Number(target.score)) && hasCanonicalSevenBreakdownSet({ tryout: target.tryout, breakdowns: target.scoreBreakdowns })
       && target.runs.every((run) => run.scoringState === "scored" && run.calculationReleaseable && run.normalizedScore !== null && run.rawScore !== null && run.scaledScore !== null);
     return { ...base, sections, state: calculated ? "calculated" : "ready", finalScore: calculated ? Number(target.score) : null, message: calculated ? "Skor sudah tersimpan. Hasil peserta tetap mengikuti aturan rilis sesi." : "Skor dapat dihitung dari konten dan jawaban tersimpan. Alasan tindakan wajib diisi." };
