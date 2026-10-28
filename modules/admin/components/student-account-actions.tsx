@@ -12,6 +12,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "@/lib/icons";
 import type { UserStatus } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -83,6 +91,32 @@ function StudentAccountActionButtons({
   );
 }
 
+function StudentAccountMenu({
+  onPassword,
+  onSelect,
+  status,
+}: {
+  onPassword: () => void;
+  onSelect: (action: PendingAction) => void;
+  status: UserStatus;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button className="w-full justify-between gap-2 sm:w-auto" type="button" variant="outline" />}>
+        Tindakan akun
+        <ChevronDown aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="sm:w-60">
+        <DropdownMenuItem onClick={onPassword}>Ubah kata sandi</DropdownMenuItem>
+        {status === "active" ? <DropdownMenuItem onClick={() => onSelect("ban")}>Nonaktifkan akses siswa</DropdownMenuItem> : null}
+        {status === "disabled" ? <DropdownMenuItem onClick={() => onSelect("unban")}>Pulihkan akses siswa</DropdownMenuItem> : null}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onSelect("delete")} variant="destructive">Hapus akun siswa</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function StudentAccountConfirmation({
   directoryQuery,
   onClose,
@@ -125,6 +159,7 @@ function StudentAccountConfirmation({
 function StudentAccountActions({
   compact = false,
   directoryQuery = "",
+  menu = false,
   returnPath,
   showPasswordAction = true,
   status,
@@ -132,15 +167,24 @@ function StudentAccountActions({
 }: {
   compact?: boolean;
   directoryQuery?: string;
+  menu?: boolean;
   returnPath: string;
   showPasswordAction?: boolean;
   status: UserStatus;
   studentId: string;
 }) {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   return (
     <>
-      <StudentAccountActionButtons compact={compact} onSelect={setPendingAction} returnPath={returnPath} showPasswordAction={showPasswordAction} status={status} studentId={studentId} />
+      {menu ? (
+        <>
+          <StudentAccountMenu onPassword={() => setPasswordOpen(true)} onSelect={setPendingAction} status={status} />
+          <StudentPasswordDialog onOpenChange={setPasswordOpen} open={passwordOpen} returnPath={returnPath} studentId={studentId} />
+        </>
+      ) : (
+        <StudentAccountActionButtons compact={compact} onSelect={setPendingAction} returnPath={returnPath} showPasswordAction={showPasswordAction} status={status} studentId={studentId} />
+      )}
       <StudentAccountConfirmation directoryQuery={directoryQuery} onClose={() => setPendingAction(null)} pendingAction={pendingAction} returnPath={returnPath} studentId={studentId} />
     </>
   );

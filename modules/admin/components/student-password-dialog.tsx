@@ -85,23 +85,32 @@ function StudentPasswordForm({
 }
 
 function StudentPasswordDialog({
+  onOpenChange,
+  open: controlledOpen,
   returnPath,
   studentId,
 }: {
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
   returnPath: string;
   studentId: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : localOpen;
+  const setOpen = controlled ? (onOpenChange ?? (() => undefined)) : setLocalOpen;
 
   return (
     <>
-      <Button
-        onClick={() => setOpen(true)}
-        size="default"
-        variant="outline"
-      >
-         Ubah kata sandi
-      </Button>
+      {controlled ? null : (
+        <Button
+          onClick={() => setOpen(true)}
+          size="default"
+          variant="outline"
+        >
+          Ubah kata sandi
+        </Button>
+      )}
 
       <AlertDialog onOpenChange={setOpen} open={open}>
         {open ? <StudentPasswordForm returnPath={returnPath} studentId={studentId} /> : null}

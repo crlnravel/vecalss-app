@@ -327,22 +327,20 @@ function StudentDetailPageModule({
       title="Detail siswa"
     >
       <div className="space-y-8">
-        <div className="flex min-w-0 items-start gap-3">
-          <ReferencePageHeader
-            actions={(
-              <div className="w-full min-w-0 sm:w-48">
-                <StudentAccountActions
-                  compact
-                  returnPath={returnPath}
-                  status={student.status}
-                  studentId={student.id}
-                />
-              </div>
-            )}
-            className="min-w-0 flex-1"
-            title={student.fullName}
-          />
-        </div>
+        <ReferencePageHeader
+          actions={(
+            <div className="w-full min-w-0 sm:w-auto">
+              <StudentAccountActions
+                menu
+                returnPath={returnPath}
+                status={student.status}
+                studentId={student.id}
+              />
+            </div>
+          )}
+          className="min-w-0"
+          title={student.fullName}
+        />
 
         <StudentDetailNotices error={error} notice={notice} />
 
