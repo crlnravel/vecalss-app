@@ -19,7 +19,7 @@ function KaptenTryoutArchivedHistoryFrame({
   initial: Pick<TryoutOperationsView, "id" | "title">;
 }) {
   return (
-    <div className="mx-auto min-w-0 w-full max-w-[1420px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-w-0 w-full">
       <TryoutWorkspaceHeader
         actions={<StatusBadge status="archived" />}
         activeTab="participants"
