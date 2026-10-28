@@ -681,7 +681,7 @@ function QuizEditHeader({
       }}
       open={titleEditorOpen}
     >
-      <header className="z-10 flex min-h-24 shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-b border-primary-100 bg-voyage-canvas/95 px-4 py-4 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:flex-nowrap md:px-6" data-quiz-editor-header="true">
+      <header className="z-10 flex min-h-20 shrink-0 items-center gap-x-3 border-b border-primary-100 bg-voyage-canvas/95 px-4 py-3 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:px-6" data-quiz-editor-header="true">
         <span className="sr-only" role="status">{state.hasUnsavedChanges ? "Ada perubahan belum tersimpan" : ""}</span>
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button
@@ -720,7 +720,7 @@ function QuizEditHeader({
             {subject ? <Badge className="mt-1 max-w-full truncate" size="sm" tone="category">{subject.name}</Badge> : null}
           </div>
         </div>
-        <div className="flex w-full shrink-0 justify-end md:w-auto">
+        <div className="flex shrink-0 justify-end">
           <Button aria-busy={state.isSaving} aria-label="Simpan" disabled={state.isSaving || state.editorDisabled} id="quiz-save-button" onClick={() => void state.persistence.saveQuiz()} type="button" variant="default">
             <Save aria-hidden="true" />{state.isSaving ? "Menyimpan…" : "Simpan"}
           </Button>
