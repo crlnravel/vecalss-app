@@ -88,11 +88,13 @@ function KaptenTryoutParticipantsPageModule({
   initial,
   parentId,
   resultMaintenance = true,
+  showReadiness = true,
 }: {
   embedded?: boolean;
   initial: TryoutOperationsView;
   parentId?: string;
   resultMaintenance?: boolean;
+  showReadiness?: boolean;
 }) {
   const router = useRouter();
   const context = parseMentorTryoutContext(useSearchParams());
@@ -153,17 +155,17 @@ function KaptenTryoutParticipantsPageModule({
           </Link>
         );
       },
-      headerClassName: "w-[40%] rounded-l-xl",
+      headerClassName: "w-[36%] rounded-l-xl",
       id: "participant",
       label: "Peserta",
-      width: 40,
+      width: 36,
     },
     {
       cell: (attempt) => {
         const result = resultByAttemptId.get(attempt.id);
         const inProgress = isInProgress(attempt);
         return (
-          <span className="block min-w-0 truncate tabular-nums text-secondary-700">
+          <span className="block min-w-0 tabular-nums text-secondary-700 sm:truncate">
             {inProgress
               ? "—"
               : result?.scoreVisible && result.displayScore !== null
@@ -172,10 +174,10 @@ function KaptenTryoutParticipantsPageModule({
           </span>
         );
       },
-      headerClassName: "w-[20%]",
+      headerClassName: "w-[24%]",
       id: "score",
       label: "Skor",
-      width: 20,
+      width: 24,
     },
     {
       cell: (attempt) => {
@@ -186,7 +188,7 @@ function KaptenTryoutParticipantsPageModule({
           </span>
         );
       },
-      headerClassName: "w-[20%]",
+      headerClassName: "w-[20%] max-sm:rounded-r-xl",
       id: "status",
       label: "Status",
       width: 20,
@@ -202,7 +204,8 @@ function KaptenTryoutParticipantsPageModule({
             : "—"}
         </time>
       ),
-      headerClassName: "w-[20%] rounded-r-xl",
+      cellClassName: "hidden sm:table-cell",
+      headerClassName: "hidden w-[20%] rounded-r-xl sm:table-cell",
       id: "started",
       label: "Mulai",
       width: 20,
@@ -212,6 +215,22 @@ function KaptenTryoutParticipantsPageModule({
     filter === "all"
       ? []
       : [{ id: "status", label: "Status", value: resultFilterLabels[filter] }];
+
+  const sessionPicker = selectedSession ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" aria-label={`Pilih sesi. Sesi saat ini: ${selectedSession.name}`} className="min-h-11 w-full max-w-full justify-between gap-2 text-left sm:w-auto" />}>
+        <span className="min-w-0 truncate">{selectedSession.name}</span>
+        <ChevronDown aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        {initial.sessions.map((session) => (
+          <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
+            {session.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
 
   return (
     <Root
@@ -223,7 +242,7 @@ function KaptenTryoutParticipantsPageModule({
       <h2 className="sr-only" id="tryout-results-title">
         Hasil Tryout
       </h2>
-      {selectedSession ? (
+      {selectedSession && showReadiness ? (
         <TryoutSessionResultReadiness
           key={selectedSession.id}
           scope={{ tryoutId: initial.id, sessionId: selectedSession.id }}
@@ -231,27 +250,16 @@ function KaptenTryoutParticipantsPageModule({
           allowPublication={resultMaintenance}
           context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }}
           manageHref={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}
-          sessionPicker={
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" aria-label={`Pilih sesi. Sesi saat ini: ${selectedSession.name}`} className="min-h-11 w-full max-w-full justify-between gap-2 text-left sm:w-auto" />}>
-                <span className="min-w-0 truncate">{selectedSession.name}</span>
-                <ChevronDown aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {initial.sessions.map((session) => (
-                  <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
-                    {session.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
+          sessionPicker={sessionPicker}
         />
       ) : null}
-      <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className="mt-5 overflow-hidden">
+      <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className={showReadiness ? "mt-5 overflow-hidden" : "overflow-hidden"}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary-100 px-4 py-4 sm:px-5">
           <h3 className="text-base font-semibold text-secondary-900" id="tryout-attempts-title">Pengerjaan peserta</h3>
-          <p className="text-sm tabular-nums text-secondary-600">{visibleAttempts.length} ditampilkan</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <p className="text-sm tabular-nums text-secondary-600">{visibleAttempts.length} ditampilkan</p>
+            {!showReadiness && initial.sessions.length > 1 ? sessionPicker : null}
+          </div>
         </div>
         <DataTable
           caption="Hasil pengerjaan peserta Tryout"
