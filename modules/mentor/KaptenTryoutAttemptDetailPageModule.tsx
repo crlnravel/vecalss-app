@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronLeft, ShieldAlert } from "@/lib/icons";
+import { ShieldAlert } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
@@ -90,8 +88,6 @@ function AttemptActionPanel({ activeRun, attempt, auditReason, busy, onAuditReas
 }
 
 function KaptenTryoutAttemptDetailPageModule({
-  backHref,
-  backLabel = "Kembali ke sesi Tryout",
   attemptId,
   embedded = false,
   initial,
@@ -99,8 +95,6 @@ function KaptenTryoutAttemptDetailPageModule({
   resultRecovery,
 }: {
   attemptId: string;
-  backHref?: string;
-  backLabel?: string;
   embedded?: boolean;
   initial: TryoutOperationsView;
   readOnly?: boolean;
@@ -148,8 +142,7 @@ function KaptenTryoutAttemptDetailPageModule({
 
   return (
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
-      {embedded ? null : <div className="flex min-w-0 items-start gap-3"><Button aria-label="Kembali ke detail sesi Tryout" className="mt-1 shrink-0" nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", session: delivery.id, workspace: "operations" })} />} size="icon" title="Kembali ke detail sesi Tryout" variant="outline"><ChevronLeft aria-hidden="true" className="size-5" /></Button><ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0 flex-1" title={attempt.student} /></div>}
-      {embedded && backHref && !readOnly ? <Button className="mb-4 min-h-11" nativeButton={false} render={<Link href={backHref} />} variant="outline"><ChevronLeft aria-hidden="true" />{backLabel}</Button> : null}
+      {embedded ? null : <ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0" title={attempt.student} />}
       {embedded && readOnly ? <ReferenceSectionHeading action={<StatusBadge status={attempt.status} />} title={attempt.student} /> : null}
       <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />
       <div className={cn("mt-5 grid gap-5", (resultRecovery || !readOnly) && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>

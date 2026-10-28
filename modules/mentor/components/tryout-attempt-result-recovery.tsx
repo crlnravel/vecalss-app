@@ -34,7 +34,7 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
   }, []);
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0 ring-0")}>
-      <CardHeader><CardTitle className="text-lg font-semibold">Perhitungan hasil</CardTitle><CardDescription>{calculated ? (readOnly ? null : "Rincian perhitungan terakhir dan alasan pencatatannya.") : initial.message}</CardDescription></CardHeader>
+      <CardHeader><CardTitle className="text-lg font-semibold">Perhitungan hasil</CardTitle>{calculated && readOnly ? null : <CardDescription>{calculated ? "Rincian perhitungan terakhir dan alasan pencatatannya." : initial.message}</CardDescription>}</CardHeader>
       <CardContent className="grid min-w-0 gap-4">
         {receipt ? <div className="min-w-0 text-sm leading-6"><p>Perhitungan tercatat {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.calculatedAt))}.</p><p className="break-words">Alasan: {receipt.reason}</p></div> : null}
         {blockedGroups.length ? <ul className="grid gap-1 rounded-card border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm leading-6 text-secondary-800">{blockedGroups.map((group) => <li key={group.message}><span className="font-semibold text-secondary-900">{formatBlockerSections(group.sections)}:</span> {group.message}</li>)}</ul> : null}

@@ -327,10 +327,10 @@ function MentorWorkspaceHeader({
         />
 
         {showBreadcrumb ? (
-          <div className="hidden min-w-0 flex-1 md:block">
+          <div className="min-w-0 flex-1">
             <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
+              <BreadcrumbList className="flex-nowrap overflow-hidden">
+                <BreadcrumbItem className={breadcrumbParent ? "hidden sm:inline-flex" : undefined}>
                   <BreadcrumbLink
                     href={rootHref}
                     className="text-secondary-500"
@@ -340,11 +340,11 @@ function MentorWorkspaceHeader({
                 </BreadcrumbItem>
                 {breadcrumbParent ? (
                   <>
-                    <BreadcrumbSeparator />
+                    <BreadcrumbSeparator className="hidden sm:block" />
                     <BreadcrumbItem>
                       <BreadcrumbLink
                         href={breadcrumbParent.href}
-                        className="text-secondary-500"
+                        className="block max-w-[5.5rem] truncate text-secondary-500 sm:max-w-xs"
                       >
                         {breadcrumbParent.label}
                       </BreadcrumbLink>
@@ -355,7 +355,7 @@ function MentorWorkspaceHeader({
                   <>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                      <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                      <BreadcrumbPage className="block truncate">{breadcrumbLabel}</BreadcrumbPage>
                     </BreadcrumbItem>
                   </>
                 ) : null}
