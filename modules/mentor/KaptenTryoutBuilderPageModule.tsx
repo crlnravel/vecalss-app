@@ -3548,10 +3548,7 @@ function TryoutWorkspaceContent({
         as="section"
         className="mt-4 p-5 sm:p-7"
       >
-        <h2
-          className="text-xl font-semibold tracking-[-0.025em] text-secondary-900"
-          id="tryout-operations-title"
-        >
+        <h2 className="sr-only" id="tryout-operations-title">
           Operasional
         </h2>
         <KaptenTryoutOperationsModule embedded initial={operationsInitial} draftAdmission={draftAdmission} />

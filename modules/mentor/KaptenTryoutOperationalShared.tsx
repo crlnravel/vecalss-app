@@ -116,8 +116,8 @@ function HelpTooltip({ content, label }: { content: string; label: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<Button aria-label={label} size="icon-sm" type="button" variant="outline" />}>
-          <CircleHelp />
+        <TooltipTrigger render={<Button aria-label={label} className="-my-2 text-secondary-500 hover:text-primary-800" size="icon-sm" type="button" variant="quiet" />}>
+          <CircleHelp aria-hidden="true" />
         </TooltipTrigger>
         <TooltipContent>{content}</TooltipContent>
       </Tooltip>

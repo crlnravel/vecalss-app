@@ -149,12 +149,12 @@ function TryoutWorkspaceHeader({
       {children}
 
       {showTabs ? (
-        <SunkenTabNavigation aria-label="Bagian Tryout">
+        <SunkenTabNavigation aria-label="Bagian Tryout" className="grid grid-cols-2 sm:flex">
           {workspaceTabs.map((tab) => {
             const href = workspaceHref(id, tab.value, parentId);
             const active = activeTab === tab.value;
             const className =
-              "!h-auto px-1 text-center text-xs leading-tight sm:px-3 sm:text-sm";
+              "!h-auto px-3 text-center text-sm leading-tight";
             if (onTabChange) {
               return (
                 <SunkenTabButton

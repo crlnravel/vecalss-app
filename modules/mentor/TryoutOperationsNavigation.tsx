@@ -10,8 +10,8 @@ export function TryoutOperationsNavigation({ initial, active, parentId, pendingC
 }) {
   const count = pendingCount ?? initial.participants.filter((participant) => participant.admission.status === "pending").length;
   return <SunkenTabNavigation aria-label="Bagian operasional">
-    <SunkenTabLink href={buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", parent: parentId })} selected={active === "sessions"} aria-current={active === "sessions" ? "page" : undefined}>Jadwal</SunkenTabLink>
-    <SunkenTabLink href={buildMentorTryoutOperationsHref(initial.id, { delivery: "policy", parent: parentId })} selected={active === "policy"} aria-current={active === "policy" ? "page" : undefined}>Akses peserta</SunkenTabLink>
-    <SunkenTabLink href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })} selected={active === "participants"} aria-current={active === "participants" ? "page" : undefined}>Peserta{count ? ` (${count})` : ""}</SunkenTabLink>
+    <SunkenTabLink className="px-3 sm:px-4" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "sessions", parent: parentId })} selected={active === "sessions"} aria-current={active === "sessions" ? "page" : undefined}>Jadwal</SunkenTabLink>
+    <SunkenTabLink className="px-3 sm:px-4" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "policy", parent: parentId })} selected={active === "policy"} aria-current={active === "policy" ? "page" : undefined}>Akses peserta</SunkenTabLink>
+    <SunkenTabLink className="px-3 sm:px-4" href={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })} selected={active === "participants"} aria-current={active === "participants" ? "page" : undefined}>Peserta{count ? ` (${count})` : ""}</SunkenTabLink>
   </SunkenTabNavigation>;
 }
