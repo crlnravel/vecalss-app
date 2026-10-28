@@ -803,8 +803,8 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     for (const [index, item] of itemResult.rows.entries()) {
       await client.query(
         `INSERT INTO standalone_quiz_answers (
-           attempt_id, quiz_item_id, selected_option_id, is_correct, points_awarded, scoring_version
-         ) VALUES ($1, $2, $3, $4, $5, 'kuis-frozen-form-v1')`,
+           attempt_id, quiz_item_id, selected_option_id, selected_option_ids, answer_format, is_correct, points_awarded, scoring_version
+         ) VALUES ($1, $2, $3::uuid, jsonb_build_array(($3::uuid)::text), 'single_option', $4, $5, 'kuis-frozen-form-v1')`,
         [attemptResult.rows[0].id, item.id, fixture.correctPattern[index] ? item.correct_option_id : item.wrong_option_id, fixture.correctPattern[index], fixture.correctPattern[index] ? 1 : 0],
       );
     }

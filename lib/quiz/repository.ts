@@ -20,13 +20,13 @@ import {
   StandaloneQuizVersionState,
 } from "@/generated/prisma/client";
 import {
-  decodeLegacyAnswerSelection,
   evaluateExactAnswer,
   validateAnswerKey,
   validateSelectedOptionIds,
   type QuestionAnswerMode,
 } from "@/lib/question-bank/answer-contract";
 import { prisma } from "@/lib/prisma";
+import { storedAnswerSelectionIds } from "@/lib/quiz/stored-answer-selection";
 import { asQuizOwnedQuestion } from "@/lib/quiz/question-ownership";
 import { lockOwnedStandaloneQuizAttempt, lockStandaloneQuizAggregate, lockStandaloneQuizAttempts } from "@/lib/quiz/runtime-locks";
 import { transitionKuisAfterCloseResult } from "@/lib/quiz/versioning-schedule";
@@ -389,42 +389,6 @@ function correctChoiceIdsFromOptions(
   return options
     .filter((option) => option.isCorrect)
     .map((option) => option.choiceKey);
-}
-
-function jsonStringArray(
-  value: Prisma.JsonValue | null | undefined,
-): string[] | null {
-  return Array.isArray(value) &&
-    value.every((item): item is string => typeof item === "string")
-    ? [...value]
-    : null;
-}
-
-function storedAnswerSelectionIds(answer: {
-  selectedOptionId: string | null;
-  selectedOptionIds: Prisma.JsonValue | null;
-}) {
-  const decoded = decodeLegacyAnswerSelection({
-    selectedOptionId: answer.selectedOptionId,
-    selectedOptionIds: jsonStringArray(answer.selectedOptionIds),
-  });
-  return decoded.ok ? decoded.selectedOptionIds : null;
-}
-
-/**
- * Display-only selection for review pages. Legacy scalar answers store a null
- * list next to the single option, which the strict decoder rejects, so fall
- * back to the stored values instead of showing the question as unanswered.
- */
-function reviewAnswerSelectionIds(answer: {
-  selectedOptionId: string | null;
-  selectedOptionIds: Prisma.JsonValue | null;
-}) {
-  return (
-    storedAnswerSelectionIds(answer) ??
-    jsonStringArray(answer.selectedOptionIds) ??
-    (answer.selectedOptionId ? [answer.selectedOptionId] : [])
-  );
 }
 
 const quizSourceInclude = {
@@ -4002,7 +3966,7 @@ async function getMentorStandaloneQuizSubmission(
   const selectedOptionIdsByItem = new Map(
     attempt.answers.map((answer) => [
       answer.quizItemId,
-      reviewAnswerSelectionIds(answer),
+      storedAnswerSelectionIds(answer) ?? [],
     ]),
   );
   return {
