@@ -1,12 +1,10 @@
-import Link from "next/link";
-import { Check, ChevronLeft } from "@/lib/icons";
+import { Check } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
 
 import {
   ReferencePageHeader,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Submission = {
@@ -36,34 +34,14 @@ const dateTime = new Intl.DateTimeFormat("id-ID", {
 
 function KaptenQuizSubmissionPageModule({
   submission,
-  returnHref = "/mentor/quiz",
 }: {
-  returnHref?: string;
   submission: Submission;
 }) {
   const isSubmitted = submission.status !== "in_progress";
 
   return (
     <div className="space-y-8">
-      <div className="flex min-w-0 items-start gap-3">
-        <Button
-          aria-label="Kembali ke hasil Kuis"
-          className="mt-1 shrink-0"
-          nativeButton={false}
-          render={
-            <Link href={`/mentor/quiz/${submission.quiz.id}?tab=hasil&returnTo=${encodeURIComponent(returnHref)}`} />
-          }
-          size="icon"
-          title="Kembali ke hasil Kuis"
-          variant="outline"
-        >
-          <ChevronLeft />
-        </Button>
-        <ReferencePageHeader
-          className="min-w-0 flex-1"
-          title={submission.student.name}
-        />
-      </div>
+      <ReferencePageHeader className="min-w-0" title={submission.student.name} />
       <ReferenceSurface as="section" className="p-5 sm:p-7">
         <dl className="grid gap-5 text-sm sm:grid-cols-3">
           <div>

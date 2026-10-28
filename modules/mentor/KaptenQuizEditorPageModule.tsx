@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { quizDashboardReturnHref } from "@/modules/mentor/quiz-dashboard-contract";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ChevronLeft,
   CircleHelp,
   LibraryBig,
   Pencil,
@@ -687,11 +685,11 @@ function QuizEditHeader({
           <Button
             aria-label="Kembali ke detail Kuis"
             onClick={() => state.navigation.requestExit(`/mentor/quiz/${quizId}?returnTo=${encodeURIComponent(returnHref)}`)}
-            size="icon"
+            size="sm"
             type="button"
-            variant="quiet"
+            variant="outline"
           >
-            <ChevronLeft aria-hidden="true" className="size-5" />
+            Kembali
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1">
@@ -1018,20 +1016,7 @@ function QuizEditWorkspace({
 
 function QuizCreateHeader() {
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <Button
-        aria-label="Kembali ke daftar Kuis"
-        className="mt-1 shrink-0"
-        nativeButton={false}
-        render={<Link href="/mentor/quiz" />}
-        size="icon"
-        title="Kembali ke daftar Kuis"
-        variant="outline"
-      >
-        <ChevronLeft aria-hidden="true" className="size-5" />
-      </Button>
-      <ReferencePageHeader className="min-w-0 flex-1" title="Kuis baru" />
-    </div>
+    <ReferencePageHeader className="min-w-0" title="Kuis baru" />
   );
 }
 

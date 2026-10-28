@@ -32,7 +32,6 @@ import {
 } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
-import { ChevronLeft } from "@/lib/icons";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
 import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
@@ -56,7 +55,6 @@ type SessionSchedule = { availableFrom: string; availableUntil: string };
 function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolean; delivery: DeliverySession; initial: TryoutOperationsView; onOpen: () => void }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Button aria-label="Kembali ke operasional Tryout" className="mt-1 shrink-0" nativeButton={false} render={<Link href={`/mentor/tryout/${initial.id}?workspace=operations`} />} size="icon" title="Kembali ke operasional Tryout" variant="outline"><ChevronLeft aria-hidden="true" className="size-5" /></Button>
       <ReferencePageHeader
         actions={<div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={delivery.status} />{initial.status === "published" && delivery.status === "draft" ? <Button disabled={busy} onClick={onOpen} variant="default">Buka sesi</Button> : null}</div>}
         className="min-w-0 flex-1"

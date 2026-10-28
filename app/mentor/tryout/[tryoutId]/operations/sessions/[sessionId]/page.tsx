@@ -34,6 +34,7 @@ export default async function TryoutSessionDetailPage({
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Detail"
+      breadcrumbParent={{ href: `/mentor/tryout/${encodeURIComponent(tryoutId)}?workspace=operations`, label: operations.title }}
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."

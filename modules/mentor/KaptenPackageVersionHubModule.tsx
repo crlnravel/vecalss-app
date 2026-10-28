@@ -8,7 +8,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Pencil } from "@/lib/icons";
+import { ChevronRight, Pencil } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
 type PackageVersionHistory = {
@@ -135,8 +135,6 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="outline"><ChevronLeft /></Button>
-
       <ReferencePageHeader
         actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="outline"><Pencil /></Button></div>}
         title={hub.title}

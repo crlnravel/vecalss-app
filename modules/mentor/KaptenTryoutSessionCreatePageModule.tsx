@@ -42,7 +42,6 @@ function KaptenTryoutSessionCreatePageModule({
   const [session, setSession] = useState<SessionDraft>(emptySession);
   const [busy, setBusy] = useState(false);
   const [validation, setValidation] = useState<{ field: "name" | "schedule"; message: string } | null>(null);
-  const sessionsHref = `/mentor/tryout/${initial.id}?workspace=operations&delivery=sessions`;
 
   const handleCreate = async () => {
     if (!session.name.trim()) {
@@ -88,7 +87,6 @@ function KaptenTryoutSessionCreatePageModule({
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <OperationalPageHeader
-        backHref={sessionsHref}
         description={initial.title}
         divider={false}
         title="Buat sesi"

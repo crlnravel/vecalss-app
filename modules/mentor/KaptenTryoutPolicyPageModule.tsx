@@ -58,7 +58,6 @@ function KaptenTryoutPolicyPageModule({
   const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(initialDefaultReleasePolicy);
   const [pendingAdmissionMode, setPendingAdmissionMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
-  const tryoutHref = `/mentor/tryout/${initial.id}?workspace=operations`;
 
   const admissionChanged = admissionMode !== initialAdmissionMode;
   const releaseChanged = defaultReleasePolicy !== initialDefaultReleasePolicy;
@@ -144,7 +143,6 @@ function KaptenTryoutPolicyPageModule({
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <OperationalPageHeader
-        backHref={tryoutHref}
         description={initial.title}
         title="Kebijakan Tryout"
       />}

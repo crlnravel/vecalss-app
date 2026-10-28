@@ -68,7 +68,7 @@ assert.match(editor, /useState\(\s*mode === "create" && hasQuizDraftContent\(ini
 assert.match(editor, /setHasUnsavedChanges\(\s*mode === "create"\s*\? hasQuizDraftContent\(nextForm, pristineSubjectCode\)\s*: true\s*,?\s*\)/u, "create-mode exit guarding must clear when its fields are emptied");
 assert.match(editor, /isSaving \? "Membuat…" : "Buat"/u, "create quiz action must use creation copy");
 assert.match(editor, /aria-label="Buat"[\s\S]*?variant="default"/u, "create quiz action must use the primary button variant");
-assert.match(editor, /aria-label="Kembali ke daftar Kuis"[\s\S]*?<Link href="\/mentor\/quiz"/u, "create quiz back action must return to the Kuis catalogue");
+assert.doesNotMatch(editor, /ChevronLeft/u, "the Kuis editor must not render a back chevron; the breadcrumb returns to the catalogue");
 assert.match(editor, /<QuestionEditorPageShell marker="quiz">/u, "quiz editing must use the shared full-page shell");
 assert.match(workspace, /data-quiz-editor-shell=\{marker === "quiz" \? "full-page"/u, "shared shell must retain its Kuis full-page marker");
 assert.match(editor, /data-quiz-editor-header="true"/u, "full-page editor must expose the Bank Soal-style top header");
@@ -130,7 +130,9 @@ assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untu
 assert.match(detail, /<strong className="text-sm font-bold text-voyage-ink">[\s\S]*?\{subject\s*\?[\s\S]*?:\s*value\}[\s\S]*?<\/strong>/u, "Kuis metadata must show its subject as bold text");
 assert.doesNotMatch(detail, /value="(?:preview|hasil)"[^>]*>\s*<(?:Eye|ListChecks)/u, "Soal and Hasil tabs must not show their former icons");
 assert.match(detail, /Arsipkan Kuis[\s\S]*updateStandaloneQuizLifecycleAction/u, "Kuis detail must expose its archive lifecycle action");
-assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
+const submissionRoute = await readFile(`${root}/app/mentor/quiz/[quizId]/results/[attemptId]/page.tsx`, "utf8");
+assert.match(submissionRoute, /breadcrumbParent=\{\{ href: `\/mentor\/quiz\/\$\{quizId\}\?tab=hasil/u, "submission breadcrumb must preserve Hasil context");
+assert.doesNotMatch(submission, /ChevronLeft/u, "submission must not render a back chevron");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");
 assert.match(repository, /include: quizContentInclude/u, "mentor reads must use Kuis snapshots and lightweight source attribution");

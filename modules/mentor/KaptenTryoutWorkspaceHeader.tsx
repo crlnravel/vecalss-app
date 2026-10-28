@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { ChevronLeft, Lock } from "@/lib/icons";
+import { Lock } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -68,30 +67,24 @@ function handlePrimaryNavigation(
 function TryoutWorkspaceHeader({
   actions,
   activeTab,
-  backHref = "/mentor/tryout",
-  backLabel = "Kembali ke semua Tryout",
   children,
   id,
   locked = false,
   onTabChange,
   onNavigate,
   parentId,
-  showBackButton = true,
   showTabs = true,
   showTitle = true,
   title,
 }: {
   actions?: ReactNode;
   activeTab: TryoutWorkspaceTab;
-  backHref?: string;
-  backLabel?: string;
   children?: ReactNode;
   id: string;
   locked?: boolean;
   onTabChange?: (tab: TryoutWorkspaceTab) => void;
   onNavigate?: (href: string, event: PrimaryNavigationEvent) => void;
   parentId?: string;
-  showBackButton?: boolean;
   showTabs?: boolean;
   showTitle?: boolean;
   title: string;
@@ -101,20 +94,6 @@ function TryoutWorkspaceHeader({
       {showTitle ? (
         <div className="flex min-w-0 items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            {showBackButton ? (
-              <Button
-                aria-label={backLabel}
-                className="mt-1 shrink-0"
-                nativeButton={false}
-                onClick={(event) => handlePrimaryNavigation(event, backHref, onNavigate)}
-                render={<Link href={backHref} />}
-                size="icon"
-                title={backLabel}
-                variant="outline"
-              >
-                <ChevronLeft aria-hidden="true" className="size-5" />
-              </Button>
-            ) : null}
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
                 <h1 className="min-w-0 break-words font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">

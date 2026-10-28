@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, CircleAlert, CircleHelp, ListFilter, PackageCheck, Plus, Save, Search, Upload, X } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
 import { useCallback, useEffect, useMemo, useReducer, useRef, type ComponentType, type Dispatch, type ReactNode } from "react";
@@ -488,10 +487,9 @@ function usePackageBuilderState({ id, initialDraft, sourceCatalog, sourceCatalog
 }
 
 function PackageBuilderHeader({ controller }: { controller: PackageBuilderController }) {
-  const { id, saved, state } = controller;
+  const { saved, state } = controller;
 
   return <>
-    <Button aria-label={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} disabled={state.saving} nativeButton={false} render={<Link href={saved ? `/mentor/packages/${id}` : "/mentor/packages"} />} size="icon" title={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} variant="outline"><ChevronLeft /></Button>
     <ReferencePageHeader
       title={saved ? `Edit pertanyaan & poin · ${state.draft.title}` : "Buat Paket Soal"}
     />

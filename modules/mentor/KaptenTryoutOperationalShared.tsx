@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ChevronLeft, CircleAlert, CircleHelp, ShieldCheck } from "@/lib/icons";
+import { CircleAlert, CircleHelp, ShieldCheck } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -12,13 +11,11 @@ import {
 import { cn } from "@/lib/utils";
 
 function OperationalPageHeader({
-  backHref,
   description,
   divider = true,
   title,
   trailing,
 }: {
-  backHref: string;
   description?: string;
   divider?: boolean;
   title: string;
@@ -27,15 +24,6 @@ function OperationalPageHeader({
   return (
     <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", divider && "border-b border-primary-100 pb-5")}>
       <div className="flex min-w-0 items-start gap-3">
-        <Button
-          aria-label="Kembali"
-          nativeButton={false}
-          render={<Link href={backHref} />}
-          size="icon"
-          variant="outline"
-        >
-          <ChevronLeft />
-        </Button>
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] text-secondary-900 sm:text-3xl">
             {title}

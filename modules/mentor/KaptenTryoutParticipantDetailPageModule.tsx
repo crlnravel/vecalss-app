@@ -1,15 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState } from "react";
-import { ChevronLeft } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { showToast } from "@/components/ui/toast";
-import { buildMentorTryoutOperationsHref } from "@/lib/navigation/canonical-context";
 import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { tryoutAccessGrantBlockMessage } from "@/lib/tryout/registration-availability";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
@@ -19,11 +16,10 @@ import { inviteTryoutParticipantAction, decideTryoutAdmissionAction, revokeTryou
 import { refreshTryoutLiveAction } from "@/modules/mentor/tryout-operations-actions";
 import { withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
 
-function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false, initial, backHref }: {
+function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false, initial }: {
   admissionId: string;
   embedded?: boolean;
   initial: TryoutOperationsView;
-  backHref?: string;
 }) {
   const [view, setView] = useState(initial);
   const [reason, setReason] = useState("");
@@ -97,8 +93,7 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
   }
   return <section className={embedded ? "grid min-w-0 gap-5" : "grid min-w-0 gap-5 px-4 py-5 sm:px-6 lg:px-8"} aria-labelledby="participant-detail-title">
     <div className="flex min-w-0 items-start gap-3">
-      <Button nativeButton={false} render={<Link href={backHref ?? buildMentorTryoutOperationsHref(view.id, { delivery: "participants" })} />} aria-label="Kembali ke daftar peserta Tryout" size="icon" variant="outline"><ChevronLeft aria-hidden="true" /></Button>
-      <div className="min-w-0"><h2 className="break-words text-xl font-semibold text-secondary-900" id="participant-detail-title">{identity.displayName}</h2><p className="break-all text-sm text-secondary-700">{identity.email}</p><p className="mt-1 text-sm text-secondary-600">{view.title}</p></div>
+      <div className="min-w-0"><h2 className="break-words text-xl font-semibold text-secondary-900" id="participant-detail-title">{identity.displayName}</h2><p className="break-all text-sm text-secondary-700">{identity.email}</p></div>
     </div>
     <ReferenceSurface className="grid gap-4 p-5 sm:grid-cols-2">
       <div><p className="text-sm text-secondary-600">Pendaftaran</p><p className="font-semibold text-secondary-900">{admissionStatusLabels[status]}</p><p className="mt-1 text-sm text-secondary-700">Diajukan {formatTryoutDateTime(participant.admission.requestedAt)} WIB</p></div>

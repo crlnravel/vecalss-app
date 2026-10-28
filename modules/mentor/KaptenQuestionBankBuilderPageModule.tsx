@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
   AlertTriangle,
   ChevronDown,
-  ChevronLeft,
   CircleHelp,
   Ellipsis,
   ImagePlus,
@@ -2082,25 +2080,9 @@ function QuestionBankEditorTitle({
     mode === "create"
       ? `Buat Bank Soal ${builderState.purpose === "quiz" ? "Kuis" : "Tryout"} Baru`
       : builderState.title;
-  const navigationLabel = questionBankNavigationLabel(builderState.purpose);
   return (
     <div className="min-w-0">
       <div className="flex min-w-0 items-start gap-2.5">
-        <Button
-          className="mt-0.5 shrink-0"
-          nativeButton={false}
-          render={
-            <Link
-              href={`/mentor/quiz/question-bank?purpose=${builderState.purpose}`}
-            />
-          }
-          aria-label={`Kembali ke ${navigationLabel}`}
-          size="icon-sm"
-          title={`Kembali ke ${navigationLabel}`}
-          variant="outline"
-        >
-          <ChevronLeft />
-        </Button>
         <div className="min-w-0">
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
             {title}
@@ -2444,11 +2426,11 @@ function QuestionBankEditWorkspaceHeader({
         <Button
           aria-label="Kembali ke detail bank soal"
           onClick={() => actions.requestExit(detailHref)}
-          size="icon-sm"
+          size="sm"
           title="Kembali ke detail bank soal"
           variant="outline"
         >
-          <ChevronLeft />
+          Kembali
         </Button>
         <div className="flex min-w-0 items-center gap-2.5">
           <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">

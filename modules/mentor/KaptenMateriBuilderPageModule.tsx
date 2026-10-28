@@ -3,7 +3,6 @@
 import {
   Archive,
   ChevronDown,
-  ChevronLeft,
   FileText,
   Save,
   Trash2,
@@ -254,7 +253,6 @@ function MateriBuilderPreview({
           type="button"
           variant="outline"
         >
-          <ChevronLeft />
           Kembali ke editor
         </Button>
       </div>

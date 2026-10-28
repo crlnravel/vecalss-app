@@ -9,8 +9,6 @@ import {
 function KaptenTryoutWorkspaceFrame({
   actions,
   activeTab,
-  backHref,
-  backLabel,
   children,
   initial,
   onNavigate,
@@ -18,8 +16,6 @@ function KaptenTryoutWorkspaceFrame({
 }: {
   actions?: ReactNode;
   activeTab: TryoutWorkspaceTab;
-  backHref?: string;
-  backLabel?: string;
   children: ReactNode;
   initial: Pick<TryoutOperationsView, "id" | "status" | "title">;
   onNavigate?: ComponentProps<typeof TryoutWorkspaceHeader>["onNavigate"];
@@ -30,8 +26,6 @@ function KaptenTryoutWorkspaceFrame({
       <TryoutWorkspaceHeader
         actions={actions}
         activeTab={activeTab}
-        backHref={backHref}
-        backLabel={backLabel}
         id={initial.id}
         onNavigate={onNavigate}
         parentId={parentId}

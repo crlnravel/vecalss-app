@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Check, ChevronLeft } from "@/lib/icons";
+import { Check } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
 import {
@@ -7,7 +6,6 @@ import {
   ReferenceSectionHeading,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 type Detail = {
@@ -22,7 +20,6 @@ type Detail = {
 function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
   return (
     <div className="space-y-5">
-      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="outline"><ChevronLeft /></Button>
       <ReferencePageHeader
         actions={<Badge size="sm" tone="category">{packageReleaseLabel(detail.versionNo)}</Badge>}
         title={detail.packageTitle}

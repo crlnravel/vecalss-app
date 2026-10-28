@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronLeft, Save } from "@/lib/icons";
+import { Save } from "@/lib/icons";
 import { useState } from "react";
 
 import {
@@ -53,7 +52,6 @@ function PackageMetadataEditorContent({ initialMetadata }: { initialMetadata: Pa
   return (
     <div className="space-y-5">
       <ResourceAuthoringLockBanner hasLocalChanges={description !== initialMetadata.description || title !== initialMetadata.title} onRetry={resourceLock.retry} resourceLabel="Paket Soal" state={resourceLock.state} />
-      <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="outline"><ChevronLeft /></Button>
       <ReferencePageHeader
         actions={<Button disabled={saving || !resourceLock.canEdit} onClick={() => void save()} size="sm" variant="outline"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button>}
         title="Edit Paket Soal"

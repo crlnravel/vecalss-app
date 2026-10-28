@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Check,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Copy,
@@ -3396,7 +3395,7 @@ function TryoutQuestionEditorHeader({
       size="sm"
       type="button"
       variant="outline"
-    ><ChevronLeft aria-hidden="true" /></Button>}
+    >Kembali</Button>}
     category={subtest}
     dirty={dirty}
     onSave={readOnly ? undefined : () => void saveDraft()}
@@ -3429,8 +3428,6 @@ function TryoutBuilderHeader({
   initialParent?: { id: string; publishedAt?: string; title: string };
   onWorkspaceChange: (tab: TryoutWorkspaceTab) => void;
 }) {
-  const backHref = "/mentor/tryout";
-  const backLabel = "Kembali ke semua Tryout";
   if (id) {
     return (
       <>
@@ -3441,7 +3438,6 @@ function TryoutBuilderHeader({
           onTabChange={onWorkspaceChange}
           onNavigate={(href, event) => guardExternalNavigation(href, event)}
           parentId={initialParent?.id}
-          showBackButton={false}
           showTabs
           showTitle={false}
           title={draft.title}
@@ -3457,24 +3453,10 @@ function TryoutBuilderHeader({
 
   return (
     <>
-      <div className="flex min-w-0 items-start gap-3">
-        <Button
-          aria-label={backLabel}
-          className="mt-1 shrink-0"
-          nativeButton={false}
-          onClick={(event) => guardExternalNavigation(backHref, event)}
-          render={<Link href={backHref} />}
-          size="icon"
-          title={backLabel}
-          variant="outline"
-        >
-          <ChevronLeft aria-hidden="true" className="size-5" />
-        </Button>
-        <ReferencePageHeader
-          className="min-w-0 flex-1"
-          title={id ? "Konten Tryout" : "Buat Tryout"}
-        />
-      </div>
+      <ReferencePageHeader
+        className="min-w-0"
+        title={id ? "Konten Tryout" : "Buat Tryout"}
+      />
       <TryoutBuilderNotices
         error={error}
       />

@@ -41,6 +41,7 @@ export default async function TryoutParticipantDetailPage({
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Detail"
+      breadcrumbParent={{ href: backHref, label: operations.title }}
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
@@ -53,7 +54,7 @@ export default async function TryoutParticipantDetailPage({
         initial={initial}
         parentId={typeof query.parent === "string" ? query.parent : undefined}
       >
-        <KaptenTryoutParticipantDetailPageModule admissionId={admissionId} embedded initial={initial} backHref={backHref} />
+        <KaptenTryoutParticipantDetailPageModule admissionId={admissionId} embedded initial={initial} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );
