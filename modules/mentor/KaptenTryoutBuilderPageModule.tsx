@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { buildTryoutWorkspaceHref, tryoutWorkspaceForQuery } from "@/lib/navigation/mentor-tryout-continuity";
 import { useTryoutCatalogueReturn } from "@/modules/mentor/use-tryout-catalogue-return";
+import { TryoutIdentityHeader } from "@/modules/mentor/components/tryout-identity-header";
 import {
   Check,
   ChevronRight,
@@ -900,9 +901,9 @@ function TryoutTitleReadView({
 }) {
   return (
     <div className="group flex items-start gap-3">
-      <h2 className="min-w-0 break-words text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">
+      <h1 className="reference-page-title min-w-0 break-words">
         {value || "Tryout tanpa judul"}
-      </h2>
+      </h1>
       {!disabled ? (
         <Button
           aria-label="Ubah judul Tryout"
@@ -1125,6 +1126,7 @@ function TryoutDescriptionEditingForm({
 }
 
 function TryoutIdentityPanel({
+  compact = false,
   draft,
   metadataSaving,
   mode,
@@ -1138,6 +1140,7 @@ function TryoutIdentityPanel({
   presentation = "page",
   saving,
 }: {
+  compact?: boolean;
   draft: TryoutDraft;
   metadataSaving: boolean;
   mode: WorkflowMode;
@@ -1189,6 +1192,8 @@ function TryoutIdentityPanel({
     <>
       <div className="grid min-w-0 w-full gap-6">
         <TryoutIdentityInformation
+          compact={compact}
+          status={draft.status}
           bannerHero={bannerHero}
           descriptionField={descriptionField}
           presentation={presentation}
@@ -1210,13 +1215,17 @@ function TryoutIdentityPanel({
 
 function TryoutIdentityInformation({
   bannerHero,
+  compact,
   descriptionField,
   presentation,
+  status,
   titleField,
 }: {
   bannerHero: ReactNode;
+  compact: boolean;
   descriptionField: ReactNode;
   presentation: "dialog" | "page";
+  status: string;
   titleField: ReactNode;
 }) {
   if (presentation === "dialog") {
@@ -1236,18 +1245,10 @@ function TryoutIdentityInformation({
   }
 
   return (
-    <ReferenceSurface
-      aria-labelledby="tryout-basic-info-title"
-      as="section"
-      className="grid min-w-0 w-full max-w-full gap-7 overflow-hidden p-5 sm:p-7"
-    >
-      <h2 className="sr-only" id="tryout-basic-info-title">
-        Informasi Tryout
-      </h2>
+    <TryoutIdentityHeader compact={compact} status={status} title={titleField}>
       {bannerHero}
-      {titleField}
       {descriptionField}
-    </ReferenceSurface>
+    </TryoutIdentityHeader>
   );
 }
 
@@ -3899,6 +3900,7 @@ function TryoutBuilderContent({
       }} />
     </ReferenceSurface> : null}
     <TryoutIdentityPanel
+      compact={Boolean(id) && activeWorkspace !== "subtests"}
       draft={viewDraft}
       metadataSaving={viewMetadataSaving}
       mode={mode}

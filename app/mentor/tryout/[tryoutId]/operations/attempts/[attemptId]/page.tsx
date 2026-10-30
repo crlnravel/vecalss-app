@@ -65,12 +65,15 @@ export default async function TryoutAttemptDetailPage({
     );
   }
   const backHref = buildMentorTryoutAttemptBackHref(tryoutId, { ...parsedQuery, session: delivery.id });
+  const attemptBreadcrumbParent = parsedQuery.workspace === "participants"
+    ? { href: backHref, label: "Hasil" }
+    : { href: `/mentor/tryout/${encodeURIComponent(tryoutId)}/operations/sessions/${encodeURIComponent(delivery.id)}?${new URL(backHref, "https://vecalss.invalid").searchParams}`, label: delivery.name };
 
   const resultRecovery = await inspectTryoutCalculation({ attemptId, tryoutId, sessionId: delivery.id }, session.user.id);
 
   if (operations.status === "archived") {
     return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" breadcrumbParent={{ href: backHref, label: operations.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={attempt.student} breadcrumbAncestors={[{ href: buildMentorTryoutHref(tryoutId, { parent: parsedQuery.parent, returnTo: parsedQuery.returnTo }), label: operations.title }]} breadcrumbParent={{ href: backHref, label: "Riwayat pengerjaan" }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <KaptenTryoutArchivedHistoryFrame initial={operations}>
           <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} embedded initial={operations} readOnly resultRecovery={resultRecovery} />
         </KaptenTryoutArchivedHistoryFrame>
@@ -81,8 +84,9 @@ export default async function TryoutAttemptDetailPage({
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
-      breadcrumbLabel="Pengerjaan"
-      breadcrumbParent={{ href: backHref, label: operations.title }}
+      breadcrumbLabel={attempt.student}
+      breadcrumbAncestors={[{ href: buildMentorTryoutHref(tryoutId, { parent: parsedQuery.parent, returnTo: parsedQuery.returnTo }), label: operations.title }]}
+      breadcrumbParent={attemptBreadcrumbParent}
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."

@@ -40,7 +40,7 @@ export default async function TryoutSubtestPage({
   const initialOperations = operations ? toTryoutWorkspaceView(operations) : null;
   if (!initialDraft || !initialOperations || (parsedQuery.parent && !parentDraft)) notFound();
 
-  const parentLabel = "Detail";
+  const parentLabel = initialDraft.title;
   const parentHref = `/mentor/tryout/${encodeURIComponent(tryoutId)}${parsedQuery.parent ? `?parent=${encodeURIComponent(parsedQuery.parent)}` : ""}`;
   const parentContext = parentDraft
     ? { id: parentDraft.id, publishedAt: parentDraft.assessmentRelease?.publishedAt, title: parentDraft.title }

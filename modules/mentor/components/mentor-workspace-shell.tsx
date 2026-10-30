@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { tryoutCatalogueReturnHref, withTryoutCatalogueReturn } from "@/lib/navigation/mentor-tryout-continuity";
 import { Search } from "@/lib/icons";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   Breadcrumb,
@@ -288,6 +288,7 @@ function useMentorNavigationGuard({
 function MentorWorkspaceHeader({
   activeLabel,
   breadcrumbLabel,
+  breadcrumbAncestors = [],
   breadcrumbParent,
   isRootPage,
   rootHref,
@@ -299,6 +300,7 @@ function MentorWorkspaceHeader({
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
+  breadcrumbAncestors?: { href: string; label: string }[];
   breadcrumbParent?: { href: string; label: string };
   isRootPage: boolean;
   rootHref: string;
@@ -339,12 +341,21 @@ function MentorWorkspaceHeader({
                     {activeLabel}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
+                {breadcrumbAncestors.map((ancestor) => (
+                  <Fragment key={ancestor.href}>
+                    <BreadcrumbSeparator className="hidden sm:block" />
+                    <BreadcrumbItem className="hidden min-w-0 sm:inline-flex">
+                      <BreadcrumbLink href={ancestor.href} title={ancestor.label} className="block max-w-xs truncate text-secondary-500">{ancestor.label}</BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </Fragment>
+                ))}
                 {breadcrumbParent ? (
                   <>
                     <BreadcrumbSeparator className="hidden sm:block" />
-                    <BreadcrumbItem>
+                    <BreadcrumbItem className="min-w-0">
                       <BreadcrumbLink
                         href={breadcrumbParent.href}
+                        title={breadcrumbParent.label}
                         className="block max-w-[5.5rem] truncate text-secondary-500 sm:max-w-xs"
                       >
                         {breadcrumbParent.label}
@@ -355,8 +366,8 @@ function MentorWorkspaceHeader({
                 {!isRootPage ? (
                   <>
                     <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage className="block truncate">{breadcrumbLabel}</BreadcrumbPage>
+                    <BreadcrumbItem className="min-w-0">
+                      <BreadcrumbPage title={breadcrumbLabel} className="block truncate">{breadcrumbLabel}</BreadcrumbPage>
                     </BreadcrumbItem>
                   </>
                 ) : null}
@@ -393,6 +404,8 @@ function MentorWorkspaceShell({
   activeLabel,
   sidebarAppearance = "default",
   breadcrumbLabel,
+  breadcrumbIsRoot,
+  breadcrumbAncestors,
   breadcrumbParent,
   children,
   contentElement: ContentElement = "main",
@@ -407,6 +420,8 @@ function MentorWorkspaceShell({
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
+  breadcrumbIsRoot?: boolean;
+  breadcrumbAncestors?: { href: string; label: string }[];
   breadcrumbParent?: { href: string; label: string };
   children: ReactNode;
   contentElement?: "div" | "main";
@@ -423,7 +438,7 @@ function MentorWorkspaceShell({
   const query = useSearchParams();
   const catalogueReturn = activeLabel === "Tryout" ? tryoutCatalogueReturnHref(query.get("returnTo")) : undefined;
   const rootHref = catalogueReturn ?? mentorRootHrefByLabel[activeLabel] ?? "/mentor/dashboard";
-  const isRootPage = breadcrumbLabel === activeLabel;
+  const isRootPage = breadcrumbIsRoot ?? (!breadcrumbParent && !breadcrumbAncestors?.length && breadcrumbLabel === activeLabel);
   const resolvedNavigationConfirmCopy = {
     ...DEFAULT_NAVIGATION_CONFIRM_COPY,
     ...navigationConfirmCopy,
@@ -464,6 +479,7 @@ function MentorWorkspaceShell({
             <MentorWorkspaceHeader
               activeLabel={activeLabel}
               breadcrumbLabel={breadcrumbLabel}
+              breadcrumbAncestors={breadcrumbAncestors?.map((ancestor) => catalogueReturn ? { ...ancestor, href: withTryoutCatalogueReturn(ancestor.href, catalogueReturn) } : ancestor)}
               breadcrumbParent={breadcrumbParent && catalogueReturn ? { ...breadcrumbParent, href: withTryoutCatalogueReturn(breadcrumbParent.href, catalogueReturn) } : breadcrumbParent}
               isRootPage={isRootPage}
               rootHref={rootHref}

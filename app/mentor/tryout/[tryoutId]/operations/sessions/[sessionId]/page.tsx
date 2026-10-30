@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import type { NavigationQueryValue } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutSessionDetailPageModule } from "@/modules/mentor/KaptenTryoutSessionDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
@@ -28,13 +28,17 @@ export default async function TryoutSessionDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (!operations.sessions.some((item) => item.id === sessionId)) notFound();
+  const delivery = operations.sessions.find((item) => item.id === sessionId);
+  if (!delivery) notFound();
+  const context = parseMentorTryoutContext(query);
+  if (context.issues.length) notFound();
 
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
-      breadcrumbLabel="Detail"
-      breadcrumbParent={{ href: `/mentor/tryout/${encodeURIComponent(tryoutId)}?workspace=operations`, label: operations.title }}
+      breadcrumbLabel={delivery.name}
+      breadcrumbAncestors={[{ href: buildMentorTryoutHref(tryoutId, { parent: context.parent, returnTo: context.returnTo }), label: operations.title }]}
+      breadcrumbParent={{ href: buildMentorTryoutOperationsHref(tryoutId, { ...context, workspace: "operations", delivery: "sessions" }), label: "Jadwal" }}
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."

@@ -79,7 +79,7 @@ function TryoutWorkspace({
     : undefined;
 
   return (
-    <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+    <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={initialDraft.title} breadcrumbIsRoot={false} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
       <KaptenTryoutBuilderPageModule
         id={tryoutId}
         initialDraft={initialDraft}
@@ -141,14 +141,14 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
   redirectLegacyTryoutWorkspace(tryoutId, parsedQuery.workspace);
   if (parsedQuery.delivery === "participants") {
-    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Peserta" breadcrumbParent={{ href: buildMentorTryoutHref(tryoutId, { ...normalizedContext, delivery: undefined, workspace: "operations" }), label: operationsInitial.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
       <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
         <KaptenTryoutRegistrationListPageModule key={canonicalHref} context={normalizedContext} initial={operationsInitial} initialList={queryTryoutParticipants(operationsInitial, parsedQuery)} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>;
   }
   if (parsedQuery.delivery === "policy" && operationsInitial.status !== "draft") {
-    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Akses peserta" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+    return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Akses peserta" breadcrumbParent={{ href: buildMentorTryoutHref(tryoutId, { ...normalizedContext, delivery: undefined, workspace: "operations" }), label: operationsInitial.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
       <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>
         <KaptenTryoutAccessPageModule key={canonicalHref} initial={operationsInitial} parentId={parsedQuery.parent} />
       </KaptenTryoutWorkspaceFrame>
@@ -156,7 +156,7 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   }
   if (operationsInitial.status === "archived") {
     return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Riwayat" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={operationsInitial.title} breadcrumbIsRoot={false} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <KaptenTryoutArchivedHistoryPageModule initial={operationsInitial} />
       </MentorWorkspaceShell>
     );

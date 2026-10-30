@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { buildMentorTryoutOperationsHref, canonicalQueryEquals, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutHref, buildMentorTryoutOperationsHref, canonicalQueryEquals, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutParticipantDetailPageModule } from "@/modules/mentor/KaptenTryoutParticipantDetailPageModule";
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
@@ -29,7 +29,8 @@ export default async function TryoutParticipantDetailPage({
   if (!operations) notFound();
   const parsed = parseMentorTryoutContext(query);
   if (parsed.issues.length) notFound();
-  if (!operations.admissions.some((item) => item.id === admissionId)) {
+  const admission = operations.admissions.find((item) => item.id === admissionId);
+  if (!admission) {
     notFound();
   }
   const initial = toTryoutWorkspaceView(operations);
@@ -40,8 +41,9 @@ export default async function TryoutParticipantDetailPage({
   return (
     <MentorWorkspaceShell
       activeLabel="Tryout"
-      breadcrumbLabel="Detail"
-      breadcrumbParent={{ href: backHref, label: operations.title }}
+      breadcrumbLabel={admission.student}
+      breadcrumbAncestors={[{ href: buildMentorTryoutHref(tryoutId, { parent: parsed.parent, returnTo: parsed.returnTo }), label: operations.title }]}
+      breadcrumbParent={{ href: backHref, label: "Peserta" }}
       contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
