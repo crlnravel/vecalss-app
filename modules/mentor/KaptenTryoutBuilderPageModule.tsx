@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { buildTryoutWorkspaceHref, tryoutWorkspaceForQuery } from "@/lib/navigation/mentor-tryout-continuity";
+import { useTryoutCatalogueReturn } from "@/modules/mentor/use-tryout-catalogue-return";
 import {
   Check,
   ChevronRight,
@@ -2093,6 +2096,7 @@ function TryoutSubtestIndex({
   readOnly: boolean;
   saving: boolean;
 }) {
+  const returnHref = useTryoutCatalogueReturn();
   return (
     <section
       aria-labelledby="tryout-subtest-index-title"
@@ -2107,7 +2111,7 @@ function TryoutSubtestIndex({
       >
         {draft.sections.map((section) => {
           const href = id
-            ? tryoutSubtestDetailHref(id, section.subtest, parentId)
+            ? returnHref(tryoutSubtestDetailHref(id, section.subtest, parentId))
             : undefined;
           const subjectName =
             kaptenSubjects.find((subject) => subject.code === section.subtest)
@@ -3385,14 +3389,15 @@ function TryoutQuestionEditorHeader({
   saving: boolean;
   subtest: SubjectCode;
 }) {
+  const returnHref = useTryoutCatalogueReturn();
   return <QuestionEditorHeader
     backControl={<Button
       aria-label={`Kembali ke detail subtes ${subtest}`}
       className="shrink-0"
       disabled={saving || editLocked}
       nativeButton={false}
-      onClick={(event) => guardExternalNavigation(backHref, event)}
-      render={<Link href={backHref} />}
+      onClick={(event) => guardExternalNavigation(returnHref(backHref), event)}
+      render={<Link href={returnHref(backHref)} />}
       size="sm"
       type="button"
       variant="outline"
@@ -3616,6 +3621,7 @@ function TryoutBuilderPageWorkspace({
   viewDraft: TryoutDraft;
   viewSaving: boolean;
 }) {
+  const returnHref = useTryoutCatalogueReturn();
   return (
     <div className="min-w-0 w-full">
       {initialSubtest ? (
@@ -3641,11 +3647,11 @@ function TryoutBuilderPageWorkspace({
             nativeButton={false}
             onClick={(event) =>
               guardExternalNavigation(
-                tryoutSubtestListHref(id, initialParent?.id),
+                returnHref(tryoutSubtestListHref(id, initialParent?.id)),
                 event,
               )
             }
-            render={<Link href={tryoutSubtestListHref(id, initialParent?.id)} />}
+            render={<Link href={returnHref(tryoutSubtestListHref(id, initialParent?.id))} />}
             variant="outline"
           >
             Kembali ke daftar subtes
@@ -3803,9 +3809,11 @@ function TryoutBuilderContent({
   const [recoveredDraftOpen, setRecoveredDraftOpen] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
   const createDialogDirtyRef = useRef(false);
-  const [activeWorkspace, setActiveWorkspace] = useState<TryoutWorkspaceTab>(
-    initialSubtest ? "subtests" : (initialWorkspace ?? "subtests"),
-  );
+  const workspaceQuery = useSearchParams();
+  const returnHref = useTryoutCatalogueReturn();
+  const activeWorkspace = initialSubtest ? "subtests" : workspaceQuery.has("workspace") || workspaceQuery.has("delivery")
+    ? tryoutWorkspaceForQuery(workspaceQuery)
+    : (initialWorkspace ?? "subtests");
   const state = useTryoutBuilderState({
     id,
     initialDraft,
@@ -3948,11 +3956,11 @@ function TryoutBuilderContent({
         onUpdateSection={(change) => update(activeSection.subtest, change)}
         questionEditorHref={
           id
-            ? tryoutQuestionEditorHref(
+            ? returnHref(tryoutQuestionEditorHref(
                 id,
                 activeSection.subtest,
                 initialParent?.id,
-              )
+              ))
             : undefined
         }
         saveDraft={() => save("draft")}
@@ -4024,12 +4032,14 @@ function TryoutBuilderContent({
         }
         if (event) {
           guardExternalNavigation(
-            tryoutSubtestDetailHref(id, subtest, initialParent?.id),
+            returnHref(tryoutSubtestDetailHref(id, subtest, initialParent?.id)),
             event,
           );
         }
       }}
-      onWorkspaceChange={setActiveWorkspace}
+      onWorkspaceChange={(workspace) => {
+        if (id) window.history.pushState(null, "", buildTryoutWorkspaceHref(id, workspace, workspaceQuery));
+      }}
       operationsInitial={operationsInitial}
       renderSubtestEditor={renderSubtestEditor}
       state={state}

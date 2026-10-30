@@ -1,6 +1,8 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { buildTryoutWorkspaceHref } from "@/lib/navigation/mentor-tryout-continuity";
 
 import { Lock } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -36,18 +38,6 @@ const workspaceTabs: Array<{ label: string; value: TryoutWorkspaceTab }> = [
   { label: "Hasil", value: "participants" },
   { label: "Pengaturan", value: "settings" },
 ];
-
-function workspaceHref(
-  id: string,
-  tab: TryoutWorkspaceTab,
-  parentId?: string,
-) {
-  const encodedId = encodeURIComponent(id);
-  const parentSuffix = parentId ? `&parent=${encodeURIComponent(parentId)}` : "";
-  if (tab === "subtests") return `/mentor/tryout/${encodedId}?workspace=sections${parentSuffix}`;
-  const workspace = tab === "participants" ? "participants" : tab;
-  return `/mentor/tryout/${encodedId}?workspace=${workspace}${parentSuffix}`;
-}
 
 function handlePrimaryNavigation(
   event: PrimaryNavigationEvent,
@@ -89,6 +79,7 @@ function TryoutWorkspaceHeader({
   showTitle?: boolean;
   title: string;
 }) {
+  const query = useSearchParams();
   return (
     <div className="grid min-w-0 gap-5">
       {showTitle ? (
@@ -130,7 +121,7 @@ function TryoutWorkspaceHeader({
       {showTabs ? (
         <SunkenTabNavigation aria-label="Bagian Tryout" className="grid grid-cols-2 sm:flex">
           {workspaceTabs.map((tab) => {
-            const href = workspaceHref(id, tab.value, parentId);
+            const href = buildTryoutWorkspaceHref(id, tab.value, { ...Object.fromEntries(query.entries()), ...(parentId ? { parent: parentId } : {}) });
             const active = activeTab === tab.value;
             const className =
               "!h-auto px-3 text-center text-sm leading-tight";

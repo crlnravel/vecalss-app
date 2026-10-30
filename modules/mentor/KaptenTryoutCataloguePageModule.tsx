@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, ClipboardList, Lock, Plus, Target } from "@/lib/icons";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MentorTryoutCreateDialog } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
+import { buildTryoutCatalogueHref, readTryoutCatalogueContext, withTryoutCatalogueReturn } from "@/lib/navigation/mentor-tryout-continuity";
 
 type TryoutItem = {
   description: string;
@@ -86,7 +87,7 @@ function TryoutStatusTabs({
   );
 }
 
-function TryoutCard({ item }: { item: TryoutItem }) {
+function TryoutCard({ item, returnTo }: { item: TryoutItem; returnTo: string }) {
   const cardClassName = cn(
     REFERENCE_SURFACE_CLASS_NAMES.raised,
     REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
@@ -152,7 +153,7 @@ function TryoutCard({ item }: { item: TryoutItem }) {
     <Link
       aria-label={item.status === "archived" ? `Buka riwayat ${item.title}` : `Buka ${item.title}`}
       className={cardClassName}
-      href={`/mentor/tryout/${item.id}`}
+      href={withTryoutCatalogueReturn(`/mentor/tryout/${item.id}`, returnTo)}
     >
       {content}
     </Link>
@@ -169,12 +170,16 @@ function KaptenTryoutCataloguePageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = useState(
     initialCreateDialogOpen,
   );
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TryoutStatusFilter>("");
-  const [page, setPage] = useState(1);
+  const context = readTryoutCatalogueContext(new URLSearchParams(searchParams.toString()));
+  const { q: query, status: statusFilter, page } = context;
+  function updateContext(patch: Partial<typeof context>, replace = false) {
+    const href = buildTryoutCatalogueHref({ ...context, ...patch });
+    window.history[replace ? "replaceState" : "pushState"](null, "", href);
+  }
   const pageSize = 8;
   const filteredItems = initialItems.filter((item) => {
     const needle = query.trim().toLocaleLowerCase();
@@ -196,15 +201,13 @@ function KaptenTryoutCataloguePageModule({
     visiblePage * pageSize,
   );
   const clearFilters = () => {
-    setQuery("");
-    setStatusFilter("");
-    setPage(1);
+    updateContext({ q: "", status: "", page: 1 });
   };
 
   function handleCreateDialogOpenChange(open: boolean) {
     setCreateDialogOpen(open);
     if (!open && initialCreateDialogOpen) {
-      router.replace("/mentor/tryout", { scroll: false });
+      router.replace(buildTryoutCatalogueHref({ ...context, page: visiblePage }), { scroll: false });
     }
   }
 
@@ -237,8 +240,7 @@ function KaptenTryoutCataloguePageModule({
           <div className="w-full">
             <CatalogueSearchInput
               onChange={(value) => {
-                setQuery(value);
-                setPage(1);
+                updateContext({ q: value, page: 1 }, true);
               }}
               placeholder="Cari judul, deskripsi, atau status Tryout..."
               value={query}
@@ -247,8 +249,7 @@ function KaptenTryoutCataloguePageModule({
           <TryoutStatusTabs
             items={initialItems}
             onChange={(value) => {
-              setStatusFilter(value);
-              setPage(1);
+              updateContext({ status: value, page: 1 });
             }}
             value={statusFilter}
           />
@@ -256,7 +257,7 @@ function KaptenTryoutCataloguePageModule({
 
         <section aria-label="Daftar Tryout" className="grid gap-3">
           {visibleItems.length ? (
-            visibleItems.map((item) => <TryoutCard item={item} key={item.id} />)
+            visibleItems.map((item) => <TryoutCard item={item} key={item.id} returnTo={buildTryoutCatalogueHref({ ...context, page: visiblePage })} />)
           ) : initialItems.length === 0 ? (
             <ReferenceSurface className="min-h-[25rem]" variant="inset">
               <ReferenceEmptyState
@@ -297,7 +298,7 @@ function KaptenTryoutCataloguePageModule({
         </section>
         {filteredItems.length ? (
           <PaginationControls
-            onPageChange={setPage}
+            onPageChange={(nextPage) => updateContext({ page: nextPage })}
             page={visiblePage}
             pageCount={pageCount}
           />

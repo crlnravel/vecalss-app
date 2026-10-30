@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { tryoutCatalogueReturnHref, withTryoutCatalogueReturn } from "@/lib/navigation/mentor-tryout-continuity";
 import { Search } from "@/lib/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -419,7 +420,9 @@ function MentorWorkspaceShell({
   showSearch?: boolean;
   shouldGuardNavigation?: boolean;
 }) {
-  const rootHref = mentorRootHrefByLabel[activeLabel] ?? "/mentor/dashboard";
+  const query = useSearchParams();
+  const catalogueReturn = activeLabel === "Tryout" ? tryoutCatalogueReturnHref(query.get("returnTo")) : undefined;
+  const rootHref = catalogueReturn ?? mentorRootHrefByLabel[activeLabel] ?? "/mentor/dashboard";
   const isRootPage = breadcrumbLabel === activeLabel;
   const resolvedNavigationConfirmCopy = {
     ...DEFAULT_NAVIGATION_CONFIRM_COPY,
@@ -461,7 +464,7 @@ function MentorWorkspaceShell({
             <MentorWorkspaceHeader
               activeLabel={activeLabel}
               breadcrumbLabel={breadcrumbLabel}
-              breadcrumbParent={breadcrumbParent}
+              breadcrumbParent={breadcrumbParent && catalogueReturn ? { ...breadcrumbParent, href: withTryoutCatalogueReturn(breadcrumbParent.href, catalogueReturn) } : breadcrumbParent}
               isRootPage={isRootPage}
               rootHref={rootHref}
               searchPlaceholder={searchPlaceholder}
