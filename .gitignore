@@ -66,3 +66,4 @@ tmp/
 
 # Locally generated learning PDFs
 /output/pdf/*.pdf
+/output/pdf/*-fidelity.json
