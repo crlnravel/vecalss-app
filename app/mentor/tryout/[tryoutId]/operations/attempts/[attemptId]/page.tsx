@@ -70,7 +70,7 @@ export default async function TryoutAttemptDetailPage({
 
   if (operations.status === "archived") {
     return (
-      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" breadcrumbParent={{ href: buildMentorTryoutHref(tryoutId), label: operations.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
+      <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pengerjaan" breadcrumbParent={{ href: backHref, label: operations.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <KaptenTryoutArchivedHistoryFrame initial={operations}>
           <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} embedded initial={operations} readOnly resultRecovery={resultRecovery} />
         </KaptenTryoutArchivedHistoryFrame>
