@@ -97,14 +97,15 @@ assert.match(repository, /const requiresNewRevision = currentRevision\.status ==
 assert.match(repository, /folderId\?: string \| null/u);
 assert.match(repository, /normalizeQuestionBankFolderId\(input\.folderId\)/u);
 assert.match(repository, /tx\.questionBankFolder\.findUnique\([\s\S]*folder\.purpose !== input\.purpose/u);
-assert.match(repository, /folderId,\n\s+name: input\.title\.trim\(\)/u);
+assert.match(repository, /folderId,\n\s+mediaFolderId: newBankMediaFolder\.id,\n\s+name: input\.title\.trim\(\)/u);
 assert.match(assemblyRepository, /purpose: expectedPurpose,[\s\S]*?status: \{ not: ContentStatus\.archived \}/u);
 assert.match(assessmentRelease, /purpose: "tryout",[\s\S]*?status: \{ not: ContentStatus\.archived \}/u);
 
 assert.match(catalogue, /function questionBankCreateHref\(/u);
-const createLinkCalls = [...catalogue.matchAll(/href=\{questionBankCreateHref\(\{[\s\S]*?\}\)\}/gu)].map(([source]) => source);
-assert.equal(createLinkCalls.length, 2, "legacy folder-aware create links stay documented in the catalogue empty-state contract");
-assert.match(catalogue, /router\.push\(questionBankCreateHref\(\{[\s\S]*?folder: selectedFolder[\s\S]*?purpose: initialPurpose/u);
+// Creating a Bank Soal opens in place: the catalogue pushes the folder-aware create URL instead of rendering href links.
+assert.match(catalogue, /window\.history\.pushState\(null, "", questionBankCreateHref\(\{/u, "folder-aware create is opened through the history API");
+assert.doesNotMatch(catalogue, /href=\{questionBankCreateHref\(/u, "no static create links remain in the catalogue");
+assert.match(catalogue, /window\.history\.pushState\(null, "", questionBankCreateHref\(\{[\s\S]*?folder: selectedFolder[\s\S]*?purpose: initialPurpose/u, "the in-place create URL carries the selected folder and purpose");
 assert.match(catalogue, /presentation="modal"/u);
 assert.doesNotMatch(catalogue, /QuestionBankCreateMethodDialog/u);
 assert.match(createRoute, /readQueryValues\(query, "folder"\)/u);
@@ -119,7 +120,7 @@ assert.match(actions, /type QuestionBankActionFailure =/u);
 assert.doesNotMatch(actions, /export type \{ QuestionBankActionFailure \}/u, "Next Server Actions must not expose the failure type as a runtime action");
 assert.match(actions, /attemptedInput\?: unknown/u);
 assert.match(actions, /readiness\?: QuestionBankReadiness/u);
-assert.match(actions, /questionBankActionFailure\(error, "Bank Soal tidak dapat disimpan saat ini\."\)/u);
+assert.match(actions, /questionBankActionFailure\(error, "Bank Soal tidak dapat disimpan saat ini\.", \{/u, "a failed save returns the attempted input so the form keeps it");
 assert.match(actions, /questionBankActionFailure\(error, "Status Bank Soal tidak dapat diubah saat ini\."\)/u);
 
 async function runFolderStorageDatabaseContract() {

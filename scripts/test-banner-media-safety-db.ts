@@ -128,6 +128,23 @@ async function createIsolatedSchema(client: pg.Client, schema: string) {
   await client.query(`CREATE SCHEMA ${quotedSchema}`);
   await client.query(`CREATE TYPE ${quotedSchema}."media_library_scope" AS ENUM ('kapten', 'admin')`);
   await client.query(`CREATE TYPE ${quotedSchema}."media_asset_state" AS ENUM ('pending', 'ready', 'trashed', 'failed')`);
+  // Trashing a media asset or folder takes a transient edit lease before it mutates anything. Define the lease
+  // table here, like assets and folders, so this test never depends on the disposable database's migration level.
+  await client.query(`CREATE TYPE ${quotedSchema}."edit_lease_resource_type" AS ENUM ('materi', 'quiz', 'question_bank', 'question_package', 'tryout', 'media_asset', 'media_folder')`);
+  await client.query(`
+    CREATE TABLE ${quotedSchema}."edit_leases" (
+      resource_type ${quotedSchema}."edit_lease_resource_type" NOT NULL,
+      resource_id varchar(128) NOT NULL,
+      holder_user_id uuid NOT NULL,
+      token_digest varchar(64) NOT NULL,
+      generation integer NOT NULL,
+      acquired_at timestamptz NOT NULL,
+      heartbeat_at timestamptz NOT NULL,
+      expires_at timestamptz NOT NULL,
+      released_at timestamptz,
+      PRIMARY KEY (resource_type, resource_id)
+    )
+  `);
   await client.query(`
     CREATE TABLE ${quotedSchema}."assets" (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -160,6 +177,21 @@ async function createIsolatedSchema(client: pg.Client, schema: string) {
       updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // Trashing media also asks whether Bank Soal, Kuis or Tryout questions still use an image. Those scans only
+  // read asset references, so define just those columns instead of cloning tables from a database whose
+  // migration level this test cannot control. Rows stay empty: no question references a test asset.
+  for (const [table, columns] of [
+    ["questions", "question_bank_id uuid, prompt_asset_id uuid, explanation_asset_id uuid"],
+    ["question_options", "question_id uuid, asset_id uuid"],
+    ["question_revisions", "question_id uuid, prompt_asset_id uuid, explanation_asset_id uuid"],
+    ["question_revision_options", "question_revision_id uuid, asset_id uuid"],
+    ["standalone_quiz_items", "prompt_asset_id uuid, explanation_asset_id uuid"],
+    ["standalone_quiz_item_options", "quiz_item_id uuid, asset_id uuid"],
+    ["tryout_items", "prompt_asset_id uuid, explanation_asset_id uuid"],
+    ["tryout_item_options", "tryout_item_id uuid, asset_id uuid"],
+  ] as const) {
+    await client.query(`CREATE TABLE ${quotedSchema}.${quoteIdentifier(table)} (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), ${columns})`);
+  }
   for (const table of TABLES) {
     if (table === "assets" || table === "media_folders") continue;
     const quotedTable = quoteIdentifier(table);
@@ -702,7 +734,7 @@ async function main() {
         () => finalize(moveFinalizeAsset.assetId),
         () => media.moveMediaAsset({ assetId: moveFinalizeAsset.assetId, folderId: moveFinalizeDestination.id, scope: "admin" }),
       );
-      assertServiceError(finalizeMoveRace.finalize, media.MediaServiceError, /Upload berubah/iu);
+      assertServiceError(finalizeMoveRace.finalize, media.MediaServiceError, /Unggahan berubah/iu);
       assert.equal((await assetState(moveFinalizeAsset.assetId))?.folderId, moveFinalizeDestination.id);
       assert.equal((await assetState(moveFinalizeAsset.assetId))?.state, "ready");
 
@@ -718,7 +750,7 @@ async function main() {
         () => finalize(lateSuccess.assetId),
         () => media.trashMediaAsset("admin", lateSuccess.assetId),
       );
-      assertServiceError(lateSuccessRace.finalize, media.MediaServiceError, /Upload berubah/iu);
+      assertServiceError(lateSuccessRace.finalize, media.MediaServiceError, /Unggahan berubah/iu);
       assert.equal((await assetState(lateSuccess.assetId))?.state, "trashed");
 
       // A late metadata mismatch after trash must also leave the row trashed,

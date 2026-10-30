@@ -70,7 +70,7 @@ assert.doesNotMatch(builder, /ReadyAssemblyPicker|attachReadyAssemblyAction|deta
 assert.doesNotMatch(createPage, /listReadyAssemblyRevisions|readyAssemblies/u, "Tryout creation must not load archived assembly sources");
 assert.doesNotMatch(editPage, /listReadyAssemblyRevisions|readyAssemblies/u, "Tryout editing must not load archived assembly sources");
 
-assert.match(tryoutRepository, /Paket Soal sudah diarsipkan/u, "Tryout save must reject archived package bindings");
+assert.match(tryoutRepository, /Paket Soal yang digunakan sudah diarsipkan/u, "Tryout save must reject archived package bindings");
 assert.doesNotMatch(tryoutRepository, /sectionInput\.packageVersionId/u, "Tryout save must not resolve package versions");
 assert.doesNotMatch(tryoutRepository, /calibration|cat_pool|testType === "cat"/u);
 assert.doesNotMatch(sourceRepository, /calibration|catReady/u, "direct Question DTOs must not expose CAT compatibility state");
@@ -79,6 +79,7 @@ assert.match(release, /version\.package\.status === ContentStatus\.archived/u);
 assert.doesNotMatch(release, /version\.package\.status !== ContentStatus\.published/u);
 assert.match(release, /subtestId: true/u, "release eligibility must load immutable version Subtest identity");
 assert.match(release, /section\.packageVersion\.subtestId !== section\.subtestId/u, "release eligibility must reject legacy Subtest mismatches");
-assert.doesNotMatch(release, /modeMatchesTestType|cat_pool|testType === "cat"/u, "release eligibility must remain CBT-only");
+assert.doesNotMatch(release, /cat_pool|testType === "cat"/u, "release eligibility must remain CBT-only");
+assert.match(release, /section\.testType === "cbt"/u, "release eligibility must require a CBT section");
 
 console.log("Tryout assembly attachment contract passed.");
