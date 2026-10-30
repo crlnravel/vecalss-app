@@ -5,6 +5,7 @@ import pg from "pg";
 import { seedMateriCatalogue } from "./materi-seed.mjs";
 import { seedAssessmentDemo } from "./seed-assessment.mjs";
 import { seedStaging } from "./seed-staging.mjs";
+import { seedPassword } from "./seed-password-policy.mjs";
 
 const { Client } = pg;
 
@@ -20,35 +21,46 @@ function normalizeSeedReferralCode(value) {
 const DEFAULT_ADMIN = {
   email: process.env.SEED_ADMIN_EMAIL?.trim() || "admin@vecalss.local",
   fullName: "Vecalss Admin",
-  password: process.env.SEED_ADMIN_PASSWORD?.trim() || "Admin12345!",
+  get password() {
+    return seedPassword("SEED_ADMIN_PASSWORD", "Admin12345!");
+  },
 };
 
 const DEFAULT_DEVELOPER = {
   email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
   fullName: "Vecalss Developer",
-  password: process.env.SEED_DEVELOPER_PASSWORD?.trim() || "Developer12345!",
+  get password() {
+    return seedPassword("SEED_DEVELOPER_PASSWORD", "Developer12345!");
+  },
 };
 
 const DEFAULT_STUDENT = {
   email: process.env.SEED_STUDENT_EMAIL?.trim() || "student@vecalss.local",
   fullName: "Alya Ramadhani",
-  password: process.env.SEED_STUDENT_PASSWORD?.trim() || "Student12345!",
+  get password() {
+    return seedPassword("SEED_STUDENT_PASSWORD", "Student12345!");
+  },
 };
 
 const DEFAULT_TEMP_STUDENT = {
   email: process.env.SEED_TEMP_STUDENT_EMAIL?.trim() || "newstudent@vecalss.local",
   fullName: "Raka Pratama",
-  password: process.env.SEED_TEMP_STUDENT_PASSWORD?.trim() || "TempStudent123!",
+  get password() {
+    return seedPassword("SEED_TEMP_STUDENT_PASSWORD", "TempStudent123!");
+  },
 };
 
 const DEFAULT_TUTOR = {
   email: process.env.SEED_TUTOR_EMAIL?.trim() || "tutor@vecalss.local",
   fullName: "Nadia Prameswari",
-  password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
+  get password() {
+    return seedPassword("SEED_TUTOR_PASSWORD", "Tutor12345!");
+  },
 };
 
-const FIRST_LOGIN_TUTOR_PASSWORD =
-  process.env.SEED_FIRST_LOGIN_TUTOR_PASSWORD?.trim() || "TempTutor123!";
+function getFirstLoginTutorPassword() {
+  return seedPassword("SEED_FIRST_LOGIN_TUTOR_PASSWORD", "TempTutor123!");
+}
 
 const FIRST_LOGIN_TUTORS = [
   { email: "davinaadindaui@gmail.com", fullName: "Davina" },
@@ -62,7 +74,9 @@ const FIRST_LOGIN_TUTORS = [
 const DEFAULT_AFFILIATOR = {
   email: process.env.SEED_AFFILIATOR_EMAIL?.trim() || "affiliator@vecalss.local",
   fullName: "Salsa Rahma",
-  password: process.env.SEED_AFFILIATOR_PASSWORD?.trim() || "Affiliator12345!",
+  get password() {
+    return seedPassword("SEED_AFFILIATOR_PASSWORD", "Affiliator12345!");
+  },
   referralCode: normalizeSeedReferralCode(process.env.SEED_AFFILIATOR_CODE || "SALSA2027"),
 };
 
@@ -1258,7 +1272,7 @@ async function main() {
       userId: tutorUserId,
     });
 
-    const firstLoginTutorPasswordHash = await hashPassword(FIRST_LOGIN_TUTOR_PASSWORD);
+    const firstLoginTutorPasswordHash = await hashPassword(getFirstLoginTutorPassword());
     const firstLoginTutorUserIds = [];
     for (const tutor of FIRST_LOGIN_TUTORS) {
       const userId = await upsertUser(client, {
@@ -1302,7 +1316,7 @@ async function main() {
       userId: affiliatorUserId,
     });
 
-    const demoPasswordHash = await hashPassword("Student12345!");
+    const demoPasswordHash = await hashPassword(DEFAULT_STUDENT.password);
     const demoStudentEntries = await Promise.all(
       SEEDED_STUDENTS.map(async (demoStudent) => {
         const demoStudentId = await upsertUser(client, {
@@ -1441,7 +1455,7 @@ async function main() {
       ...FIRST_LOGIN_TUTORS.map((tutor) => ({
         email: tutor.email,
         loginPath: "/login",
-        password: FIRST_LOGIN_TUTOR_PASSWORD,
+        password: getFirstLoginTutorPassword(),
         role: "tutor (must change password)",
       })),
       {

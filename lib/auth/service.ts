@@ -13,7 +13,9 @@ import { serverLogger } from "@/lib/server-logger";
 
 import {
   ACCOUNT_LOCK_WINDOW_MINUTES,
+  LOGIN_IP_THROTTLE_WINDOW_MINUTES,
   MAX_FAILED_LOGIN_ATTEMPTS,
+  MAX_FAILED_LOGINS_PER_IP,
   PASSWORD_RESET_WINDOW_MINUTES,
 } from "./constants";
 import {
@@ -50,7 +52,7 @@ import type {
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
-  | { code: "invalid_credentials" | "locked" | "service_unavailable"; ok: false };
+  | { code: "invalid_credentials" | "rate_limited" | "service_unavailable"; ok: false };
 
 type PasswordResetRequestResult = {
   deliveredResetUrl: string | null;
@@ -121,6 +123,42 @@ function mapAuthenticatedUser(user: {
   };
 }
 
+/**
+ * A valid bcrypt hash (cost matches BCRYPT_ROUNDS) of a random value nobody
+ * knows. Early-return login paths verify against it so unknown, disabled and
+ * locked accounts take as long to reject as a real wrong password.
+ */
+const DECOY_PASSWORD_HASH = "$2b$12$rVIIyNrKl7dXB5etTmp8.uCcJoPxfEWRSGgAOGfvSqYbARUS4huLq";
+
+async function spendPasswordVerificationTime(password: string) {
+  await verifyPassword(password, DECOY_PASSWORD_HASH);
+}
+
+/**
+ * Per-client throttle. Account lockout alone lets one client guess across
+ * many accounts, so failed sign-ins are also counted per client address.
+ * Throttled attempts are not recorded, so an attacker cannot keep the window
+ * open for everyone else behind the same address. Requests without a trusted
+ * client address (see getTrustedProxyCount) cannot be throttled this way.
+ */
+async function isLoginThrottledForIp(ipAddress: string | null) {
+  if (!ipAddress) {
+    return false;
+  }
+
+  const recentFailures = await prisma.loginAttempt.count({
+    where: {
+      attemptedAt: {
+        gte: new Date(Date.now() - LOGIN_IP_THROTTLE_WINDOW_MINUTES * 60 * 1000),
+      },
+      ipAddress,
+      result: { in: [LoginAttemptResult.failed, LoginAttemptResult.locked] },
+    },
+  });
+
+  return recentFailures >= MAX_FAILED_LOGINS_PER_IP;
+}
+
 async function authenticateUser(
   email: string,
   password: string,
@@ -129,6 +167,14 @@ async function authenticateUser(
   const normalizedEmail = normalizeEmail(email);
 
   try {
+    const { ipAddress } = await getRequestMetadata();
+    if (await isLoginThrottledForIp(ipAddress)) {
+      return {
+        code: "rate_limited",
+        ok: false,
+      };
+    }
+
     const userRecord = await prisma.user.findUnique({
       include: {
         roleAssignments: true,
@@ -140,6 +186,7 @@ async function authenticateUser(
     });
 
     if (!userRecord) {
+      await spendPasswordVerificationTime(password);
       await recordLoginAttempt({
         email: normalizedEmail,
         failureReason: "unknown_email",
@@ -159,6 +206,7 @@ async function authenticateUser(
     // never authenticate, even if a credential is accidentally written to the
     // row by an out-of-band repair or migration.
     if (user.previewPurpose !== null) {
+      await spendPasswordVerificationTime(password);
       await recordLoginAttempt({
         email: normalizedEmail,
         failureReason: "managed_preview_fixture",
@@ -225,6 +273,7 @@ async function authenticateUser(
       || user.softDeletedAt
       || !hasSupportedRole
     ) {
+      await spendPasswordVerificationTime(password);
       await recordLoginAttempt({
         email: normalizedEmail,
         failureReason: options.requiredRole && !hasSupportedRole
@@ -241,6 +290,7 @@ async function authenticateUser(
     }
 
     if (user.status === UserStatus.locked && user.lockedUntil && user.lockedUntil > now) {
+      await spendPasswordVerificationTime(password);
       await recordLoginAttempt({
         email: normalizedEmail,
         failureReason: "account_locked",
@@ -248,8 +298,10 @@ async function authenticateUser(
         userId: user.id,
       });
 
+      // Locked accounts answer exactly like a wrong password so the response
+      // never confirms that an email address belongs to an account.
       return {
-        code: "locked",
+        code: "invalid_credentials",
         ok: false,
       };
     }
@@ -295,7 +347,7 @@ async function authenticateUser(
       });
 
       return {
-        code: failedLoginState.count === 1 && shouldLockAccount ? "locked" : "invalid_credentials",
+        code: "invalid_credentials",
         ok: false,
       };
     }

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { seedPassword } from "./seed-password-policy.mjs";
 
 export function normalizeSeedReferralCode(value) {
   const normalized = value?.trim().toUpperCase() || "";
@@ -12,37 +13,49 @@ export function normalizeSeedReferralCode(value) {
 export const DEFAULT_ADMIN = {
   email: process.env.SEED_ADMIN_EMAIL?.trim() || "admin@vecalss.local",
   fullName: "Vecalss Admin",
-  password: process.env.SEED_ADMIN_PASSWORD?.trim() || "Admin12345!",
+  get password() {
+    return seedPassword("SEED_ADMIN_PASSWORD", "Admin12345!");
+  },
 };
 
 export const DEFAULT_DEVELOPER = {
   email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
   fullName: "Vecalss Developer",
-  password: process.env.SEED_DEVELOPER_PASSWORD?.trim() || "Developer12345!",
+  get password() {
+    return seedPassword("SEED_DEVELOPER_PASSWORD", "Developer12345!");
+  },
 };
 
 export const DEFAULT_STUDENT = {
   email: process.env.SEED_STUDENT_EMAIL?.trim() || "student@vecalss.local",
   fullName: "Alya Ramadhani",
-  password: process.env.SEED_STUDENT_PASSWORD?.trim() || "Student12345!",
+  get password() {
+    return seedPassword("SEED_STUDENT_PASSWORD", "Student12345!");
+  },
 };
 
 export const DEFAULT_TEMP_STUDENT = {
   email: process.env.SEED_TEMP_STUDENT_EMAIL?.trim() || "newstudent@vecalss.local",
   fullName: "Raka Pratama",
-  password: process.env.SEED_TEMP_STUDENT_PASSWORD?.trim() || "TempStudent123!",
+  get password() {
+    return seedPassword("SEED_TEMP_STUDENT_PASSWORD", "TempStudent123!");
+  },
 };
 
 export const DEFAULT_TUTOR = {
   email: process.env.SEED_TUTOR_EMAIL?.trim() || "tutor@vecalss.local",
   fullName: "Nadia Prameswari",
-  password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
+  get password() {
+    return seedPassword("SEED_TUTOR_PASSWORD", "Tutor12345!");
+  },
 };
 
 export const DEFAULT_AFFILIATOR = {
   email: process.env.SEED_AFFILIATOR_EMAIL?.trim() || "affiliator@vecalss.local",
   fullName: "Salsa Rahma",
-  password: process.env.SEED_AFFILIATOR_PASSWORD?.trim() || "Affiliator12345!",
+  get password() {
+    return seedPassword("SEED_AFFILIATOR_PASSWORD", "Affiliator12345!");
+  },
   referralCode: normalizeSeedReferralCode(process.env.SEED_AFFILIATOR_CODE || "SALSA2027"),
 };
 

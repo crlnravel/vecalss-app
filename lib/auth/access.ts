@@ -25,12 +25,21 @@ async function requireSession(loginPath = getLoginPathForAudience("student")) {
   return session;
 }
 
-async function requireAdminSession(loginPath = getLoginPathForAudience("admin")) {
+async function requireAdminSession(
+  loginPath = getLoginPathForAudience("admin"),
+  { allowMustChangePassword = false }: { allowMustChangePassword?: boolean } = {},
+) {
   const session = await requireSession(loginPath);
 
   if (!hasRole(session, RoleName.admin)) {
     // Permission contract: an authenticated non-admin returns to their authorized home.
     redirect(getDefaultHomePath(session.user));
+  }
+
+  // An admin still on a temporary or reset password must replace it first,
+  // exactly like every other role.
+  if (!allowMustChangePassword && session.user.mustChangePassword) {
+    redirect("/change-password");
   }
 
   return session;
@@ -45,6 +54,10 @@ async function requireAdminReadOnlySession() {
 
   if (!hasRole(session, RoleName.admin)) {
     redirect(getDefaultHomePath(session.user));
+  }
+
+  if (session.user.mustChangePassword) {
+    redirect("/change-password");
   }
 
   return session;

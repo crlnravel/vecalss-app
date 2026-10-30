@@ -105,7 +105,7 @@ async function handleLoginAction(
       };
     }
 
-    if (result.code === "locked") {
+    if (result.code === "rate_limited") {
       return {
         fields: { email },
         message:
