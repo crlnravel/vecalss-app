@@ -1,5 +1,6 @@
 import "server-only";
 
+import { kaptenAccessFilter } from "@/lib/auth/kapten-access";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -528,7 +529,7 @@ async function previewQuestionBankCsvOverwriteImpact(input: {
   validateCsvRows("overwrite", input.rows);
   return prisma.$transaction(async (tx) => {
     const bank = await tx.questionBank.findFirst({
-      where: { createdByUserId: input.actorId, id: input.bankId },
+      where: { id: input.bankId, ...(await kaptenAccessFilter(tx, input.actorId)) },
       select: { id: true, revision: true, status: true },
     });
     if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
@@ -886,7 +887,7 @@ function safeQuestionBankCsvFilename(name: string) {
 async function exportQuestionBankCsv(actorId: string, bankId: string) {
   if (!isUuid(bankId)) return null;
   const bank = await prisma.questionBank.findFirst({
-    where: { createdByUserId: actorId, id: bankId },
+    where: { id: bankId, ...(await kaptenAccessFilter(prisma, actorId)) },
     select: {
       id: true,
       name: true,

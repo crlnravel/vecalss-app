@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isActiveTryoutManager } from "./manager-access";
 import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, ContentStatus, Prisma, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import {
@@ -506,11 +507,12 @@ async function synchronizeTryoutOperations(tryoutId: string, actorId: string) {
     if (!identity) return null;
     await lockTryoutAggregate(tx, identity.tryoutId);
     await assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
-    const ownedTryout = await tx.tryoutPackage.findFirst({
+    if (!(await isActiveTryoutManager(tx, actorId))) return null;
+    const managedTryout = await tx.tryoutPackage.findFirst({
       select: { id: true },
-      where: { createdByUserId: actorId, id: tryoutId },
+      where: { id: tryoutId },
     });
-    if (!ownedTryout) return null;
+    if (!managedTryout) return null;
     return tx.tryoutAttempt.findMany({
       orderBy: { id: "asc" },
       select: { id: true },
@@ -533,12 +535,12 @@ async function synchronizeTryoutOperations(tryoutId: string, actorId: string) {
     // that acquire B before an overlapping session row.
     const synchronized = await prisma.$transaction(async (tx) => {
       await synchronizeAttempt(tx, candidate.id, now, actorId);
-      const currentOwner = await tx.tryoutPackage.findFirst({
+      if (!(await isActiveTryoutManager(tx, actorId))) return false;
+      const managedTryout = await tx.tryoutPackage.findFirst({
         select: { id: true },
-        where: { createdByUserId: actorId, id: tryoutId },
+        where: { id: tryoutId },
       });
-      if (!currentOwner) return false;
-      return true;
+      return managedTryout !== null;
     });
     if (!synchronized) return false;
   }
@@ -575,7 +577,6 @@ async function startTryoutDisconnect(
   runId: string,
   actorId: string,
   reason: string,
-  allowCrossOwner = false,
 ) {
   const auditReason = reason.trim();
   if (!auditReason) throw new TryoutAttemptValidationError("Alasan audit disconnect wajib diisi.");
@@ -592,7 +593,6 @@ async function startTryoutDisconnect(
       where: { id: attemptId },
       include: {
         admission: { select: { status: true } },
-        tryout: { select: { createdByUserId: true } },
       },
     });
     const preflightAssignment = preflight
@@ -602,7 +602,7 @@ async function startTryoutDisconnect(
         })
       : null;
     const preflightRun = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId }, select: { status: true } });
-    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && preflight.tryout.createdByUserId !== actorId && !allowCrossOwner)) {
+    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && !(await isActiveTryoutManager(tx, actorId)))) {
       throw new TryoutAttemptValidationError("Anda tidak dapat mengubah disconnect Tryout dari scope yang diminta.");
     }
     if (preflight.admission.status !== "active" || preflightAssignment.status !== TryoutAssignmentStatus.active) {
@@ -621,7 +621,6 @@ async function startTryoutDisconnect(
       include: {
         admission: { select: { status: true, tryoutId: true } },
         deliverySession: { select: { availableFrom: true, availableUntil: true, id: true, status: true } },
-        tryout: { select: { createdByUserId: true, id: true } },
       },
     });
     const assignment = attempt
@@ -637,7 +636,7 @@ async function startTryoutDisconnect(
     if (!attempt || !run || !assignment || attempt.tryoutId !== scope.tryoutId || attempt.deliverySessionId !== scope.deliverySessionId || attempt.admissionId !== scope.admissionId) {
       throw new TryoutAttemptValidationError("Attempt, Test run, admission, dan sesi Tryout tidak cocok.");
     }
-    if (attempt.studentId !== actorId && attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) {
+    if (attempt.studentId !== actorId && !(await isActiveTryoutManager(tx, actorId))) {
       throw new TryoutAttemptValidationError("Anda tidak dapat mengubah disconnect Tryout milik peserta lain.");
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
@@ -685,7 +684,6 @@ async function reconcileTryoutDisconnect(
   runId: string,
   actorId: string,
   reason: string,
-  allowCrossOwner = false,
 ) {
   const auditReason = reason.trim();
   if (!auditReason) throw new TryoutAttemptValidationError("Alasan audit reconcile disconnect wajib diisi.");
@@ -697,7 +695,6 @@ async function reconcileTryoutDisconnect(
       where: { id: attemptId },
       include: {
         admission: { select: { status: true } },
-        tryout: { select: { createdByUserId: true } },
       },
     });
     const preflightAssignment = preflight
@@ -707,7 +704,7 @@ async function reconcileTryoutDisconnect(
         })
       : null;
     const preflightRun = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId }, select: { status: true } });
-    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && preflight.tryout.createdByUserId !== actorId && !allowCrossOwner)) {
+    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && !(await isActiveTryoutManager(tx, actorId)))) {
       throw new TryoutAttemptValidationError("Anda tidak dapat merekonsiliasi disconnect Tryout dari scope yang diminta.");
     }
     if (preflight.admission.status !== "active" || preflightAssignment.status !== TryoutAssignmentStatus.active) {
@@ -726,7 +723,6 @@ async function reconcileTryoutDisconnect(
       include: {
         admission: { select: { status: true, tryoutId: true } },
         deliverySession: { select: { id: true, status: true } },
-        tryout: { select: { createdByUserId: true, id: true } },
       },
     });
     const assignment = attempt
@@ -739,7 +735,7 @@ async function reconcileTryoutDisconnect(
     if (!attempt || !run || attempt.tryoutId !== scope.tryoutId || attempt.deliverySessionId !== scope.deliverySessionId || attempt.admissionId !== scope.admissionId) {
       throw new TryoutAttemptValidationError("Attempt, Test run, admission, dan sesi Tryout tidak cocok.");
     }
-    if (attempt.studentId !== actorId && attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) {
+    if (attempt.studentId !== actorId && !(await isActiveTryoutManager(tx, actorId))) {
       throw new TryoutAttemptValidationError("Anda tidak dapat merekonsiliasi disconnect Tryout milik peserta lain.");
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });

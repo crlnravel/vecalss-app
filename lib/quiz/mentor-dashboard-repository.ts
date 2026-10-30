@@ -1,5 +1,6 @@
 import "server-only";
 
+import { kaptenAccessFilter } from "@/lib/auth/kapten-access";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -76,7 +77,7 @@ export async function manageMentorDashboardQuiz(
           Prisma.sql`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`,
         );
         const quiz = await tx.standaloneQuiz.findFirst({
-          where: { id: quizId, createdByUserId: tutorId },
+          where: { id: quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
           select: { status: true },
         });
         if (!quiz)

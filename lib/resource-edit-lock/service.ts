@@ -204,14 +204,35 @@ function isMediaResource(resourceType: EditLeaseResourceType) {
   return resourceType === "media_asset" || resourceType === "media_folder";
 }
 
+/**
+ * Kapten content (materi, Kuis, Bank Soal, Tryouts and reusable packages) is
+ * shared across Kapten, so leases are not tied to the creator. The holder must
+ * still be an active Kapten or admin. `created_by_user_id` stays the author of
+ * record, and the editing Kapten is recorded in `updated_by_user_id`.
+ */
+function activeKaptenOrAdminHolder(holderUserId?: string) {
+  // Plain literals (no ::enum casts) so the comparison resolves against the column's own enum type
+  // whichever schema the connection's search_path points at.
+  if (!holderUserId) return Prisma.empty;
+
+  return Prisma.sql`AND EXISTS (
+    SELECT 1
+    FROM "role_assignments" AS ra
+    JOIN "users" AS u ON u."id" = ra."user_id"
+    WHERE ra."user_id" = ${holderUserId}::uuid
+      AND ra."role" IN ('tutor', 'admin')
+      AND ra."revoked_at" IS NULL
+      AND u."status" = 'active'
+      AND u."soft_deleted_at" IS NULL
+      AND u."preview_purpose" IS NULL
+  )`;
+}
+
 async function resourceExists(
   db: EditLeaseDatabaseClient,
   resource: CanonicalResource,
   holderUserId?: string,
 ) {
-  const owner = holderUserId
-    ? Prisma.sql`AND "created_by_user_id" = ${holderUserId}::uuid`
-    : Prisma.empty;
   let rows: Array<{ exists: boolean }>;
 
   switch (resource.resourceType) {
@@ -220,7 +241,7 @@ async function resourceExists(
         SELECT EXISTS (
           SELECT 1 FROM "modules"
           WHERE "code" = ${resource.resourceId}
-            ${owner}
+            ${activeKaptenOrAdminHolder(holderUserId)}
         ) AS "exists"
       `;
       break;
@@ -229,7 +250,7 @@ async function resourceExists(
         SELECT EXISTS (
           SELECT 1 FROM "standalone_quizzes"
           WHERE "id" = ${resource.resourceId}::uuid
-            ${owner}
+            ${activeKaptenOrAdminHolder(holderUserId)}
         ) AS "exists"
       `;
       break;
@@ -239,7 +260,7 @@ async function resourceExists(
           SELECT 1 FROM "question_banks"
           WHERE "id" = ${resource.resourceId}::uuid
             AND "deleted_at" IS NULL
-            ${owner}
+            ${activeKaptenOrAdminHolder(holderUserId)}
         ) AS "exists"
       `;
       break;
@@ -248,7 +269,7 @@ async function resourceExists(
         SELECT EXISTS (
           SELECT 1 FROM "reusable_question_packages"
           WHERE "id" = ${resource.resourceId}::uuid
-            ${owner}
+            ${activeKaptenOrAdminHolder(holderUserId)}
         ) AS "exists"
       `;
       break;
@@ -257,7 +278,7 @@ async function resourceExists(
         SELECT EXISTS (
           SELECT 1 FROM "tryout_packages"
           WHERE "id" = ${resource.resourceId}::uuid
-            ${owner}
+            ${activeKaptenOrAdminHolder(holderUserId)}
         ) AS "exists"
       `;
       break;

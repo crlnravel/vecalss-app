@@ -6,8 +6,8 @@ const headers = { "Cache-Control": "private, no-store, max-age=0", "Referrer-Pol
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function serveTryoutReadinessInspection(request: Request, dependencies: {
   getSession: () => Promise<SessionContext | null>;
-  authorize: (session: SessionContext) => { allowCrossOwner: boolean };
-  read: (scope: TryoutResultReadinessScope, actorId: string, allowCrossOwner: boolean, requestId?: string) => Promise<TryoutSessionReadiness | null>;
+  authorize: (session: SessionContext) => void;
+  read: (scope: TryoutResultReadinessScope, actorId: string, requestId?: string) => Promise<TryoutSessionReadiness | null>;
 }) {
   const unavailable = (status: number) => Response.json({ ok: false }, { headers, status });
   try {
@@ -15,12 +15,11 @@ export async function serveTryoutReadinessInspection(request: Request, dependenc
     const session = await dependencies.getSession();
     if (!session || session.expiresAt <= new Date()) return unavailable(401);
     if (session.user.status !== "active" || session.user.mustChangePassword) return unavailable(403);
-    let authorization: { allowCrossOwner: boolean };
-    try { authorization = dependencies.authorize(session); } catch { return unavailable(403); }
+    try { dependencies.authorize(session); } catch { return unavailable(403); }
     const query = new URL(request.url).searchParams;
     if (!query.has("tryoutId") || !query.has("sessionId") || query.size < 2 || query.size > 3 || [...query.keys()].some((key) => !["tryoutId", "sessionId", "requestId"].includes(key) || query.getAll(key).length !== 1 || !uuid.test(query.get(key) ?? ""))) return unavailable(400);
     if (query.has("requestId") && !isUuid(query.get("requestId")!)) return unavailable(400);
-    const snapshot = await dependencies.read({ tryoutId: query.get("tryoutId")!, sessionId: query.get("sessionId")! }, session.user.id, authorization.allowCrossOwner, query.get("requestId")?.toLowerCase());
+    const snapshot = await dependencies.read({ tryoutId: query.get("tryoutId")!, sessionId: query.get("sessionId")! }, session.user.id, query.get("requestId")?.toLowerCase());
     return snapshot ? Response.json({ ok: true, snapshot }, { headers }) : unavailable(404);
   } catch { return unavailable(503); }
 }

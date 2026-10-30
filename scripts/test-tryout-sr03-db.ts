@@ -194,9 +194,9 @@ try {
   const policyState = async (tryoutId = correlated.tryoutId) => ({ package: await prisma.tryoutPackage.findUniqueOrThrow({ where: { id: tryoutId }, select: { defaultResultReleasePolicy: true, updatedAt: true } }), audits: await prisma.tryoutDeliveryAudit.findMany({ where: { tryoutId }, orderBy: { id: "asc" } }) });
   const baselineByIntent = new Map<string, NonNullable<Awaited<ReturnType<typeof inspectTryoutSessionReadiness>>>["policy"]["baseline"]>();
   async function correlatedConfigure(...args: Parameters<typeof configureTryoutDefaultResultRelease>) {
-    const id = args[5]?.toLowerCase();
+    const id = args[4]?.toLowerCase();
     if (id && !baselineByIntent.has(id)) { const current = await inspectTryoutSessionReadiness({ tryoutId: args[0], sessionId: args[0] === correlated.tryoutId ? correlated.sessionId : policy.sessionId }, correlated.ownerId); assert(current); if (!baselineByIntent.has(id)) baselineByIntent.set(id, current.policy.baseline); }
-    return configureTryoutDefaultResultRelease(args[0], args[1], args[2], args[3], args[4], args[5], id ? baselineByIntent.get(id) : undefined);
+    return configureTryoutDefaultResultRelease(args[0], args[1], args[2], args[3], args[4], id ? baselineByIntent.get(id) : undefined);
   }
   const initialPolicyRead = await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId); assert(initialPolicyRead); assert.equal(initialPolicyRead.policy.baseline.auditCount, 0, "Initial no-audit baseline is usable");
   const originalId = randomUUID(); const unrelatedId = randomUUID(); const newerId = randomUUID(); const sameReason = "Tunggu peninjauan bersama.";
@@ -206,7 +206,7 @@ try {
   const policyAction = new Function("exports", "requireSession", "hasRole", "isTryoutPolicyBaseline", "isUuid", "requireTryoutCapability", "TryoutCapabilityError", "configureTryoutDefaultResultRelease", "TryoutDeliveryValidationError", `${ts.transpileModule(policyActionSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText};return exports.configureTryoutResultPolicyAction;`)({}, async () => correlationSession, hasRole, isTryoutPolicyBaseline, isUuid, requireTryoutCapability, TryoutCapabilityError, async (...args: unknown[]) => { forwardedPolicyCalls.push(args); return { receipt: { id: args[5], expectedBaseline: args[6], configuredAt: new Date().toISOString(), reason: args[3], policy: args[1] } }; }, TryoutDeliveryValidationError) as (intent: unknown) => Promise<{ ok: boolean; confirmedRefusal?: boolean }>;
   const actionIntent = { ...correlatedScope, requestId: originalId, policy: "manual", reason: sameReason, expectedBaseline: initialPolicyRead.policy.baseline };
   for (const invalid of [undefined, null, { auditCount: -1, policy: "manual" }, { auditCount: 0.5, policy: "manual" }, { auditCount: 0, policy: "private" }]) assert.deepEqual(await policyAction({ ...actionIntent, expectedBaseline: invalid }), { ok: false, confirmedRefusal: true, message: "Permintaan penyimpanan tidak dapat digunakan. Mulai perubahan baru." });
-  assert.equal(forwardedPolicyCalls.length, 0); assert.equal((await policyAction(actionIntent)).ok, true); assert.equal(forwardedPolicyCalls.length, 1); assert.deepEqual(forwardedPolicyCalls[0], [correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId, initialPolicyRead.policy.baseline]);
+  assert.equal(forwardedPolicyCalls.length, 0); assert.equal((await policyAction(actionIntent)).ok, true); assert.equal(forwardedPolicyCalls.length, 1); assert.deepEqual(forwardedPolicyCalls[0], [correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId, initialPolicyRead.policy.baseline]);
   async function correlationHttp(requestId: string) {
     const response = await serveTryoutReadinessInspection(new Request(`http://localhost/api/mentor/tryout/result-readiness?${new URLSearchParams({ ...correlatedScope, requestId })}`), { getSession: async () => correlationSession, authorize: (current) => { requireTryoutCapability(current, "tryout.results.manage"); return { allowCrossOwner: hasRole(current, RoleName.admin) }; }, read: inspectTryoutSessionReadiness });
     assert.equal(response.status, 200); assert.match(response.headers.get("cache-control")!, /private, no-store/); return (await response.json()).snapshot;
@@ -231,12 +231,12 @@ try {
   const twoWriterHolder = prisma.$transaction(async (tx) => { await acquireTryoutIdentityMutex(tx, { kind: "tryout", id: correlated.tryoutId }); twoWriterPid = (await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`)[0].pid; twoWriterLocked(); await twoWriterGate; }, { timeout: 10000 });
   await twoWriterAcquired;
   baselineByIntent.set(unrelatedId, initialPolicyRead.policy.baseline);
-  const queuedB = correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, unrelatedId);
+  const queuedB = correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, unrelatedId);
   const unseenId = randomUUID();
   let queuedA!: Promise<{ status: "committed"; value: unknown } | { status: "refused"; error: unknown }>;
   try {
     await awaitBlockedCommand(twoWriterPid);
-    queuedA = configureTryoutDefaultResultRelease(correlated.tryoutId, "immediate", correlated.ownerId, "Original first request.", false, unseenId, initialPolicyRead.policy.baseline).then((value) => ({ status: "committed" as const, value }), (error: unknown) => ({ status: "refused" as const, error }));
+    queuedA = configureTryoutDefaultResultRelease(correlated.tryoutId, "immediate", correlated.ownerId, "Original first request.", unseenId, initialPolicyRead.policy.baseline).then((value) => ({ status: "committed" as const, value }), (error: unknown) => ({ status: "refused" as const, error }));
     let bothBlocked = false;
     for (let n = 0; n < 50; n++) { const rows = await prisma.$queryRaw<Array<{ blocked: bigint }>>`SELECT count(*) AS blocked FROM pg_stat_activity WHERE ${twoWriterPid} = ANY(pg_blocking_pids(pid)) AND query LIKE '%pg_advisory_xact_lock%'`; if (Number(rows[0].blocked) >= 2) { bothBlocked = true; break; } await new Promise((resolve) => setTimeout(resolve, 10)); }
     assert(bothBlocked, "Both public first-execution commands must be blocked before B commits");
@@ -247,48 +247,48 @@ try {
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { id: unseenId } }), 0); assert.equal((await policyState()).package.defaultResultReleasePolicy, "manual");
   const delayedFirstId = randomUUID(); const beforeStale = await policyState();
   let staleRefused = false;
-  try { await underHeldPolicyLock(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "immediate", correlated.ownerId, "Delayed first execution.", false, delayedFirstId, initialPolicyRead.policy.baseline), async () => { assert.equal((await correlationHttp(delayedFirstId)).policy.intentReceipt, null); }); }
+  try { await underHeldPolicyLock(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "immediate", correlated.ownerId, "Delayed first execution.", delayedFirstId, initialPolicyRead.policy.baseline), async () => { assert.equal((await correlationHttp(delayedFirstId)).policy.intentReceipt, null); }); }
   catch (error) { assert.match(String(error), /Aturan rilis telah berubah/); staleRefused = true; }
   assert(staleRefused); assert.deepEqual(await policyState(), beforeStale, "B commits before unseen A acquires mutex: A cannot overwrite B or create audit");
   const samePolicyBaseline = (await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId))!.policy.baseline;
-  await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, "Alasan baru dengan aturan sama.", false, randomUUID());
+  await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, "Alasan baru dengan aturan sama.", randomUUID());
   const beforeSamePolicyStale = await policyState();
-  await assert.rejects(configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, randomUUID(), samePolicyBaseline), /Aturan rilis telah berubah/);
+  await assert.rejects(configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, randomUUID(), samePolicyBaseline), /Aturan rilis telah berubah/);
   assert.deepEqual(await policyState(), beforeSamePolicyStale, "Count catches intervening same-policy write even when value matches");
-  const original = await underHeldPolicyLock(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId), async () => {
+  const original = await underHeldPolicyLock(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId), async () => {
     const read = await correlationHttp(originalId); assert.equal(read.policy.value, "manual"); assert.equal(read.policy.intentReceipt, null, "Identical other intent cannot release the delayed original fence");
   });
   assert.equal(original.receipt.id, originalId);
-  const newer = await correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, "Aturan yang lebih baru.", false, newerId);
-  const interleaved = await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId, false, originalId.toUpperCase()); assert(interleaved); assert.equal(interleaved.policy.value, "automatic_at_end"); assert.deepEqual(interleaved.policy.intentReceipt, original.receipt); assert.deepEqual(interleaved.policy.receipt, newer.receipt);
+  const newer = await correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, "Aturan yang lebih baru.", newerId);
+  const interleaved = await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId, originalId.toUpperCase()); assert(interleaved); assert.equal(interleaved.policy.value, "automatic_at_end"); assert.deepEqual(interleaved.policy.intentReceipt, original.receipt); assert.deepEqual(interleaved.policy.receipt, newer.receipt);
   const requestedHttp = await correlationHttp(originalId.toUpperCase()); assert.deepEqual(requestedHttp.policy.intentReceipt, original.receipt); assert.equal(requestedHttp.policy.value, "automatic_at_end"); assert(!JSON.stringify(requestedHttp).match(/contentSnapshot|selectedOption|isCorrect|calculationInput/));
   const beforeReplay = await policyState();
-  const delayedReplay = await underHeldPolicyLock(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId), async () => { const read = await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId, false, originalId); assert.deepEqual(read?.policy.intentReceipt, original.receipt); assert.equal(read?.policy.value, "automatic_at_end"); });
+  const delayedReplay = await underHeldPolicyLock(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId), async () => { const read = await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId, originalId); assert.deepEqual(read?.policy.intentReceipt, original.receipt); assert.equal(read?.policy.value, "automatic_at_end"); });
   assert.deepEqual(delayedReplay.receipt, original.receipt); assert.deepEqual(await policyState(), beforeReplay, "Delayed original after confirmed commit cannot overwrite a newer policy");
-  const concurrentReplays = await Promise.all([correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId), correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, ` ${sameReason} `, false, originalId.toUpperCase())]); concurrentReplays.forEach((reply) => assert.deepEqual(reply.receipt, original.receipt)); assert.deepEqual(await policyState(), beforeReplay);
+  const concurrentReplays = await Promise.all([correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId), correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, ` ${sameReason} `, originalId.toUpperCase())]); concurrentReplays.forEach((reply) => assert.deepEqual(reply.receipt, original.receipt)); assert.deepEqual(await policyState(), beforeReplay);
   const concurrentId = randomUUID(); const concurrentReason = "Simpan satu kali dari dua permintaan.";
-  const concurrent = await Promise.all([correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, concurrentReason, false, concurrentId), correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, concurrentReason, false, concurrentId)]); assert.deepEqual(concurrent[0].receipt, concurrent[1].receipt); assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { id: concurrentId } }), 1);
+  const concurrent = await Promise.all([correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, concurrentReason, concurrentId), correlatedConfigure(correlated.tryoutId, "automatic_at_end", correlated.ownerId, concurrentReason, concurrentId)]); assert.deepEqual(concurrent[0].receipt, concurrent[1].receipt); assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { id: concurrentId } }), 1);
   async function refusePolicy(command: () => Promise<unknown>, target = correlated.tryoutId) { const before = await policyState(target); await assert.rejects(command); assert.deepEqual(await policyState(target), before); }
-  await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, randomUUID()));
-  for (const badBaseline of [{ auditCount: -1, policy: "manual" }, { auditCount: 0.5, policy: "manual" }, { auditCount: Number.MAX_SAFE_INTEGER + 1, policy: "manual" }, null]) await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, randomUUID(), badBaseline as never));
-  await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId, initialPolicyRead.policy.baseline));
-  for (const badId of ["not-a-request", "00000000-0000-0000-0000-000000000000", ` ${originalId} `]) await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, badId));
-  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "immediate", correlated.ownerId, sameReason, false, originalId));
-  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, "Alasan berbeda.", false, originalId));
+  await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, randomUUID()));
+  for (const badBaseline of [{ auditCount: -1, policy: "manual" }, { auditCount: 0.5, policy: "manual" }, { auditCount: Number.MAX_SAFE_INTEGER + 1, policy: "manual" }, null]) await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, randomUUID(), badBaseline as never));
+  await refusePolicy(() => configureTryoutDefaultResultRelease(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId, initialPolicyRead.policy.baseline));
+  for (const badId of ["not-a-request", "00000000-0000-0000-0000-000000000000", ` ${originalId} `]) await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, badId));
+  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "immediate", correlated.ownerId, sameReason, originalId));
+  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, "Alasan berbeda.", originalId));
   const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@vecalss.local" }, select: { id: true } });
-  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", admin.id, sameReason, true, originalId));
-  await refusePolicy(() => correlatedConfigure(policy.tryoutId, "manual", policy.ownerId, sameReason, false, originalId), policy.tryoutId);
+  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", admin.id, sameReason, originalId));
+  await refusePolicy(() => correlatedConfigure(policy.tryoutId, "manual", policy.ownerId, sameReason, originalId), policy.tryoutId);
   const foreignAction = await prisma.tryoutDeliveryAudit.findFirstOrThrow({ where: { tryoutId: correlated.tryoutId, action: { not: "result_release.default_configured" } } });
-  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, foreignAction.id));
-  assert.equal((await inspectTryoutSessionReadiness(correlatedScope, admin.id, true, originalId))?.policy.intentReceipt, null);
-  assert.equal((await inspectTryoutSessionReadiness(policyScope, policy.ownerId, false, originalId))?.policy.intentReceipt, null);
+  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, foreignAction.id));
+  assert.equal((await inspectTryoutSessionReadiness(correlatedScope, admin.id, originalId))?.policy.intentReceipt, null);
+  assert.equal((await inspectTryoutSessionReadiness(policyScope, policy.ownerId, originalId))?.policy.intentReceipt, null);
   assert.equal((await inspectTryoutSessionReadiness(correlatedScope, correlated.ownerId))?.policy.intentReceipt, undefined, "Normal readiness DTO does not add a hidden requested receipt");
   const correlatedAdmission = await prisma.tryoutAdmission.create({ data: { tryoutId: correlated.tryoutId, studentId: correlated.studentId, status: "active" } }); await prisma.tryoutDeliveryAssignment.create({ data: { admissionId: correlatedAdmission.id, deliverySessionId: correlated.sessionId, assignedByUserId: correlated.ownerId } });
   const correlatedAttempt = await atSr01Time(correlatedStart, () => startTryoutAttempt(correlated.sessionId, correlated.studentId));
-  const frozenPolicy = await policyState(); assert.deepEqual((await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId)).receipt, original.receipt); assert.deepEqual(await policyState(), frozenPolicy);
-  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "immediate", correlated.ownerId, "Perubahan baru.", false, randomUUID()));
+  const frozenPolicy = await policyState(); assert.deepEqual((await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId)).receipt, original.receipt); assert.deepEqual(await policyState(), frozenPolicy);
+  await refusePolicy(() => correlatedConfigure(correlated.tryoutId, "immediate", correlated.ownerId, "Perubahan baru.", randomUUID()));
   await atSr01Time(correlatedEnd, () => attemptState(correlatedAttempt.attemptId, correlated.studentId)); await archiveTryoutTransient(correlated.tryoutId, correlated.ownerId);
-  const archivedPolicy = await policyState(); assert.deepEqual((await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, false, originalId)).receipt, original.receipt); assert.deepEqual(await policyState(), archivedPolicy);
+  const archivedPolicy = await policyState(); assert.deepEqual((await correlatedConfigure(correlated.tryoutId, "manual", correlated.ownerId, sameReason, originalId)).receipt, original.receipt); assert.deepEqual(await policyState(), archivedPolicy);
   await writeFile(`${output}/policy-correlation-evidence.json`, JSON.stringify({ tryoutId: correlated.tryoutId, sessionId: correlated.sessionId, unrelated: unrelated.receipt, original: original.receipt, newer: newer.receipt, concurrent: concurrent[0].receipt, currentPolicyAfterReplays: archivedPolicy.package.defaultResultReleasePolicy, interleaving: "fresh ID requires expected audit-count/policy CAS; mutex-delayed unseen A after B atomic refusal; same-policy different-reason invalidates baseline; other identical receipt cannot confirm queued A; A commits then B; inspect A sees own receipt/current B; lock-delayed replay A preserves B; concurrent same ID audit1; actor/scope/action/payload reuse refuses; replay survives freeze/archive" }, null, 2));
   evidence.push("Persisted policy request UUID + monotonic baseline CAS: unrelated identical audit cannot confirm delayed A; own historical A/current B projection; queued/concurrent exact replay audit1 never overwrites B; UUID/actor/scope/action/payload refusal atomic; frozen/archived receipt-only replay"); console.log("PASS", evidence.at(-1));
   // A second new Tryout exercises first-Start concurrency without consuming the editable QA fixture.
@@ -354,27 +354,28 @@ try {
   // Fresh ready QA session remains unreleased, alongside blocked/excluded-only/archive/multisession fixtures above.
   const readyQA = await fixture("QA ready unreleased");
   const rollback = await fixture("atomic refusal invalid release actor");
-  await refuse(rollback, () => atSr01Time(rollback.end, () => releaseTryoutSessionResults(rollback.sessionId, randomUUID(), "Actor unavailable.", true)));
+  await refuse(rollback, () => atSr01Time(rollback.end, () => releaseTryoutSessionResults(rollback.sessionId, randomUUID(), "Actor unavailable.")));
   const session: SessionContext = { sessionId: "owned-read", expiresAt: new Date(Date.now() + 100000), user: { id: policy.ownerId, email: "tutor@vecalss.local", fullName: "Kapten", roles: ["tutor"], status: "active", mustChangePassword: false, onboardingStatus: "completed" } };
   // Execute the real route's exported GET, replacing only request-session and
-  // projection IO. Capability and cross-owner role decisions use real helpers.
+  // projection IO. Capability role decisions use real helpers.
   const routeSource = readFileSync(new URL("../app/api/mentor/tryout/result-readiness/route.ts", import.meta.url), "utf8").replace(/^import[^\n]*\n/gm, "");
   const routeJs = ts.transpileModule(routeSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-  let routeSession: SessionContext | null = session; let projected = 0; const capabilities: string[] = []; const ownerScopes: boolean[] = [];
+  let routeSession: SessionContext | null = session; let projected = 0; const capabilities: string[] = [];
   const GET = new Function("exports", "getReadOnlySessionContext", "requireTryoutCapability", "hasRole", "RoleName", "serveTryoutReadinessInspection", "inspectTryoutSessionReadiness", `${routeJs}; return exports.GET;`)(
     {}, async () => routeSession, (current: SessionContext, capability: Parameters<typeof requireTryoutCapability>[1]) => { capabilities.push(capability); requireTryoutCapability(current, capability); }, hasRole, RoleName, serveTryoutReadinessInspection,
-    async (_scope: unknown, _actor: string, crossOwner: boolean) => { projected++; ownerScopes.push(crossOwner); return policyRead; },
+    async () => { projected++; return policyRead; },
   ) as (request: Request) => Promise<Response>;
   const routeRequest = () => new Request(`http://localhost/api/mentor/tryout/result-readiness?${new URLSearchParams(policyScope)}`);
-  for (const [roles, status, crossOwner] of [[[RoleName.student], 403, null], [[RoleName.tutor], 200, false], [[RoleName.admin], 200, true], [[], 403, null]] as Array<[RoleName[], number, boolean | null]>) {
+  // Tryouts are shared: every Kapten and admin gets the same projection, whoever created the Tryout.
+  for (const [roles, status] of [[[RoleName.student], 403], [[RoleName.tutor], 200], [[RoleName.admin], 200], [[], 403]] as Array<[RoleName[], number]>) {
     routeSession = { ...session, user: { ...session.user, roles } }; const before = projected; const response = await GET(routeRequest()); assert.equal(response.status, status);
     if (status === 403) { assert.deepEqual(await response.json(), { ok: false }); assert.equal(projected, before); }
-    else assert.equal(ownerScopes.at(-1), crossOwner);
+    else assert.equal(projected, before + 1);
   }
   assert.deepEqual(capabilities, Array(4).fill("tryout.results.manage"));
   routeSession = null; assert.equal((await GET(routeRequest())).status, 401);
   routeSession = { ...session, user: { ...session.user, mustChangePassword: true } }; assert.equal((await GET(routeRequest())).status, 403); assert.equal(capabilities.length, 4);
-  evidence.push("Actual readiness GET delegates to central results.manage capability and hasRole(admin); student/no-role denied generically without projection; owned tutor/admin scopes preserved"); console.log("PASS", evidence.at(-1));
+  evidence.push("Actual readiness GET delegates to central results.manage capability; student/no-role denied generically without projection; tutor and admin read the same shared projection"); console.log("PASS", evidence.at(-1));
   let releasePolicyLock!: () => void; let policyLocked!: () => void;
   const policyGate = new Promise<void>((resolve) => { releasePolicyLock = resolve; }); const policyAcquired = new Promise<void>((resolve) => { policyLocked = resolve; });
   const policyHolder = prisma.$transaction(async (tx) => { await acquireTryoutIdentityMutex(tx, { kind: "tryout", id: policy.tryoutId }); policyLocked(); await policyGate; }, { timeout: 10000 });

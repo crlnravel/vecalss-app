@@ -19,7 +19,7 @@ const createTryoutPolicyRecovery: typeof productionPolicyRecovery = process.env.
   : productionPolicyRecovery;
 type ReadDependencies = Parameters<typeof serveReadinessBoundary>[1];
 // Pure HTTP tests inject an authorization verdict, never another role mapping.
-const serveTryoutReadinessInspection = (request: Request, dependencies: Omit<ReadDependencies, "authorize"> & Partial<Pick<ReadDependencies, "authorize">>) => serveReadinessBoundary(request, { authorize: () => ({ allowCrossOwner: false }), ...dependencies });
+const serveTryoutReadinessInspection = (request: Request, dependencies: Omit<ReadDependencies, "authorize"> & Partial<Pick<ReadDependencies, "authorize">>) => serveReadinessBoundary(request, { authorize: () => undefined, ...dependencies });
 
 const scope = { sessionId: "22222222-2222-4222-8222-222222222222", tryoutId: "33333333-3333-4333-8333-333333333333" };
 const baseline = { auditCount: 0, policy: "immediate" };
@@ -44,7 +44,7 @@ const url = `http://localhost/api/mentor/tryout/result-readiness?${new URLSearch
   assert.equal(denied.status, 403); assert.deepEqual(await denied.json(), { ok: false }); assert.equal(reads, 0);
   assert.equal((await serveTryoutReadinessInspection(new Request(url), { getSession: async () => session, read: async () => null })).status, 404);
   const failure = await serveTryoutReadinessInspection(new Request(url), { getSession: async () => session, read: async () => { throw new Error("Private diagnostic"); } }); assert.equal(failure.status, 503); assert.deepEqual(await failure.json(), { ok: false });
-  const requested = await serveTryoutReadinessInspection(new Request(`${url}&requestId=${receipt.id.toUpperCase()}`), { getSession: async () => session, read: async (selected, actor, crossOwner, requestId) => { assert.deepEqual(selected, scope); assert.equal(actor, session.user.id); assert.equal(crossOwner, false); assert.equal(requestId, receipt.id); return saved; } }); assert.equal(requested.status, 200);
+  const requested = await serveTryoutReadinessInspection(new Request(`${url}&requestId=${receipt.id.toUpperCase()}`), { getSession: async () => session, read: async (selected, actor, requestId) => { assert.deepEqual(selected, scope); assert.equal(actor, session.user.id); assert.equal(requestId, receipt.id); return saved; } }); assert.equal(requested.status, 200);
 }
 {
   const clock = deadlines(); const held = deferred<TryoutPolicyReply>(); let writes = 0;

@@ -14,6 +14,7 @@ import {
   TryoutDeliverySessionStatus,
   TryoutTestType,
 } from "@/generated/prisma/client";
+import { isActiveTryoutManager } from "@/lib/tryout/manager-access";
 import {
   ManagedImageAssetConflictError,
   ManagedImageAssetValidationError,
@@ -341,8 +342,11 @@ async function validateSavedTryoutTarget(
   await lockTryoutAggregate(tx, identity.tryoutId);
   await assertTryoutIdentityStable(tx, { id: tryoutId, kind: "tryout" }, identity.tryoutId);
 
+  if (!(await isActiveTryoutManager(tx, actorId))) {
+    throw new TryoutQuestionImportError("Anda tidak memiliki izin mengelola Tryout.");
+  }
   const tryout = await tx.tryoutPackage.findFirst({
-    where: { createdByUserId: actorId, id: tryoutId },
+    where: { id: tryoutId },
     select: {
       attempts: { select: { id: true }, take: 1 },
       sections: {

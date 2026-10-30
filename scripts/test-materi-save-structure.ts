@@ -26,7 +26,7 @@ try {
     // react-doctor-disable-next-line async-await-in-loop -- fixture DDL is ordered.
     await client.query(`CREATE TYPE "${schema}"."${type}" AS ENUM (${values})`);
   }
-  const tables = ["users", "subtests", "topics", "modules", "module_assets", "assets", "edit_leases", "module_prerequisites", "module_progress", "module_quizzes", "quiz_items", "quiz_attempts", "quiz_attempt_answers", "learning_recommendations", "weakness_analysis_topics", "interventions"];
+  const tables = ["users", "role_assignments", "subtests", "topics", "modules", "module_assets", "assets", "edit_leases", "module_prerequisites", "module_progress", "module_quizzes", "quiz_items", "quiz_attempts", "quiz_attempt_answers", "learning_recommendations", "weakness_analysis_topics", "interventions"];
   for (const table of tables) {
     // Fixed table names and a generated identifier only; LIKE does not copy FKs.
     // react-doctor-disable-next-line async-await-in-loop -- fixture DDL is ordered.
@@ -77,7 +77,10 @@ try {
   const { saveMateriLesson, getMentorMateriCatalogue, getPublishedLesson, getMentorMateriByCode, deleteMateriLesson, MateriValidationError } = await import("../lib/materi/repository");
   const tutorId = randomUUID();
   const studentId = randomUUID();
-  await client.query(`INSERT INTO "${schema}".users (id, email, full_name, password_hash) VALUES ($1, 'materi-tutor@example.test', 'Tutor fixture', 'unused'), ($2, 'materi-student@example.test', 'Student fixture', 'unused')`, [tutorId, studentId]);
+  const otherTutorId = randomUUID();
+  await client.query(`INSERT INTO "${schema}".users (id, email, full_name, password_hash) VALUES ($1, 'materi-tutor@example.test', 'Tutor fixture', 'unused'), ($2, 'materi-student@example.test', 'Student fixture', 'unused'), ($3, 'materi-tutor-2@example.test', 'Second tutor fixture', 'unused')`, [tutorId, studentId, otherTutorId]);
+  // Materi is shared across Kapten: access follows the active tutor/admin role, not who created the lesson.
+  await client.query(`INSERT INTO "${schema}".role_assignments (user_id, role) VALUES ($1, 'tutor'), ($2, 'tutor'), ($3, 'student')`, [tutorId, otherTutorId, studentId]);
   const input = {
     subjectSlug: "penalaran-umum",
     title: "PU",
@@ -143,7 +146,13 @@ try {
   assert.deepEqual(concurrent.map((saved) => saved?.sequenceNo).sort(), [2, 3]);
   assert.equal(await prisma.topic.count(), 3, "Concurrent saves share the subject initialization lock");
   const { acquireEditLease, EditLeaseServiceError } = await import("../lib/resource-edit-lock/service");
-  await assert.rejects(deleteMateriLesson(managedLesson!.code, randomUUID()), EditLeaseServiceError, "Another tutor cannot delete this lesson");
+  await assert.rejects(deleteMateriLesson(managedLesson!.code, studentId), EditLeaseServiceError, "A student cannot delete this lesson");
+  await assert.rejects(deleteMateriLesson(managedLesson!.code, randomUUID()), EditLeaseServiceError, "An unknown principal cannot delete this lesson");
+  const sharedToken = randomBytes(32).toString("base64url");
+  const sharedLease = await acquireEditLease({ holderUserId: otherTutorId, newToken: sharedToken, resourceId: managedLesson!.code, resourceType: "materi" });
+  assert.equal(sharedLease.state, "owned", "a second Kapten can lease and edit another Kapten's lesson");
+  const { releaseEditLease } = await import("../lib/resource-edit-lock/service");
+  await releaseEditLease({ generation: sharedLease.generation!, holderUserId: otherTutorId, resourceId: managedLesson!.code, resourceType: "materi", token: sharedToken });
   const lessonModule = await prisma.module.findUniqueOrThrow({ where: { code: managedLesson!.code } });
   const nextModule = await prisma.module.findUniqueOrThrow({ where: { code: concurrent[0]!.code } });
   const otherModule = await prisma.module.findUniqueOrThrow({ where: { code: concurrent[1]!.code } });

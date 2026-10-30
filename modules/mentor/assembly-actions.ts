@@ -1,6 +1,5 @@
 "use server";
 
-import { RoleName } from "@/generated/prisma/client";
 import { requireSession } from "@/lib/auth/access";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
 import {
@@ -68,7 +67,7 @@ async function detachReadyAssemblyAction(input: { target: AssemblyAttachmentTarg
 async function getAssemblyDraftForEditAction(packageId: string) {
   const session = await assemblyManagementSession();
   try {
-    return { ok: true as const, result: await getAssemblyDraftForEdit(packageId, session.user.id, { isAdmin: session.user.roles.includes(RoleName.admin) }) };
+    return { ok: true as const, result: await getAssemblyDraftForEdit(packageId, session.user.id) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }
@@ -83,7 +82,7 @@ async function saveAssemblyDraftAction(input: SaveAssemblyDraftInput) {
 async function validateAssemblyDraftAction(packageId: string) {
   const session = await assemblyManagementSession();
   try {
-    return { ok: true as const, result: await validateAssemblyDraft(packageId, session.user.id, { isAdmin: session.user.roles.includes(RoleName.admin) }) };
+    return { ok: true as const, result: await validateAssemblyDraft(packageId, session.user.id) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }
@@ -92,7 +91,7 @@ async function validateAssemblyDraftAction(packageId: string) {
 async function previewAssemblyAction(input: PreviewAssemblyInput) {
   const session = await assemblyManagementSession();
   try {
-    return { ok: true as const, result: await previewAssembly(input, session.user.id, { isAdmin: session.user.roles.includes(RoleName.admin) }) };
+    return { ok: true as const, result: await previewAssembly(input, session.user.id) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }

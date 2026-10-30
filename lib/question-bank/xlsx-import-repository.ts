@@ -1,5 +1,6 @@
 import "server-only";
 
+import { kaptenAccessFilter } from "@/lib/auth/kapten-access";
 import { randomUUID, createHash } from "node:crypto";
 
 import {
@@ -2009,7 +2010,7 @@ async function applyQuestionBankXlsxToBank(input: {
   try {
     const bank = await prisma.questionBank.findFirst({
       select: { id: true },
-      where: { createdByUserId: input.actorId, id: input.bankId },
+      where: { id: input.bankId, ...(await kaptenAccessFilter(prisma, input.actorId)) },
     });
     if (!bank) throw new QuestionBankCsvMutationError("resource_inaccessible");
     const folder = await ensureQuestionBankMediaFolder(input.bankId, input.actorId);

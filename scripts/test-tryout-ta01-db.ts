@@ -21,13 +21,17 @@ try {
   assert.equal(await getOwnedTryoutOperationsView(fixture.tryoutId, approve.studentId), null);
   const otherTutor = await prisma.user.findFirst({ where: { id: { not: fixture.ownerId }, roleAssignments: { some: { role: "tutor", revokedAt: null } } } });
   assert(otherTutor, "seeded second Kapten is required");
-  assert.equal(await getOwnedTryoutOperationsView(fixture.tryoutId, otherTutor.id), null);
-  await assert.rejects(decideTryoutAdmission(approve.id, "approve", otherTutor.id, "wrong owner", false, fixture.sessionId));
-  await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, " ", false, fixture.sessionId));
+  // Tryouts are shared across Kapten: a second Kapten opens the same operations
+  // view. A student actor and a blank reason are still refused.
+  const sharedView = await getOwnedTryoutOperationsView(fixture.tryoutId, otherTutor.id);
+  assert(sharedView, "a second Kapten can open another Kapten's Tryout operations");
+  assert.equal(sharedView.participants.length, view.participants.length);
+  await assert.rejects(decideTryoutAdmission(approve.id, "approve", approve.studentId, "student actor", fixture.sessionId));
+  await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, " ", fixture.sessionId));
   const originalSession = await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: fixture.sessionId } });
   for (const status of ["draft", "closed", "archived"] as const) {
     await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { status } });
-    await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "ineligible session", false, fixture.sessionId));
+    await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "ineligible session", fixture.sessionId));
   }
   // A bound release is immutable. Use a separate legacy/unprepared session instead
   // of rebinding the prepared fixture session just to exercise its refusal.
@@ -40,30 +44,34 @@ try {
     createdByUserId: fixture.ownerId,
     updatedByUserId: fixture.ownerId,
   } });
-  await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "unprepared session", false, unpreparedSession.id));
+  await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "unprepared session", unpreparedSession.id));
   const expiredUntil = new Date(Date.now() - 1_000);
   await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { status: "active", availableFrom: new Date(expiredUntil.getTime() - 60_000), availableUntil: expiredUntil } });
   try {
-    await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "expired session", false, fixture.sessionId));
+    await assert.rejects(decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "expired session", fixture.sessionId));
   } finally {
     await prisma.tryoutDeliverySession.update({ where: { id: fixture.sessionId }, data: { availableFrom: originalSession.availableFrom, availableUntil: originalSession.availableUntil } });
   }
   assert.equal(await prisma.tryoutAdmission.findUniqueOrThrow({ where: { id: approve.id } }).then((admission) => admission.status), "pending");
   assert.equal(await prisma.tryoutDeliveryAssignment.count({ where: { admissionId: approve.id } }), 0);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { admissionId: approve.id } }), 0);
-  const duplicate = await Promise.all([decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "first decision", false, fixture.sessionId), decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "retry decision", false, fixture.sessionId)]);
+  const duplicate = await Promise.all([decideTryoutAdmission(approve.id, "approve", otherTutor.id, "first decision", fixture.sessionId), decideTryoutAdmission(approve.id, "approve", fixture.ownerId, "retry decision", fixture.sessionId)]);
   assert(duplicate.every((result) => result.status === "active"));
   assert.equal(await prisma.tryoutDeliveryAssignment.count({ where: { admissionId: approve.id } }), 1);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { admissionId: approve.id, action: "admission.approved" } }), 1);
+  // Ownership stays recorded: the creator is unchanged and the audit row names whoever acted.
+  const approvedAudit = await prisma.tryoutDeliveryAudit.findFirstOrThrow({ where: { admissionId: approve.id, action: "admission.approved" }, include: { tryout: { select: { createdByUserId: true } } } });
+  assert.equal(approvedAudit.tryout.createdByUserId, fixture.ownerId, "the creator stays the owner of record");
+  assert([fixture.ownerId, otherTutor.id].includes(approvedAudit.actorUserId), "the audit row records the acting Kapten");
   await assert.rejects(decideTryoutAdmission(approve.id, "reject", fixture.ownerId, "opposing decision"));
   await decideTryoutAdmission(reject.id, "reject", fixture.ownerId, "reject decision");
   await decideTryoutAdmission(reject.id, "reject", fixture.ownerId, "retry rejection");
   assert.equal(await prisma.tryoutDeliveryAssignment.count({ where: { admissionId: reject.id } }), 0);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { admissionId: reject.id, action: "admission.rejected" } }), 1);
-  await assert.rejects(decideTryoutAdmission(reject.id, "approve", fixture.ownerId, "opposing decision", false, fixture.sessionId));
+  await assert.rejects(decideTryoutAdmission(reject.id, "approve", fixture.ownerId, "opposing decision", fixture.sessionId));
   const raceTarget = fixture.admissions[3];
   await prisma.tryoutAdmission.update({ where: { id: raceTarget.id }, data: { status: "pending" } });
-  const opposingRace = await Promise.allSettled([decideTryoutAdmission(raceTarget.id, "approve", fixture.ownerId, "opposing approve", false, fixture.sessionId), decideTryoutAdmission(raceTarget.id, "reject", fixture.ownerId, "opposing reject")]);
+  const opposingRace = await Promise.allSettled([decideTryoutAdmission(raceTarget.id, "approve", fixture.ownerId, "opposing approve", fixture.sessionId), decideTryoutAdmission(raceTarget.id, "reject", fixture.ownerId, "opposing reject")]);
   assert.equal(opposingRace.filter((result) => result.status === "fulfilled").length, 1);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { admissionId: raceTarget.id, action: { in: ["admission.approved", "admission.rejected"] } } }), 1);
   const studentView = await participantTryoutDetail(fixture.tryoutId, approve.studentId);
@@ -83,7 +91,7 @@ try {
   assert.equal(toTryoutWorkspaceView(history).participants.length, 5);
   const pendingFixture = await createTa01Fixture();
   const otherSession = pendingFixture.sessionId;
-  await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "wrong session", false, fixture.sessionId));
+  await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "wrong session", fixture.sessionId));
   await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { isDefaultOpenRegistration: false } });
   await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "no default session"));
   await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { isDefaultOpenRegistration: true } });

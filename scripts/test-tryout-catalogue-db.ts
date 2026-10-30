@@ -86,11 +86,18 @@ async function main() {
       listTryouts(otherTutor.id),
       getTryoutForEdit(canonical.id, otherTutor.id),
     ]);
-    assert(!otherCatalogue.some((tryout) => tryout.id === canonical.id), "Another Kapten must not see the owner's Tryout in the catalogue.");
-    assert.equal(otherEdit, null, "Another Kapten must not hydrate the owner's Tryout edit route.");
-    console.log(`Catalogue DB ownership evidence passed (owner ${fingerprint(owner.id)}, other Kapten ${fingerprint(otherTutor.id)}, Voyager ${fingerprint(student.id)}).`);
+    // Tryouts are shared across Kapten: every Kapten sees and can hydrate every Tryout.
+    assert.equal(
+      otherCatalogue.some((tryout) => tryout.id === canonical.id),
+      ownerCatalogue.some((tryout) => tryout.id === canonical.id),
+      "Another Kapten must see the same catalogue entry for the Tryout as its owner.",
+    );
+    assert.equal(otherEdit?.id, ownerEdit?.id, "Another Kapten must hydrate the same edit route as the owner.");
+    assert.equal((await listTryouts(student.id)).length, 0, "A Voyager must see no Kapten catalogue.");
+    assert.equal(await getTryoutForEdit(canonical.id, student.id), null, "A Voyager must not hydrate the Kapten edit route.");
+    console.log(`Catalogue DB shared-access evidence passed (owner ${fingerprint(owner.id)}, other Kapten ${fingerprint(otherTutor.id)}, Voyager ${fingerprint(student.id)}).`);
   } else {
-    console.log(`Catalogue DB ownership evidence passed (owner ${fingerprint(owner.id)}, Voyager ${fingerprint(student.id)}). No second active Kapten exists in this database; cross-Kapten fixture evidence remains pending a disposable fixture.`);
+    console.log(`Catalogue DB shared-access evidence passed (owner ${fingerprint(owner.id)}, Voyager ${fingerprint(student.id)}). No second active Kapten exists in this database; cross-Kapten fixture evidence remains pending a disposable fixture.`);
   }
 
   console.log(`Canonical catalogue disposition: ${hasLegacyBindings ? "historical-package-bound-and-hidden-from-Kapten" : "fresh-direct-and-visible-to-owner"}.`);

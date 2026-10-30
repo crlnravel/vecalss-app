@@ -26,7 +26,7 @@ const url = `http://localhost/api/mentor/tryout/result-recovery?${new URLSearchP
   }
   for (const suffix of ["&studentId=foreign", "&sessionId=duplicate", "&reason=secret"]) assert.equal((await serveTryoutCalculationInspection(new Request(url + suffix), { getSession: async () => session, read: async () => { reads++; return saved; } })).status, 400);
   assert.equal(reads, 0);
-  const foreign = await serveTryoutCalculationInspection(new Request(url), { getSession: async () => session, read: async (request, owner, crossOwner) => { assert.deepEqual(request, scope); assert.equal(owner, "owner"); assert.equal(crossOwner, false); return null; } });
+  const foreign = await serveTryoutCalculationInspection(new Request(url), { getSession: async () => session, read: async (request, owner) => { assert.deepEqual(request, scope); assert.equal(owner, "owner"); return null; } });
   assert.equal(foreign.status, 404); assert.deepEqual(await foreign.json(), { ok: false });
   assert.equal((await serveTryoutCalculationInspection(new Request(url, { method: "POST" }), { getSession: async () => session, read: async () => saved })).status, 405);
   const failure = await serveTryoutCalculationInspection(new Request(url), { getSession: async () => session, read: async () => { throw new Error("Private data"); } });

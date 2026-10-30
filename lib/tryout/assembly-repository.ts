@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isActiveTryoutManager } from "./manager-access";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
@@ -33,10 +34,6 @@ import type {
   AssemblyMode,
   NormalizedAssemblyDefinition,
 } from "./assembly-validation";
-
-type AssemblyActorOptions = {
-  isAdmin?: boolean;
-};
 
 type AssemblyCandidateSource = {
   sourceContentDigest: string;
@@ -606,12 +603,17 @@ async function readDraftVersion(tx: Prisma.TransactionClient, packageId: string)
   });
 }
 
-async function assertEditablePackage(tx: Prisma.TransactionClient, packageId: string, actorId: string, isAdmin: boolean) {
+/**
+ * Assemblies are shared across Kapten like Tryouts (see manager-access.ts): any
+ * active Kapten or admin may edit one. `createdByUserId` stays the owner of
+ * record, `updatedByUserId` and each version's `createdByUserId` record who acted.
+ */
+async function assertEditablePackage(tx: Prisma.TransactionClient, packageId: string, actorId: string) {
   await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
   const packageRecord = await tx.reusableQuestionPackage.findUnique({ where: { id: packageId }, select: packageSelect() });
   if (!packageRecord) throw new AssemblyValidationError("not_found", "Assembly tidak ditemukan.", { packageId });
-  if (packageRecord.createdByUserId !== actorId && !isAdmin) {
-    throw new AssemblyValidationError("unauthorized", "Hanya pembuat atau admin yang dapat mengubah assembly ini.", { packageId });
+  if (!(await isActiveTryoutManager(tx, actorId))) {
+    throw new AssemblyValidationError("unauthorized", "Anda tidak memiliki izin mengubah assembly ini.", { packageId });
   }
   if (packageRecord.status === ContentStatus.archived) {
     throw new AssemblyValidationError("locked", "Assembly yang diarsipkan tidak dapat diubah.", { packageId });
@@ -706,13 +708,12 @@ async function readVersionForResponse(tx: Prisma.TransactionClient, versionId: s
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retired writer retained for repository boundary invariants.
-async function saveAssemblyDraft(input: SaveAssemblyDraftInput, actorId: string, options: AssemblyActorOptions = {}) {
+async function saveAssemblyDraft(input: SaveAssemblyDraftInput, actorId: string) {
   const definition = validateAssemblyDefinitionShape(input);
-  const isAdmin = options.isAdmin === true;
   return prisma.$transaction(async (tx) => {
     let packageRecord;
     if (input.id) {
-      packageRecord = await assertEditablePackage(tx, input.id, actorId, isAdmin);
+      packageRecord = await assertEditablePackage(tx, input.id, actorId);
       const hasReadyRevision = await tx.reusableQuestionPackageVersion.findFirst({ where: { packageId: input.id, status: ContentStatus.published }, select: { id: true } });
       if (hasReadyRevision && packageRecord.mode !== definition.mode) {
         throw new AssemblyValidationError("invalid_mode", "Mode assembly tidak dapat diubah setelah memiliki versi Ready.", {
@@ -827,9 +828,9 @@ async function saveAssemblyDraft(input: SaveAssemblyDraftInput, actorId: string,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Retired writer retained for repository boundary invariants.
-async function readyAssemblyDraft(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
+async function readyAssemblyDraft(packageId: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    const packageRecord = await assertEditablePackage(tx, packageId, actorId, options.isAdmin === true);
+    const packageRecord = await assertEditablePackage(tx, packageId, actorId);
     const draft = await readDraftVersion(tx, packageId);
     if (!draft) throw new AssemblyValidationError("not_found", "Assembly belum memiliki draft versi yang dapat di-Ready.", { packageId });
     if (draft.mode !== packageRecord.mode) {
@@ -1015,9 +1016,9 @@ async function getReadyAssemblyAttachment(
   });
 }
 
-async function getAssemblyDraftForEdit(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
+async function getAssemblyDraftForEdit(packageId: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    const packageRecord = await assertEditablePackage(tx, packageId, actorId, options.isAdmin === true);
+    const packageRecord = await assertEditablePackage(tx, packageId, actorId);
     const draft = await readDraftVersion(tx, packageId);
     if (!draft) return null;
     return {
@@ -1439,9 +1440,9 @@ async function resolveReadyAssemblyForKuis(
   };
 }
 
-async function validateAssemblyDraft(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
+async function validateAssemblyDraft(packageId: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
-    const packageRecord = await assertEditablePackage(tx, packageId, actorId, options.isAdmin === true);
+    const packageRecord = await assertEditablePackage(tx, packageId, actorId);
     const draft = await readDraftVersion(tx, packageId);
     if (!draft) throw new AssemblyValidationError("not_found", "Assembly belum memiliki draft versi.", { packageId });
     const report = await collectReadiness(tx, toDefinitionInput(packageRecord, draft, packageRecord.items.map(candidateFromPackageItem)));
@@ -1449,7 +1450,7 @@ async function validateAssemblyDraft(packageId: string, actorId: string, options
   });
 }
 
-async function previewAssembly(input: PreviewAssemblyInput, actorId: string, options: AssemblyActorOptions = {}): Promise<AssemblyPreview> {
+async function previewAssembly(input: PreviewAssemblyInput, actorId: string): Promise<AssemblyPreview> {
   return prisma.$transaction(async (tx) => {
     const packageId = input.packageId ?? (input.versionId
       ? (await tx.reusableQuestionPackageVersion.findUnique({ where: { id: input.versionId }, select: { packageId: true } }))?.packageId
@@ -1458,7 +1459,7 @@ async function previewAssembly(input: PreviewAssemblyInput, actorId: string, opt
     const packageRecord = await tx.reusableQuestionPackage.findUnique({ where: { id: packageId }, select: packageSelect() });
     if (!packageRecord) throw new AssemblyValidationError("not_found", "Assembly tidak ditemukan.", { packageId, versionId: input.versionId });
     if (packageRecord.status === ContentStatus.archived) throw new AssemblyValidationError("locked", "Assembly yang diarsipkan tidak dapat dipreview.", { packageId });
-    const canSeeDraft = packageRecord.createdByUserId === actorId || options.isAdmin === true;
+    const canSeeDraft = await isActiveTryoutManager(tx, actorId);
     const draft = input.versionId
       ? null
       : canSeeDraft ? await readDraftVersion(tx, packageId) : null;
@@ -1533,7 +1534,6 @@ export {
   validateAssemblyDraft,
 };
 export type {
-  AssemblyActorOptions,
   AssemblyAttachmentSummary,
   AssemblyPreview,
   AssemblyReadiness,

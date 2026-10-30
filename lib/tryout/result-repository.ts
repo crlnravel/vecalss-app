@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isActiveTryoutManager } from "./manager-access";
 import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutResultReleasePolicy } from "@/generated/prisma/client";
 import {
   assertMatchingAssessmentRelease,
@@ -471,13 +472,13 @@ async function recoverExpiredRuns(tx: Prisma.TransactionClient, attempt: Recover
   }
 }
 
-async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string, allowCrossOwner = false, expectedScope?: TryoutResultRecoveryScope) {
+async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string, expectedScope?: TryoutResultRecoveryScope) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit perhitungan wajib diisi.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
     await lockTryoutResultScope(tx, { id: attemptId, kind: "attempt" });
     const target = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: recoveryInclude });
-    if (!target || (target.tryout.createdByUserId !== actorId && !allowCrossOwner)
+    if (!target || !(await isActiveTryoutManager(tx, actorId))
       || (expectedScope && (expectedScope.attemptId !== attemptId || expectedScope.tryoutId !== target.tryoutId || expectedScope.sessionId !== target.deliverySessionId))) throw new TryoutResultValidationError(recoveryUnavailable);
     if (target.deliverySession.releaseState === "released" && target.releaseState !== "released") throw new TryoutResultValidationError(PUBLISHED_RESULT_REVIEW_MESSAGE);
     if (target.releaseState !== "released") await recoverExpiredRuns(tx, target);
@@ -487,10 +488,11 @@ async function calculateTryoutAttempt(attemptId: string, actorId: string, reason
 }
 
 /** Read-only consistent snapshot: no synchronization, heartbeat, row/advisory locks or mutation. */
-async function inspectTryoutCalculation(scope: TryoutResultRecoveryScope, actorId: string, allowCrossOwner = false): Promise<TryoutResultRecoverySnapshot | null> {
+async function inspectTryoutCalculation(scope: TryoutResultRecoveryScope, actorId: string): Promise<TryoutResultRecoverySnapshot | null> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-    const target = await tx.tryoutAttempt.findFirst({ where: { id: scope.attemptId, tryoutId: scope.tryoutId, deliverySessionId: scope.sessionId, ...(!allowCrossOwner ? { tryout: { createdByUserId: actorId } } : {}) }, include: recoveryInclude });
+    if (!(await isActiveTryoutManager(tx, actorId))) return null;
+    const target = await tx.tryoutAttempt.findFirst({ where: { id: scope.attemptId, tryoutId: scope.tryoutId, deliverySessionId: scope.sessionId }, include: recoveryInclude });
     if (!target) return null;
     const receipt = await calculationReceipt(tx, target);
     const base = { scope, receipt, finalScore: null, sections: [] };
@@ -596,11 +598,12 @@ function policyAuditReceipt(record: { id: string; createdAt: Date; reason: strin
   return record && after && ["immediate", "manual", "automatic_at_end"].includes(after.policy ?? "") ? { id: record.id, ...(isTryoutPolicyBaseline(after.expectedBaseline) ? { expectedBaseline: after.expectedBaseline } : {}), configuredAt: record.createdAt.toISOString(), reason: record.reason, policy: after.policy as TryoutDefaultResultPolicy } : null;
 }
 
-async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, actorId: string, allowCrossOwner = false, requestId?: string): Promise<TryoutSessionReadiness | null> {
+async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, actorId: string, requestId?: string): Promise<TryoutSessionReadiness | null> {
   if (requestId !== undefined && !isUuid(requestId)) return null;
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-    const session = await tx.tryoutDeliverySession.findFirst({ where: { id: scope.sessionId, tryoutId: scope.tryoutId, ...(!allowCrossOwner ? { tryout: { createdByUserId: actorId } } : {}) }, include: readinessInclude });
+    if (!(await isActiveTryoutManager(tx, actorId))) return null;
+    const session = await tx.tryoutDeliverySession.findFirst({ where: { id: scope.sessionId, tryoutId: scope.tryoutId }, include: readinessInclude });
     if (!session) return null;
     const evaluated = evaluateSessionCohort(session);
     const now = new Date();
@@ -635,7 +638,7 @@ async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, 
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });
 }
 
-async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false, expectedTryoutId?: string) {
+async function releaseTryoutSessionResults(deliverySessionId: string, actorId: string, reason: string, expectedTryoutId?: string) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit rilis wajib diisi.");
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
@@ -643,7 +646,7 @@ async function releaseTryoutSessionResults(deliverySessionId: string, actorId: s
     if (expectedTryoutId !== undefined && scope.tryoutId !== expectedTryoutId) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
     const target = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, select: { releasedAt: true, releaseState: true, tryout: { select: { createdByUserId: true } } } });
     if (!target) throw new TryoutResultValidationError("Sesi Tryout tidak ditemukan.");
-    if (target.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutResultValidationError("Anda tidak dapat merilis hasil Tryout milik Kapten lain.");
+    if (!(await isActiveTryoutManager(tx, actorId))) throw new TryoutResultValidationError("Anda tidak memiliki izin merilis hasil Tryout.");
     // A committed bundle is a stable receipt, even if later historical damage is reported separately.
     if (target.releaseState === AssessmentResultReleaseState.released) return { deliverySessionId, releasedAt: target.releasedAt, state: "existing" as const, receipt: await publicationReceipt(tx, { tryoutId: scope.tryoutId, sessionId: deliverySessionId }, target.releasedAt) };
     const { policy, session, ready, readyIds, blockers } = await sessionReleaseReadiness(tx, deliverySessionId);

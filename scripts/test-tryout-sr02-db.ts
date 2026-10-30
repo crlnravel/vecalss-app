@@ -57,11 +57,11 @@ try {
   await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.ownerId, " "));
   await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.studentId, "Unauthorized"));
   await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.students[1].id, "Foreign owner"));
-  await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.ownerId, "Forged scope", false, { ...scope(f), sessionId: randomUUID() }));
-  await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.ownerId, "Forged target", false, { ...scope(f), attemptId: randomUUID() }));
+  await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.ownerId, "Forged scope", { ...scope(f), sessionId: randomUUID() }));
+  await assertRefusal(f, () => calculateTryoutAttempt(f.attemptId, f.ownerId, "Forged target", { ...scope(f), attemptId: randomUUID() }));
   assert.equal(await inspectTryoutCalculation(scope(f), f.studentId), null);
   assert.equal(await inspectTryoutCalculation({ ...scope(f), tryoutId: randomUUID() }, f.ownerId), null);
-  const result = await calculateTryoutAttempt(f.attemptId, f.ownerId, "Pulihkan skor pengerjaan lama yang kedaluwarsa.", false, scope(f));
+  const result = await calculateTryoutAttempt(f.attemptId, f.ownerId, "Pulihkan skor pengerjaan lama yang kedaluwarsa.", scope(f));
   assert.notEqual(result.finalScore, null); assert.notEqual(result.finalScore, undefined);
   assert.equal(result.finalScore, 10, "Historical recovery averages70+six zero scores"); assert(result.receipt);
   const after = await sr01History(f.attemptId);

@@ -7,7 +7,7 @@ import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-ident
 
 class TryoutInvitationPickerError extends Error {}
 
-async function assertOwnedTryout(tryoutId: string, actorId: string) {
+async function assertManageableTryout(tryoutId: string, actorId: string) {
   const actor = await prisma.user.findFirst({
     select: { id: true },
     where: { id: actorId, status: UserStatus.active, softDeletedAt: null, roleAssignments: { some: { revokedAt: null, role: { in: [RoleName.tutor, RoleName.admin] } } } },
@@ -15,7 +15,7 @@ async function assertOwnedTryout(tryoutId: string, actorId: string) {
   if (!actor) throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
   const tryout = await prisma.tryoutPackage.findFirst({
     select: { deliverySessions: { select: { id: true, name: true, isDefaultOpenRegistration: true } } },
-    where: { createdByUserId: actorId, id: tryoutId },
+    where: { id: tryoutId },
   });
   if (!tryout) throw new TryoutInvitationPickerError("Tryout tidak ditemukan atau tidak dapat diakses.");
   return tryout;
@@ -23,7 +23,7 @@ async function assertOwnedTryout(tryoutId: string, actorId: string) {
 
 async function searchTryoutInvitationStudents(tryoutId: string, actorId: string, query: string) {
   // Authorization precedes every directory read, including short queries.
-  const tryout = await assertOwnedTryout(tryoutId, actorId);
+  const tryout = await assertManageableTryout(tryoutId, actorId);
   const normalizedQuery = query.trim().slice(0, 80);
   if (normalizedQuery.length < 2) return [];
   const main = selectMainTryoutSession(tryout.deliverySessions);

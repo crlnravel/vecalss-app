@@ -1,5 +1,6 @@
 import "server-only";
 
+import { kaptenAccessFilter } from "@/lib/auth/kapten-access";
 import {
   AssessmentAttemptState,
   AssessmentResultReleaseState,
@@ -2016,7 +2017,7 @@ async function saveStandaloneQuizVersioned(
     let record: VersionedQuizRecord | null = null;
     if (input.id) {
       const ownedQuiz = await tx.standaloneQuiz.findFirst({
-        where: { id: input.id, createdByUserId: tutorId },
+        where: { id: input.id, ...(await kaptenAccessFilter(tx, tutorId)) },
         select: { id: true },
       });
       if (ownedQuiz) {
@@ -2029,7 +2030,7 @@ async function saveStandaloneQuizVersioned(
       }
       await lockStandaloneQuizAggregate(tx, input.id);
       record = await tx.standaloneQuiz.findFirst({
-        where: { id: input.id, createdByUserId: tutorId },
+        where: { id: input.id, ...(await kaptenAccessFilter(tx, tutorId)) },
         include: versionedQuizInclude,
       });
       if (!record)
@@ -2365,7 +2366,7 @@ async function saveStandaloneQuiz(
     }> | null = null;
     if (id) {
       const ownedQuiz = await tx.standaloneQuiz.findFirst({
-        where: { id, createdByUserId: tutorId },
+        where: { id, ...(await kaptenAccessFilter(tx, tutorId)) },
         select: { id: true },
       });
       if (ownedQuiz) {
@@ -2378,7 +2379,7 @@ async function saveStandaloneQuiz(
       }
       await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
       current = await tx.standaloneQuiz.findFirst({
-        where: { id, createdByUserId: tutorId },
+        where: { id, ...(await kaptenAccessFilter(tx, tutorId)) },
         include: {
           participations: { select: { id: true }, take: 1 },
           items: { include: { options: true }, orderBy: { sortOrder: "asc" } },
@@ -2539,7 +2540,7 @@ async function transitionStandaloneQuizSourceModeVersioned(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: input.quizId, createdByUserId: tutorId },
+      where: { id: input.quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: versionedQuizInclude,
     });
     if (!record)
@@ -2662,7 +2663,7 @@ async function transitionStandaloneQuizSourceMode(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: input.quizId, createdByUserId: tutorId },
+      where: { id: input.quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: {
         items: { include: { options: true }, orderBy: { sortOrder: "asc" } },
         participations: { select: { id: true }, take: 1 },
@@ -2882,7 +2883,7 @@ async function importStandaloneQuizBankQuestionSnapshots(
       );
 
       const quiz = await tx.standaloneQuiz.findFirst({
-        where: { id: input.quizId, createdByUserId: tutorId },
+        where: { id: input.quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
         select: {
           assemblyPackageVersionId: true,
           status: true,
@@ -3051,7 +3052,7 @@ async function acceptStandaloneQuizQuestionUpdateVersioned(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: input.quizId, createdByUserId: tutorId },
+      where: { id: input.quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: versionedQuizInclude,
     });
     if (!record)
@@ -3229,7 +3230,7 @@ async function acceptStandaloneQuizQuestionUpdate(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${input.quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: input.quizId, createdByUserId: tutorId },
+      where: { id: input.quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: {
         items: { include: { options: true }, orderBy: { sortOrder: "asc" } },
         participations: { select: { id: true }, take: 1 },
@@ -3375,7 +3376,7 @@ async function acceptStandaloneQuizQuestionUpdate(
 async function getMentorStandaloneQuiz(id: string, tutorId: string) {
   if (isStandaloneQuizVersioningCutoverEnabled()) {
     const record = await prisma.standaloneQuiz.findFirst({
-      where: { id, createdByUserId: tutorId },
+      where: { id, ...(await kaptenAccessFilter(prisma, tutorId)) },
       include: versionedQuizInclude,
     });
     if (!record) return null;
@@ -3392,7 +3393,7 @@ async function getMentorStandaloneQuiz(id: string, tutorId: string) {
     return { questions, quiz: toKaptenQuizVersion(record, version) };
   }
   const record = await prisma.standaloneQuiz.findFirst({
-    where: { id, createdByUserId: tutorId },
+    where: { id, ...(await kaptenAccessFilter(prisma, tutorId)) },
     include: quizContentInclude,
   });
   if (!record) return null;
@@ -3421,7 +3422,7 @@ async function attachStandaloneQuizAssemblyVersioned(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: quizId, createdByUserId: tutorId },
+      where: { id: quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: versionedQuizInclude,
     });
     if (!record)
@@ -3530,7 +3531,7 @@ async function attachStandaloneQuizAssembly(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: quizId, createdByUserId: tutorId },
+      where: { id: quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: {
         participations: { select: { id: true }, take: 1 },
         subtest: true,
@@ -3616,7 +3617,7 @@ async function detachStandaloneQuizAssemblyVersioned(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: quizId, createdByUserId: tutorId },
+      where: { id: quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: versionedQuizInclude,
     });
     if (!record)
@@ -3719,7 +3720,7 @@ async function detachStandaloneQuizAssembly(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${quizId}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id: quizId, createdByUserId: tutorId },
+      where: { id: quizId, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: quizInclude,
     });
     if (!record)
@@ -3774,7 +3775,7 @@ async function detachStandaloneQuizAssembly(
 /** Lightweight catalogue metadata; only compare content for quizzes with both a live and editing definition. */
 export async function getMentorQuizCatalogueRecords(tutorId: string, client: Prisma.TransactionClient = prisma) {
   const records = await client.standaloneQuiz.findMany({
-    where: { createdByUserId: tutorId },
+    where: { ...(await kaptenAccessFilter(client, tutorId)) },
     select: {
       id: true, title: true, status: true, isHidden: true, updatedAt: true,
       subtest: { select: { code: true, name: true } },
@@ -3810,7 +3811,7 @@ export async function getMentorQuizCatalogueRecords(tutorId: string, client: Pri
 async function getMentorStandaloneQuizzes(tutorId: string) {
   if (isStandaloneQuizVersioningCutoverEnabled()) {
     const records = await prisma.standaloneQuiz.findMany({
-      where: { createdByUserId: tutorId },
+      where: { ...(await kaptenAccessFilter(prisma, tutorId)) },
       include: versionedQuizInclude,
       orderBy: { updatedAt: "desc" },
     });
@@ -3823,7 +3824,7 @@ async function getMentorStandaloneQuizzes(tutorId: string) {
   }
   return (
     await prisma.standaloneQuiz.findMany({
-      where: { createdByUserId: tutorId },
+      where: { ...(await kaptenAccessFilter(prisma, tutorId)) },
       include: quizInclude,
       orderBy: { updatedAt: "desc" },
     })
@@ -3831,7 +3832,7 @@ async function getMentorStandaloneQuizzes(tutorId: string) {
 }
 async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
   const quiz = await prisma.standaloneQuiz.findFirst({
-    where: { id: quizId, createdByUserId: tutorId },
+    where: { id: quizId, ...(await kaptenAccessFilter(prisma, tutorId)) },
     include: {
       participations: {
         include: {
@@ -3931,7 +3932,7 @@ async function getMentorStandaloneQuizSubmission(
   const attempt = await prisma.standaloneQuizAttempt.findFirst({
     where: {
       id: attemptId,
-      participation: { quizId, quiz: { createdByUserId: tutorId } },
+      participation: { quizId, quiz: { ...(await kaptenAccessFilter(prisma, tutorId)) } },
     },
     include: {
       answers: true,
@@ -4030,7 +4031,7 @@ async function updateStandaloneQuizLifecycle(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id, createdByUserId: tutorId },
+      where: { id, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: quizInclude,
     });
     if (!record)
@@ -4067,7 +4068,7 @@ async function setStandaloneQuizHidden(
     );
     await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
     const record = await tx.standaloneQuiz.findFirst({
-      where: { id, createdByUserId: tutorId },
+      where: { id, ...(await kaptenAccessFilter(tx, tutorId)) },
       include: quizInclude,
     });
     if (!record)

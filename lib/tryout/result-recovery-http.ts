@@ -14,7 +14,7 @@ export function parseTryoutCalculationScope(value: unknown): TryoutResultRecover
 /** Public GET boundary with no session heartbeat/profile writes and no Server Action dispatch. */
 export async function serveTryoutCalculationInspection(request: Request, dependencies: {
   getSession: () => Promise<SessionContext | null>;
-  read: (scope: TryoutResultRecoveryScope, actorId: string, allowCrossOwner: boolean) => Promise<TryoutResultRecoverySnapshot | null>;
+  read: (scope: TryoutResultRecoveryScope, actorId: string) => Promise<TryoutResultRecoverySnapshot | null>;
 }) {
   const unavailable = (status: number) => Response.json({ ok: false }, { headers, status });
   try {
@@ -26,7 +26,7 @@ export async function serveTryoutCalculationInspection(request: Request, depende
     if ([...query.keys()].some((key) => query.getAll(key).length !== 1)) return unavailable(400);
     const scope = parseTryoutCalculationScope(Object.fromEntries(query));
     if (!scope) return unavailable(400);
-    const snapshot = await dependencies.read(scope, session.user.id, session.user.roles.includes("admin"));
+    const snapshot = await dependencies.read(scope, session.user.id);
     return snapshot ? Response.json({ ok: true, snapshot }, { headers }) : unavailable(404);
   } catch { return unavailable(503); }
 }

@@ -133,6 +133,8 @@ const usageRows = [
 ];
 
 const mockRepositoryClient = {
+  // Package reads confirm the actor is an active Kapten or admin through the same client.
+  user: { findFirst: async () => ({ id: "mentor-1" }) },
   reusableQuestionPackage: {
     count: async (args: unknown) => {
       availabilityQueries.push(args);

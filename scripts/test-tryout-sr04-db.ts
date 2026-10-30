@@ -104,7 +104,7 @@ try {
   await assert.rejects(atSr01Time(new Date(f.end.getTime() - 1), () => releaseTryoutSessionResults(f.sessionId, f.ownerId, reason)), /belum berakhir/);
   await assert.rejects(releaseTryoutSessionResults(f.sessionId, f.studentId, reason));
   await assert.rejects(releaseTryoutSessionResults(f.sessionId, f.ownerId, " "));
-  await assert.rejects(releaseTryoutSessionResults(f.sessionId, f.ownerId, reason, false, "11111111-1111-4111-8111-111111111111"));
+  await assert.rejects(releaseTryoutSessionResults(f.sessionId, f.ownerId, reason, "11111111-1111-4111-8111-111111111111"));
   assert.equal(await auditCount(), 0);
   const ready = await atSr01Time(f.end, () => inspectTryoutSessionReadiness(scope, f.ownerId)); assert(ready?.ready); assert.equal(ready.counts.candidates, 2); assert.equal(ready.counts.excluded, 1);
   const [result, concurrent] = await atSr01Time(f.end, () => Promise.all([releaseTryoutSessionResults(f.sessionId, f.ownerId, reason), releaseTryoutSessionResults(f.sessionId, f.ownerId, reason)]));

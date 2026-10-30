@@ -105,7 +105,6 @@ try {
   }
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { tryoutId: preservation.draft.id, action: "admission_mode.configured" } }), 1);
   const otherTutor = await prisma.user.findFirstOrThrow({ where: { id: { not: preservation.ownerId }, roleAssignments: { some: { role: "tutor", revokedAt: null } } } });
-  await assert.rejects(configureTryoutAdmission(preservation.draft.id, "open", otherTutor.id, "Wrong owner"));
   await assert.rejects(configureTryoutAdmission(preservation.draft.id, "open", preservation.studentId, "Student"));
   await assert.rejects(configureTryoutAdmission(preservation.draft.id, "open", preservation.ownerId, " "));
   await assert.rejects(configureTryoutAdmission(preservation.draft.id, "forged" as "open", preservation.ownerId, "Invalid"), /Pilih akses/);
@@ -116,6 +115,12 @@ try {
   assert.deepEqual(audit.before, { admissionMode: "approval_required" });
   assert.deepEqual(audit.after, { admissionMode: "open" });
   assert.equal(audit.reason, "Local admission preservation");
+  // Tryouts are shared across Kapten: another Kapten may reconfigure admission. The creator stays the
+  // owner of record and the new audit row names the Kapten who acted.
+  await configureTryoutAdmission(preservation.draft.id, "open", otherTutor.id, "Shared Kapten change");
+  const sharedAudit = await prisma.tryoutDeliveryAudit.findFirstOrThrow({ where: { tryoutId: preservation.draft.id, action: "admission_mode.configured", actorUserId: otherTutor.id }, include: { tryout: { select: { createdByUserId: true } } } });
+  assert.equal(sharedAudit.tryout.createdByUserId, preservation.ownerId, "the creator stays the owner of record");
+  assert.equal(sharedAudit.reason, "Shared Kapten change");
   await prisma.tryoutPackage.update({ where: { id: preservation.draft.id }, data: { status: "archived" } });
   await assert.rejects(configureTryoutAdmission(preservation.draft.id, "invitation_only", preservation.ownerId, "Stale archive"));
   assert.equal(await preservedHistory(preservation.draft.id), before);

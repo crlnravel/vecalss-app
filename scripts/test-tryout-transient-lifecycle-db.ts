@@ -50,7 +50,7 @@ async function grants(id: string) {
     assignments: await prisma.tryoutDeliveryAssignment.count({ where: { admission: { tryoutId: id } } }),
   };
 }
-const grant = (fixture: Fixture) => inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, "Isolated lifecycle regression", false, fixture.sessionId);
+const grant = (fixture: Fixture) => inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, "Isolated lifecycle regression", fixture.sessionId);
 async function expectLeaseError(command: () => Promise<unknown>, code: EditLeaseServiceError["code"]) {
   await assert.rejects(command, (error: unknown) => error instanceof EditLeaseServiceError && error.code === code);
 }
@@ -108,12 +108,18 @@ try {
   const refusedLease = await lease(fixture.tryoutId);
   const refusedHistory = await history(fixture.tryoutId);
   const refusedAudits = await prisma.tryoutDeliveryAudit.count({ where: { tryoutId: fixture.tryoutId } });
-  for (const actor of [otherTutor.id, fixture.studentId]) {
-    for (const command of commands) await expectLeaseError(() => command(actor), "resource_inaccessible");
-  }
-  assert.deepEqual(await lease(fixture.tryoutId), refusedLease, "wrong owner/principal has no claim side effect");
+  // Only active Kapten/admin accounts may take a Tryout lease; a student is refused before any side effect.
+  for (const command of commands) await expectLeaseError(() => command(fixture.studentId), "resource_inaccessible");
+  assert.deepEqual(await lease(fixture.tryoutId), refusedLease, "wrong principal has no claim side effect");
   assert.equal(await history(fixture.tryoutId), refusedHistory);
   assert.equal(await prisma.tryoutDeliveryAudit.count({ where: { tryoutId: fixture.tryoutId } }), refusedAudits);
+
+  // Tryouts are shared across Kapten: a second Kapten runs the same lifecycle command. The creator stays the
+  // owner of record and the audit row names the Kapten who acted.
+  await setTryoutHiddenTransient(fixture.tryoutId, true, otherTutor.id);
+  const sharedHideAudit = await prisma.tryoutDeliveryAudit.findFirstOrThrow({ where: { tryoutId: fixture.tryoutId, action: "tryout.hidden", actorUserId: otherTutor.id }, include: { tryout: { select: { createdByUserId: true } } } });
+  assert.equal(sharedHideAudit.tryout.createdByUserId, fixture.ownerId, "the creator stays the owner of record");
+  await setTryoutHiddenTransient(fixture.tryoutId, false, fixture.ownerId);
 
   await withTa02Lease(fixture.tryoutId, fixture.ownerId, async (proof) => {
     const held = await lease(fixture.tryoutId);

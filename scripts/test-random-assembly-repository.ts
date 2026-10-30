@@ -56,7 +56,7 @@ assert.match(repository, /SELECT id FROM reusable_question_packages WHERE id = \
 assert.match(repository, /ORDER BY q\.id[\s\S]*FOR SHARE OF q, b, r/u);
 assert.match(repository, /sourceQuestionRevisionId !== revision\.id \|\| identity\.sourceContentDigest !== revision\.contentDigest/u);
 assert.match(repository, /QuestionRevisionProvenance\.legacy_unknown/u);
-assert.match(repository, /modelVersion: CANONICAL_2PL_MODEL_VERSION/u);
+assert.doesNotMatch(repository, /CANONICAL_2PL_MODEL_VERSION|calibration|catReady/u, "assemblies no longer carry CAT calibration state");
 assert.match(repository, /status: ContentStatus\.published/u);
 assert.match(repository, /async function listReadyAssemblyRevisions/u);
 assert.match(repository, /async function saveAssemblyDraft/u);
@@ -73,6 +73,8 @@ assert.match(actions, /requireTryoutCapability\(session, "tryout\.delivery\.conf
 assert.match(actions, /getReadyAssemblyRevisionAction/u);
 assert.match(actions, /saveAssemblyDraftAction/u);
 assert.match(actions, /readyAssemblyDraftAction/u);
-assert.match(actions, /session\.user\.roles\.includes\(RoleName\.admin\)/u);
+// Assemblies are shared across Kapten: the actions pass no ownership flag and the repository itself requires an active Kapten or admin.
+assert.doesNotMatch(actions, /isAdmin/u);
+assert.match(repository, /isActiveTryoutManager\(tx, actorId\)/u);
 
 console.log("Random assembly repository contract passed.");

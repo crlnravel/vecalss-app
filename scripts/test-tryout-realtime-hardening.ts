@@ -15,13 +15,22 @@ const [attemptRepository, operationsView, mentorActions, participantActions, liv
 ]);
 
 assert.match(attemptRepository, /function lockAttemptScope/u);
-assert.match(attemptRepository, /tryout_admissions[\s\S]+?FOR UPDATE/u);
-assert.match(attemptRepository, /tryout_delivery_assignments[\s\S]+?ORDER BY id[\s\S]+?FOR UPDATE/u);
-assert.match(attemptRepository, /tryout_delivery_sessions[\s\S]+?FOR UPDATE/u);
-assert.match(attemptRepository, /tryout_attempts[\s\S]+?FOR UPDATE/u);
-assert.match(attemptRepository, /tryout_attempt_test_runs[\s\S]+?ORDER BY id[\s\S]+?FOR UPDATE/u);
+// Row locks live in the shared lock helpers, which sort their keys; lockAttemptScope must take them in the canonical order.
+const lockHelpers = await readFile(new URL("../lib/tryout/locks.ts", import.meta.url), "utf8");
+const serializationLocks = await readFile(new URL("../lib/serialization/locks.ts", import.meta.url), "utf8");
+assert.match(serializationLocks, /async function lockOrderedRows/u, "the shared helper that orders row locks exists");
+assert.match(lockHelpers, /await lockOrderedRows\(tx, LOCK_LEVEL\.runtime/u, "runtime row locks go through the sorted lock helper");
+for (const table of ["tryout_delivery_sessions", "tryout_admissions", "tryout_delivery_assignments", "tryout_attempts", "tryout_attempt_test_runs"]) {
+  assert.match(lockHelpers, new RegExp(`FROM ${table} WHERE id = [^\\n]+FOR UPDATE`, "u"), `${table} rows are locked FOR UPDATE`);
+}
+const lockScopeStart = attemptRepository.indexOf("async function lockAttemptScope");
+const lockScopeBody = attemptRepository.slice(lockScopeStart, attemptRepository.indexOf("\nasync function", lockScopeStart + 1));
+const lockCalls = ["lockTryoutSessions", "lockTryoutAdmissions", "lockTryoutAssignments", "lockTryoutAttempts", "lockTryoutRuns"].map((name) => lockScopeBody.indexOf(`${name}(`));
+assert(lockCalls.every((position, index) => position > 0 && (index === 0 || position > lockCalls[index - 1])), "lockAttemptScope locks sessions, admissions, assignments, attempts, then runs");
 assert.match(attemptRepository, /function synchronizeTryoutOperations/u);
-assert.match(attemptRepository, /createdByUserId: actorId/u);
+// Tryouts are shared across Kapten: operations sync requires an active Kapten or admin, not the creator.
+assert.match(attemptRepository, /isActiveTryoutManager\(tx, actorId\)/u);
+assert.doesNotMatch(attemptRepository, /createdByUserId: actorId/u);
 assert.match(attemptRepository, /attempt\.serverDeadlineAt <= now/u);
 assert.match(attemptRepository, /attempt\.deadline_expired/u);
 assert.match(attemptRepository, /attempt\.disconnect_started/u);
@@ -35,7 +44,7 @@ const operationsSync = attemptRepository.slice(
   attemptRepository.indexOf("async function synchronizeTryoutOperations"),
   attemptRepository.indexOf("type DisconnectCommandResult"),
 );
-assert.match(operationsSync, /const candidates = await prisma\.tryoutAttempt\.findMany/u);
+assert.match(operationsSync, /const candidates = await prisma\.\$transaction\(async \(tx\) =>/u, "candidates are read in their own short transaction");
 assert.match(operationsSync, /for \(const candidate of candidates\) \{/u);
 assert.match(operationsSync, /const synchronized = await prisma\.\$transaction\(async \(tx\) =>/u);
 assert.match(operationsSync, /synchronizeAttempt\(tx, candidate\.id, now, actorId\)/u);
