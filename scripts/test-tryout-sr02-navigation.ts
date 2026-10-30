@@ -52,7 +52,7 @@ const attempts: Attempt[] = [{ id: "expired", admissionId: "admission", sessionI
 await withReactDomTest(async (_root, render) => {
   const history = { replaceState: (_state: unknown, _unused: string, href: string) => { currentQuery = queryFor(href); } };
   Object.assign(window, { history });
-  const initial = { id: "tryout", attempts, results: [] };
+  const initial = { id: "tryout", attempts, results: [], sessions: [] };
   await render(createElement(Hasil, { initial, parentId: "parent" }));
   assert.equal(table.search.value, "Arya"); assert.equal(table.filterPanel.props.filter, "submitted"); assert.deepEqual(table.rows.map((row) => row.id), ["expired"]);
   const link = table.columns[0].cell(attempts[0]);
