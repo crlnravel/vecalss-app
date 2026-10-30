@@ -59,3 +59,10 @@ tmp/
 
 # local development scratch files
 /.scratch/
+
+# Local learning source PDFs and downloaded lesson exports
+/materi/*.pdf
+/materi/downloaded-from-google-doc/
+
+# Locally generated learning PDFs
+/output/pdf/*.pdf
