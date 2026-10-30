@@ -199,6 +199,7 @@ function successfulActionState(formData: FormData, published: boolean, revisionN
 
 const controllerRouter = (routes: string[]): AppRouterInstance => ({
   back: () => undefined,
+  bfcacheId: "0",
   forward: () => undefined,
   prefetch: async () => undefined,
   push: () => undefined,
