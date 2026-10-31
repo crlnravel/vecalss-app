@@ -95,6 +95,10 @@ type SaveTryoutInput = { admissionMode?: "open" | "approval_required" | "invitat
 class TryoutValidationError extends Error {}
 
 const MAIN_SESSION_AUTO_CREATED_AUDIT_ACTION = "delivery_session.main_auto_created";
+const TRYOUT_ARCHIVED_AUDIT_ACTION = "tryout.archived";
+const TRYOUT_RESTORED_AUDIT_ACTION = "tryout.restored";
+// Archiving and restoring only move a Tryout between lists; they are not history anyone acted on.
+const TRYOUT_LIFECYCLE_AUDIT_ACTIONS = [TRYOUT_ARCHIVED_AUDIT_ACTION, TRYOUT_RESTORED_AUDIT_ACTION];
 const TRYOUT_MANAGER_REQUIRED_MESSAGE = "Anda tidak memiliki izin mengelola Tryout.";
 const PACKAGE_MANAGER_REQUIRED_MESSAGE = "Anda tidak memiliki izin mengelola Paket Soal.";
 type TryoutAuthoringProof =
@@ -814,21 +818,21 @@ function toTryoutDto(record: TryoutReadRecord) {
   };
 }
 
+type TryoutCatalogueCreator = { avatarSrc: string | null; name: string; subject: string | null };
 type TryoutCatalogueDto = Omit<ReturnType<typeof toTryoutDto>, "status"> & {
+  creator: TryoutCatalogueCreator | null;
   status: "draft" | "published" | "archived";
 };
 
-type TryoutCatalogueCreator = { avatarSrc: string | null; name: string; subject: string | null };
 function toTryoutCatalogueDto(record: TryoutReadRecord, creator: TryoutCatalogueCreator | null): TryoutCatalogueDto {
-  creator: TryoutCatalogueCreator | null;
   const dto = toTryoutDto(record);
   return {
     ...dto,
+    creator,
     status:
       record.status === ContentStatus.archived ? "archived" : dto.status,
   };
 }
-    creator,
 
 async function readPackageUsageCounts(packageIds: readonly string[], client: typeof prisma | Prisma.TransactionClient = prisma) {
   if (!packageIds.length) return new Map<string, number>();
@@ -1332,7 +1336,7 @@ async function archiveTryoutCore(
     });
     await tx.tryoutDeliveryAudit.create({
       data: {
-        action: "tryout.archived",
+        action: TRYOUT_ARCHIVED_AUDIT_ACTION,
         actorUserId: actorId,
         after: json({ publishedAt: null, status: updated.status }),
         before: json({ publishedAt: current.publishedAt?.toISOString() ?? null, status: current.status }),
@@ -1356,6 +1360,62 @@ async function archiveTryoutTransient(id: string, actorId: string) {
 }
 
 /**
+ * Brings an archived Tryout back to the state it had before it was archived: published if the archive
+ * audit recorded it as published, otherwise draft. Visibility (isHidden) is untouched by archiving, so it
+ * is untouched here too.
+ */
+async function restoreTryoutCore(
+  tx: Prisma.TransactionClient,
+  id: string,
+  actorId: string,
+  editLease: TryoutAuthoringProof,
+) {
+  return runTryoutLifecycleCore(tx, id, actorId, editLease, async (tx) => {
+    const current = await tx.tryoutPackage.findFirst({ include: tryoutInclude, where: { id } });
+    if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
+    if (current.status !== ContentStatus.archived) throw new TryoutValidationError("Tryout ini tidak sedang diarsipkan. Muat ulang halaman untuk melihat status terbaru.");
+    if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Paket Soal yang digunakan sudah diarsipkan, jadi Tryout ini tidak dapat dipulihkan. Buat Tryout baru dengan memilih soal dari Bank Soal.");
+
+    const archivedAudit = await tx.tryoutDeliveryAudit.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { before: true },
+      where: { action: TRYOUT_ARCHIVED_AUDIT_ACTION, tryoutId: id },
+    });
+    const previous = archivedAudit?.before as { publishedAt?: string | null; status?: string } | null | undefined;
+    const wasPublished = previous?.status === ContentStatus.published;
+    const publishedAt = wasPublished ? (previous?.publishedAt ? new Date(previous.publishedAt) : new Date()) : null;
+
+    const updated = await tx.tryoutPackage.update({
+      data: { publishedAt, status: wasPublished ? ContentStatus.published : ContentStatus.draft },
+      include: tryoutInclude,
+      where: { id },
+    });
+    await tx.tryoutDeliveryAudit.create({
+      data: {
+        action: TRYOUT_RESTORED_AUDIT_ACTION,
+        actorUserId: actorId,
+        after: json({ publishedAt: publishedAt?.toISOString() ?? null, status: updated.status }),
+        before: json({ publishedAt: null, status: current.status }),
+        reason: "Tryout dipulihkan dari arsip oleh Kapten.",
+        tryoutId: id,
+      },
+    });
+    return toTryoutDto(updated);
+  });
+}
+
+async function restoreTryout(id: string, actorId: string, editLease: AuthoringEditLease) {
+  return prisma.$transaction(async (tx) => {
+    await prepareTryoutTransaction(tx);
+    return restoreTryoutCore(tx, id, actorId, { editLease, kind: "held" });
+  });
+}
+
+async function restoreTryoutTransient(id: string, actorId: string) {
+  return withTransientTryoutLifecycle(id, actorId, (tx, editLease) => restoreTryoutCore(tx, id, actorId, editLease));
+}
+
+/**
  * True when a Tryout's delivery setup is still exactly what the system created
  * on first save: no audit history beyond the single main-session creation row,
  * one main session whose persisted fields still equal that creation snapshot
@@ -1365,7 +1425,7 @@ async function archiveTryoutTransient(id: string, actorId: string) {
 async function deliverySetupIsUntouched(tx: Prisma.TransactionClient, tryoutId: string) {
   const audits = await tx.tryoutDeliveryAudit.findMany({
     select: { action: true, actorUserId: true, after: true, deliverySessionId: true },
-    where: { tryoutId },
+    where: { action: { notIn: TRYOUT_LIFECYCLE_AUDIT_ACTIONS }, tryoutId },
   });
   if (!audits.length) return true;
   const [audit] = audits;
@@ -1394,19 +1454,69 @@ async function deliverySetupIsUntouched(tx: Prisma.TransactionClient, tryoutId: 
     && session.availableUntil.toISOString() === snapshot.availableUntil;
 }
 
+type TryoutHistorySummary = { activeAttemptCount: number; admissionCount: number; attemptCount: number; hasHistory: boolean };
+
+/** What a Tryout has accumulated beyond an untouched, system-created setup. */
+async function summarizeTryoutHistory(tx: Prisma.TransactionClient, id: string): Promise<TryoutHistorySummary> {
+  const [attemptCount, activeAttemptCount, releaseCount, admissionCount] = await Promise.all([
+    tx.tryoutAttempt.count({ where: { tryoutId: id } }),
+    tx.tryoutAttempt.count({
+      where: {
+        OR: [
+          { attemptState: AssessmentAttemptState.in_progress },
+          { status: AttemptStatus.in_progress },
+          { runs: { some: { status: TryoutAttemptTestRunStatus.active } } },
+        ],
+        tryoutId: id,
+      },
+    }),
+    tx.assessmentRelease.count({ where: { tryoutId: id } }),
+    tx.tryoutAdmission.count({ where: { tryoutId: id } }),
+  ]);
+  // The system writes one creation row when it auto-creates the main session. That row alone is not
+  // history anyone acted on, so an untouched setup may be deleted with it; any other audit row, or any
+  // change to the session, counts as history.
+  const hasHistory = Boolean(attemptCount || releaseCount || admissionCount) || !(await deliverySetupIsUntouched(tx, id));
+  return { activeAttemptCount, admissionCount, attemptCount, hasHistory };
+}
+
+/** Removes everything a Tryout accumulated: attempts and their answers, sessions, admissions, releases and audit rows. */
+async function purgeTryoutHistory(tx: Prisma.TransactionClient, id: string) {
+  // Assessment releases are append-only except for the purge of their own Tryout, which this declares.
+  await tx.$executeRaw`SELECT set_config('vecalss.tryout_purge_id', ${id}, true)`;
+  await tx.tryoutIntegrityEvent.deleteMany({ where: { run: { attempt: { tryoutId: id } } } });
+  await tx.tryoutAnswer.deleteMany({ where: { attempt: { tryoutId: id } } });
+  await tx.tryoutAttemptTestRun.deleteMany({ where: { attempt: { tryoutId: id } } });
+  await tx.tryoutScoreBreakdown.deleteMany({ where: { attempt: { tryoutId: id } } });
+  await tx.tryoutAttempt.deleteMany({ where: { tryoutId: id } });
+  await tx.tryoutDeliveryAssignment.deleteMany({ where: { deliverySession: { tryoutId: id } } });
+  const invitations = await tx.tryoutDeliveryAudit.findMany({ select: { id: true }, where: { action: "admission.invited", tryoutId: id } });
+  if (invitations.length) {
+    const notificationWhere = { sourceEntityId: { in: invitations.map((row) => row.id) }, sourceEntityType: "tryout_invitation" };
+    await tx.notificationDelivery.deleteMany({ where: { notification: notificationWhere } });
+    await tx.notification.deleteMany({ where: notificationWhere });
+  }
+  await tx.tryoutDeliveryAudit.deleteMany({ where: { tryoutId: id } });
+  await tx.tryoutDeliverySession.deleteMany({ where: { tryoutId: id } });
+  await tx.tryoutAdmission.deleteMany({ where: { tryoutId: id } });
+  await tx.assessmentRelease.deleteMany({ where: { tryoutId: id } });
+}
+
 async function deleteTryoutCore(
   tx: Prisma.TransactionClient,
   id: string,
   actorId: string,
   editLease: TryoutAuthoringProof,
+  options: { withHistory?: boolean } = {},
 ) {
   return runTryoutLifecycleCore(tx, id, actorId, editLease, async (tx) => {
     const current = await tx.tryoutPackage.findFirst({
-      select: { id: true, status: true },
+      select: { id: true, status: true, title: true },
       where: { id },
     });
     if (!current) throw new TryoutValidationError("Tryout tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Tryout.");
-    if (current.status !== ContentStatus.draft) throw new TryoutValidationError("Hanya Tryout draf yang dapat dihapus. Arsipkan Tryout yang sudah terbit terlebih dahulu.");
+    if (current.status === ContentStatus.published) throw new TryoutValidationError("Tryout yang sedang terbit tidak dapat dihapus. Arsipkan Tryout terlebih dahulu.");
+    if (options.withHistory && current.status !== ContentStatus.archived) throw new TryoutValidationError("Hanya Tryout yang sudah diarsipkan yang dapat dihapus beserta riwayatnya.");
     const sessionsForLock = await tx.tryoutDeliverySession.findMany({
       where: { tryoutId: id },
       orderBy: { id: "asc" },
@@ -1414,41 +1524,48 @@ async function deleteTryoutCore(
     });
     await lockTryoutSessions(tx, sessionsForLock.map((session) => session.id));
 
-    const [attemptCount, releaseCount, sessionCount, admissionCount, auditCount] = await Promise.all([
-      tx.tryoutAttempt.count({ where: { tryoutId: id } }),
-      tx.assessmentRelease.count({ where: { tryoutId: id } }),
-      tx.tryoutDeliverySession.count({ where: { tryoutId: id } }),
-      tx.tryoutAdmission.count({ where: { tryoutId: id } }),
-      tx.tryoutDeliveryAudit.count({ where: { tryoutId: id } }),
-    ]);
-    // The system writes one creation row when it auto-creates the main session. That row alone is not
-    // history anyone acted on, so an untouched setup may be deleted with it; any other audit row, or any
-    // change to the session, keeps the Tryout archive-only.
-    const hasHistory = auditCount > 0 && !(await deliverySetupIsUntouched(tx, id));
-    if (attemptCount || releaseCount || admissionCount || hasHistory ) {
-      throw new TryoutValidationError("Tryout memiliki riwayat pengerjaan atau sesi. Arsipkan Tryout agar riwayat tetap tersimpan.");
+    const history = await summarizeTryoutHistory(tx, id);
+    if (history.hasHistory) {
+      if (!options.withHistory) throw new TryoutValidationError("Tryout memiliki riwayat pengerjaan atau sesi, jadi tidak dapat dihapus begitu saja. Hapus beserta riwayatnya dari Tryout yang sudah diarsipkan.");
+      if (history.activeAttemptCount) throw new TryoutValidationError("Masih ada peserta yang sedang mengerjakan Tryout ini. Tunggu sampai pengerjaan selesai sebelum menghapusnya.");
+      await purgeTryoutHistory(tx, id);
+      await tx.auditLog.create({
+        data: {
+          action: "tryout.purged",
+          actorUserId: actorId,
+          metadata: json({ admissions: history.admissionCount, attempts: history.attemptCount, title: current.title }),
+          targetId: id,
+          targetType: "tryout",
+        },
+      });
     }
 
     await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
     await tx.tryoutSection.deleteMany({ where: { tryoutId: id } });
-    // Audit rows reference the session and the Tryout with ON DELETE RESTRICT, so the system creation
-    // row has to go before them.
-    await tx.tryoutDeliveryAudit.deleteMany({ where: { tryoutId: id, action: MAIN_SESSION_AUTO_CREATED_AUDIT_ACTION } });
-    if (sessionCount) await tx.tryoutDeliverySession.deleteMany({ where: { tryoutId: id } });
+    // Audit rows reference the session and the Tryout with ON DELETE RESTRICT, so the system-written rows
+    // (session creation, archive and restore) have to go before them.
+    await tx.tryoutDeliveryAudit.deleteMany({ where: { tryoutId: id, action: { in: [MAIN_SESSION_AUTO_CREATED_AUDIT_ACTION, ...TRYOUT_LIFECYCLE_AUDIT_ACTIONS] } } });
+    await tx.tryoutDeliverySession.deleteMany({ where: { tryoutId: id } });
     await tx.tryoutPackage.delete({ where: { id } });
     return { id };
   });
 }
 
-async function deleteTryout(id: string, actorId: string, editLease: AuthoringEditLease) {
+/** What deleting this Tryout would take with it, or null when the Kapten cannot manage Tryouts or it does not exist. */
+async function getTryoutDeletionPlan(id: string, actorId: string) {
+  if (!(await isActiveTryoutManager(prisma, actorId))) return null;
+  return prisma.$transaction(async (tx) => (await tx.tryoutPackage.findFirst({ select: { id: true }, where: { id } })) ? summarizeTryoutHistory(tx, id) : null);
+}
+
+async function deleteTryout(id: string, actorId: string, editLease: AuthoringEditLease, options?: { withHistory?: boolean }) {
   return prisma.$transaction(async (tx) => {
     await prepareTryoutTransaction(tx);
-    return deleteTryoutCore(tx, id, actorId, { editLease, kind: "held" });
+    return deleteTryoutCore(tx, id, actorId, { editLease, kind: "held" }, options);
   });
 }
 
-async function deleteTryoutTransient(id: string, actorId: string) {
-  return withTransientTryoutLifecycle(id, actorId, (tx, editLease) => deleteTryoutCore(tx, id, actorId, editLease));
+async function deleteTryoutTransient(id: string, actorId: string, options?: { withHistory?: boolean }) {
+  return withTransientTryoutLifecycle(id, actorId, (tx, editLease) => deleteTryoutCore(tx, id, actorId, editLease, options));
 }
 
 async function readyReusableQuestionPackageVersion(packageId: string, actorId: string, editLease?: AuthoringEditLease) {
@@ -1465,6 +1582,11 @@ async function listTryouts(
 ): Promise<TryoutCatalogueDto[]> {
   if (!(await isActiveTryoutManager(prisma, actorId))) return [];
   const records = await prisma.tryoutPackage.findMany({ include: tryoutInclude, orderBy: { updatedAt: "desc" } });
+  const creators = await prisma.user.findMany({
+    select: { avatarUrl: true, fullName: true, id: true, tutorProfile: { select: { teachingSubject: { select: { name: true } } } } },
+    where: { id: { in: [...new Set(records.map((record) => record.createdByUserId))] } },
+  });
+  const creatorById = new Map(creators.map((user) => [user.id, { avatarSrc: user.avatarUrl, name: user.fullName, subject: user.tutorProfile?.teachingSubject?.name ?? null }]));
   return records.flatMap((record) => {
     if (
       (record.status === ContentStatus.archived && !options.includeArchived) ||
@@ -1479,6 +1601,20 @@ async function getTryoutForEdit(id: string, actorId: string) {
   if (!(await isActiveTryoutManager(prisma, actorId))) return null;
   const record = await prisma.tryoutPackage.findFirst({ where: { id }, include: tryoutInclude });
   return record && record.status !== ContentStatus.archived && !hasArchivedPackageBinding(record) ? toTryoutDto(record) : null;
+}
+/** Read-only subtest outline for an archived Tryout; carries no question content. */
+async function getArchivedTryoutOutline(id: string, actorId: string) {
+  if (!(await isActiveTryoutManager(prisma, actorId))) return null;
+  const record = await prisma.tryoutPackage.findFirst({ where: { id, status: ContentStatus.archived }, include: tryoutInclude });
+  if (!record) return null;
+  return {
+    sections: record.sections.map((section) => ({
+      durationMinutes: Math.round(section.durationSeconds / 60),
+      id: section.id,
+      questionCount: section.items.length,
+      title: section.subtest.name,
+    })),
+  };
 }
 function validateTryoutInput(input: SaveTryoutInput) {
   for (const section of input.sections) {
@@ -1582,11 +1718,6 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (!subtest) throw new TryoutValidationError("Subtes Tryout tidak ditemukan. Periksa kembali susunan Tryout.");
       const directQuestions = sectionInput.directQuestions ?? [];
       const sourceSelections = directQuestions.filter((question): question is DirectSourceQuestionInput => !isSnapshotQuestionInput(question));
-  const creators = await prisma.user.findMany({
-    select: { avatarUrl: true, fullName: true, id: true, tutorProfile: { select: { teachingSubject: { select: { name: true } } } } },
-    where: { id: { in: [...new Set(records.map((record) => record.createdByUserId))] } },
-  });
-  const creatorById = new Map(creators.map((user) => [user.id, { avatarSrc: user.avatarUrl, name: user.fullName, subject: user.tutorProfile?.teachingSubject?.name ?? null }]));
       const directSources = sourceSelections.length
         // react-doctor-disable-next-line async-await-in-loop -- validate each subject's source set within the shared transaction before continuing.
         ? await readAndValidateDirectSources(tx, sourceSelections, sectionInput.subtest)
@@ -1715,5 +1846,5 @@ async function duplicateTryout(id: string, actorId: string) {
   }, actorId);
 }
 
-export { archiveTryout, archiveTryoutTransient, deleteTryout, deleteTryoutTransient, duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, setTryoutHidden, setTryoutHiddenTransient, unpublishTryout, unpublishTryoutTransient, updateTryoutMetadata, updateTryoutMetadataTransient };
+export { archiveTryout, archiveTryoutTransient, deleteTryout, getTryoutDeletionPlan, deleteTryoutTransient, restoreTryout, restoreTryoutTransient, duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getArchivedTryoutOutline, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, setTryoutHidden, setTryoutHiddenTransient, unpublishTryout, unpublishTryoutTransient, updateTryoutMetadata, updateTryoutMetadataTransient };
 export type { DirectQuestionInput, PackageConflictCode, PackageDto, PackageInput, PackageItemInput, PackageMetadataInput, PackageSaveIntent, PackageVersionReadiness, ReleasedPackageVersion, SaveReusableQuestionPackageResult, SaveTryoutInput, TestInput, TryoutMetadataInput };

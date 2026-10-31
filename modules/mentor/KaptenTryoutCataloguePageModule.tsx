@@ -9,6 +9,7 @@ import {
   Lock,
   MoreHorizontal,
   Plus,
+  RotateCcw,
 } from "@/lib/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
@@ -61,7 +62,7 @@ import {
 } from "@/modules/mentor/components/mentor-assessment-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import styles from "@/modules/mentor/quiz-dashboard.module.css";
-import { archiveTryoutAction, setTryoutHiddenAction } from "@/modules/mentor/tryout-actions";
+import { archiveTryoutAction, restoreTryoutAction, setTryoutHiddenAction } from "@/modules/mentor/tryout-actions";
 import { MentorTryoutCreateDialog } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { buildTryoutCatalogueHref, readTryoutCatalogueContext, withTryoutCatalogueReturn, type TryoutCatalogueStatus } from "@/lib/navigation/mentor-tryout-continuity";
 
@@ -76,7 +77,7 @@ type TryoutItem = {
   title: string;
 };
 
-type TryoutMutation = "archive" | "hide" | "show";
+type TryoutMutation = "archive" | "hide" | "restore" | "show";
 
 /** The single status a Tryout shows: archived > hidden > published > draft. */
 function displayStatus(item: TryoutItem): TryoutCatalogueStatus {
@@ -106,17 +107,20 @@ const columnLabels: Record<string, string> = {
 const mutationLabels: Record<TryoutMutation, string> = {
   archive: "diarsipkan",
   hide: "disembunyikan",
+  restore: "dipulihkan",
   show: "ditampilkan kembali",
 };
 
 function tryoutColumns({
   busy,
   onArchive,
+  onRestore,
   onToggleHidden,
   returnTo,
 }: {
   busy: boolean;
   onArchive: (item: TryoutItem) => void;
+  onRestore: (item: TryoutItem) => void;
   onToggleHidden: (item: TryoutItem) => void;
   returnTo: string;
 }): ColumnDef<TryoutItem>[] {
@@ -208,7 +212,25 @@ function tryoutColumns({
       header: () => <span className={styles.srOnly}>Tindakan</span>,
       cell: ({ row }) => {
         const item = row.original;
-        if (item.status === "archived") return null;
+        if (item.status === "archived") {
+          return (
+            <MentorGridMenu
+              className={styles.iconButton}
+              disabled={busy}
+              label={`Tindakan untuk ${item.title}`}
+              trigger={<MoreHorizontal size={16} />}
+            >
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => onRestore(item)}
+                size="sm"
+              >
+                <RotateCcw />
+                Pulihkan
+              </DropdownMenuItem>
+            </MentorGridMenu>
+          );
+        }
         return (
           <MentorGridMenu
             className={styles.iconButton}
@@ -313,7 +335,9 @@ function KaptenTryoutCataloguePageModule({
           const result =
             action === "archive"
               ? await archiveTryoutAction(item.id)
-              : await setTryoutHiddenAction(item.id, action === "hide");
+              : action === "restore"
+                ? await restoreTryoutAction(item.id)
+                : await setTryoutHiddenAction(item.id, action === "hide");
           if (result.ok) succeeded.push(item.id);
           else failures.push(`${item.title}: ${result.message}`);
         } catch {
@@ -370,6 +394,7 @@ function KaptenTryoutCataloguePageModule({
     ...tryoutColumns({
       busy: saving,
       onArchive: (item) => setArchiveTargets([item]),
+      onRestore: (item) => void mutate([item], "restore"),
       onToggleHidden: toggleHidden,
       returnTo,
     }),
