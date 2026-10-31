@@ -34,7 +34,6 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
     delivery: parsedQuery.delivery ?? undefined,
     parent: parsedQuery.parent,
     returnTo: parsedQuery.returnTo,
-    session: parsedQuery.session,
     workspace: parsedQuery.workspace ?? (parsedQuery.delivery ? "operations" : undefined),
   });
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);

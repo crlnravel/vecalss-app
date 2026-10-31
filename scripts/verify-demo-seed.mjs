@@ -274,12 +274,9 @@ async function main() {
         WHERE tryout_id = $1`,
       [tryoutId],
     );
-    assert.equal(sessions.rowCount, 2, "The tryout must contain one active and one historical delivery session.");
-    const active = sessions.rows.find((session) => session.name === "Sesi Reguler Pekan Ini");
-    const historical = sessions.rows.find((session) => session.name === "Sesi Evaluasi Sebelumnya");
-    assert(active && active.status === "active", "The current delivery session must be active.");
-    assert(active.available_from <= new Date() && active.available_until > new Date(), "The current delivery session must be open now.");
-    assert(historical && historical.status === "closed" && historical.released_at, "The historical session must contain released results.");
+    assert.equal(sessions.rowCount, 1, "The tryout must contain exactly one delivery session.");
+    const [session] = sessions.rows;
+    assert(session.status === "closed" && session.released_at, "The demonstration session must be closed with released results.");
     if (!hasLegacyBindings) {
       assertSeedFreshSessionReleaseBindings(sessions.rows);
     }

@@ -171,14 +171,15 @@ try {
   const policyStart = await nextWindow();
   const policyEnd = new Date(policyStart.getTime() + 600_000);
   await prisma.tryoutDeliverySession.update({ where: { id: policy.sessionId }, data: { availableFrom: policyStart, availableUntil: policyEnd, resultReleasePolicy: "inherit" } });
-  const explicit = await prisma.tryoutDeliverySession.create({ data: { tryoutId: policy.tryoutId, name: "Riwayat dengan aturan sendiri", availableFrom: new Date(policyEnd.getTime() + 1000), availableUntil: new Date(policyEnd.getTime() + 601000), resultReleasePolicy: "scheduled", scheduledReleaseAt: new Date(policyEnd.getTime() + 602000), assessmentReleaseId: (await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: policy.sessionId } })).assessmentReleaseId, status: "active", createdByUserId: policy.ownerId, updatedByUserId: policy.ownerId } });
   const policyScope = { tryoutId: policy.tryoutId, sessionId: policy.sessionId };
   const configured = await configureTryoutDefaultResultRelease(policy.tryoutId, "manual", policy.ownerId, "Tunggu peninjauan Kapten.");
   const policyRead = await inspectTryoutSessionReadiness(policyScope, policy.ownerId);
   assert(policyRead?.policy.editable); assert.equal(policyRead.effectivePolicy, "manual"); assert(policyRead.inherited); assert.deepEqual(policyRead.policy.receipt, configured.receipt);
-  const explicitRead = await inspectTryoutSessionReadiness({ ...policyScope, sessionId: explicit.id }, policy.ownerId);
+  // The one session may carry its own explicit scheduled policy instead of inheriting the Tryout's.
+  await prisma.tryoutDeliverySession.update({ where: { id: policy.sessionId }, data: { resultReleasePolicy: "scheduled", scheduledReleaseAt: new Date(policyEnd.getTime() + 602000) } });
+  const explicitRead = await inspectTryoutSessionReadiness(policyScope, policy.ownerId);
   assert(explicitRead);
-  assert.equal(explicitRead?.effectivePolicy, "scheduled"); assert.equal(explicitRead.inherited, false); assert.equal(explicitRead.policy.sessions.length, 2);
+  assert.equal(explicitRead?.effectivePolicy, "scheduled"); assert.equal(explicitRead.inherited, false); assert.equal(explicitRead.policy.session?.id, explicitRead.scope.sessionId);
   assert.equal(await inspectTryoutSessionReadiness(policyScope, policy.studentId), null);
   await assert.rejects(configureTryoutDefaultResultRelease(policy.tryoutId, "inherit" as "manual", policy.ownerId, "Tidak tersedia."));
   await assert.rejects(configureTryoutDefaultResultRelease(policy.tryoutId, "immediate", policy.studentId, "Bukan pemilik."));
@@ -395,7 +396,7 @@ try {
   const recoverableRead = await inspectTryoutSessionReadiness(scope(recoverableQA), recoverableQA.ownerId); assert(recoverableRead); assert.equal(recoverableRead.counts.blocked, 1); assert.equal(recoverableRead.counts.ready, 0);
   assert.equal((await inspectTryoutCalculation({ ...scope(recoverableQA), attemptId: recoverableQA.attemptId }, recoverableQA.ownerId))?.state, "ready", "Leave the valid legacy-expired fixture recoverable, without performing recovery in setup");
   await writeFile(`${output}/qa-fixtures-candidate2.json`, JSON.stringify({ generatedBy: "SR03 public DB script", fixtures: await Promise.all([
-    qaFixture("recoverable legacy expired; blocked1→ready1 after explicit SR02 recovery", recoverableQA), qaFixture("ready unreleased; manual hidden", readyQA), qaFixture("corrupt non-excluded blocker", blocked), qaFixture("excluded-only", excludedOnly), qaFixture("archived readiness", archived), qaFixture("editable inherited policy and no-attempt student", policy), qaFixture("explicit scheduled historical session", { ...policy, sessionId: explicit.id }),
+    qaFixture("recoverable legacy expired; blocked1→ready1 after explicit SR02 recovery", recoverableQA), qaFixture("ready unreleased; manual hidden", readyQA), qaFixture("corrupt non-excluded blocker", blocked), qaFixture("excluded-only", excludedOnly), qaFixture("archived readiness", archived), qaFixture("editable inherited policy and no-attempt student", policy),
   ]) }, null, 2));
   evidence.push("Reusable sanitized QA map includes recoverable legacy-expired/7valid snapshots/no aggregate, ready hidden, corrupt, excluded-only, archived and editable multisession scopes"); console.log("PASS", evidence.at(-1));
 } finally {

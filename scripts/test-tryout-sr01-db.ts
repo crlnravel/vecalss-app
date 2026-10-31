@@ -249,7 +249,7 @@ try {
   assert.equal(publishedProjection.released, true);
   const validOperations = await atSr01Time(released.end, () => getOwnedTryoutOperationsView(released.tryoutId, released.ownerId));
   assert(validOperations);
-  const validOwnedAttempt = validOperations.sessions.find((session) => session.id === released.sessionId)!.attempts.find((attempt) => attempt.id === released.attemptId)!;
+  const validOwnedAttempt = validOperations.session!.attempts.find((attempt) => attempt.id === released.attemptId)!;
   const validOwnedResult = validOperations.results.find((result) => result.attemptId === released.attemptId)!;
   assert.equal(validOwnedAttempt.releaseReady, true);
   assert.equal(validOwnedAttempt.releaseIntegrityReason, null);
@@ -297,7 +297,7 @@ try {
     assert(!serialized.includes("validationFailure") && !serialized.includes("diagnostic"));
     const operations = await atSr01Time(damaged.end, () => getOwnedTryoutOperationsView(damaged.tryoutId, damaged.ownerId));
     assert(operations);
-    const ownedAttempt = operations.sessions.find((session) => session.id === damaged.sessionId)!.attempts.find((attempt) => attempt.id === damaged.attemptId)!;
+    const ownedAttempt = operations.session!.attempts.find((attempt) => attempt.id === damaged.attemptId)!;
     const ownedResult = operations.results.find((result) => result.attemptId === damaged.attemptId)!;
     assert.equal(ownedAttempt.releaseReady, false);
     assert.equal(ownedAttempt.releaseIntegrityReason, "Hasil yang sudah dirilis perlu diperiksa terlebih dahulu.");

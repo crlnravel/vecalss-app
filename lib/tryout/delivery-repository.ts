@@ -22,7 +22,6 @@ import {
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { createTryoutInvitationNotification } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
-import { MAIN_TRYOUT_SESSION_NAME, selectMainTryoutSession } from "@/lib/tryout/main-session";
 import {
   isTryoutAdmissionSessionAvailable,
 } from "@/lib/tryout/registration-availability";
@@ -219,9 +218,8 @@ async function findDefaultSessionCandidate(
   tx: Prisma.TransactionClient,
   tryoutId: string,
 ) {
-  const candidates = await tx.tryoutDeliverySession.findMany({
+  return tx.tryoutDeliverySession.findUnique({
     where: { tryoutId },
-    orderBy: { availableFrom: "asc" },
     select: {
       assessmentReleaseId: true,
       availableFrom: true,
@@ -232,7 +230,6 @@ async function findDefaultSessionCandidate(
       tryoutId: true,
     },
   });
-  return selectMainTryoutSession(candidates);
 }
 
 async function findDefaultSession(
@@ -508,7 +505,6 @@ async function updateTryoutDeliverySessionSchedule(
       select: { status: true },
     });
     const draftMainSession = tryout?.status === ContentStatus.draft
-      && session.name === MAIN_TRYOUT_SESSION_NAME
       && session.status === TryoutDeliverySessionStatus.draft;
     if (!tryout || (tryout.status !== ContentStatus.published && !draftMainSession)) {
       throw new TryoutDeliveryValidationError("Delivery hanya tersedia setelah Tryout diterbitkan.");
@@ -930,7 +926,7 @@ async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: str
     if (assignment.status === TryoutAssignmentStatus.revoked) return assignment;
     if (assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
     const existingAttempt = await tx.tryoutAttempt.findUnique({
-      where: { deliverySessionId_studentId: { deliverySessionId: assignment.deliverySessionId, studentId: assignment.admission.studentId } },
+      where: { tryoutId_studentId: { tryoutId: assignment.admission.tryoutId, studentId: assignment.admission.studentId } },
       select: { id: true },
     });
     if (existingAttempt) throw new TryoutDeliveryValidationError("Akses sesi yang sudah memiliki pengerjaan tidak dapat dicabut; riwayat peserta tetap dipertahankan.");

@@ -113,7 +113,7 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
                       ))}
                     </div>
                     {group.attemptId ? (
-                      <Link className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-control font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2" href={buildMentorTryoutAttemptHref(scope.tryoutId, group.attemptId, { ...context, session: scope.sessionId, workspace: "participants" })}>
+                      <Link className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-control font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2" href={buildMentorTryoutAttemptHref(scope.tryoutId, group.attemptId, { ...context, workspace: "participants" })}>
                         Periksa<ArrowRight aria-hidden="true" />
                       </Link>
                     ) : null}

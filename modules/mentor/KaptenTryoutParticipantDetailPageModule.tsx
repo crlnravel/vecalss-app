@@ -7,7 +7,6 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { showToast } from "@/components/ui/toast";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { tryoutAccessGrantBlockMessage } from "@/lib/tryout/registration-availability";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
@@ -32,10 +31,10 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
   const participant = view.participants.find((item) => item.admissionId === admissionId)!;
   const identity = participant.participant;
   const status = decidedStatus ?? participant.admission.status;
-  const main = selectMainTryoutSession(view.sessions);
+  const main = view.session;
   const eligible = main?.grantEligible;
   const canDecide = view.status !== "archived" && status === "pending";
-  const mainAssignment = participant.sessions.find((session) => session.id === main?.id);
+  const mainAssignment = participant.session;
   const canManage = view.status === "published" && ["active", "rejected", "revoked"].includes(status);
   const needsRestoration = status === "rejected" || status === "revoked" || mainAssignment?.assignmentStatus === "revoked";
   const confirmationTitle = confirmation === "approve" ? "Setujui pendaftaran" : confirmation === "reject" ? "Tolak pendaftaran" : confirmation === "revoke" ? "Cabut akses sesi" : confirmation === "restore" ? "Berikan akses lagi" : "Tugaskan sesi";
@@ -98,7 +97,7 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
     <ReferenceSurface className="grid gap-4 p-5 sm:grid-cols-2">
       <div><p className="text-sm text-secondary-600">Pendaftaran</p><p className="font-semibold text-secondary-900">{admissionStatusLabels[status]}</p><p className="mt-1 text-sm text-secondary-700">Diajukan {formatTryoutDateTime(participant.admission.requestedAt)} WIB</p></div>
       <div><p className="text-sm text-secondary-600">Pengerjaan</p><p className="font-semibold text-secondary-900">{participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] : "Belum mulai"}</p></div>
-      <div className="grid gap-3 sm:col-span-2"><h3 className="font-semibold text-secondary-900">Penugasan sesi</h3>{participant.sessions.length ? participant.sessions.map((session) => <div key={session.assignmentId}><p className="font-medium text-secondary-900">{session.name} · {assignmentStatusLabels[session.assignmentStatus]}</p><p className="text-sm text-secondary-600">{formatTryoutDateTime(session.availableFrom)} WIB – {formatTryoutDateTime(session.availableUntil)} WIB</p></div>) : <p className="text-sm text-secondary-600">Belum ada sesi yang ditugaskan.</p>}</div>
+      <div className="grid gap-3 sm:col-span-2"><h3 className="font-semibold text-secondary-900">Akses sesi</h3>{participant.session ? <div><p className="font-medium text-secondary-900">{participant.session.name} · {assignmentStatusLabels[participant.session.assignmentStatus]}</p><p className="text-sm text-secondary-600">{formatTryoutDateTime(participant.session.availableFrom)} WIB – {formatTryoutDateTime(participant.session.availableUntil)} WIB</p></div> : <p className="text-sm text-secondary-600">Belum diberi akses ke sesi.</p>}</div>
     </ReferenceSurface>
     {refreshFailed ? <div className="flex flex-wrap items-center gap-3"><p className="text-sm text-secondary-600">Muat ulang untuk melihat data peserta terbaru.</p><Button variant="outline" disabled={busy} onClick={() => void reload()}>{busy ? "Memuat…" : "Muat ulang data peserta"}</Button></div> : null}
     {view.status === "archived" ? <p className="text-sm text-secondary-600">Tryout sudah diarsipkan. Pendaftaran hanya dapat dilihat sebagai riwayat.</p> : null}
@@ -110,12 +109,12 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
       <div className="flex flex-wrap gap-3">
         {canDecide ? <><Button disabled={busy || !reason.trim() || !eligible || refreshFailed} onClick={() => setConfirmation("approve")}>Setujui</Button><Button variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => setConfirmation("reject")}>Tolak</Button></> : null}
         {canManage && (needsRestoration || mainAssignment?.assignmentStatus !== "active") ? <Button disabled={busy || !reason.trim() || !eligible || refreshFailed} onClick={() => setConfirmation(needsRestoration ? "restore" : "assign")}>{needsRestoration ? "Berikan akses lagi" : "Berikan akses sesi"}</Button> : null}
-        {canManage && status === "active" ? participant.sessions.filter((session) => session.assignmentStatus === "active").map((session) => <Button key={session.assignmentId} variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => { setRevokeTarget(session.assignmentId); setConfirmation("revoke"); }}>Cabut akses {session.name}</Button>) : null}
+        {canManage && status === "active" && participant.session?.assignmentStatus === "active" ? <Button variant="destructive" disabled={busy || !reason.trim() || refreshFailed} onClick={() => { setRevokeTarget(participant.session!.assignmentId); setConfirmation("revoke"); }}>Cabut akses sesi</Button> : null}
       </div>
     </ReferenceSurface> : null}
     <AlertDialog open={confirmation !== null} onOpenChange={(open) => { if (!open && !busy) setConfirmation(null); }}>
       <AlertDialogContent variant={confirmation === "reject" || confirmation === "revoke" ? "danger" : undefined}>
-        <AlertDialogHeader><AlertDialogTitle>{confirmationTitle} untuk {identity.displayName}?</AlertDialogTitle><AlertDialogDescription>{identity.email}. {confirmation === "reject" ? `Peserta tidak mendapat akses ke ${view.title}. Riwayat pendaftaran tetap tersimpan.` : confirmation === "revoke" ? `Peserta tidak dapat memulai ${participant.sessions.find((session) => session.assignmentId === revokeTarget)?.name ?? "sesi ini"}. Akses yang sudah memiliki pengerjaan tidak dapat dicabut.` : `Peserta mendapat akses ke ${main?.name ?? "sesi utama"} dan dapat mulai sesuai jadwal.`} Alasan: {reason}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogHeader><AlertDialogTitle>{confirmationTitle} untuk {identity.displayName}?</AlertDialogTitle><AlertDialogDescription>{identity.email}. {confirmation === "reject" ? `Peserta tidak mendapat akses ke ${view.title}. Riwayat pendaftaran tetap tersimpan.` : confirmation === "revoke" ? `Peserta tidak dapat memulai ${participant.session?.name ?? "sesi ini"}. Akses yang sudah memiliki pengerjaan tidak dapat dicabut.` : `Peserta mendapat akses ke ${main?.name ?? "sesi utama"} dan dapat mulai sesuai jadwal.`} Alasan: {reason}</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel><AlertDialogAction disabled={busy} variant={confirmation === "reject" || confirmation === "revoke" ? "destructive" : "default"} onClick={(event) => { event.preventDefault(); void decide(); }}>{busy ? "Memproses…" : confirmationTitle}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

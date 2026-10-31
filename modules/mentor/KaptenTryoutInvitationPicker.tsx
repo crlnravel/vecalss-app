@@ -9,7 +9,6 @@ import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-pri
 import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { showToast } from "@/components/ui/toast";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { tryoutAccessGrantBlockMessage } from "@/lib/tryout/registration-availability";
 import { invitationIntent, invitationSearchReducer, initialInvitationSearch } from "@/lib/tryout/invitation-state";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
@@ -22,9 +21,9 @@ import { withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recov
 const searchId = "tryout-invitation-search";
 const resultsId = "tryout-invitation-results";
 
-function KaptenTryoutInvitationPicker({ onRefresh, sessions, tryoutId, participantHref }: {
+function KaptenTryoutInvitationPicker({ onRefresh, session, tryoutId, participantHref }: {
   onRefresh: (view: TryoutParticipantsView) => void;
-  sessions: TryoutOperationsView["sessions"];
+  session: TryoutOperationsView["session"];
   tryoutId: string;
   participantHref: (admissionId: string) => string;
 }) {
@@ -35,8 +34,8 @@ function KaptenTryoutInvitationPicker({ onRefresh, sessions, tryoutId, participa
   const generation = useRef(0);
   const [confirmation, setConfirmation] = useState(false);
   const [recovery, setRecovery] = useState<"saved" | "unknown" | null>(null);
-  const main = selectMainTryoutSession(sessions);
-  const intent = invitationIntent(search.selected, main?.id ?? "");
+  const main = session;
+  const intent = invitationIntent(search.selected, Boolean(main));
   const eligible = Boolean(main?.grantEligible);
   const actionLabel = intent === "restore" ? "Berikan akses lagi" : "Berikan akses";
   usePageStatusToast({ active: search.loading, message: "Mencari siswa…", variant: "info" });

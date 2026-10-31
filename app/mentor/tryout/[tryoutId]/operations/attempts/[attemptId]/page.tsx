@@ -47,27 +47,26 @@ export default async function TryoutAttemptDetailPage({
     session.user.id,
   );
   if (!operations) notFound();
-  if (operations.status !== "published" && operations.status !== "archived") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, session: parsedQuery.session, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
-  const delivery = operations.sessions.find((candidate) => candidate.attempts.some((attempt) => attempt.id === attemptId));
+  if (operations.status !== "published" && operations.status !== "archived") redirect(getSafeRedirectUrl(buildMentorTryoutHref(tryoutId, { delivery: parsedQuery.delivery, parent: parsedQuery.parent, returnTo: parsedQuery.returnTo, workspace: parsedQuery.workspace ?? "basics" }), ["/mentor/tryout"]));
+  const delivery = operations.session && operations.session.attempts.some((attempt) => attempt.id === attemptId) ? operations.session : null;
   const attempt = delivery?.attempts.find((candidate) => candidate.id === attemptId);
   if (!delivery || !attempt) notFound();
   const issues: CanonicalContextIssue[] = [];
-  if (parsedQuery.session && parsedQuery.session !== delivery.id) issues.push({ code: "unsupported" as const, field: "session" as const, message: "Sesi Tryout tidak sesuai dengan detail yang dipilih.", value: parsedQuery.session });
   if (parsedQuery.participant && parsedQuery.participant !== attempt.admissionId) issues.push({ code: "unsupported" as const, field: "participant" as const, message: "Peserta tidak sesuai dengan detail yang dipilih.", value: parsedQuery.participant });
   if (issues.length) {
     return (
       <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail pengerjaan" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
         <section aria-labelledby="tryout-attempt-mismatch" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg sm:px-8" role="alert">
           <h1 className="text-lg font-semibold" id="tryout-attempt-mismatch">Detail pengerjaan tidak cocok</h1>
-          <p className="mt-2 text-sm leading-6">Sesi atau peserta di tautan ini berbeda dari detail yang dipilih. Kembali ke sesi Tryout, lalu buka lagi pengerjaan peserta.</p>
+          <p className="mt-2 text-sm leading-6">Peserta di tautan ini berbeda dari detail yang dipilih. Kembali ke Tryout, lalu buka lagi pengerjaan peserta.</p>
         </section>
       </MentorWorkspaceShell>
     );
   }
-  const backHref = buildMentorTryoutAttemptBackHref(tryoutId, { ...parsedQuery, session: delivery.id });
+  const backHref = buildMentorTryoutAttemptBackHref(tryoutId, { ...parsedQuery });
   const attemptBreadcrumbParent = parsedQuery.workspace === "participants"
     ? { href: backHref, label: "Hasil" }
-    : { href: `/mentor/tryout/${encodeURIComponent(tryoutId)}/operations/sessions/${encodeURIComponent(delivery.id)}?${new URL(backHref, "https://vecalss.invalid").searchParams}`, label: delivery.name };
+    : { href: backHref, label: delivery.name };
 
   const resultRecovery = await inspectTryoutCalculation({ attemptId, tryoutId, sessionId: delivery.id }, session.user.id);
 

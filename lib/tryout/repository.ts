@@ -209,7 +209,7 @@ async function ensureMainTryoutDeliverySession(
   },
 ) {
   const existing = await tx.tryoutDeliverySession.findFirst({
-    where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: input.tryoutId },
+    where: { tryoutId: input.tryoutId },
     orderBy: { createdAt: "asc" },
   });
 
@@ -1138,7 +1138,7 @@ async function unpublishTryoutCore(
 ) {
   return runTryoutLifecycleCore(tx, id, actorId, editLease, async (tx) => {
     const mainSessionForLock = await tx.tryoutDeliverySession.findFirst({
-      where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
+      where: { tryoutId: id },
       select: { id: true },
     });
     if (mainSessionForLock) await lockTryoutSessions(tx, [mainSessionForLock.id]);
@@ -1174,7 +1174,7 @@ async function unpublishTryoutCore(
     });
     // react-doctor-disable-next-line server-sequential-independent-await -- inspect the main session after the package status transition in the same transaction.
     const mainSession = await tx.tryoutDeliverySession.findFirst({
-      where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
+      where: { tryoutId: id },
       select: {
         availableFrom: true,
         availableUntil: true,
@@ -1411,19 +1411,18 @@ async function deleteTryoutCore(
     });
     await lockTryoutSessions(tx, sessionsForLock.map((session) => session.id));
 
-    const [attemptCount, releaseCount, sessionCount, admissionCount, auditCount, previewRestartCount] = await Promise.all([
+    const [attemptCount, releaseCount, sessionCount, admissionCount, auditCount] = await Promise.all([
       tx.tryoutAttempt.count({ where: { tryoutId: id } }),
       tx.assessmentRelease.count({ where: { tryoutId: id } }),
       tx.tryoutDeliverySession.count({ where: { tryoutId: id } }),
       tx.tryoutAdmission.count({ where: { tryoutId: id } }),
       tx.tryoutDeliveryAudit.count({ where: { tryoutId: id } }),
-      tx.adminPreviewTryoutRestart.count({ where: { tryoutId: id } }),
     ]);
     // The system writes one creation row when it auto-creates the main session. That row alone is not
     // history anyone acted on, so an untouched setup may be deleted with it; any other audit row, or any
     // change to the session, keeps the Tryout archive-only.
     const hasHistory = auditCount > 0 && !(await deliverySetupIsUntouched(tx, id));
-    if (attemptCount || releaseCount || admissionCount || hasHistory || previewRestartCount) {
+    if (attemptCount || releaseCount || admissionCount || hasHistory ) {
       throw new TryoutValidationError("Tryout memiliki riwayat pengerjaan atau sesi. Arsipkan Tryout agar riwayat tetap tersimpan.");
     }
 
@@ -1540,7 +1539,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     if (id) {
       await lockTryoutAuthoringIdentity(tx, id, actorId, input.editLease);
       const mainSession = await tx.tryoutDeliverySession.findFirst({
-        where: { name: MAIN_TRYOUT_SESSION_NAME, tryoutId: id },
+        where: { tryoutId: id },
         select: { id: true },
       });
       if (mainSession) await lockTryoutSessions(tx, [mainSession.id]);

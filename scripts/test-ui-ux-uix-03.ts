@@ -108,14 +108,14 @@ const tryoutContext = parseMentorTryoutContext(new URLSearchParams({
 check(tryoutContext.issues.length === 0, "Valid Tryout context has no issues");
 check(tryoutContext.workspace === "schedule", "Tryout delivery alias canonicalizes to Schedule");
 check(tryoutContext.delivery === "sessions", "Tryout delivery is preserved");
-check(tryoutContext.session === sessionId, "Tryout session is preserved");
+check(!("session" in tryoutContext), "Tryout context carries no session");
 check(tryoutContext.parent === tryoutId, "Tryout parent is preserved");
 const operationsHref = buildMentorTryoutOperationsHref(tryoutId, tryoutContext);
 check(operationsHref.includes("workspace=schedule"), "Tryout operations keeps workspace");
 check(operationsHref.includes("delivery=sessions"), "Tryout operations keeps delivery");
-check(operationsHref.includes(`session=${sessionId}`), "Tryout operations keeps session");
+check(!operationsHref.includes("session="), "Tryout operations carries no session");
 check(operationsHref.includes(`returnTo=${encodeURIComponent(tryoutContext.returnTo ?? "")}`), "Tryout operations keeps returnTo");
-check(buildMentorTryoutOperationsHref(tryoutId, { delivery: "sessions", session: sessionId }).includes("workspace=schedule"), "Tryout operations supplies the schedule default when workspace is omitted");
+check(buildMentorTryoutOperationsHref(tryoutId, { delivery: "sessions" }).includes("workspace=schedule"), "Tryout operations supplies the schedule default when workspace is omitted");
 
 const invalidTryout = parseMentorTryoutContext({ workspace: "legacy-area" });
 check(invalidTryout.workspace === null, "Invalid Tryout workspace remains unavailable");
@@ -134,7 +134,7 @@ const attemptContext = parseMentorTryoutAttemptContext({
 check(attemptContext.issues.length === 0, "Valid attempt context has no issues");
 const attemptHref = buildMentorTryoutAttemptHref(tryoutId, attemptId, { ...attemptContext, participant: participantId });
 check(attemptHref.includes(`participant=${participantId}`), "Attempts drilldown keeps participant");
-check(attemptHref.includes(`session=${sessionId}`), "Attempts drilldown keeps session");
+check(!attemptHref.includes("session="), "Attempts drilldown carries no session");
 
 const studentReturnTo = `/tryout/${tryoutId}?session=${sessionId}`;
 const studentContext = parseStudentContext({ tool: "review", artifact: "analysis", returnTo: studentReturnTo });

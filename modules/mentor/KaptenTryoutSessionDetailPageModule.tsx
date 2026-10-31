@@ -50,7 +50,7 @@ const attemptStateLabels: Record<string, string> = {
   void: "Dibatalkan",
 };
 
-type DeliverySession = TryoutOperationsView["sessions"][number];
+type DeliverySession = NonNullable<TryoutOperationsView["session"]>;
 type SessionSchedule = { availableFrom: string; availableUntil: string };
 
 function SessionDetailHeader({ busy, delivery, initial, onOpen }: { busy: boolean; delivery: DeliverySession; initial: TryoutOperationsView; onOpen: () => void }) {
@@ -133,7 +133,7 @@ function SessionAttemptsTable({ delivery, tryoutId }: { delivery: DeliverySessio
           <caption className="sr-only">Pengerjaan peserta untuk {delivery.name}</caption>
           <TableHeader className="bg-secondary-50/80"><TableRow className="border-primary-100 hover:bg-secondary-50/80"><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Test selesai</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Status</TableHead><TableHead className="h-11 w-24 px-4 py-2.5 text-right text-xs font-semibold text-secondary-700 sm:px-5">Aksi</TableHead></TableRow></TableHeader>
           <TableBody>
-            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} href={buildMentorTryoutAttemptHref(tryoutId, attempt.id, { ...context, workspace: "operations", delivery: "sessions", session: delivery.id })} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada pengerjaan. Daftar muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
+            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} href={buildMentorTryoutAttemptHref(tryoutId, attempt.id, { ...context, workspace: "operations", delivery: "sessions" })} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada pengerjaan. Daftar muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </ReferenceSurface>
@@ -160,15 +160,13 @@ function KaptenTryoutSessionDetailPageModule({
   embedded = false,
   showAttempts = false,
   initial,
-  sessionId,
 }: {
   embedded?: boolean;
   showAttempts?: boolean;
   initial: TryoutOperationsView;
-  sessionId: string;
 }) {
   const router = useRouter();
-  const delivery = initial.sessions.find((session) => session.id === sessionId)!;
+  const delivery = initial.session!;
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [busy, setBusy] = useState(false);
   const [schedule, setSchedule] = useState(() => ({

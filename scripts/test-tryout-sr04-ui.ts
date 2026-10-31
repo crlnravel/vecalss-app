@@ -9,7 +9,7 @@ import { findElements, withReactDomTest } from "./react-dom-test-host";
 
 const scope = { tryoutId: "33333333-3333-4333-8333-333333333333", sessionId: "22222222-2222-4222-8222-222222222222" };
 const receipt = { ...scope, id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", actorId: "owner", actorName: "Kapten Rani", participantCount: 2, releasedAt: "2026-10-18T00:00:00.000Z", reason: "Semua hasil diperiksa." };
-const initial: TryoutSessionReadiness = { scope, sessionName: "Sesi utama yang panjang", availableUntil: receipt.releasedAt, serverNow: receipt.releasedAt, effectivePolicy: "manual", inherited: true, ready: true, counts: { attempts: 2, candidates: 2, ready: 2, blocked: 0, excluded: 0, void: 0, abandoned: 0, noAttempt: 0 }, blockers: [], publication: null, policy: { baseline: { auditCount: 0, policy: "manual" }, value: "manual", editable: false, reason: "Terkunci", receipt: null, sessions: [] } };
+const initial: TryoutSessionReadiness = { scope, sessionName: "Sesi utama yang panjang", availableUntil: receipt.releasedAt, serverNow: receipt.releasedAt, effectivePolicy: "manual", inherited: true, ready: true, counts: { attempts: 2, candidates: 2, ready: 2, blocked: 0, excluded: 0, void: 0, abandoned: 0, noAttempt: 0 }, blockers: [], publication: null, policy: { baseline: { auditCount: 0, policy: "manual" }, value: "manual", editable: false, reason: "Terkunci", receipt: null, session: null } };
 const tick = async () => { for (let n = 0; n < 12; n++) await Promise.resolve(); };
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((yes) => { resolve = yes; }); return { resolve, promise }; }
 

@@ -85,12 +85,12 @@ export function TryoutResultPolicyForm({ initial, refresh }: { initial: TryoutSe
       <summary className="min-h-11 cursor-pointer rounded-control py-2.5 text-sm font-semibold leading-6 text-secondary-900 marker:text-primary-700 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2">Sesi dan riwayat aturan</summary>
       <div className="grid min-w-0 gap-3 pb-1 pt-2">
         <ul className="grid gap-3 text-sm leading-6 text-secondary-700">
-          {initial.policy.sessions.map((session) => (
-            <li key={session.id} className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
-              <span className="min-w-0 break-words font-medium text-secondary-900">{session.name}</span>
-              <span className="min-w-0 sm:text-right">{session.inherited ? "Mengikuti aturan Tryout" : `Aturan sesi sendiri · ${resultPolicyLabels[session.effectivePolicy] ?? "Belum tersedia"}`}</span>
+          {initial.policy.session ? (
+            <li className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4">
+              <span className="min-w-0 break-words font-medium text-secondary-900">{initial.policy.session.name}</span>
+              <span className="min-w-0 sm:text-right">{initial.policy.session.inherited ? "Mengikuti aturan Tryout" : `Aturan sesi sendiri · ${resultPolicyLabels[initial.policy.session.effectivePolicy] ?? "Belum tersedia"}`}</span>
             </li>
-          ))}
+          ) : null}
         </ul>
         {receipt && !state.receipt ? <p className="break-words text-sm leading-6 text-secondary-600">Perubahan terakhir tercatat {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(receipt.configuredAt))}. Alasan: {receipt.reason}</p> : null}
       </div>

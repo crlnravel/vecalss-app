@@ -6,8 +6,8 @@ import * as continuity from "../lib/navigation/mentor-tryout-continuity";
 
 const catalogue = "/mentor/tryout?q=UTBK&status=published&page=2";
 const filters = {
-  q: "Nabila & Alya", status: "pending", access: "all", page: "2",
-  session: "session", parent: "parent", returnTo: catalogue,
+  q: "Nabila & Alya", status: "pending", page: "2",
+  parent: "parent", returnTo: catalogue,
   resultQ: "Alya", resultStatus: "submitted",
 };
 type Route = (props: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, string | string[]>> }) => Promise<unknown>;
@@ -50,7 +50,7 @@ async function redirectOf(path: string, query: Record<string, string | string[]>
   }
 }
 
-for (const [suffix, delivery] of [["operations", "participants"], ["operations/policy", "policy"], ["operations/sessions", "sessions"], ["operations/sessions/new", "sessions"], ["operations/participants", "participants"]]) {
+for (const [suffix, delivery] of [["operations", "participants"], ["operations/policy", "policy"], ["operations/sessions", "sessions"], ["operations/sessions/new", "sessions"], ["operations/sessions/[sessionId]", "sessions"], ["operations/participants", "participants"]]) {
   const path = `app/mentor/tryout/[tryoutId]/${suffix}/page.tsx`;
   const receipt = await redirectOf(path, { ...filters, ...(suffix === "operations" ? { delivery: "participants" } : {}) });
   assert.equal(receipt.kind, "redirect");
@@ -73,10 +73,16 @@ for (const workspace of ["schedule", "attempts", "live"]) {
   for (const [key, value] of Object.entries(filters)) assert.equal(actual.get(key), value, `${workspace} alias must retain ${key}`);
 }
 
-const invalidQueries: Array<Record<string, string | string[]>> = [{ workspace: ["operations", "settings"] }, { returnTo: "https://evil.test" }, { session: "bad/value" }];
-for (const suffix of ["operations", "operations/policy", "operations/sessions", "operations/sessions/new", "operations/participants"]) {
+const invalidQueries: Array<Record<string, string | string[]>> = [{ workspace: ["operations", "settings"] }, { returnTo: "https://evil.test" }];
+for (const suffix of ["operations", "operations/policy", "operations/sessions", "operations/sessions/new", "operations/sessions/[sessionId]", "operations/participants"]) {
   for (const invalid of invalidQueries) {
     assert.equal((await redirectOf(`app/mentor/tryout/[tryoutId]/${suffix}/page.tsx`, invalid)).kind, "not-found", "Invalid incoming context must not be silently erased");
   }
+}
+// A legacy ?session= value is accepted and dropped from the canonical target.
+for (const suffix of ["operations", "operations/sessions", "operations/sessions/[sessionId]"]) {
+  const receipt = await redirectOf(`app/mentor/tryout/[tryoutId]/${suffix}/page.tsx`, { session: "legacy-session" });
+  assert.equal(receipt.kind, "redirect", `${suffix} must accept a legacy session value`);
+  assert.equal(new URL(receipt.href, "http://local").searchParams.has("session"), false, `${suffix} must drop a legacy session value`);
 }
 console.log("PASS actual tutor redirect boundaries preserve catalogue, admission, result and session context; invalid context is refused");

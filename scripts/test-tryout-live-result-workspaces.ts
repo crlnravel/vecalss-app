@@ -57,7 +57,7 @@ assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { 
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", scoringReviewReason: "Tinjau" , scoringState: "review_required" } }).state, "submitted");
 assert.match(delivery, /tryout\.status !== ContentStatus\.published/u, "Delivery mutations must reject draft Tryouts before ownership/session writes");
 assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted in the gated builder");
-assert.match(results, /window\.history\.replaceState[\s\S]*validSessionId/u, "stale Results session links must normalize to a safe session in the URL");
+assert.doesNotMatch(results, /validSessionId|searchParams\.set\("session"/u, "Results must not manage a session selection in the URL");
 
 const hidden = deriveTryoutResultProjection({
   attempt: { ...baseAttempt, attemptState: "submitted", releaseReady: true, releaseState: "hidden", score: "88.50", scoringState: "scored", status: "submitted" },
@@ -186,8 +186,7 @@ assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a p
 assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.match(attemptDetailRoute, /contentElement="div"/u);
 assert.match(participantDetailRoute, /contentElement="div"/u);
-assert.doesNotMatch(sessionDetailRoute, /operations\.status !== "published"/u, "draft main-session detail must remain reachable for schedule editing");
-assert.match(sessionDetailRoute, /operations\.sessions\.some\(\(item\) => item\.id === sessionId\)/u, "session detail must validate ownership before rendering");
+assert.match(sessionDetailRoute, /redirect\(buildMentorTryoutHref/u, "the retired per-session route must redirect to operations");
 assert.match(sessionCreateRoute, /workspace: "operations"/u, "the retired new-session route must return to the consolidated operations page");
 assert.match(operationsRoute, /workspace: "operations"/u, "legacy session context must land on the consolidated operations page");
 assert.match(operationsModule, /KaptenTryoutSessionDetailPageModule[\s\S]*embedded/u, "the operational page must embed the main-session calendar editor");

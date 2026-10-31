@@ -21,7 +21,7 @@ export type TryoutSessionReadiness = {
   counts: { attempts: number; candidates: number; ready: number; blocked: number; excluded: number; void: number; abandoned: number; noAttempt: number };
   blockers: TryoutReadinessBlocker[];
   publication: { releasedAt: string; actorId: string | null; reason: string | null; receipt?: TryoutPublicationReceipt | null } | null;
-  policy: { baseline: TryoutPolicyBaseline; editable: boolean; reason: string | null; value: string; receipt: TryoutPolicyReceipt | null; intentReceipt?: TryoutPolicyReceipt | null; sessions: Array<{ id: string; name: string; inherited: boolean; effectivePolicy: string }> };
+  policy: { baseline: TryoutPolicyBaseline; editable: boolean; reason: string | null; value: string; receipt: TryoutPolicyReceipt | null; intentReceipt?: TryoutPolicyReceipt | null; session: { id: string; name: string; inherited: boolean; effectivePolicy: string } | null };
 };
 
 export async function readTryoutSessionReadiness(scope: TryoutPolicyInspectionScope, fetcher: typeof fetch = fetch): Promise<{ ok: true; snapshot: TryoutSessionReadiness } | { ok: false }> {

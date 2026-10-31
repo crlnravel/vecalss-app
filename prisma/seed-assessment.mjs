@@ -1225,7 +1225,7 @@ async function upsertDeliverySession(client, { assessmentRelease, name, relative
        $8::uuid, $8::uuid, CASE WHEN $9::boolean THEN NOW() - INTERVAL '6 days' ELSE NULL END,
        CASE WHEN $9::boolean THEN $8::uuid ELSE NULL END
      )
-     ON CONFLICT (tryout_id, name) DO UPDATE
+     ON CONFLICT (tryout_id) DO UPDATE
        SET available_from = EXCLUDED.available_from,
            available_until = EXCLUDED.available_until,
            result_release_policy = EXCLUDED.result_release_policy,
@@ -2091,35 +2091,25 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
     rejected: await upsertAdmission(client, { decidedByUserId: tutorId, status: "rejected", studentId: studentIds.rejected, tryoutId }),
     revoked: await upsertAdmission(client, { decidedByUserId: tutorId, status: "revoked", studentId: studentIds.revoked, tryoutId }),
   };
-  const [historicalSessionId, activeSessionId] = await Promise.all([
-    upsertDeliverySession(client, {
-      assessmentRelease,
-      name: "Sesi Evaluasi Sebelumnya",
-      relativeWindow: { from: -10, until: -8 },
-      release: { fullscreenPrompt: true, policy: "manual", released: true },
-      status: "closed",
-      tryoutId,
-      tutorId,
-    }),
-    upsertDeliverySession(client, {
-      assessmentRelease,
-      name: "Sesi Reguler Pekan Ini",
-      relativeWindow: { from: -1, until: 7 },
-      release: { fullscreenPrompt: true, policy: "automatic_at_end", released: false },
-      status: "active",
-      tryoutId,
-      tutorId,
-    }),
-  ]);
-  await upsertAssignment(client, { admissionId: admissions.primary, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, status: "revoked", tutorId });
-  await upsertAssignment(client, { admissionId: admissions.completed, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, tutorId });
-  await upsertAssignment(client, { admissionId: admissions.secondCompleted, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, tutorId });
-  await upsertAssignment(client, { admissionId: admissions.primary, deliverySessionId: activeSessionId, tutorId });
-  await upsertAssignment(client, { admissionId: admissions.completed, deliverySessionId: activeSessionId, tutorId });
+  // A Tryout has exactly one Sesi Tryout. The demo Tryout's session has already
+  // closed and published its results, so the seeded attempts and scores are
+  // reviewable by Kapten and Voyager.
+  const sessionId = await upsertDeliverySession(client, {
+    assessmentRelease,
+    name: "Sesi utama",
+    relativeWindow: { from: -10, until: -8 },
+    release: { fullscreenPrompt: true, policy: "manual", released: true },
+    status: "closed",
+    tryoutId,
+    tutorId,
+  });
+  await upsertAssignment(client, { admissionId: admissions.primary, assignedDaysAgo: 10, deliverySessionId: sessionId, tutorId });
+  await upsertAssignment(client, { admissionId: admissions.completed, assignedDaysAgo: 10, deliverySessionId: sessionId, tutorId });
+  await upsertAssignment(client, { admissionId: admissions.secondCompleted, assignedDaysAgo: 10, deliverySessionId: sessionId, tutorId });
 
-  await seedCompletedAttempt(client, { admissionId: admissions.primary, deliverySessionId: historicalSessionId, scorePattern: [2, 2, 2, 1, 3, 2, 2], studentId: studentIds.primary, tryoutId });
-  await seedCompletedAttempt(client, { admissionId: admissions.completed, deliverySessionId: historicalSessionId, scorePattern: [2, 3, 2, 2, 3, 3, 2], studentId: studentIds.completed, tryoutId });
-  await seedCompletedAttempt(client, { admissionId: admissions.secondCompleted, deliverySessionId: historicalSessionId, scorePattern: [1, 2, 2, 1, 2, 2, 1], studentId: studentIds.secondCompleted, tryoutId });
+  await seedCompletedAttempt(client, { admissionId: admissions.primary, deliverySessionId: sessionId, scorePattern: [2, 2, 2, 1, 3, 2, 2], studentId: studentIds.primary, tryoutId });
+  await seedCompletedAttempt(client, { admissionId: admissions.completed, deliverySessionId: sessionId, scorePattern: [2, 3, 2, 2, 3, 3, 2], studentId: studentIds.completed, tryoutId });
+  await seedCompletedAttempt(client, { admissionId: admissions.secondCompleted, deliverySessionId: sessionId, scorePattern: [1, 2, 2, 1, 2, 2, 1], studentId: studentIds.secondCompleted, tryoutId });
 
   const auditResult = await client.query(
     "SELECT id FROM tryout_delivery_audits WHERE tryout_id = $1 AND action = 'demo.seed_completed' LIMIT 1",
@@ -2130,10 +2120,10 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
       `INSERT INTO tryout_delivery_audits (
          tryout_id, delivery_session_id, actor_user_id, action, reason, after
        ) VALUES ($1, $2, $3, 'demo.seed_completed', $4, $5::jsonb)`,
-      [tryoutId, activeSessionId, tutorId, "Menyiapkan data demonstrasi untuk peninjauan alur peserta dan operasi tryout.", JSON.stringify({ activeSessionId, participantCount: Object.keys(admissions).length })],
+      [tryoutId, sessionId, tutorId, "Menyiapkan data demonstrasi untuk peninjauan alur peserta dan operasi tryout.", JSON.stringify({ sessionId, participantCount: Object.keys(admissions).length })],
     );
   }
-  return { activeSessionId, historicalSessionId };
+  return { sessionId };
 }
 
 async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) {

@@ -24,7 +24,7 @@ const serveTryoutReadinessInspection = (request: Request, dependencies: Omit<Rea
 const scope = { sessionId: "22222222-2222-4222-8222-222222222222", tryoutId: "33333333-3333-4333-8333-333333333333" };
 const baseline = { auditCount: 0, policy: "immediate" };
 const receipt = { expectedBaseline: baseline, id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", configuredAt: "2026-10-18T00:00:00Z", reason: "Tunggu Kapten.", policy: "manual" as const };
-const ready: TryoutSessionReadiness = { scope, sessionName: "Sesi utama", availableUntil: "2040-01-01T00:00:00Z", serverNow: "2040-01-01T00:00:00Z", effectivePolicy: "immediate", inherited: true, ready: false, counts: { attempts: 0, candidates: 0, ready: 0, blocked: 0, excluded: 0, void: 0, abandoned: 0, noAttempt: 1 }, blockers: [], publication: null, policy: { baseline, value: "immediate", editable: true, reason: null, receipt: null, sessions: [{ id: scope.sessionId, name: "Sesi utama", inherited: true, effectivePolicy: "immediate" }] } };
+const ready: TryoutSessionReadiness = { scope, sessionName: "Sesi utama", availableUntil: "2040-01-01T00:00:00Z", serverNow: "2040-01-01T00:00:00Z", effectivePolicy: "immediate", inherited: true, ready: false, counts: { attempts: 0, candidates: 0, ready: 0, blocked: 0, excluded: 0, void: 0, abandoned: 0, noAttempt: 1 }, blockers: [], publication: null, policy: { baseline, value: "immediate", editable: true, reason: null, receipt: null, session: { id: scope.sessionId, name: "Sesi utama", inherited: true, effectivePolicy: "immediate" } } };
 const saved = { ...ready, effectivePolicy: "manual", policy: { ...ready.policy, value: "manual", receipt, intentReceipt: receipt } };
 const tick = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((yes) => { resolve = yes; }); return { promise, resolve }; }
@@ -181,7 +181,7 @@ await withReactDomTest(async (root, render) => {
 });
 console.log("PASS actual mounted stale first execution: retained fields, refresh gate, refreshed baseline and fresh UUID");
 
-const back = buildMentorTryoutAttemptBackHref(scope.tryoutId, parseMentorTryoutAttemptContext(new URL(buildMentorTryoutAttemptHref(scope.tryoutId, "attempt", { workspace: "participants", parent: "parent", session: scope.sessionId, resultQ: "Dimas", resultStatus: "submitted" }), "http://localhost").searchParams));
+const back = buildMentorTryoutAttemptBackHref(scope.tryoutId, parseMentorTryoutAttemptContext(new URL(buildMentorTryoutAttemptHref(scope.tryoutId, "attempt", { workspace: "participants", parent: "parent", resultQ: "Dimas", resultStatus: "submitted" }), "http://localhost").searchParams));
 assert.equal(parseMentorTryoutContext(new URL(back, "http://localhost").searchParams).resultQ, "Dimas");
 console.log("PASS actual mounted policy form selection/reason/known refusal/save/discard/stay/unload and guarded programmatic row navigation; contextual recovery links");
 
@@ -309,7 +309,7 @@ await withReactDomTest(async (root, render) => {
   await render(createElement(Summary, { scope, context })); await act(tick);
   assert.match(root.textContent, /8 siap · 2 perlu diperiksa/); assert.match(root.textContent, /1 dibatalkan · 2 ditinggalkan · 4 belum mengerjakan/); assert.match(root.textContent, /Skor perlu diperiksa/); assert.match(root.textContent, /Pembahasan tersimpan belum lengkap/);
   assert.deepEqual(requestedScopes.at(-1), scope, "Search/filter never enter readiness GET");
-  const link = findElements(root, "a")[0]; const parsed = parseMentorTryoutAttemptContext(new URL(link.getAttribute("href")!, "http://localhost").searchParams); assert.equal(parsed.resultQ, "Dimas"); assert.equal(parsed.session, scope.sessionId); assert.equal(parsed.parent, "parent"); assert.equal(parsed.workspace, "participants");
+  const link = findElements(root, "a")[0]; const parsed = parseMentorTryoutAttemptContext(new URL(link.getAttribute("href")!, "http://localhost").searchParams); assert.equal(parsed.resultQ, "Dimas"); assert.equal("session" in parsed, false); assert.equal(parsed.parent, "parent"); assert.equal(parsed.workspace, "participants");
   const late = deferred<{ ok: true; snapshot: TryoutSessionReadiness }>(); reading = late.promise;
   await render(null); await render(createElement(Summary, { scope, context })); await render(null); late.resolve({ ok: true, snapshot: blocked }); await act(tick); assert.equal(root.textContent, "");
 });

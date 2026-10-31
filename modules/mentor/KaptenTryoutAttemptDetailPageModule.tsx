@@ -42,7 +42,7 @@ function formatTimestamp(value: string | null) {
   return timestampFormatter.format(new Date(value));
 }
 
-type AttemptRecord = TryoutOperationsView["sessions"][number]["attempts"][number];
+type AttemptRecord = NonNullable<TryoutOperationsView["session"]>["attempts"][number];
 type AttemptRun = AttemptRecord["runs"][number];
 
 function AttemptRunRow({ run }: { run: AttemptRun }) {
@@ -101,9 +101,7 @@ function KaptenTryoutAttemptDetailPageModule({
   resultRecovery?: TryoutResultRecoverySnapshot | null;
 }) {
   const router = useRouter();
-  const delivery = initial.sessions.find((session) =>
-    session.attempts.some((attempt) => attempt.id === attemptId),
-  )!;
+  const delivery = initial.session!;
   const attempt = delivery.attempts.find((item) => item.id === attemptId)!;
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const [auditReason, setAuditReason] = useState("");

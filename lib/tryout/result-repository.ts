@@ -609,9 +609,8 @@ async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, 
     const now = new Date();
     const blockers = [...evaluated.blockers];
     if (evaluated.policy === "manual" && session.releaseState !== "released" && now < session.availableUntil) blockers.push({ category: "end", attemptId: null, section: null, message: "Sesi belum berakhir. Rilis manual tersedia setelah waktu selesai." });
-    const [started, sessions, receipt, noAttempt, intentReceipt, auditCount] = await Promise.all([
+    const [started, receipt, noAttempt, intentReceipt, auditCount] = await Promise.all([
       tx.tryoutAttempt.count({ where: { tryoutId: scope.tryoutId } }),
-      tx.tryoutDeliverySession.findMany({ where: { tryoutId: scope.tryoutId }, orderBy: [{ availableFrom: "asc" }, { id: "asc" }], select: { id: true, name: true, resultReleasePolicy: true } }),
       tx.tryoutDeliveryAudit.findFirst({ where: { tryoutId: scope.tryoutId, action: "result_release.default_configured" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, createdAt: true, reason: true, after: true } }),
       // Assignment uniqueness is (admissionId, deliverySessionId), so this
       // focused count preserves distinct active admissions without an attempt.
@@ -632,7 +631,7 @@ async function inspectTryoutSessionReadiness(scope: TryoutResultReadinessScope, 
         value: session.tryout.defaultResultReleasePolicy,
         receipt: policyAuditReceipt(receipt),
         ...(requestId ? { intentReceipt: policyAuditReceipt(intentReceipt) } : {}),
-        sessions: sessions.map((row) => ({ id: row.id, name: row.name, inherited: row.resultReleasePolicy === "inherit", effectivePolicy: row.resultReleasePolicy === "inherit" ? session.tryout.defaultResultReleasePolicy : row.resultReleasePolicy })),
+        session: { id: session.id, name: session.name, inherited: session.resultReleasePolicy === "inherit", effectivePolicy: session.resultReleasePolicy === "inherit" ? session.tryout.defaultResultReleasePolicy : session.resultReleasePolicy },
       },
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: TRYOUT_RELEASE_SYNC_TRANSACTION_TIMEOUT_MS });

@@ -1,27 +1,13 @@
 "use client";
 
 import { CircleAlert } from "@/lib/icons";
-import { useEffect, useState } from "react";
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 
-function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
-  const mainSession = selectMainTryoutSession(initial.sessions);
-  const [activeSessionId] = useState<string | null>(mainSession?.id ?? null);
-  const validSessionId = mainSession && activeSessionId === mainSession.id ? activeSessionId : mainSession?.id ?? null;
-  const activeSession = mainSession && mainSession.id === validSessionId ? mainSession : null;
+function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsView }) {
+  const activeSession = initial.session;
   const visibleSessions = activeSession ? [activeSession] : [];
-
-  useEffect(() => {
-    if (!selectedSessionId || !validSessionId || selectedSessionId === validSessionId) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("workspace", "results");
-    url.searchParams.set("session", validSessionId);
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [selectedSessionId, validSessionId]);
 
   return (
     <section className="grid min-w-0 w-full grid-cols-1 gap-6" aria-labelledby="tryout-results-title">

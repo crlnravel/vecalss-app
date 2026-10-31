@@ -74,7 +74,6 @@ type TryoutWorkflowDraftReadiness = {
 };
 
 type TryoutWorkflowQuery = {
-  session?: string | null;
   workspace?: string | null;
 };
 
@@ -86,10 +85,9 @@ type TryoutWorkflowProjectionInput = {
   query?: TryoutWorkflowQuery;
   readinessPublishReady?: boolean;
   readinessReady?: boolean;
-  requestedSessionId?: string | null;
   requestedStep?: string | null;
   sectionsReady?: boolean;
-  sessions?: readonly TryoutWorkflowSession[];
+  session?: TryoutWorkflowSession | null;
   status?: string | null;
   title?: string | null;
   tryoutId?: string | null;
@@ -102,8 +100,6 @@ type TryoutWorkflowRecommendedAction = {
   step: TryoutWorkflowStep;
 };
 
-type TryoutWorkflowSessionSelectionReason = "first_session" | "none" | "recommended" | "requested";
-
 type TryoutWorkflowProjection = {
   allowedSteps: TryoutWorkflowStep[];
   blockers: Record<TryoutWorkflowBlockerKey, TryoutWorkflowIssue[]>;
@@ -111,29 +107,14 @@ type TryoutWorkflowProjection = {
   currentStep: TryoutWorkflowStep;
   defaultStep: TryoutWorkflowStep;
   liveAvailable: boolean;
-  liveEligibleSessionIds: string[];
   mode: TryoutWorkflowMode;
   normalizedQuery: {
-    requestedSessionId: string | null;
     requestedStep: string | null;
-    selectedSessionId: string | null;
-    selectedSessionWasNormalized: boolean;
     stepWasNormalized: boolean;
   };
   operationsAvailable: boolean;
   recommendedNextAction: TryoutWorkflowRecommendedAction | null;
-  resultEligibleSessionIds: string[];
   resultsAvailable: boolean;
-  runtimeEligibleSessionIds: string[];
-  selectedSessionId: string | null;
-  selectedSessionRuntimeEligible: boolean;
-};
-
-type TryoutSessionSelection = {
-  normalized: boolean;
-  reason: TryoutWorkflowSessionSelectionReason;
-  requestedSessionId: string | null;
-  selectedSessionId: string | null;
 };
 
 const allBlockerKeys: TryoutWorkflowBlockerKey[] = [
@@ -200,10 +181,6 @@ function sessionIsRuntimeEligible(session: TryoutWorkflowSession) {
   return normalizedStatus(session.status) === "active" && Boolean(assessmentReleaseId(session));
 }
 
-function uniqueSessionIds(sessions: readonly TryoutWorkflowSession[]) {
-  return [...new Set(sessions.map((session) => asTrimmedString(session.id)).filter((id): id is string => Boolean(id)))];
-}
-
 function normalizeIssues(
   issues: readonly TryoutWorkflowIssueInput[] | undefined,
   fallback: TryoutWorkflowIssue,
@@ -250,12 +227,6 @@ function requestedStepFrom(input: TryoutWorkflowProjectionInput) {
     ?? null;
 }
 
-function requestedSessionFrom(input: TryoutWorkflowProjectionInput) {
-  return input.requestedSessionId
-    ?? input.query?.session
-    ?? null;
-}
-
 function modeFrom(input: TryoutWorkflowProjectionInput): TryoutWorkflowMode {
   if (input.mode) return input.mode;
   return input.status?.trim().toLowerCase() === "published" ? "published" : "draft";
@@ -277,11 +248,10 @@ function draftReadinessFrom(input: TryoutWorkflowProjectionInput) {
   };
 }
 
-function hrefForStep(input: TryoutWorkflowProjectionInput, step: TryoutWorkflowStep, selectedSessionId: string | null) {
+function hrefForStep(input: TryoutWorkflowProjectionInput, step: TryoutWorkflowStep) {
   const basePath = asTrimmedString(input.basePath)
     ?? (asTrimmedString(input.tryoutId) ? `/mentor/tryout/${asTrimmedString(input.tryoutId)}` : "");
   const query = new URLSearchParams({ workspace: step });
-  if (selectedSessionId && (step === "operations" || step === "results")) query.set("session", selectedSessionId);
   const queryString = query.toString();
   if (!basePath) return `?${queryString}`;
   return `${basePath}${basePath.includes("?") ? "&" : "?"}${queryString}`;
@@ -294,7 +264,6 @@ function recommendedAction(
   operationsAvailable: boolean,
   resultsAvailable: boolean,
   liveAvailable: boolean,
-  selectedSessionId: string | null,
 ): TryoutWorkflowRecommendedAction | null {
   let step: TryoutWorkflowStep;
   let label: string;
@@ -314,7 +283,7 @@ function recommendedAction(
     }
   } else if (!operationsAvailable) {
     step = "delivery";
-    label = "Buka pengaturan sesi untuk membuat sesi";
+    label = "Buka pengaturan sesi";
   } else if (!resultsAvailable) {
     step = "operations";
     label = liveAvailable ? "Pantau sesi" : "Periksa pengelolaan sesi";
@@ -322,7 +291,7 @@ function recommendedAction(
     step = "results";
     label = "Tinjau hasil";
   }
-  return { href: hrefForStep(input, step, selectedSessionId), label, step };
+  return { href: hrefForStep(input, step), label, step };
 }
 
 /**
@@ -343,75 +312,19 @@ function normalizeTryoutWorkflowStep(value: unknown): TryoutWorkflowStep | null 
 }
 
 /**
- * Resolves `?session=` without trusting client-side eligibility claims. The
- * caller supplies the authorized session list; an invalid/stale ID falls back
- * to the first preferred eligible session, then the first authorized session.
- */
-function normalizeSelectedSessionId(
-  requestedSessionId: string | null | undefined,
-  sessions: readonly TryoutWorkflowSession[],
-  preferredSessionIds: readonly string[] = [],
-) {
-  const ids = uniqueSessionIds(sessions);
-  const idSet = new Set(ids);
-  const requested = asTrimmedString(requestedSessionId);
-  if (requested && idSet.has(requested)) return requested;
-  const preferred = preferredSessionIds.find((id) => idSet.has(id));
-  return preferred ?? ids[0] ?? null;
-}
-
-function normalizeTryoutSessionSelection(
-  requestedSessionId: string | null | undefined,
-  sessions: readonly TryoutWorkflowSession[],
-  preferredSessionIds: readonly string[] = [],
-): TryoutSessionSelection {
-  const requested = asTrimmedString(requestedSessionId);
-  const selectedSessionId = normalizeSelectedSessionId(requested, sessions, preferredSessionIds);
-  return {
-    normalized: requested !== selectedSessionId,
-    reason: requested && requested === selectedSessionId
-      ? "requested"
-      : selectedSessionId && preferredSessionIds.includes(selectedSessionId)
-        ? "recommended"
-        : selectedSessionId
-          ? "first_session"
-          : "none",
-    requestedSessionId: requested,
-    selectedSessionId,
-  };
-}
-
-/**
  * Produces the canonical, server-consumable Tryout workflow state.
  *
  * Draft navigation is a monotonic prefix of Overview → Configure Sections →
  * Readiness & Publish. Published navigation is a monotonic prefix of Delivery
  * → Operations → Results. Live is deliberately not a primary step: its gate
- * is the selected session's derived runtime eligibility.
+ * is the session's derived runtime eligibility.
  */
 function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWorkflowProjection {
   const mode = modeFrom(input);
-  const sessions = input.sessions ?? [];
-  const liveEligibleSessionIds = mode === "published"
-    ? sessions.flatMap((session) => {
-        if (!sessionIsRuntimeEligible(session)) return [];
-        const id = asTrimmedString(session.id);
-        return id ? [id] : [];
-      })
-    : [];
-  const resultEligibleSessionIds = mode === "published"
-    ? sessions.flatMap((session) => {
-        if (!sessionHasResultActivity(session)) return [];
-        const id = asTrimmedString(session.id);
-        return id ? [id] : [];
-      })
-    : [];
-  const operationsAvailable = mode === "published" && sessions.some(sessionHasOpened);
-  const resultsAvailable = resultEligibleSessionIds.length > 0;
-  const requestedSessionId = requestedSessionFrom(input);
-  const sessionSelection = normalizeTryoutSessionSelection(requestedSessionId, sessions, resultEligibleSessionIds);
-  const selectedSessionRuntimeEligible = sessionSelection.selectedSessionId !== null
-    && liveEligibleSessionIds.includes(sessionSelection.selectedSessionId);
+  const session = input.session ?? null;
+  const liveAvailable = mode === "published" && session !== null && sessionIsRuntimeEligible(session);
+  const resultsAvailable = mode === "published" && session !== null && sessionHasResultActivity(session);
+  const operationsAvailable = mode === "published" && session !== null && sessionHasOpened(session);
   const readiness = draftReadinessFrom(input);
   const blockers = blankBlockers();
   const providedBlockers = { ...input.draft?.blockers, ...input.blockers };
@@ -442,12 +355,12 @@ function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWork
   } else {
     blockers.operations = operationsAvailable ? [] : normalizeIssues(providedBlockers.operations, {
       code: "operations_unavailable",
-      message: "Buat atau buka sesi terlebih dahulu untuk mengelola sesi Tryout.",
+      message: "Buka sesi terlebih dahulu untuk mengelola Tryout.",
       target: "delivery",
     });
-    blockers.live = selectedSessionRuntimeEligible ? [] : normalizeIssues(providedBlockers.live, {
+    blockers.live = liveAvailable ? [] : normalizeIssues(providedBlockers.live, {
       code: "live_unavailable",
-      message: "Pilih sesi aktif yang sudah siap untuk mulai memantau.",
+      message: "Sesi harus aktif dan sudah siap untuk mulai memantau.",
       target: "operations",
     });
     blockers.results = resultsAvailable ? [] : normalizeIssues(providedBlockers.results, {
@@ -501,8 +414,7 @@ function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWork
     readiness,
     operationsAvailable,
     resultsAvailable,
-    selectedSessionRuntimeEligible,
-    sessionSelection.selectedSessionId,
+    liveAvailable,
   );
 
   return {
@@ -511,23 +423,15 @@ function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWork
     completedSteps,
     currentStep,
     defaultStep,
-    liveAvailable: selectedSessionRuntimeEligible,
-    liveEligibleSessionIds,
+    liveAvailable,
     mode,
     normalizedQuery: {
-      requestedSessionId: sessionSelection.requestedSessionId,
       requestedStep: requestedStepFrom(input),
-      selectedSessionId: sessionSelection.selectedSessionId,
-      selectedSessionWasNormalized: sessionSelection.normalized,
       stepWasNormalized,
     },
     operationsAvailable,
     recommendedNextAction,
-    resultEligibleSessionIds,
     resultsAvailable,
-    runtimeEligibleSessionIds: [...liveEligibleSessionIds],
-    selectedSessionId: sessionSelection.selectedSessionId,
-    selectedSessionRuntimeEligible,
   };
 }
 
@@ -539,8 +443,6 @@ export {
   PUBLISHED_STEPS,
   deriveTryoutWorkflowProjection,
   getTryoutWorkflowProjection,
-  normalizeSelectedSessionId,
-  normalizeTryoutSessionSelection,
   normalizeTryoutWorkflowStep,
   projectTryoutWorkflow,
 };
@@ -561,5 +463,4 @@ export type {
   TryoutWorkflowDraftStep,
   TryoutWorkflowPublishedStep,
   TryoutWorkflowQuery,
-  TryoutSessionSelection,
 };

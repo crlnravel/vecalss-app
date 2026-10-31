@@ -68,7 +68,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
                   <TableCell className="max-w-56 truncate px-4 py-3.5 font-semibold text-secondary-900 sm:px-5">
                     <Link
                       className="underline decoration-primary-200 underline-offset-4 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
-                      href={buildMentorTryoutAttemptHref(initial.id, attempt.id, { ...parentContext, participant: attempt.admissionId, session: attempt.sessionId })}
+                      href={buildMentorTryoutAttemptHref(initial.id, attempt.id, { ...parentContext, participant: attempt.admissionId })}
                     >
                       {attempt.student}
                     </Link>

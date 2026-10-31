@@ -30,7 +30,6 @@ export type CanonicalContextField =
   | "returnTo"
   | "resultQ"
   | "resultStatus"
-  | "session"
   | "sort"
   | "status"
   | "subject"
@@ -514,7 +513,6 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   const issues: CanonicalContextIssue[] = [];
   const workspaceParam = singleValue(input, "workspace");
   const deliveryParam = singleValue(input, "delivery");
-  const sessionParam = singleValue(input, "session");
   const parentParam = singleValue(input, "parent");
   const returnToParam = singleValue(input, "returnTo");
 
@@ -577,10 +575,7 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   // remains the historical Hasil bookmark.
   if (workspace === "participants" && delivery === "participants") workspace = "operations";
 
-  const session = sessionParam.value?.trim() || undefined;
-  if (sessionParam.invalid || (sessionParam.present && !session) || (session !== undefined && !isSafeIdentifier(session) && !isUuid(session))) {
-    issues.push(issue("session", session, "Sesi Tryout tidak tersedia."));
-  }
+  // A legacy `session` query value is accepted and dropped: a Tryout has one session.
   const parent = parentParam.value?.trim() || undefined;
   if (parentParam.invalid || (parentParam.present && !parent) || (parent !== undefined && !isSafeIdentifier(parent) && !isUuid(parent))) {
     issues.push(issue("parent", parent, "Tryout induk tidak tersedia."));
@@ -622,7 +617,6 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
       delivery: deliveryParam.present,
       parent: parentParam.present,
       returnTo: returnToParam.present,
-      session: sessionParam.present,
       workspace: workspaceParam.present,
     },
     returnTo: returnTo ?? undefined,
@@ -631,7 +625,6 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     q,
     status,
     page: pageValue === undefined ? undefined : Number(pageValue),
-    session,
     workspace,
   };
 }
@@ -646,7 +639,6 @@ function tryoutQueryParams(context: Partial<MentorTryoutContext>) {
   if (context.status !== undefined) params.set("status", context.status);
   if (context.access !== undefined) params.set("access", context.access);
   if (context.page !== undefined) params.set("page", String(context.page));
-  if (context.session) params.set("session", context.session);
   if (context.parent) params.set("parent", context.parent);
   if (context.returnTo) params.set("returnTo", context.returnTo);
   if (context.resultQ !== undefined) params.set("resultQ", context.resultQ);
@@ -676,7 +668,7 @@ export function buildMentorTryoutAttemptHref(tryoutId: string, attemptId: string
   return appendQuery(`/mentor/tryout/${encodeSegment(tryoutId)}/operations/attempts/${encodeSegment(attemptId)}`, params);
 }
 
-/** Hasil has no delivery pane; Operations retains its existing session/participant defaults. */
+/** Hasil has no delivery pane; Operations retains its existing participant defaults. */
 export function buildMentorTryoutAttemptBackHref(tryoutId: string, context: Partial<MentorTryoutContext>) {
   return context.workspace === "participants"
     ? buildMentorTryoutHref(tryoutId, { ...context, delivery: undefined, workspace: "participants" })

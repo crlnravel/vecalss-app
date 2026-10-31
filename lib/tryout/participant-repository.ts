@@ -13,7 +13,6 @@ import { isImageMimeType } from "@/lib/media/domain";
 import { createMediaPreviewUrl, R2ConfigurationError } from "@/lib/media/r2";
 import { projectParticipantTryoutResultAvailability, type ParticipantTryoutResultAvailability } from "@/lib/tryout/participant-result-projection";
 import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { isTryoutSessionExpired } from "@/lib/tryout/registration-availability";
 import { prisma } from "@/lib/prisma";
 
@@ -291,7 +290,7 @@ function serializeTryout(
     publishedAt: tryout.publishedAt,
     sections: summarySections,
     session: (() => {
-      const deliverySession = selectMainTryoutSession(tryout.deliverySessions);
+      const deliverySession = tryout.deliverySessions.at(0) ?? null;
       return deliverySession
         ? participantSessionView(deliverySession, tryout.defaultResultReleasePolicy, now)
         : null;

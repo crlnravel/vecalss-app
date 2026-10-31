@@ -77,7 +77,6 @@ type ParticipantView = {
   participant: ParticipantViewIdentity;
   score: ParticipantViewScore;
   session: ParticipantViewSession | null;
-  sessions: ParticipantViewSession[];
   tryoutId: string;
 };
 
@@ -203,7 +202,6 @@ function toParticipantView(
 ): ParticipantView {
   const sortedAssignments = [...admission.assignments]
     .sort((left, right) => right.assignedAt.getTime() - left.assignedAt.getTime())
-  const sessions = sortedAssignments.map((assignment) => toSessionView(assignment, now));
   const currentAssignment = sortedAssignments.find((assignment) => assignment.status === "active")
     ?? sortedAssignments[0]
     ?? null;
@@ -229,7 +227,6 @@ function toParticipantView(
       scoringVersion: currentAttempt?.scoringVersion ?? null,
     },
     session: currentAssignment ? toSessionView(currentAssignment, now) : null,
-    sessions,
     tryoutId: admission.tryoutId,
   };
 }

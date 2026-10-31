@@ -847,7 +847,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     await lockTryoutAssignments(tx, [candidate.id]);
     const release = await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } });
     if (!release) throw new TryoutAttemptValidationError("AssessmentRelease sesi Tryout tidak ditemukan.");
-    const existing = await tx.tryoutAttempt.findUnique({ where: { deliverySessionId_studentId: { deliverySessionId, studentId } }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, id: true } });
+    const existing = await tx.tryoutAttempt.findUnique({ where: { tryoutId_studentId: { tryoutId: session.tryoutId, studentId } }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, id: true } });
     if (existing) {
       assertAttemptReleaseBinding(
         { assessmentReleaseDigest: release.contentDigest, assessmentReleaseId: release.id, assessmentReleaseNumber: release.releaseNumber },
@@ -856,13 +856,6 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       );
       return { assessmentRelease: { digest: release.contentDigest, id: release.id, number: release.releaseNumber }, attemptId: existing.id, state: "existing" as const };
     }
-    // A Tryout has one session, so one attempt per student per Tryout. This also
-    // refuses a legacy second session on the same Tryout.
-    const priorAttempt = await tx.tryoutAttempt.findFirst({
-      select: { id: true },
-      where: { deliverySessionId: { not: deliverySessionId }, studentId, tryoutId: session.tryoutId },
-    });
-    if (priorAttempt) throw new TryoutAttemptValidationError("Kamu sudah pernah mengerjakan Tryout ini. Setiap Tryout hanya bisa dikerjakan satu kali.");
     const competing = await tx.tryoutAttempt.findFirst({ where: { studentId, status: { in: [...activeAttemptStatuses] }, deliverySession: { availableFrom: { lt: session.availableUntil }, availableUntil: { gt: session.availableFrom } } }, select: { id: true } });
     if (competing) throw new TryoutAttemptValidationError("Peserta masih memiliki Tryout aktif pada sesi yang waktunya bertumpang tindih.");
 

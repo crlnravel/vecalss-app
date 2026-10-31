@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
@@ -15,11 +14,8 @@ import {
   DataTableFilterMenu,
   type DataTableFilterMenuItem,
 } from "@/components/ui/data-table-filter-menu";
-import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { selectMainTryoutSession, selectTryoutHistorySession } from "@/lib/tryout/main-session";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { TryoutSessionResultReadiness } from "@/modules/mentor/components/tryout-session-result-readiness";
 import { navigateTryoutResultHref } from "@/modules/mentor/tryout-result-navigation";
 
@@ -98,18 +94,13 @@ function KaptenTryoutParticipantsPageModule({
 }) {
   const router = useRouter();
   const context = parseMentorTryoutContext(useSearchParams());
-  const selectedSession = initial.sessions?.find((session) => session.id === context.session)
-    ?? (initial.status === "archived"
-      ? selectTryoutHistorySession(initial.sessions ?? [], initial.attempts)
-      : selectMainTryoutSession(initial.sessions ?? []));
-  const selectedSessionId = selectedSession?.id;
+  const selectedSession = initial.session;
   const [query, setQuery] = useState(context.resultQ ?? "");
   const [filter, setFilter] = useState<ResultFilter>(context.resultStatus ?? "all");
   const preserveFilters = (nextQuery: string, nextFilter: ResultFilter) => {
     window.history.replaceState(null, "", buildMentorTryoutHref(initial.id, {
       parent: parentId ?? context.parent,
       returnTo: context.returnTo,
-      session: selectedSession?.id ?? context.session,
       workspace: "participants",
       resultQ: nextQuery,
       resultStatus: nextFilter,
@@ -131,7 +122,7 @@ function KaptenTryoutParticipantsPageModule({
     const matchesStatus =
       filter === "all" ||
       (filter === "submitted" ? !inProgress : inProgress);
-    return matchesQuery && matchesStatus && (!selectedSessionId || attempt.sessionId === selectedSessionId);
+    return matchesQuery && matchesStatus;
   });
   const Root = embedded ? "section" : "main";
   const attemptHref = (attempt: TryoutOperationsView["attempts"][number]) =>
@@ -139,7 +130,6 @@ function KaptenTryoutParticipantsPageModule({
       parent: parentId ?? context.parent,
       returnTo: context.returnTo,
       participant: attempt.admissionId,
-      session: attempt.sessionId,
       workspace: "participants",
       resultQ: query,
       resultStatus: filter,
@@ -219,22 +209,6 @@ function KaptenTryoutParticipantsPageModule({
       ? []
       : [{ id: "status", label: "Status", value: resultFilterLabels[filter] }];
 
-  const sessionPicker = selectedSession ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" aria-label={`Pilih sesi. Sesi saat ini: ${selectedSession.name}`} className="min-h-11 w-full max-w-full justify-between gap-2 text-left sm:w-auto" />}>
-        <span className="min-w-0 truncate">{selectedSession.name}</span>
-        <ChevronDown aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        {initial.sessions.map((session) => (
-          <DropdownMenuItem key={session.id} render={<Link href={buildMentorTryoutHref(initial.id, { ...context, parent: parentId ?? context.parent, session: session.id, workspace: "participants", resultQ: query, resultStatus: filter })} />}>
-            {session.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ) : null;
-
   return (
     <Root
       aria-labelledby="tryout-results-title"
@@ -253,16 +227,13 @@ function KaptenTryoutParticipantsPageModule({
           tryoutTitle={initial.title}
           allowPublication={resultMaintenance}
           context={{ ...context, parent: parentId ?? context.parent, resultQ: query, resultStatus: filter }}
-          manageHref={buildMentorTryoutOperationsHref(initial.id, { delivery: "participants", parent: parentId })}
-          sessionPicker={sessionPicker}
         />
       ) : null}
-      <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className={showReadiness ? "mt-5 overflow-hidden" : "overflow-hidden"}>
+      <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary-100 px-4 py-4 sm:px-5">
           <h3 className="text-base font-semibold text-secondary-900" id="tryout-attempts-title">Pengerjaan peserta</h3>
           <div className="flex min-w-0 items-center gap-3">
             <p className="text-sm tabular-nums text-secondary-600">{visibleAttempts.length} ditampilkan</p>
-            {!showReadiness && initial.sessions.length > 1 ? sessionPicker : null}
           </div>
         </div>
         <DataTable

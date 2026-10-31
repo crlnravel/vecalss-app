@@ -39,7 +39,11 @@ export async function createSr01Fixture(name: string, ordinal: number, irt = fal
   const start = windowStart ?? new Date(Date.UTC(2036, 0, 1 + ordinal * 2));
   const end = new Date(start.getTime() + 600_000);
   await prisma.tryoutPackage.update({ where: { id: fixture.tryoutId }, data: { title: `SR-01 ${name}`, defaultResultReleasePolicy: "manual" } });
-  const finalizedSession = await prisma.tryoutDeliverySession.create({ data: { tryoutId: fixture.tryoutId, name: `SR-01 ${name}`, createdByUserId: fixture.ownerId, updatedByUserId: fixture.ownerId, status: "active", assessmentReleaseId: release.id, availableFrom: start, availableUntil: end, resultReleasePolicy: "manual" } });
+  // A Tryout has one session: replace the base fixture session with the scenario session.
+  await prisma.tryoutDeliveryAssignment.deleteMany({ where: { deliverySessionId: fixture.sessionId } });
+  await prisma.tryoutDeliveryAudit.updateMany({ where: { deliverySessionId: fixture.sessionId }, data: { deliverySessionId: null } });
+  await prisma.tryoutDeliverySession.delete({ where: { id: fixture.sessionId } });
+  const finalizedSession = await prisma.tryoutDeliverySession.create({ data: { tryoutId: fixture.tryoutId, name: "Sesi utama", createdByUserId: fixture.ownerId, updatedByUserId: fixture.ownerId, status: "active", assessmentReleaseId: release.id, availableFrom: start, availableUntil: end, resultReleasePolicy: "manual" } });
   const admission = await prisma.tryoutAdmission.create({ data: { tryoutId: fixture.tryoutId, studentId: fixture.studentId, status: "active", decidedByUserId: fixture.ownerId, decidedAt: start } });
   await prisma.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, deliverySessionId: finalizedSession.id, assignedByUserId: fixture.ownerId } });
   const started = await atSr01Time(start, () => startTryoutAttempt(finalizedSession.id, fixture.studentId));

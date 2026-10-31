@@ -34,14 +34,14 @@ state = invitationSearchReducer(state, { type: "query", query: "first", generati
 assert.equal(state.selected, null, "editing the query immediately clears consequential selection");
 assert.equal(state.students.length, 0, "old options disappear before the debounce");
 assert.equal(invitationSearchReducer(state, { type: "result", generation: 1, students: [second] }), state);
-assert.equal(invitationIntent(first, "main"), "invite");
+assert.equal(invitationIntent(first, true), "invite");
 const registered = (status: "pending" | "active" | "rejected" | "revoked", assignmentStatus?: "active" | "revoked"): InvitationPickerStudent => ({ ...first, admission: { id: "registration", status, assignment: assignmentStatus ? { id: "assignment", deliverySessionId: "main", status: assignmentStatus } : null } });
-assert.equal(invitationIntent(registered("pending"), "main"), "review");
-assert.equal(invitationIntent(registered("active", "active"), "main"), "active");
-assert.equal(invitationIntent(registered("active", "revoked"), "main"), "restore");
-assert.equal(invitationIntent(registered("active"), "main"), "invite", "active registration without assignment still requires grant");
-assert.equal(invitationIntent(registered("rejected"), "main"), "restore");
-assert.equal(invitationIntent(registered("revoked"), "main"), "restore");
+assert.equal(invitationIntent(registered("pending"), true), "review");
+assert.equal(invitationIntent(registered("active", "active"), true), "active");
+assert.equal(invitationIntent(registered("active", "revoked"), true), "restore");
+assert.equal(invitationIntent(registered("active"), true), "invite", "active registration without assignment still requires grant");
+assert.equal(invitationIntent(registered("rejected"), true), "restore");
+assert.equal(invitationIntent(registered("revoked"), true), "restore");
 const saved = { ok: true as const, result: { assignmentId: "stable" } };
 for (const refresh of [async () => ({ ok: false as const, message: "read failed" }), async () => { throw new Error("read transport failed"); }, () => new Promise<never>(() => {})]) {
   const outcome = await performTryoutAccess(async () => saved, refresh, 5);

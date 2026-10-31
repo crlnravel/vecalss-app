@@ -4,15 +4,16 @@ import React, { act, createElement, useMemo, useState, type ReactElement } from 
 import ts from "typescript";
 import { buildMentorTryoutAttemptBackHref, buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutAttemptContext, parseMentorTryoutContext } from "../lib/navigation/canonical-context";
 import { withReactDomTest } from "./react-dom-test-host";
-import { selectMainTryoutSession } from "../lib/tryout/main-session";
+// The Hasil module no longer selects among sessions; the stub only fills the injected slot.
+const selectMainTryoutSession = <T,>(sessions: T[]) => sessions[0] ?? null;
 
 const queryFor = (href: string) => new URL(href, "http://localhost").searchParams;
 for (const resultStatus of ["all", "submitted", "in_progress"] as const) {
-  const href = buildMentorTryoutAttemptHref("tryout", "attempt", { workspace: "participants", parent: "parent", participant: "admission", session: "session", resultQ: "Arya & Dimas", resultStatus, returnTo: "/mentor/tryout?folder=parent" });
+  const href = buildMentorTryoutAttemptHref("tryout", "attempt", { workspace: "participants", parent: "parent", participant: "admission", resultQ: "Arya & Dimas", resultStatus, returnTo: "/mentor/tryout?folder=parent" });
   const parsed = parseMentorTryoutAttemptContext(queryFor(href)); assert.deepEqual(parsed.issues, []);
   const back = buildMentorTryoutAttemptBackHref("tryout", parsed);
   const results = parseMentorTryoutContext(queryFor(back)); assert.deepEqual(results.issues, []); assert.equal(results.workspace, "participants"); assert.equal(results.delivery, null);
-  assert.equal(results.resultQ, "Arya & Dimas"); assert.equal(results.resultStatus, resultStatus); assert.equal(results.parent, "parent"); assert.equal(results.session, "session"); assert.equal(results.returnTo, "/mentor/tryout?folder=parent");
+  assert.equal(results.resultQ, "Arya & Dimas"); assert.equal(results.resultStatus, resultStatus); assert.equal(results.parent, "parent"); assert.equal("session" in results, false); assert.equal(results.returnTo, "/mentor/tryout?folder=parent");
   assert.equal(results.status, undefined, "Hasil status must not become admission status");
 }
 for (const delivery of ["sessions", "participants", "policy"] as const) {
@@ -52,7 +53,7 @@ const attempts: Attempt[] = [{ id: "expired", admissionId: "admission", sessionI
 await withReactDomTest(async (_root, render) => {
   const history = { replaceState: (_state: unknown, _unused: string, href: string) => { currentQuery = queryFor(href); } };
   Object.assign(window, { history });
-  const initial = { id: "tryout", attempts, results: [], sessions: [] };
+  const initial = { id: "tryout", attempts, results: [], session: null };
   await render(createElement(Hasil, { initial, parentId: "parent" }));
   assert.equal(table.search.value, "Arya"); assert.equal(table.filterPanel.props.filter, "submitted"); assert.deepEqual(table.rows.map((row) => row.id), ["expired"]);
   const link = table.columns[0].cell(attempts[0]);
@@ -71,7 +72,7 @@ await withReactDomTest(async (_root, render) => {
   assert.equal(table.search.value, "Dimas"); assert.equal(table.filterPanel.props.filter, "in_progress");
 });
 const route = readFileSync(new URL("../app/mentor/tryout/[tryoutId]/operations/attempts/[attemptId]/page.tsx", import.meta.url), "utf8");
-assert.match(route, /buildMentorTryoutAttemptBackHref\(tryoutId, \{ \.\.\.parsedQuery, session: delivery.id \}\)/);
+assert.match(route, /buildMentorTryoutAttemptBackHref\(tryoutId, \{ \.\.\.parsedQuery \}\)/);
 const parentRoute = readFileSync(new URL("../app/mentor/tryout/[tryoutId]/page.tsx", import.meta.url), "utf8");
 assert.match(parentRoute, /resultQ: parsedQuery.resultQ/); assert.match(parentRoute, /resultStatus: parsedQuery.resultStatus/);
 console.log("PASS actual mounted Hasil link/row→attempt→canonical back/reload retains search/filter/parent; Operations and admission semantics preserved; invalid result context refused");

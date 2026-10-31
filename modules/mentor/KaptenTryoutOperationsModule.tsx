@@ -13,7 +13,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { KaptenTryoutSessionDetailPageModule } from "@/modules/mentor/KaptenTryoutSessionDetailPageModule";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
 
@@ -26,7 +25,7 @@ function KaptenTryoutOperationsModule({
   initial: TryoutOperationsView;
   draftAdmission?: ReactNode;
 }) {
-  const mainSession = selectMainTryoutSession(initial.sessions);
+  const mainSession = initial.session;
   const query = useSearchParams();
   const accessView = query.get("delivery") === "policy";
 
@@ -49,7 +48,6 @@ function KaptenTryoutOperationsModule({
             <KaptenTryoutSessionDetailPageModule
               embedded
               initial={initial}
-              sessionId={mainSession.id}
             />
           </>
         ) : (

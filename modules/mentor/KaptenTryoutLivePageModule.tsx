@@ -15,10 +15,10 @@ const liveStates: LiveState[] = [
   "submitted",
 ];
 
-function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
+function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView }) {
   const { refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
 
-  const scopedLive = selectedSessionId ? view.live.filter((item) => item.session?.id === selectedSessionId) : view.live;
+  const scopedLive = view.live;
   const counts = liveStates.reduce<Record<LiveState, number>>((summary, state) => {
     summary[state] = scopedLive.filter((item) => item.state === state).length;
     return summary;

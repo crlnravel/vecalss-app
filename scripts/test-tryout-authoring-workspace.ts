@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, childRoute, shell, sidebar, repository, deliveryRepository, useRoute, actions, policy, sessions, sessionRoute, catalogue, attemptRepository, sessionDetail, workspaceHeader, workspaceFrame, operationsModule, participantsRoute, policyRoute, questionManager] = await Promise.all([
+const [workspace, route, createRoute, childRoute, shell, sidebar, repository, deliveryRepository, useRoute, actions, policy, sessionRoute, catalogue, attemptRepository, sessionDetail, workspaceHeader, workspaceFrame, operationsModule, participantsRoute, policyRoute, questionManager] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
@@ -15,7 +15,6 @@ const [workspace, route, createRoute, childRoute, shell, sidebar, repository, de
   readFile(`${root}/app/mentor/packages/[packageId]/use/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/tryout-actions.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenTryoutPolicyPageModule.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenTryoutSessionsPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/operations/sessions/new/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenTryoutCataloguePageModule.tsx`, "utf8"),
   readFile(`${root}/lib/tryout/attempt-repository.ts`, "utf8"),
@@ -169,12 +168,6 @@ assert.match(policy, /setNotice\(null\);[\s\S]*onNext\?\.\(\)/u, "Policy success
 assert.doesNotMatch(policy, /Kebijakan Tryout berhasil disimpan\./u, "Policy should not show a success status widget");
 assert.doesNotMatch(policy, /CardFooter|border-t border-primary-100/u, "Policy next action should sit directly on the page background");
 assert.doesNotMatch(policy, /Alasan audit|policy-audit-reason/u, "Policy must not expose an audit-reason field");
-assert.doesNotMatch(sessions, /Jadwal dan status pelaksanaan Tryout\./u, "Sessions should not show the redundant schedule description");
-assert.match(sessions, /const hasActiveSession = mainSession\?\.status === "active"/u, "Sessions should derive the active-session warning from the canonical main session");
-assert.match(sessions, /!hasActiveSession/u, "Sessions should only show the warning when no session is active");
-assert.match(sessions, /text-danger-600/u, "The missing-active-session warning should use the danger color");
-assert.doesNotMatch(sessions, /Konten terkunci pada rilis/u, "Sessions should not expose release-lock copy");
-assert.doesNotMatch(sessions, /Buat sesi|operations\/sessions\/new/u, "Sessions should not offer a way to create another session");
 assert.match(deliveryRepository, /async function updateTryoutDeliverySessionSchedule\(/u, "Session schedule editing should have a repository boundary");
 assert.match(actions, /updateTryoutDeliverySessionScheduleAction/u, "Session schedule editing should use a mentor server action");
 assert.match(sessionDetail, /type="datetime-local"/u, "Session detail should expose editable session times");

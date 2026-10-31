@@ -1,10 +1,10 @@
 import type { InvitationPickerStudent } from "./invitation-picker";
 
-export function invitationIntent(student: InvitationPickerStudent | null, sessionId: string) {
-  if (!student || !sessionId) return "unavailable";
+export function invitationIntent(student: InvitationPickerStudent | null, sessionAvailable: boolean) {
+  if (!student || !sessionAvailable) return "unavailable";
   if (student.admission?.status === "pending") return "review";
   const assignment = student.admission?.assignment;
-  const target = assignment?.deliverySessionId === sessionId ? assignment : null;
+  const target = assignment ?? null;
   if (student.admission?.status === "rejected" || student.admission?.status === "revoked" || target?.status === "revoked") return "restore";
   if (student.admission?.status === "active" && target?.status === "active") return "active";
   return "invite";

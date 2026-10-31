@@ -28,7 +28,7 @@ type TryoutOperationsRecord = NonNullable<
 >;
 
 type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
-type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions" | "status">;
+type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "session" | "status">;
 type TryoutDeliverySessionRecord = TryoutOperationsRecord["deliverySessions"][number];
 type TryoutAttemptRecord = TryoutDeliverySessionRecord["attempts"][number];
 type ReleaseIntegrity = { ready: boolean; reason?: string };
@@ -271,7 +271,8 @@ function serializeTryoutOperations(
     scheduledReleaseAt: deliverySession.scheduledReleaseAt?.toISOString() ?? null,
     status: deliverySession.status,
   }));
-  const attemptRecords = sessions.flatMap((session) => session.attempts.map((attempt) => ({
+  const mainSession = sessions.at(0) ?? null;
+  const attemptRecords = (mainSession ? [mainSession] : []).flatMap((session) => session.attempts.map((attempt) => ({
     ...attempt,
     sessionId: session.id,
     sessionName: session.name,
@@ -368,7 +369,7 @@ function serializeTryoutOperations(
     return { ...participant, attention };
   });
   const results = attemptRecords.map((attempt) => {
-    const session = sessions.find((candidate) => candidate.id === attempt.sessionId)!;
+    const session = mainSession!;
     const projection = deriveTryoutResultProjection({
       attempt: {
         attemptId: attempt.id,
@@ -430,7 +431,7 @@ function serializeTryoutOperations(
       email: admission.student.email,
       requestedAt: admission.requestedAt.toISOString(),
     })),
-    sessions,
+    session: mainSession,
     // Keep lifecycle availability server-owned.  The projection carries only
     // phase/state identifiers; immutable AssessmentRelease and Bank Soal
     // payloads stay behind their existing server boundaries.  Draft authoring
@@ -439,7 +440,7 @@ function serializeTryoutOperations(
     // the same pure projection with its authoritative readiness DTO later.
     workflow: projectTryoutWorkflow({
       mode: operations.status === "published" ? "published" : "draft",
-      sessions,
+      session: mainSession,
       status: operations.status,
       tryoutId: operations.id,
     }),
@@ -459,10 +460,7 @@ function toTryoutWorkspaceView(view: TryoutOperationsView): TryoutOperationsView
         : false;
       return sanitizeTryoutWorkspaceParticipant(participant, scoreVisible);
     }),
-    sessions: view.sessions.map((session) => ({
-      ...session,
-      attempts: [],
-    })),
+    session: view.session ? { ...view.session, attempts: [] } : null,
   };
 }
 
@@ -511,7 +509,7 @@ async function getOwnedTryoutParticipantsView(
   // attempt, score, release, or integrity payloads to the client.
   return {
     participants: workspaceView.participants,
-    sessions: workspaceView.sessions,
+    session: workspaceView.session,
     status: workspaceView.status,
   };
 }

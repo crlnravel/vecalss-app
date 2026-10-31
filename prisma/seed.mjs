@@ -1018,14 +1018,14 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
 
   const notificationRows = [
     {
-      body: "Sesi Reguler Pekan Ini sudah tersedia. Pastikan perangkat dan koneksi siap sebelum memulai.",
+      body: "Sesi Tryout sudah tersedia. Pastikan perangkat dan koneksi siap sebelum memulai.",
       deepLink: "/tryout",
       eventType: "announcement",
       readAt: null,
       title: "Sesi simulasi sudah dibuka",
     },
     {
-      body: "Hasil Sesi Evaluasi Sebelumnya telah diterbitkan dan dapat ditinjau bersama pembahasan setiap subtes.",
+      body: "Hasil Tryout telah diterbitkan dan dapat ditinjau bersama pembahasan setiap subtes.",
       deepLink: "/tryout",
       eventType: "tryout_graded",
       readAt: new Date(),

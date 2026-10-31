@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  normalizeSelectedSessionId,
   normalizeTryoutWorkflowStep,
   projectTryoutWorkflow,
 } from "../lib/tryout/workflow-projection";
@@ -16,7 +15,7 @@ assert.equal(draftOverview.currentStep, "configure_sections", "a saved Overview 
 assert.equal(draftOverview.mode, "draft");
 assert.equal(draftOverview.operationsAvailable, false);
 assert.equal(draftOverview.blockers.delivery[0]?.code, "not_published");
-assert.equal(projectTryoutWorkflow({ status: "draft", title: "Draft", sessions: [{ id: "draft-session", status: "active" }] }).operationsAvailable, false, "drafts must not expose operational availability");
+assert.equal(projectTryoutWorkflow({ status: "draft", title: "Draft", session: { id: "draft-session", status: "active" } }).operationsAvailable, false, "drafts must not expose operational availability");
 
 const draftReadyForReview = projectTryoutWorkflow({
   status: "draft",
@@ -34,53 +33,50 @@ const closedEmptySession = { id: "session-closed", status: "closed", attempts: [
 const published = projectTryoutWorkflow({
   basePath: "/mentor/tryout/tryout-1",
   status: "published",
-  requestedSessionId: "stale-session",
   requestedStep: "results",
-  sessions: [activeSession, closedEmptySession],
+  session: closedEmptySession,
 });
 assert.deepEqual(published.allowedSteps, ["delivery", "operations", "results"]);
-assert.deepEqual(published.liveEligibleSessionIds, ["session-active"]);
-assert.deepEqual(published.resultEligibleSessionIds, ["session-closed"], "a closed zero-activity session unlocks Results");
+assert.equal(published.liveAvailable, false);
+assert.equal(published.resultsAvailable, true, "a closed zero-activity session unlocks Results");
 assert.equal(published.operationsAvailable, true);
-assert.equal(published.resultsAvailable, true);
-assert.equal(published.selectedSessionId, "session-closed", "stale ?session falls back to an eligible result session");
-assert.equal(published.selectedSessionRuntimeEligible, false);
-assert.equal(published.normalizedQuery.selectedSessionWasNormalized, true);
-assert.match(published.recommendedNextAction?.href ?? "", /workspace=results&session=session-closed/u);
+assert.equal(published.recommendedNextAction?.href, "/mentor/tryout/tryout-1?workspace=results", "navigation carries no session");
+assert.equal("selectedSessionId" in published, false, "there is no session selection to normalize");
 
-const activeSelection = projectTryoutWorkflow({
-  mode: "published",
-  requestedSessionId: "session-active",
-  sessions: [activeSession, closedEmptySession],
-});
-assert.equal(activeSelection.selectedSessionId, "session-active");
-assert.equal(activeSelection.liveAvailable, true);
+const activeProjection = projectTryoutWorkflow({ mode: "published", session: activeSession });
+assert.equal(activeProjection.liveAvailable, true);
+assert.equal(activeProjection.blockers.live.length, 0);
+assert.equal(activeProjection.resultsAvailable, false);
+
+const noSession = projectTryoutWorkflow({ status: "published" });
+assert.deepEqual(noSession.allowedSteps, ["delivery"]);
+assert.equal(noSession.operationsAvailable, false);
+assert.equal(noSession.recommendedNextAction?.step, "delivery");
 
 const attemptSession = projectTryoutWorkflow({
   status: "published",
-  sessions: [{
+  session: {
     id: "session-attempt",
     status: "active",
     attempts: [{ attemptState: "in_progress", scoringState: "pending" }],
-  }],
+  },
 });
 assert.equal(attemptSession.operationsAvailable, true, "attempt history keeps Operations available without a release id");
 assert.equal(attemptSession.resultsAvailable, false, "an in-progress attempt does not unlock Results");
 
 const terminalSession = projectTryoutWorkflow({
   status: "published",
-  sessions: [{
+  session: {
     id: "session-terminal",
     status: "active",
     attempts: [{ attemptState: "submitted", scoringState: "pending" }],
-  }],
+  },
 });
-assert.deepEqual(terminalSession.resultEligibleSessionIds, ["session-terminal"]);
+assert.equal(terminalSession.resultsAvailable, true);
 
 assert.equal(normalizeTryoutWorkflowStep("questions"), "configure_sections");
 assert.equal(normalizeTryoutWorkflowStep("operations"), "operations");
 assert.equal(normalizeTryoutWorkflowStep("unknown"), null);
-assert.equal(normalizeSelectedSessionId("stale", [activeSession, closedEmptySession], ["session-closed"]), "session-closed");
 
 assert.equal("payload" in published, false, "workflow projection must not expose immutable release payloads");
 

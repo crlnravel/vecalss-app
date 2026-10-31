@@ -2454,10 +2454,8 @@ function useTryoutBuilderState({
           attempt.attemptState === "in_progress" ||
           attempt.status === "in_progress",
       ) ||
-      operationsInitial?.sessions.some((candidate) =>
-        candidate.attempts.some(
-          (attempt) => attempt.attemptState === "in_progress",
-        ),
+      operationsInitial?.session?.attempts.some(
+        (attempt) => attempt.attemptState === "in_progress",
       ),
     );
   }, [operationsInitial]);
