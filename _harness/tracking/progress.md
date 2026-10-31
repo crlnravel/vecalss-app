@@ -1,5 +1,10 @@
 # Session Progress Log
 
+## Vera freshness presentation simplified (2026-10-31 WIB)
+
+- User requested a less text-heavy presentation using Impeccable. `890996a` replaces repeated source sentences and card framing with one timestamp, exception-only labels and a shared info popover. Source status, coverage and time details remain available.
+- Desktop/390px disclosure checks and guarded `pnpm verify` pass. Browser space 146 is closed. The Vera remediation artifact records this preference and preview paths.
+
 ## Vera AI major audit findings corrected (2026-10-31 WIB)
 
 - Commit `4707ace` fixes the five accepted Admin Vera AI findings without changing routes. Measured zeroes remain zero; absent monitoring is unavailable; snapshots describe query time. Existing cohort/complement rules now cover headlines, time totals, costs, observed reasons/statuses and cumulative lock cohorts.

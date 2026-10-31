@@ -1,5 +1,10 @@
 # Session Handoff
 
+## Vera freshness UI follow-up complete (2026-10-31 WIB)
+
+- `890996a` implements the user's Impeccable request: compact timestamp plus source-details disclosure; show source exceptions by default, keep normal metadata quiet. Desktop/390px checks and guarded full verify pass. No owned server or browser space remains open.
+- Details and user preference are appended to epic artifact `vera-ai-remediation`. This follow-up changes presentation only; the five audit corrections remain intact.
+
 ## Vera AI audit remediation complete (2026-10-31 WIB)
 
 - Objective completed in `4707ace` on `dev`: five major IA/UX correctness findings, preserving `/admin/ai` and its four child routes. Privacy rules are shared through `lib/admin/ai-usage/privacy.ts`; unknown source data is never replaced with examples.
