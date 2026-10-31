@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { buildTryoutWorkspaceHref } from "@/lib/navigation/mentor-tryout-continuity";
 
-import { Lock } from "@/lib/icons";
+import { BarChart3, CalendarDays, ClipboardList, Lock, Settings } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -12,11 +14,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  SunkenTabButton,
-  SunkenTabLink,
-  SunkenTabNavigation,
-} from "@/components/ui/sunken-tabs";
 
 type TryoutWorkspaceTab =
   | "subtests"
@@ -32,11 +29,11 @@ type PrimaryNavigationEvent = {
   shiftKey: boolean;
 };
 
-const workspaceTabs: Array<{ label: string; value: TryoutWorkspaceTab }> = [
-  { label: "Subtes", value: "subtests" },
-  { label: "Operasional", value: "operations" },
-  { label: "Hasil", value: "participants" },
-  { label: "Pengaturan", value: "settings" },
+const workspaceTabs: Array<{ label: string; value: TryoutWorkspaceTab; icon: typeof ClipboardList }> = [
+  { label: "Subtes", value: "subtests", icon: ClipboardList },
+  { label: "Operasional", value: "operations", icon: CalendarDays },
+  { label: "Hasil", value: "participants", icon: BarChart3 },
+  { label: "Pengaturan", value: "settings", icon: Settings },
 ];
 
 function handlePrimaryNavigation(
@@ -119,42 +116,42 @@ function TryoutWorkspaceHeader({
       {children}
 
       {showTabs ? (
-        <SunkenTabNavigation aria-label="Bagian Tryout" className="grid grid-cols-2 sm:flex">
+        <nav aria-label="Bagian Tryout" className="flex w-full border-b border-primary-100 bg-transparent">
           {workspaceTabs.map((tab) => {
             const href = buildTryoutWorkspaceHref(id, tab.value, { ...Object.fromEntries(query.entries()), ...(parentId ? { parent: parentId } : {}) });
             const active = activeTab === tab.value;
-            const className =
-              "!h-auto px-3 text-center text-sm leading-tight";
+            const Icon = tab.icon;
+            const className = cn(
+              "relative -mb-px flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-1 border-b-2 px-1 py-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 motion-reduce:transition-none sm:flex-row sm:gap-2 sm:px-3 sm:text-sm",
+              active ? "border-primary-800 text-primary-950 font-bold" : "border-transparent text-secondary-500 hover:border-primary-200 hover:text-secondary-900",
+            );
+            const content = <><Icon aria-hidden="true" className={cn("size-4 shrink-0", active ? "text-primary-800" : "text-secondary-400")} /><span className="max-w-full break-words text-center">{tab.label}</span></>;
             if (onTabChange) {
               return (
-                <SunkenTabButton
+                <button
                   aria-pressed={active}
                   className={className}
                   key={tab.value}
-                  layout="equal"
                   onClick={() => onTabChange(tab.value)}
-                  selected={active}
                   type="button"
                 >
-                  {tab.label}
-                </SunkenTabButton>
+                  {content}
+                </button>
               );
             }
             return (
-              <SunkenTabLink
+              <Link
                 aria-current={active ? "page" : undefined}
                 className={className}
                 href={href}
                 key={tab.value}
-                layout="equal"
                 onClick={(event) => handlePrimaryNavigation(event, href, onNavigate)}
-                selected={active}
               >
-                {tab.label}
-              </SunkenTabLink>
+                {content}
+              </Link>
             );
           })}
-        </SunkenTabNavigation>
+        </nav>
       ) : null}
     </div>
   );

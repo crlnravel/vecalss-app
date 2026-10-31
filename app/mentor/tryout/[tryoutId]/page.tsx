@@ -91,10 +91,11 @@ function TryoutWorkspace({
   );
 }
 
-function redirectLegacyTryoutWorkspace(tryoutId: string, workspace: ParsedTryoutContext["workspace"]): never | void {
-  if (workspace === "results") redirect(buildMentorTryoutHref(tryoutId, { workspace: "participants" }));
+function redirectLegacyTryoutWorkspace(tryoutId: string, context: ParsedTryoutContext): never | void {
+  const { workspace } = context;
+  if (workspace === "results") redirect(buildMentorTryoutHref(tryoutId, { ...context, workspace: "participants", delivery: undefined }));
   if (workspace === "schedule" || workspace === "attempts" || workspace === "live") {
-    redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations" }));
+    redirect(buildMentorTryoutHref(tryoutId, { ...context, workspace: "operations" }));
   }
 }
 
@@ -139,7 +140,7 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   };
   const canonicalHref = buildMentorTryoutHref(tryoutId, normalizedContext);
   if (!canonicalQueryEquals(query, canonicalHref)) redirect(canonicalHref);
-  redirectLegacyTryoutWorkspace(tryoutId, parsedQuery.workspace);
+  redirectLegacyTryoutWorkspace(tryoutId, parsedQuery);
   if (parsedQuery.delivery === "participants") {
     return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Peserta" breadcrumbParent={{ href: buildMentorTryoutHref(tryoutId, { ...normalizedContext, delivery: undefined, workspace: "operations" }), label: operationsInitial.title }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
       <KaptenTryoutWorkspaceFrame activeTab="operations" initial={operationsInitial} parentId={parsedQuery.parent}>

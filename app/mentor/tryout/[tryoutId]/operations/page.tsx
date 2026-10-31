@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
@@ -20,10 +20,11 @@ export default async function TryoutOperationsPage({
   const { tryoutId } = await params;
   await requireTutorSession();
   const parsed = parseMentorTryoutContext(await searchParams);
+  if (parsed.issues.length) notFound();
   redirect(
     buildMentorTryoutHref(tryoutId, {
-      parent: parsed.parent,
-      workspace: parsed.delivery === "participants" ? "participants" : "operations",
+      ...parsed,
+      workspace: "operations",
     }),
   );
 }

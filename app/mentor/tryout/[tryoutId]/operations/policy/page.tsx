@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { buildMentorTryoutHref } from "@/lib/navigation/canonical-context";
+import { buildMentorTryoutHref, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 
 export const metadata: Metadata = { title: "Kebijakan Tryout | Vecalss LMS" };
 
-export default async function TryoutPolicyPage({ params }: { params: Promise<{ tryoutId: string }> }) {
+export default async function TryoutPolicyPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
   await requireTutorSession();
   const { tryoutId } = await params;
-  redirect(buildMentorTryoutHref(tryoutId, { workspace: "operations", delivery: "policy" }));
+  const parsed = parseMentorTryoutContext(await searchParams);
+  if (parsed.issues.length) notFound();
+  redirect(buildMentorTryoutHref(tryoutId, { ...parsed, workspace: "operations", delivery: "policy" }));
 }
