@@ -32,6 +32,14 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
     if (group) group.sections.push(section.sequenceNo); else groups.push({ message, sections: [section.sequenceNo] });
     return groups;
   }, []);
+  if (initial.state === "released" || (calculated && !busy && !unresolved)) {
+    return (
+      <div className="grid gap-2 text-sm leading-6 text-secondary-700">
+        <p role="status">{initial.state === "released" ? initial.message : "Skor sudah tersimpan. Hasil peserta mengikuti aturan rilis sesi."}</p>
+        {!readOnly && flow.refreshFailed ? <Button className="min-h-11 w-fit" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
+      </div>
+    );
+  }
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0 ring-0")}>
       <CardHeader><CardTitle className="text-lg font-semibold">Perhitungan hasil</CardTitle>{calculated && readOnly ? null : <CardDescription>{calculated ? "Rincian perhitungan terakhir dan alasan pencatatannya." : initial.message}</CardDescription>}</CardHeader>

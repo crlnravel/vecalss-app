@@ -14,9 +14,7 @@ import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -49,7 +47,7 @@ function AttemptRunRow({ run }: { run: AttemptRun }) {
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
       <div className="min-w-0">
-        <p className="font-semibold text-secondary-900">Tes {run.sequenceNo}</p>
+        <p className="break-words font-semibold text-secondary-900">{run.subtestName?.trim() || run.title?.trim() || `Tes ${run.sequenceNo}`}</p>
         {run.integrityEvents > 0 ? <p className="mt-0.5 text-sm text-secondary-600">{run.integrityEvents} catatan pemantauan</p> : null}
       </div>
       <StatusBadge status={run.status} />
@@ -142,10 +140,13 @@ function KaptenTryoutAttemptDetailPageModule({
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0" title={attempt.student} />}
       {embedded && readOnly ? <ReferenceSectionHeading action={<StatusBadge status={attempt.status} />} title={attempt.student} /> : null}
-      <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />
-      <div className={cn("mt-5 grid gap-5", (resultRecovery || !readOnly) && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>
-        <AttemptRunsSection attempt={attempt} />
-        <aside className="grid min-w-0 content-start gap-4">{resultRecovery ? <TryoutAttemptResultRecovery readOnly={readOnly} key={`${resultRecovery.scope.attemptId}:${resultRecovery.scope.sessionId}`} initial={resultRecovery} refresh={() => router.refresh()} /> : null}{readOnly ? null : <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />}</aside>
+      {readOnly ? null : <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />}
+      <div className="mt-5 grid gap-5">
+        <div className={cn("grid gap-5", !readOnly && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>
+          <AttemptRunsSection attempt={attempt} />
+          {readOnly ? null : <AttemptActionPanel activeRun={activeRun} attempt={attempt} auditReason={auditReason} busy={busy} onAuditReasonChange={setAuditReason} onDisconnectReconcile={() => void handleDisconnectReconcile()} onDisconnectStart={() => void handleDisconnectStart()} />}
+        </div>
+        {resultRecovery ? <TryoutAttemptResultRecovery readOnly={readOnly} key={`${resultRecovery.scope.attemptId}:${resultRecovery.scope.sessionId}`} initial={resultRecovery} refresh={() => router.refresh()} /> : null}
       </div>
     </div>
   );
