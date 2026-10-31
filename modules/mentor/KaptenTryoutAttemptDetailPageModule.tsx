@@ -24,7 +24,7 @@ function AttemptRunRow({ run }: { run: AttemptRun }) {
         <p className="break-words font-semibold text-secondary-900">{run.subtestName?.trim() || run.title?.trim() || `Tes ${run.sequenceNo}`}</p>
         {run.integrityEvents > 0 ? <p className="mt-0.5 text-sm text-secondary-600">{run.integrityEvents} catatan pemantauan</p> : null}
       </div>
-      <span className="shrink-0 text-right font-semibold tabular-nums text-secondary-900">{formatScore(run.normalizedScore)}</span>
+      <span className="shrink-0 text-right font-semibold tabular-nums text-secondary-900"><span className="sr-only">Skor: </span>{formatScore(run.normalizedScore)}</span>
     </li>
   );
 }
