@@ -379,7 +379,6 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
         availableUntil,
         createdByUserId: actorId,
         fullscreenPrompt: false,
-        isDefaultOpenRegistration: false,
         name: previewRetakeName(parsed.requestId),
         rankingRule: TryoutRankingRule.none,
         releaseReason: "Admin student preview restart",

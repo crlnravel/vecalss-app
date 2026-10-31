@@ -24,7 +24,7 @@ async function edit(fixture: Fixture, change: Partial<Parameters<typeof saveTryo
 }
 async function publish(fixture: Fixture) {
   fixture.draft = await edit(fixture, { status: "published", availableFrom: new Date(Date.now() - 60_000), availableUntil: new Date(Date.now() + 86_400_000) });
-  return prisma.tryoutDeliverySession.findFirstOrThrow({ where: { tryoutId: fixture.draft.id, isDefaultOpenRegistration: true } });
+  return prisma.tryoutDeliverySession.findFirstOrThrow({ where: { tryoutId: fixture.draft.id } });
 }
 async function preservedHistory(tryoutId: string) {
   const [sections, releases, sessions, admissions, attempts] = await Promise.all([
@@ -64,7 +64,7 @@ try {
     assert.equal(racing[0].status, "fulfilled", "publication succeeds atomically with saved draft mode");
     current.draft = (racing[0] as PromiseFulfilledResult<Fixture["draft"]>).value;
     assert.equal(current.draft.admissionMode, mode);
-    const session = await prisma.tryoutDeliverySession.findFirstOrThrow({ where: { tryoutId: record.id, isDefaultOpenRegistration: true } });
+    const session = await prisma.tryoutDeliverySession.findFirstOrThrow({ where: { tryoutId: record.id } });
     if (mode === "invitation_only") {
       if (racing[1].status === "fulfilled") assert.notEqual(racing[1].value.status, "active", "no open interval during invitation-only publication");
       await assert.rejects(registerForTryout(record.id, current.studentId), /undangan/);

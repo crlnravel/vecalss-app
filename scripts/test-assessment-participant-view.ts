@@ -24,7 +24,6 @@ const fixture: ParticipantViewAdmissionInput = {
         availableFrom: new Date("2026-08-22T08:00:00.000Z"),
         availableUntil: new Date("2026-08-22T10:00:00.000Z"),
         id: "session-1",
-        isDefaultOpenRegistration: true,
         name: "Sesi Pagi",
         status: "active",
       },

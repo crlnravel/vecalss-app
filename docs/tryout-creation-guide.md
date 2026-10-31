@@ -1076,7 +1076,6 @@ bukan nilai resmi SNBT.
 | Fase Delivery | **/mentor/tryout/{tryoutId}?workspace=schedule&delivery=policy**, **sessions**, atau **participants** |
 | Fase Operations | **/mentor/tryout/{tryoutId}?workspace=live** atau **attempts** |
 | Fase Results | **/mentor/tryout/{tryoutId}?workspace=results&session={sessionId}** |
-| Buat sesi | **/mentor/tryout/{tryoutId}/operations/sessions/new** |
 | Detail sesi | **/mentor/tryout/{tryoutId}/operations/sessions/{sessionId}** |
 | Detail peserta | **/mentor/tryout/{tryoutId}/operations/participants/{admissionId}** |
 | Detail attempt | **/mentor/tryout/{tryoutId}/operations/attempts/{attemptId}** |

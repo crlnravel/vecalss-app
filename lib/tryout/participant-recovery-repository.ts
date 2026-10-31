@@ -16,7 +16,7 @@ export async function participantActionRecoveryState(intent: ParticipantRecovery
       },
       deliverySessions: {
         select: {
-          id: true, status: true, availableFrom: true, availableUntil: true, isDefaultOpenRegistration: true, assessmentReleaseId: true,
+          id: true, status: true, availableFrom: true, availableUntil: true, assessmentReleaseId: true,
           attempts: { where: { studentId }, select: { id: true, status: true, serverDeadlineAt: true, assessmentReleaseId: true, assessmentReleaseNumber: true, assessmentReleaseDigest: true } },
         },
       },

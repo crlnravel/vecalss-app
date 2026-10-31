@@ -216,16 +216,12 @@ function ParticipantTryoutWorkspace({
                 (sum, section) => sum + section.durationSeconds,
                 0,
               );
-              const primarySession = tryout.assignments[0] ??
-                tryout.sessions.find((item) => item.isDefaultOpenRegistration) ??
-                tryout.sessions[0];
+              const primarySession = tryout.assignments[0] ?? tryout.sessions[0];
               const assignment = tryout.assignments[0];
               const hasEnrolledAssignment =
                 tryout.admissionStatus === "active" && Boolean(assignment);
               const canEnterWaiting = canEnterParticipantWaitingRoom(tryout);
-              const hasDefaultAdmissionSession = tryout.sessions.some(
-                (item) => item.isDefaultOpenRegistration,
-              );
+              const hasDefaultAdmissionSession = tryout.sessions.length > 0;
               const registrationSessionId =
                 tryout.admissionStatus === null &&
                 tryout.admissionMode === "approval_required" &&

@@ -32,7 +32,6 @@ type ParticipantViewSession = {
   availableFrom: string;
   availableUntil: string;
   id: string;
-  isDefaultOpenRegistration: boolean;
   name: string;
   state: ParticipantViewSessionState;
   status: TryoutDeliverySessionStatus;
@@ -102,7 +101,6 @@ type ParticipantViewAssignmentInput = {
     availableFrom: Date;
     availableUntil: Date;
     id: string;
-    isDefaultOpenRegistration: boolean;
     name: string;
     status: TryoutDeliverySessionStatus;
   };
@@ -193,7 +191,6 @@ function toSessionView(
     availableFrom: assignment.deliverySession.availableFrom.toISOString(),
     availableUntil: assignment.deliverySession.availableUntil.toISOString(),
     id: assignment.deliverySession.id,
-    isDefaultOpenRegistration: assignment.deliverySession.isDefaultOpenRegistration,
     name: assignment.deliverySession.name,
     state: sessionState(assignment, now),
     status: assignment.deliverySession.status,

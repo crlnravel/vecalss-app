@@ -1213,24 +1213,23 @@ async function upsertDeliverySession(client, { assessmentRelease, name, relative
   const result = await client.query(
     `INSERT INTO tryout_delivery_sessions (
        tryout_id, name, available_from, available_until, result_release_policy,
-       ranking_rule, is_default_open_registration, fullscreen_prompt, status,
+       ranking_rule, fullscreen_prompt, status,
        release_state, release_reason, assessment_release_id,
        created_by_user_id, updated_by_user_id, released_at, released_by_user_id
      ) VALUES (
        $1, $2, NOW() + ($3::int * INTERVAL '1 day'), NOW() + ($4::int * INTERVAL '1 day'),
-       $5::tryout_result_release_policy, 'cohort', $6, $7, $8::tryout_delivery_session_status,
-       CASE WHEN $10::boolean THEN 'released'::assessment_result_release_state ELSE 'hidden'::assessment_result_release_state END,
-       CASE WHEN $10::boolean THEN 'Seeded runtime result bundle.' ELSE NULL END,
-       $11::uuid,
-       $9::uuid, $9::uuid, CASE WHEN $10::boolean THEN NOW() - INTERVAL '6 days' ELSE NULL END,
-       CASE WHEN $10::boolean THEN $9::uuid ELSE NULL END
+       $5::tryout_result_release_policy, 'cohort', $6, $7::tryout_delivery_session_status,
+       CASE WHEN $9::boolean THEN 'released'::assessment_result_release_state ELSE 'hidden'::assessment_result_release_state END,
+       CASE WHEN $9::boolean THEN 'Seeded runtime result bundle.' ELSE NULL END,
+       $10::uuid,
+       $8::uuid, $8::uuid, CASE WHEN $9::boolean THEN NOW() - INTERVAL '6 days' ELSE NULL END,
+       CASE WHEN $9::boolean THEN $8::uuid ELSE NULL END
      )
      ON CONFLICT (tryout_id, name) DO UPDATE
        SET available_from = EXCLUDED.available_from,
            available_until = EXCLUDED.available_until,
            result_release_policy = EXCLUDED.result_release_policy,
            ranking_rule = EXCLUDED.ranking_rule,
-           is_default_open_registration = EXCLUDED.is_default_open_registration,
            fullscreen_prompt = EXCLUDED.fullscreen_prompt,
            status = EXCLUDED.status,
            release_state = EXCLUDED.release_state,
@@ -1241,7 +1240,7 @@ async function upsertDeliverySession(client, { assessmentRelease, name, relative
            released_by_user_id = EXCLUDED.released_by_user_id,
            updated_at = NOW()
      RETURNING id`,
-    [tryoutId, name, relativeWindow.from, relativeWindow.until, release.policy, release.defaultRegistration, release.fullscreenPrompt, status, tutorId, release.released, assessmentRelease.id],
+    [tryoutId, name, relativeWindow.from, relativeWindow.until, release.policy, release.fullscreenPrompt, status, tutorId, release.released, assessmentRelease.id],
   );
   return result.rows[0].id;
 }
@@ -2097,7 +2096,7 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
       assessmentRelease,
       name: "Sesi Evaluasi Sebelumnya",
       relativeWindow: { from: -10, until: -8 },
-      release: { defaultRegistration: false, fullscreenPrompt: true, policy: "manual", released: true },
+      release: { fullscreenPrompt: true, policy: "manual", released: true },
       status: "closed",
       tryoutId,
       tutorId,
@@ -2106,7 +2105,7 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
       assessmentRelease,
       name: "Sesi Reguler Pekan Ini",
       relativeWindow: { from: -1, until: 7 },
-      release: { defaultRegistration: true, fullscreenPrompt: true, policy: "automatic_at_end", released: false },
+      release: { fullscreenPrompt: true, policy: "automatic_at_end", released: false },
       status: "active",
       tryoutId,
       tutorId,

@@ -233,7 +233,7 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: s
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
   const now = new Date();
-  const defaultAdmissionSession = tryout.sessions.find((deliverySession) => deliverySession.isDefaultOpenRegistration);
+  const defaultAdmissionSession = tryout.sessions[0];
   const selectedSession = sessionId ? tryout.sessions.find((deliverySession) => deliverySession.id === sessionId) : undefined;
   const defaultOpenSession = defaultAdmissionSession && isTryoutAdmissionSessionAvailable(defaultAdmissionSession, now)
     ? defaultAdmissionSession

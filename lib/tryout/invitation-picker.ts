@@ -14,7 +14,7 @@ async function assertManageableTryout(tryoutId: string, actorId: string) {
   });
   if (!actor) throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
   const tryout = await prisma.tryoutPackage.findFirst({
-    select: { deliverySessions: { select: { id: true, name: true, isDefaultOpenRegistration: true } } },
+    select: { deliverySessions: { select: { id: true, name: true } } },
     where: { id: tryoutId },
   });
   if (!tryout) throw new TryoutInvitationPickerError("Tryout tidak ditemukan atau tidak dapat diakses.");

@@ -19,7 +19,7 @@ export async function createTa01Fixture() {
   await prisma.tryoutPackage.update({ where: { id: copy.id }, data: { title, admissionMode: "approval_required", status: "published", publishedAt: new Date() } });
   await prisma.tryoutSection.updateMany({ where: { tryoutId: copy.id }, data: { scoringConfig: { method: "fixed_points", correctAnswerPoints: 1, wrongAnswerPoints: 0, unansweredPoints: 0 } } });
   const session = await prisma.tryoutDeliverySession.findFirstOrThrow({ where: { tryoutId: copy.id } });
-  await prisma.tryoutDeliverySession.update({ where: { id: session.id }, data: { availableFrom: new Date(Date.now() + 86_400_000), availableUntil: new Date(Date.now() + 172_800_000), isDefaultOpenRegistration: true } });
+  await prisma.tryoutDeliverySession.update({ where: { id: session.id }, data: { availableFrom: new Date(Date.now() + 86_400_000), availableUntil: new Date(Date.now() + 172_800_000) } });
   await openTryoutDeliverySession(session.id, owner.id, "Isolated local TA-01 fixture");
   const admissions = [];
   for (const [index, student] of ordered.entries()) {

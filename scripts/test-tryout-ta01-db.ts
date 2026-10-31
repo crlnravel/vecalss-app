@@ -95,9 +95,9 @@ try {
   const pendingFixture = await createTa01Fixture();
   const otherSession = pendingFixture.sessionId;
   await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "wrong session", fixture.sessionId));
-  await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { isDefaultOpenRegistration: false } });
-  await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "no default session"));
-  await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { isDefaultOpenRegistration: true } });
+  await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { status: "draft" } });
+  await assert.rejects(decideTryoutAdmission(pendingFixture.admissions[0].id, "approve", fixture.ownerId, "session not open"));
+  await prisma.tryoutDeliverySession.update({ where: { id: otherSession }, data: { status: "active" } });
   for (const admission of fixture.admissions) admission.status = (await prisma.tryoutAdmission.findUniqueOrThrow({ where: { id: admission.id } })).status;
   await writeFile(new URL("../.scratch/tryout-ta01/fixtures.json", import.meta.url), JSON.stringify({ archived: fixture, pending: pendingFixture }, null, 2));
   console.log("TA-01 DB checks passed: owner scoping, complete zero-attempt list, approval/rejection idempotency, future Start refusal, explicit assignment restoration, archive fences. Reusable pending/archive fixtures: .scratch/tryout-ta01/fixtures.json");

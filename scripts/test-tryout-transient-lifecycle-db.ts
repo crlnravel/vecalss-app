@@ -21,7 +21,7 @@ const ledger: Record<string, unknown> = {};
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 async function remember(name: string, fixture: Pick<Fixture, "tryoutId" | "ownerId" | "studentId" | "studentEmail">) {
   const parent = await prisma.tryoutPackage.findUnique({ where: { id: fixture.tryoutId }, select: { id: true, title: true, status: true, isHidden: true } });
-  const sessions = await prisma.tryoutDeliverySession.findMany({ where: { tryoutId: fixture.tryoutId }, select: { id: true, name: true, status: true, availableFrom: true, availableUntil: true, assessmentReleaseId: true, isDefaultOpenRegistration: true } });
+  const sessions = await prisma.tryoutDeliverySession.findMany({ where: { tryoutId: fixture.tryoutId }, select: { id: true, name: true, status: true, availableFrom: true, availableUntil: true, assessmentReleaseId: true } });
   ledger[name] = { ...fixture, parent, sessions };
   await writeFile(".scratch/tryout-f11/final-fixtures.json", JSON.stringify(ledger, null, 2));
 }

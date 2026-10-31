@@ -47,7 +47,6 @@ const expiredDefaultSession = {
   assessmentReleaseId: "release-expired",
   availableUntil: new Date("2026-09-19T16:00:00.000Z"),
   id: "session-expired",
-  isDefaultOpenRegistration: true,
   status: "active",
 };
 const futureDefaultSession = {

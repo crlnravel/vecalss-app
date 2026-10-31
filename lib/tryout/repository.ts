@@ -251,21 +251,12 @@ async function ensureMainTryoutDeliverySession(
 
     const window = schedule ?? { availableFrom: existing.availableFrom, availableUntil: existing.availableUntil };
 
-    await tx.tryoutDeliverySession.updateMany({
-      where: {
-        id: { not: existing.id },
-        isDefaultOpenRegistration: true,
-        tryoutId: input.tryoutId,
-      },
-      data: { isDefaultOpenRegistration: false, updatedByUserId: input.actorId },
-    });
     const opened = await tx.tryoutDeliverySession.update({
       where: { id: existing.id },
       data: {
         assessmentReleaseId: input.assessmentReleaseId,
         availableFrom: window.availableFrom,
         availableUntil: window.availableUntil,
-        isDefaultOpenRegistration: true,
         status: TryoutDeliverySessionStatus.active,
         updatedByUserId: input.actorId,
       },
@@ -278,13 +269,11 @@ async function ensureMainTryoutDeliverySession(
           assessmentReleaseId: opened.assessmentReleaseId,
           availableFrom: opened.availableFrom.toISOString(),
           availableUntil: opened.availableUntil.toISOString(),
-          isDefaultOpenRegistration: opened.isDefaultOpenRegistration,
           status: opened.status,
         }),
         before: json({
           availableFrom: existing.availableFrom.toISOString(),
           availableUntil: existing.availableUntil.toISOString(),
-          isDefaultOpenRegistration: existing.isDefaultOpenRegistration,
           status: existing.status,
         }),
         deliverySessionId: opened.id,
@@ -296,15 +285,6 @@ async function ensureMainTryoutDeliverySession(
   }
 
   const window = input.schedule ?? defaultMainSessionWindow();
-  if (input.activate) {
-    await tx.tryoutDeliverySession.updateMany({
-      where: {
-        isDefaultOpenRegistration: true,
-        tryoutId: input.tryoutId,
-      },
-      data: { isDefaultOpenRegistration: false, updatedByUserId: input.actorId },
-    });
-  }
   const created = await tx.tryoutDeliverySession.create({
     data: {
       assessmentReleaseId: input.activate ? input.assessmentReleaseId : null,
@@ -312,7 +292,6 @@ async function ensureMainTryoutDeliverySession(
       availableUntil: window.availableUntil,
       createdByUserId: input.actorId,
       fullscreenPrompt: false,
-      isDefaultOpenRegistration: input.activate,
       name: MAIN_TRYOUT_SESSION_NAME,
       rankingRule: "none",
       resultReleasePolicy: "inherit",
@@ -329,7 +308,6 @@ async function ensureMainTryoutDeliverySession(
       after: json({
         availableFrom: created.availableFrom.toISOString(),
         availableUntil: created.availableUntil.toISOString(),
-        isDefaultOpenRegistration: created.isDefaultOpenRegistration,
         name: created.name,
         status: created.status,
       }),
@@ -1201,7 +1179,6 @@ async function unpublishTryoutCore(
         availableFrom: true,
         availableUntil: true,
         id: true,
-        isDefaultOpenRegistration: true,
         status: true,
       },
     });
@@ -1209,7 +1186,6 @@ async function unpublishTryoutCore(
       const closedSession = await tx.tryoutDeliverySession.update({
         where: { id: mainSession.id },
         data: {
-          isDefaultOpenRegistration: false,
           status: TryoutDeliverySessionStatus.closed,
           updatedByUserId: actorId,
         },
@@ -1219,13 +1195,11 @@ async function unpublishTryoutCore(
           action: "delivery_session.main_auto_closed",
           actorUserId: actorId,
           after: json({
-            isDefaultOpenRegistration: closedSession.isDefaultOpenRegistration,
             status: closedSession.status,
           }),
           before: json({
             availableFrom: mainSession.availableFrom.toISOString(),
             availableUntil: mainSession.availableUntil.toISOString(),
-            isDefaultOpenRegistration: mainSession.isDefaultOpenRegistration,
             status: mainSession.status,
           }),
           deliverySessionId: closedSession.id,
@@ -1399,7 +1373,7 @@ async function deliverySetupIsUntouched(tx: Prisma.TransactionClient, tryoutId: 
     where: { tryoutId },
   });
   const [session] = sessions;
-  const snapshot = audit.after as { availableFrom?: string; availableUntil?: string; isDefaultOpenRegistration?: boolean; name?: string; status?: string } | null;
+  const snapshot = audit.after as { availableFrom?: string; availableUntil?: string; name?: string; status?: string } | null;
   if (sessions.length !== 1 || session.id !== audit.deliverySessionId || !snapshot) return false;
 
   return session._count.assignments === 0
@@ -1413,7 +1387,6 @@ async function deliverySetupIsUntouched(tx: Prisma.TransactionClient, tryoutId: 
     && session.updatedByUserId === audit.actorUserId
     && session.name === snapshot.name
     && session.status === snapshot.status
-    && session.isDefaultOpenRegistration === snapshot.isDefaultOpenRegistration
     && session.availableFrom.toISOString() === snapshot.availableFrom
     && session.availableUntil.toISOString() === snapshot.availableUntil;
 }

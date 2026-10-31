@@ -108,8 +108,7 @@ try {
     assert.equal(blockedSession?.grantEligible, false);
     assert.equal(blockedSession?.grantBlockedReason, status === "draft" ? "inactive_session" : status === "closed" ? "closed_session" : "archived_session");
   }
-  await prisma.tryoutDeliverySession.update({ where: { id: blocked.sessionId }, data: { status: "active", isDefaultOpenRegistration: false } });
-  await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "no default"));
+  await prisma.tryoutDeliverySession.update({ where: { id: blocked.sessionId }, data: { status: "active" } });
   const unbound = await prisma.tryoutDeliverySession.create({ data: { tryoutId: blocked.tryoutId, name: "TA-03 unprepared", status: "active", availableFrom: new Date(Date.now() + 60_000), availableUntil: new Date(Date.now() + 86_400_000), createdByUserId: blocked.ownerId, updatedByUserId: blocked.ownerId } });
   await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "no content", unbound.id));
   const unboundView = await getOwnedTryoutParticipantsView(blocked.tryoutId, blocked.ownerId);

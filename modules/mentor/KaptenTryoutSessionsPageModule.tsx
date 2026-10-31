@@ -43,17 +43,13 @@ function KaptenTryoutSessionsPageModule({
               const sessionReady = session.status === "active" && Boolean(session.assessmentRelease);
               return (
                 <Card
-                  className={session.isDefaultOpenRegistration
-                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)] ring-0"
-                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] ring-0"}
+                  className="border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--voyage-surface)_80%,transparent),inset_0_-2px_8px_color-mix(in_oklab,var(--voyage-forest)_8%,transparent)] ring-0"
                   key={session.id}
                   size="sm"
                 >
                   <div className="grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_3rem] sm:items-center sm:gap-0 sm:p-0">
                     <Link
-                      className={session.isDefaultOpenRegistration
-                        ? "group min-w-0 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35 sm:px-5 sm:py-4"
-                        : "group min-w-0 transition-colors hover:bg-secondary-50 focus-visible:bg-secondary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40 sm:px-5 sm:py-4"}
+                      className="group min-w-0 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35 sm:px-5 sm:py-4"
                       href={`${base}/${session.id}`}
                     >
                       <div className="grid min-w-0 gap-1">
@@ -76,9 +72,7 @@ function KaptenTryoutSessionsPageModule({
                       </div>
                       <Link
                         aria-label={`Buka sesi ${session.name}`}
-                        className={session.isDefaultOpenRegistration
-                          ? "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
-                          : "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40"}
+                        className="flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
                         href={`${base}/${session.id}`}
                       >
                         <ChevronRight aria-hidden="true" />

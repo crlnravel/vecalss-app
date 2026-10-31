@@ -7,7 +7,7 @@ import { buildMentorTryoutAttemptHref, parseMentorTryoutAttemptContext, parseMen
 import { selectTryoutHistorySession } from "../lib/tryout/main-session";
 
 const sessions = [
-  { id: "empty-main", name: "Sesi utama", isDefaultOpenRegistration: true },
+  { id: "empty-main", name: "Sesi utama" },
   { id: "historical", name: "Sesi lama" },
 ];
 assert.equal(selectTryoutHistorySession(sessions, [{ sessionId: "historical" }])?.id, "historical", "Archived history starts on its actual historical records");

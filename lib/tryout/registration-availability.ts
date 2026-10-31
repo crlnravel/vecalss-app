@@ -1,3 +1,5 @@
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
+
 type TryoutAdmissionMode = "open" | "approval_required" | "invitation_only";
 
 type TryoutAdmissionSession = {
@@ -5,7 +7,7 @@ type TryoutAdmissionSession = {
   assessmentReleaseId?: string | null;
   availableUntil: Date | number | string;
   id: string;
-  isDefaultOpenRegistration: boolean;
+  name?: string;
   status: string;
 };
 
@@ -79,9 +81,7 @@ function canRequestNewTryoutAdmission(
 ) {
   if (admissionMode === "invitation_only") return false;
 
-  const defaultSession = sessions.find(
-    (session) => session.isDefaultOpenRegistration,
-  );
+  const defaultSession = selectMainTryoutSession(sessions);
 
   // Approval-required admissions may be requested before the first session is
   // created, but an existing default registration session must still be open.

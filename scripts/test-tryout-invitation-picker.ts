@@ -6,7 +6,7 @@ import { performTryoutAccess } from "../modules/mentor/tryout-access-request";
 import { tryoutAccessGrantBlockReason, tryoutAccessGrantBlockMessage } from "../lib/tryout/registration-availability";
 
 const grantNow = new Date("2026-10-13T10:00:00Z");
-const grantSession = { id: "main", isDefaultOpenRegistration: true, status: "active", assessmentReleaseId: "release", availableFrom: "2026-10-13T10:30:00Z", availableUntil: "2026-10-13T11:00:00Z" };
+const grantSession = { id: "main", status: "active", assessmentReleaseId: "release", availableFrom: "2026-10-13T10:30:00Z", availableUntil: "2026-10-13T11:00:00Z" };
 assert.equal(tryoutAccessGrantBlockReason("published", grantSession, grantNow), null, "future-opening active content-bound sessions may receive access");
 assert.equal(tryoutAccessGrantBlockReason("published", null, grantNow), "missing_session");
 assert.equal(tryoutAccessGrantBlockReason("archived", grantSession, grantNow), "archived_tryout");

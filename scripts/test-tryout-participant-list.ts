@@ -22,7 +22,7 @@ const rows = Array.from({ length: 23 }, (_, index) => ({
   participant: { ...mentorParticipantIdentity({ fullName: "Nabila", email: `student${index}@vecalss.local` }) },
   sessions: index === 22 ? [{ id: "main", assignmentStatus: "revoked" }] : [],
 })) as TryoutOperationsView["participants"];
-const view = { participants: rows, sessions: [{ id: "main", isDefaultOpenRegistration: true }] } as Pick<TryoutOperationsView, "participants" | "sessions">;
+const view = { participants: rows, sessions: [{ id: "main" }] } as Pick<TryoutOperationsView, "participants" | "sessions">;
 assert.equal(queryTryoutParticipants(view, {}).pendingCount, 1);
 assert.equal(queryTryoutParticipants(view, { access: "revoked" }).rows[0].admissionId, "registration-22", "access filter bypasses only the implicit pending default");
 assert.equal(queryTryoutParticipants(view, { q: "student22@vecalss.local" }).rows[0].admissionId, "registration-22", "search includes the complete list, including same-name students beyond page one");
@@ -32,7 +32,7 @@ assert.equal(queryTryoutParticipants(view, { status: "all", q: "missing" }).tota
 assert.equal(await withTryoutRequestDeadline(Promise.resolve("saved"), 5), "saved");
 await assert.rejects(withTryoutRequestDeadline(new Promise(() => {}), 5), /outcome unavailable/);
 const cutoff = new Date("2026-10-11T08:00:00.000Z");
-const eligible = { id: "session", assessmentReleaseId: "release", isDefaultOpenRegistration: true, availableUntil: cutoff, status: "active" };
+const eligible = { id: "session", assessmentReleaseId: "release", availableUntil: cutoff, status: "active" };
 assert.equal(isTryoutAdmissionSessionAvailable(eligible, new Date(cutoff.getTime() - 1)), true);
 assert.equal(isTryoutAdmissionSessionAvailable(eligible, cutoff), false);
 assert.equal(isTryoutAdmissionSessionAvailable(eligible, new Date(cutoff.getTime() + 1)), false);

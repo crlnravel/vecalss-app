@@ -35,7 +35,6 @@ type ParticipantTryoutAssignment = {
   effectiveResultReleasePolicy: TryoutResultReleasePolicy;
   fullscreenPrompt: boolean;
   id: string;
-  isDefaultOpenRegistration: boolean;
   isAvailableNow: boolean;
   isExpired: boolean;
   name: string;
@@ -109,7 +108,6 @@ function participantTryoutInclude(studentId: string) {
         assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
         fullscreenPrompt: true,
         id: true,
-        isDefaultOpenRegistration: true,
         name: true,
         rankingRule: true,
         resultReleasePolicy: true,
@@ -253,7 +251,6 @@ function serializeTryout(
           : deliverySession.resultReleasePolicy,
         fullscreenPrompt: deliverySession.fullscreenPrompt,
         id: deliverySession.id,
-        isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
         isAvailableNow:
           Boolean(deliverySession.assessmentRelease) &&
           deliverySession.availableFrom <= now &&
@@ -289,7 +286,6 @@ function serializeTryout(
         : deliverySession.resultReleasePolicy,
       fullscreenPrompt: deliverySession.fullscreenPrompt,
       id: deliverySession.id,
-      isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
       isAvailableNow:
         Boolean(deliverySession.assessmentRelease) &&
         deliverySession.availableFrom <= now &&
