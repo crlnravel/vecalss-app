@@ -1,5 +1,12 @@
 # Session Progress Log
 
+## Vera AI major audit findings corrected (2026-10-31 WIB)
+
+- Commit `4707ace` fixes the five accepted Admin Vera AI findings without changing routes. Measured zeroes remain zero; absent monitoring is unavailable; snapshots describe query time. Existing cohort/complement rules now cover headlines, time totals, costs, observed reasons/statuses and cumulative lock cohorts.
+- Usage keeps confirmed metric/range context during replacement loading or failure. Costs use recorded provider charges, separate selected and WIB month-to-date sources, an explicit reference FX rate, and an elapsed-month projection. All five existing workspaces use shared sunken peer navigation.
+- Guarded `pnpm test:vera-control-plane`, `pnpm test:vera-admin-usage` and final `pnpm verify` pass. Four unrelated unused-variable lint warnings remain. Both independent Luna/max reviewers closed their findings. No agent-owned server or browser space remains open.
+- Acceptance and limitations: `epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/vera-ai-remediation/index.md`. Live provider probes, credential audit, routing observations and capacity collection remain unwired and are clearly unavailable; no production access or deployment occurred.
+
 ## F-13 accepted; integrated admission QA complete (2026-10-15 WIB)
 
 - F13 fixed by clean-context exact gpt-6.1-sol/high in6c2a84e1 plus3fb78997. Finite deadline rechecks handle early active reads, quiet failures/exhaustion and manual recovery; commit-time read identity fences obsolete responses/callbacks before passive cleanup.

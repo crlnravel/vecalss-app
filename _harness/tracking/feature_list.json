@@ -274,7 +274,7 @@
       "description": "Define unified domain models, semantic metric states (available, partial, suppressed, unavailable), admitted vs rejected request classification, privacy suppression (k>=5), capacity gauges, and incident taxonomy",
       "dependencies": ["feat-001"],
       "status": "complete",
-      "evidence": "lib/admin/ai/contracts.ts, lib/admin/ai/aggregators.ts, lib/admin/ai/service.ts; mathematically precise formulas for execution success, effective completion, fallback recovery, admission rejection; privacy threshold suppression (k>=5) and complement suppression; verified with test:admin-ai-control-plane 30/30 checks passing"
+      "evidence": "4707ace corrects the five major Admin Vera AI audit findings: real zero/unavailable/snapshot states, shared k>=5/complement suppression across summaries and derived cells, recorded-charge costs with independent WIB range/MTD scopes, all five existing navigation destinations, and confirmed report context under request races/failures. Guarded test:vera-control-plane (including original 30 checks), test:vera-admin-usage and full verify pass; both independent reviews closed findings. Current infrastructure probes, credential audits, detailed fallback attribution and capacity measurements are not connected and are explicitly unavailable rather than fabricated. Acceptance: epic artifact vera-ai-remediation."
     },
     {
       "id": "feat-023",

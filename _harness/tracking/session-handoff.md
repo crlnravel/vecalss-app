@@ -1,5 +1,12 @@
 # Session Handoff
 
+## Vera AI audit remediation complete (2026-10-31 WIB)
+
+- Objective completed in `4707ace` on `dev`: five major IA/UX correctness findings, preserving `/admin/ai` and its four child routes. Privacy rules are shared through `lib/admin/ai-usage/privacy.ts`; unknown source data is never replaced with examples.
+- Guarded control-plane regression suite, existing admin-usage regression suite, and final lint/production build pass. Four unrelated unused-variable warnings are recorded in `/tmp/vera-fixes-final-verify.log`. Final focused results are in `/tmp/vera-fixes-suite.log`; prior admin-usage results are in `/tmp/vera-legacy-usage-test.log`.
+- Both independent reviews closed their reported findings. The task artifact `epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/vera-ai-remediation/index.md` records accepted decisions and verification limits. No further fix is required for these five findings. New monitoring integrations or the audit's remaining refinement items require a new task.
+- Unrelated shared-worktree edits, including pricing's package-script entry, were preserved. No development server was started, no operational records were changed, and verification browser spaces were closed.
+
 ## F-13 accepted; integrated admission QA complete (2026-10-15 WIB)
 
 - F13 fixed by clean-context exact gpt-6.1-sol/high in6c2a84e1 plus3fb78997. Finite deadline rechecks handle early active reads, quiet failures/exhaustion and manual recovery; commit-time read identity fences obsolete responses/callbacks before passive cleanup.
