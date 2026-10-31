@@ -73,8 +73,8 @@ assert.match(refreshModule, /document\.visibilityState/u);
 assert.match(refreshModule, /lastUpdatedAt/u);
 assert.doesNotMatch(liveModule, /recordTryoutIntegrityEventAction/u);
 assert.doesNotMatch(liveModule, /disconnectStartedAt\s*=/u);
-assert.match(detailModule, /startTryoutDisconnectAction/u);
-assert.match(detailModule, /reconcileTryoutDisconnectAction/u);
+assert.doesNotMatch(detailModule, /startTryoutDisconnectAction/u);
+assert.doesNotMatch(detailModule, /reconcileTryoutDisconnectAction/u);
 
 const projection = deriveTryoutLiveProjection({
   admissionStatus: "active",
