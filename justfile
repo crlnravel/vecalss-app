@@ -203,6 +203,30 @@ local-reset: local-env _local-services _resource-status
     echo 'Local PostgreSQL was reset, migrated, and seeded; local Redis DBs 0 and 15 were cleared.'
     echo 'Prisma Client was regenerated. Fully stop and restart the Next dev process before using the app.'
 
+# Reset/migrate PostgreSQL without seeding and clear local Redis databases 0/15.
+local-reset-clean: local-env _local-services _resource-status
+    #!/usr/bin/env bash
+    set -euo pipefail
+    database_url='postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public'
+    db_name=vecalss_dev
+    marker="local-reset-clean-no-snapshot-$(date -u +%Y%m%dT%H%M%SZ)"
+    if [[ "$database_url" == *options=* ]]; then
+      echo 'The local database URL already has an options parameter; refusing to duplicate it.' >&2
+      exit 1
+    fi
+    options="$(printf '%s' "-c cbt.cutover_ack=REMOVE_CAT -c cbt.cutover_snapshot_id=$marker -c cbt.cutover_database=$db_name -c cbt.schema_retirement_ack=RETIRE_CAT_SCHEMA -c cbt.schema_retirement_snapshot_id=$marker -c cbt.schema_retirement_database=$db_name" | sed 's/ /%20/g; s/=/%3D/g')"
+    export DATABASE_URL="${database_url}&options=${options}"
+    set +e
+    ./_harness/resource-guard.sh run -- rtk pnpm db:reset 2>&1 \
+      | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
+    command_status=${PIPESTATUS[0]}
+    set -e
+    if [[ "$command_status" != 0 ]]; then exit "$command_status"; fi
+    docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 0 FLUSHDB
+    docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 15 FLUSHDB
+    echo 'Local PostgreSQL was reset and migrated without seeding; local Redis DBs 0 and 15 were cleared.'
+    echo 'Prisma Client was regenerated. Fully stop and restart the Next dev process before using the app.'
+
 # Apply pending local migrations without dropping PostgreSQL data.
 local-migrate: local-env _local-services _resource-status
     #!/usr/bin/env bash
