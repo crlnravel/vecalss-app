@@ -7,9 +7,11 @@ import {
   AlertTriangle,
   Check,
   CircleHelp,
+  ClipboardList,
   Folder,
   LibraryBig,
   Pencil,
+  Settings,
   Trash2,
   Upload,
   X,
@@ -30,15 +32,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  FullWidthTabsList,
-  FullWidthTabsTrigger,
-} from "@/components/ui/full-width-tabs";
 import { Badge } from "@/components/ui/badge";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -92,6 +90,12 @@ type ConfirmationRequest = {
 };
 
 type QuestionBankDetailTab = "soal" | "pengaturan";
+
+// Match the Tryout and Kuis workspace navigation, preserving keyboard tab semantics.
+const questionBankWorkspaceTabClassName =
+  "group relative -mb-px h-auto min-h-[44px] min-w-0 flex-1 flex-col gap-1 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-xs font-semibold text-secondary-500 shadow-none transition-colors duration-150 hover:border-primary-200 hover:text-secondary-900 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-primary-400 data-active:border-primary-800 data-active:bg-transparent data-active:font-bold data-active:text-primary-950 data-active:shadow-none data-active:hover:border-primary-800 data-active:focus-visible:border-primary-800 sm:flex-row sm:gap-2 sm:px-3 sm:text-sm";
+const questionBankWorkspaceTabIconClassName =
+  "size-4 shrink-0 text-secondary-400 group-data-active:text-primary-800";
 
 const QuestionBankReadOnlyContext = createContext(false);
 
@@ -1258,20 +1262,28 @@ function QuestionBankDetailLayout({
           onValueChange={changeTab}
           value={activeTab}
         >
-          <FullWidthTabsList aria-label="Bagian detail Bank Soal">
-            <FullWidthTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+          <TabsList
+            aria-label="Bagian detail Bank Soal"
+            className="h-auto gap-0 border-b border-primary-100"
+            layout="equal"
+          >
+            <TabsTrigger
+              className={questionBankWorkspaceTabClassName}
+              layout="equal"
               value="soal"
             >
-              Soal
-            </FullWidthTabsTrigger>
-            <FullWidthTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              <ClipboardList aria-hidden="true" className={questionBankWorkspaceTabIconClassName} />
+              <span className="max-w-full break-words text-center">Soal</span>
+            </TabsTrigger>
+            <TabsTrigger
+              className={questionBankWorkspaceTabClassName}
+              layout="equal"
               value="pengaturan"
             >
-              Pengaturan
-            </FullWidthTabsTrigger>
-          </FullWidthTabsList>
+              <Settings aria-hidden="true" className={questionBankWorkspaceTabIconClassName} />
+              <span className="max-w-full break-words text-center">Pengaturan</span>
+            </TabsTrigger>
+          </TabsList>
           <TabsContent className="m-0" value="soal">
             <QuestionBankQuestionsSection
               bank={bank}
