@@ -3191,6 +3191,7 @@ function useQuestionBankPersistence({
     mode === "edit" ? questionBankSaveSnapshotKey(builderState) : null,
   );
   const lastAttemptedSnapshotRef = useRef<string | null>(null);
+  const { reportRejectedSave } = useResourceEditLock();
 
   const saveDraft = useCallback(async () => {
     if (isSaving || (mode === "edit" && isMetadataLocked)) return;
@@ -3215,6 +3216,11 @@ function useQuestionBankPersistence({
         title: builderState.title,
       });
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (mode === "edit" && reportRejectedSave(result.code)) {
+          updateEditor({ hasUnsavedChanges: true });
+          return;
+        }
         if (result.readiness) setServerReadiness(result.readiness);
         updateEditor({ saveError: result.message });
         if (mode === "create") showToast(result.message, { variant: "error" });
@@ -3285,6 +3291,7 @@ function useQuestionBankPersistence({
     mediaFolderReservationId,
     mode,
     readiness.incompleteCount,
+    reportRejectedSave,
     revisionRef,
     setLocalBuilderState,
     setMediaFolderReservationId,

@@ -35,6 +35,7 @@ type QuestionBankCsvHttpCode =
   | "resource_locked"
   | "lease_expired"
   | "lease_superseded"
+  | "lease_taken_over"
   | "stale_revision"
   | "unauthenticated";
 
@@ -182,6 +183,7 @@ function mapQuestionBankCsvError(error: unknown): QuestionBankCsvHttpError {
     if (error.code === "resource_locked") return new QuestionBankCsvHttpError("resource_locked", 409);
     if (error.code === "lease_expired") return new QuestionBankCsvHttpError("lease_expired", 409);
     if (error.code === "lease_superseded") return new QuestionBankCsvHttpError("lease_superseded", 409);
+    if (error.code === "lease_taken_over") return new QuestionBankCsvHttpError("lease_taken_over", 409);
   }
   if (error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "resource_busy_retry") {
     return new QuestionBankCsvHttpError("resource_busy_retry", 409);
@@ -198,7 +200,7 @@ function responseForCsvCode(code: QuestionBankCsvHttpCode, status?: 401 | 403 | 
         ? 413
         : code === "csv_media_type_required"
           ? 415
-          : code === "resource_locked" || code === "lease_expired" || code === "lease_superseded" || code === "stale_revision" || code === "resource_busy_retry"
+          : code === "resource_locked" || code === "lease_expired" || code === "lease_superseded" || code === "lease_taken_over" || code === "stale_revision" || code === "resource_busy_retry"
             ? 409
             : 422);
   return Response.json({ error: code }, { headers: QUESTION_BANK_CSV_HTTP_HEADERS, status: resolvedStatus });

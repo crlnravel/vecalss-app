@@ -1042,6 +1042,7 @@ function KaptenQuizDetailPageContent({
         formBehavior: settings.formBehavior,
         id: quiz.id,
         editLease: resourceLock.proof ?? undefined,
+        expectedDraftRevision: quiz.draftRevision,
         opensAt: settings.opensAt,
         questions: cloneForSave(questions),
         retryDelaySeconds: settings.retryDelaySeconds,
@@ -1053,6 +1054,8 @@ function KaptenQuizDetailPageContent({
         title: settings.title,
       });
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (resourceLock.reportRejectedSave(result.code)) return;
         showToast(result.message, { variant: "error" });
         return;
       }
@@ -1155,6 +1158,7 @@ function KaptenQuizDetailPageContent({
     >
       <div className="space-y-8">
         <ResourceAuthoringLockBanner
+          hasLocalChanges={JSON.stringify(settings) !== JSON.stringify(settingsFromQuiz(quiz))}
           onRetry={resourceLock.retry}
           resourceLabel="Kuis"
           state={resourceLock.state}

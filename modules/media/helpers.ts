@@ -11,6 +11,7 @@ const mediaErrorCodeMessages: Record<string, string> = {
   invalid_proof: "Izin mengedit sudah tidak berlaku. Muat ulang halaman untuk melanjutkan.",
   lease_expired: "Izin mengedit sudah berakhir. Muat ulang halaman untuk melanjutkan.",
   lease_superseded: "Izin mengedit berubah. Muat ulang halaman untuk melanjutkan.",
+  lease_taken_over: "Halaman ini sedang dibuka di tab atau perangkat lain. Muat ulang halaman untuk melanjutkan.",
   resource_busy_retry: "Media sedang diperbarui. Coba lagi sebentar.",
   resource_inaccessible: "Media tidak dapat diakses. Muat ulang halaman atau hubungi admin.",
   resource_locked: "Media sedang diedit oleh pengguna lain. Coba lagi nanti.",

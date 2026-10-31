@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { serverLogger } from "@/lib/server-logger";
+import { SAVE_REJECTION_MESSAGES, isSaveRejectionCode, type SaveRejectionCode } from "@/lib/resource-edit-lock/rejection";
 import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
@@ -21,7 +22,7 @@ import {
 import { toKaptenMateriEditorView } from "@/modules/mentor/materi-view-model";
 
 type MateriActionResult =
-  | { fieldErrors?: Partial<Record<"document" | "documentMimeType" | "documentUrl" | "duration" | "managedAssetId" | "subjectSlug" | "title" | "videoDuration" | "videoUrl", string>>; message: string; ok: false }
+  | { code?: SaveRejectionCode; fieldErrors?: Partial<Record<"document" | "documentMimeType" | "documentUrl" | "duration" | "managedAssetId" | "subjectSlug" | "title" | "videoDuration" | "videoUrl", string>>; message: string; ok: false }
   | { lesson: NonNullable<ReturnType<typeof toKaptenMateriEditorView>>; message: string; ok: true };
 
 type MateriBulkActionResult =
@@ -45,8 +46,11 @@ function revalidateMateriPaths(subjectSlug: string, codes?: string | string[]) {
 }
 
 function failedResult(error: unknown): Extract<MateriActionResult, { ok: false }> {
+  if (error instanceof EditLeaseServiceError && isSaveRejectionCode(error.code)) {
+    return { code: error.code, message: SAVE_REJECTION_MESSAGES[error.code], ok: false };
+  }
   if (error instanceof MateriValidationError) {
-    return { fieldErrors: error.fieldErrors, message: error.message, ok: false };
+    return { ...(error.code ? { code: error.code } : {}), fieldErrors: error.fieldErrors, message: error.message, ok: false };
   }
 
   serverLogger.error("mentor.materi.mutation.failed", error, {

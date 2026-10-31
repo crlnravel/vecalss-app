@@ -81,6 +81,7 @@ type EditLeaseErrorCode =
   | "invalid_proof"
   | "lease_expired"
   | "lease_superseded"
+  | "lease_taken_over"
   | "resource_inaccessible"
   | "resource_locked";
 
@@ -405,6 +406,23 @@ function activeLease(lease: RawLeaseRow | null, serverNow: Date) {
   return Boolean(lease && lease.releasedAt === null && lease.expiresAt.getTime() > serverNow.getTime());
 }
 
+/**
+ * A stale proof is "taken over" when the same user has since started a newer
+ * live lease (another tab or device). Any other mismatch stays superseded, so
+ * a tab that merely lost a lapsed lease can still re-acquire it.
+ */
+function supersededError(
+  current: RawLeaseRow | null,
+  proofMatches: boolean,
+  holderUserId: string,
+  serverNow: Date,
+) {
+  if (!proofMatches && current && current.holderUserId === holderUserId && activeLease(current, serverNow)) {
+    return new EditLeaseServiceError("lease_taken_over", 409, "Izin edit dipakai di tab lain.");
+  }
+  return new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+}
+
 async function acquireEditLease(input: {
   holderUserId: string;
   newToken: string;
@@ -416,7 +434,10 @@ async function acquireEditLease(input: {
 
   return withLeaseTransaction(prepared, prepared.holderUserId, async (tx, serverNow) => {
     const current = await readLease(tx, prepared);
-    if (activeLease(current, serverNow)) {
+    // A live lease held by someone else blocks. The same user simply takes it
+    // over (generation + 1 below), so a lost tab or restart never waits out its
+    // own lease; the superseded tab learns on its next renew or save.
+    if (activeLease(current, serverNow) && current!.holderUserId !== prepared.holderUserId) {
       return lockedStatus(current!, serverNow);
     }
 
@@ -466,15 +487,14 @@ async function rotateEditLease(input: {
   return withLeaseTransaction(prepared, prepared.holderUserId, async (tx, serverNow) => {
     const current = await readLease(tx, prepared);
     const previousDigest = digestLeaseToken(prepared.previousToken);
-    if (
-      !current
-      || current.releasedAt !== null
-      || current.expiresAt.getTime() <= serverNow.getTime()
-      || current.holderUserId !== prepared.holderUserId
-      || current.generation !== prepared.previousGeneration
-      || !sameDigest(current.tokenDigest, previousDigest)
-    ) {
-      throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+    const proofMatches = Boolean(
+      current
+      && current.holderUserId === prepared.holderUserId
+      && current.generation === prepared.previousGeneration
+      && sameDigest(current.tokenDigest, previousDigest),
+    );
+    if (!current || !proofMatches || !activeLease(current, serverNow)) {
+      throw supersededError(current, proofMatches, prepared.holderUserId, serverNow);
     }
 
     const expiresAt = new Date(serverNow.getTime() + EDIT_LEASE_DURATION_MS);
@@ -514,8 +534,14 @@ async function renewEditLease(input: {
 
   return withLeaseTransaction(prepared, prepared.holderUserId, async (tx, serverNow) => {
     const current = await readLease(tx, prepared);
-    if (!current || current.holderUserId !== prepared.holderUserId || current.generation !== prepared.generation || !sameDigest(current.tokenDigest, digestLeaseToken(prepared.token))) {
-      throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+    const proofMatches = Boolean(
+      current
+      && current.holderUserId === prepared.holderUserId
+      && current.generation === prepared.generation
+      && sameDigest(current.tokenDigest, digestLeaseToken(prepared.token)),
+    );
+    if (!current || !proofMatches) {
+      throw supersededError(current, proofMatches, prepared.holderUserId, serverNow);
     }
     if (current.releasedAt !== null || current.expiresAt.getTime() <= serverNow.getTime()) {
       throw new EditLeaseServiceError("lease_expired", 409, "Izin edit telah berakhir.");
@@ -589,8 +615,14 @@ async function assertEditLease(
     const serverNow = await databaseNow(tx);
     // react-doctor-disable-next-line server-sequential-independent-await -- read time and lease state from the same transaction snapshot.
     const current = await readLease(tx, prepared);
-    if (!current || current.holderUserId !== prepared.holderUserId || current.generation !== prepared.generation || !sameDigest(current.tokenDigest, digestLeaseToken(prepared.token))) {
-      throw new EditLeaseServiceError("lease_superseded", 409, "Izin edit telah digantikan.");
+    const proofMatches = Boolean(
+      current
+      && current.holderUserId === prepared.holderUserId
+      && current.generation === prepared.generation
+      && sameDigest(current.tokenDigest, digestLeaseToken(prepared.token)),
+    );
+    if (!current || !proofMatches) {
+      throw supersededError(current, proofMatches, prepared.holderUserId, serverNow);
     }
     if (current.releasedAt !== null || current.expiresAt.getTime() <= serverNow.getTime()) {
       throw new EditLeaseServiceError("lease_expired", 409, "Izin edit telah berakhir.");

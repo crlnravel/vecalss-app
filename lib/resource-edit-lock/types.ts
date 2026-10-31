@@ -33,6 +33,7 @@ type EditLeaseCommandErrorCode =
   | "json_media_type_required"
   | "lease_expired"
   | "lease_superseded"
+  | "lease_taken_over"
   | "proof_too_large"
   | "resource_busy_retry"
   | "resource_inaccessible"

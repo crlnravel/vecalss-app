@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireTutorSession } from "@/lib/auth/access";
 import type { QuestionBankPurpose } from "@/generated/prisma/client";
+import { SAVE_REJECTION_MESSAGES, isSaveRejectionCode, type SaveRejectionCode } from "@/lib/resource-edit-lock/rejection";
+import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import { serverLogger } from "@/lib/server-logger";
 import {
   assignQuestionBankCategories,
@@ -48,7 +50,7 @@ function refresh() {
 
 type QuestionBankActionFailure = {
   attemptedInput?: unknown;
-  code: QuestionBankErrorCode | "unknown";
+  code: QuestionBankErrorCode | SaveRejectionCode | "unknown";
   details?: Record<string, unknown>;
   message: string;
   ok: false;
@@ -60,6 +62,9 @@ function questionBankActionFailure(
   fallback: string,
   context: { durationMs?: number; operation?: string; recordCount?: number } = {},
 ): QuestionBankActionFailure {
+  if (error instanceof EditLeaseServiceError && isSaveRejectionCode(error.code)) {
+    return { code: error.code, message: SAVE_REJECTION_MESSAGES[error.code], ok: false };
+  }
   if (!(error instanceof QuestionBankError)) {
     serverLogger.error("mentor.question_bank.action.failed", error, {
       area: "mentor.question_bank",

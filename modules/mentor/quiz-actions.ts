@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { SAVE_REJECTION_MESSAGES, isSaveRejectionCode } from "@/lib/resource-edit-lock/rejection";
+import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import { serverLogger } from "@/lib/server-logger";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import {
@@ -44,7 +46,12 @@ async function saveStandaloneQuizAction(input: SaveStandaloneQuizInput) {
       questions: refreshed.questions,
     };
   } catch (error) {
-    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
+    if (error instanceof EditLeaseServiceError && isSaveRejectionCode(error.code)) {
+      return { code: error.code, message: SAVE_REJECTION_MESSAGES[error.code], ok: false as const };
+    }
+    if (error instanceof QuizValidationError) {
+      return { ...(error.code ? { code: error.code } : {}), message: error.message, ok: false as const };
+    }
     serverLogger.error("mentor.quiz.mutation.failed", error, {
       area: "mentor.quiz",
       operation: "save_quiz",

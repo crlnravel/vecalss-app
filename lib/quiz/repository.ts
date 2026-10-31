@@ -33,6 +33,7 @@ import { lockOwnedStandaloneQuizAttempt, lockStandaloneQuizAggregate, lockStanda
 import { transitionKuisAfterCloseResult } from "@/lib/quiz/versioning-schedule";
 import {
   draftRevisionMatches,
+  existingQuizDraftRevisionIsCurrent,
   isStandaloneQuizVersioningCutoverEnabled,
   nextStandaloneQuizVersionNo,
   versionedAssessmentDigest,
@@ -149,7 +150,15 @@ type StandaloneQuizAssemblySummary = {
   versionId: string;
   versionNo: number;
 };
-class QuizValidationError extends Error {}
+class QuizValidationError extends Error {
+  /** "stale_content" when the editor's copy no longer matches what is stored. */
+  code?: "stale_content";
+
+  constructor(message?: string, code?: "stale_content") {
+    super(message);
+    this.code = code;
+  }
+}
 const KUIS_SCORING_VERSION = "kuis-frozen-form-v1";
 const quizInclude = {
   assemblyPackageVersion: {
@@ -2040,6 +2049,9 @@ async function saveStandaloneQuizVersioned(
       assertStandaloneQuizNotArchived(record);
       await reschedulePendingStandaloneQuizResults(tx, record.id, closesAt);
     }
+    // Captured before a first save creates the row below: only an existing Kuis has
+    // a revision the editor could have loaded.
+    const isExistingQuiz = record !== null;
 
     const requestedSubtest = await tx.subtest.findUnique({
       where: { code: input.subjectCode },
@@ -2154,14 +2166,16 @@ async function saveStandaloneQuizVersioned(
     const stableRecord = record;
     const existingDraft = draftVersionFor(stableRecord);
     if (
-      existingDraft &&
-      !draftRevisionMatches(
+      isExistingQuiz &&
+      !existingQuizDraftRevisionIsCurrent(
         input.expectedDraftRevision,
-        existingDraft.draftRevision,
+        existingDraft?.draftRevision,
+        Boolean(existingDraft),
       )
     ) {
       throw new QuizValidationError(
         "Versi Kuis telah berubah di tab lain. Muat ulang sebelum menyimpan.",
+        "stale_content",
       );
     }
     const shouldPublish = shouldPublishImmediately;

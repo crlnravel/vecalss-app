@@ -1061,7 +1061,9 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
       await lockQuestionPackageAggregate(tx, id);
       current = await tx.reusableQuestionPackage.findFirst({ where: { id }, select: { revision: true, sourceBankId: true, subtestId: true } });
       if (!current) throw new TryoutValidationError("Paket Soal tidak dapat ditemukan atau sudah tidak tersedia. Muat ulang halaman atau kembali ke daftar Paket Soal.");
-      if (input.expectedRevision !== undefined && current.revision !== input.expectedRevision) throw new PackageConflictError(id, input.expectedRevision, current.revision);
+      // The revision is mandatory for an existing package: omitting it must not skip the stale-write check.
+      if (input.expectedRevision === undefined) throw new TryoutValidationError("Perubahan Paket Soal tidak dapat disimpan. Muat ulang halaman lalu coba lagi.");
+      if (current.revision !== input.expectedRevision) throw new PackageConflictError(id, input.expectedRevision, current.revision);
     }
 
     const subtest = await tx.subtest.findUnique({ where: { code: input.subtest } });

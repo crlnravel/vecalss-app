@@ -31,6 +31,8 @@ const TAB_CHANNEL_NAME = "vecalss:resource-edit-lock:tabs:v1";
 const PROOF_STORAGE_PREFIX = "vecalss:resource-edit-lock:proof:v1:";
 const HANDSHAKE_WAIT_MS = 75;
 const LOCK_RECHECK_POLL_MS = 1_000;
+const LEASE_TAKEN_OVER = "lease_taken_over";
+const STALE_CONTENT = "stale_content";
 
 type ProviderProps = PropsWithChildren<{
   enabled?: boolean;
@@ -48,6 +50,12 @@ type ResourceEditLockContextValue = {
   proof: EditLeaseProof | null;
   remainingMs: number;
   release: () => Promise<void>;
+  /**
+   * Call with the code of a rejected save. Returns true when the rejection means this
+   * tab is out of date and the lock state was updated, so the caller can skip its own
+   * error message (the page status notice already explains it).
+   */
+  reportRejectedSave: (code: string | null | undefined) => boolean;
   retry: () => void;
   serverNow: string | null;
   state: EditLeaseState;
@@ -61,7 +69,8 @@ type LeaseCommandError = Error & {
 
 type BroadcastMessage =
   | { source: string; type: "challenge"; nonce: string }
-  | { nonce: string; source: string; type: "presence" };
+  | { nonce: string; source: string; type: "presence" }
+  | { generation: number; resourceKey: string; source: string; type: "takeover" };
 
 const ResourceEditLockContext = createContext<ResourceEditLockContextValue | null>(null);
 
@@ -212,6 +221,10 @@ function useResourceEditLockController({
   const lockRecheckInFlightRef = useRef(false);
   const retryAfterLockRecheckRef = useRef(false);
   const lifecycleAtRef = useRef(0);
+  // True once another tab of the same user took the lease. Focus/visibility
+  // recovery must stay out of it, or two tabs would keep stealing it back.
+  const takenOverRef = useRef(false);
+  const sourceRef = useRef("");
   const mountedRef = useRef(false);
   const tabNonceRef = useRef<string | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
@@ -226,6 +239,7 @@ function useResourceEditLockController({
       updateState("lost");
       return;
     }
+    takenOverRef.current = false;
     proofRef.current = nextProof;
     setProof(nextProof);
     storeProof(resourceKey ?? "", nextProof);
@@ -240,6 +254,7 @@ function useResourceEditLockController({
   }, [resourceKey, updateState]);
 
   const setLocked = useCallback((status: EditLeaseServerStatus) => {
+    takenOverRef.current = false;
     proofRef.current = null;
     setProof(null);
     storeProof(resourceKey ?? "", null);
@@ -253,6 +268,7 @@ function useResourceEditLockController({
   }, [resourceKey, updateState]);
 
   const markLost = useCallback((errorCode: string | null = null) => {
+    takenOverRef.current = errorCode === LEASE_TAKEN_OVER || errorCode === STALE_CONTENT;
     proofRef.current = null;
     setProof(null);
     storeProof(resourceKey ?? "", null);
@@ -264,6 +280,17 @@ function useResourceEditLockController({
     setLastError(errorCode);
     updateState("lost");
   }, [resourceKey, updateState]);
+
+  // Tells other tabs of this browser right away that this one now holds the lease.
+  const announceTakeover = useCallback((generation: number) => {
+    if (!resourceKey) return;
+    channelRef.current?.postMessage({
+      generation,
+      resourceKey,
+      source: sourceRef.current,
+      type: "takeover",
+    } satisfies BroadcastMessage);
+  }, [resourceKey]);
 
   const acquire = useCallback(async (previous: EditLeaseProof | null, serial: number) => {
     if (!resourceKey || !mountedRef.current || serial !== commandSerialRef.current) return;
@@ -285,6 +312,7 @@ function useResourceEditLockController({
       if (!mountedRef.current || serial !== commandSerialRef.current) return;
       if (isOwnedStatus(result)) {
         setOwned({ generation: result.generation, token: nextToken }, result);
+        if (!previous) announceTakeover(result.generation);
       } else if (isLockedStatus(result)) {
         setLocked(result);
       } else {
@@ -293,7 +321,9 @@ function useResourceEditLockController({
     } catch (error) {
       if (!mountedRef.current || serial !== commandSerialRef.current) return;
       const code = (error as LeaseCommandError).code ?? "resource_busy_retry";
-      if (previous && (code === "lease_expired" || code === "lease_superseded")) {
+      // A stored proof that another tab has since replaced (typically a reload of
+      // the older tab) falls back to a fresh acquire: the tab the user just opened wins.
+      if (previous && (code === "lease_expired" || code === "lease_superseded" || code === LEASE_TAKEN_OVER)) {
         try {
           const fallback = await command<EditLeaseServerStatus>("acquire", {
             newToken: nextToken,
@@ -303,6 +333,7 @@ function useResourceEditLockController({
           if (!mountedRef.current || serial !== commandSerialRef.current) return;
           if (isOwnedStatus(fallback)) {
             setOwned({ generation: fallback.generation, token: nextToken }, fallback);
+            announceTakeover(fallback.generation);
           } else if (isLockedStatus(fallback)) {
             setLocked(fallback);
           } else {
@@ -320,7 +351,7 @@ function useResourceEditLockController({
       }
       markLost(code);
     }
-  }, [canonicalResource, markLost, resourceKey, resourceType, setLocked, setOwned]);
+  }, [announceTakeover, canonicalResource, markLost, resourceKey, resourceType, setLocked, setOwned]);
 
   const beginAcquire = useCallback((previous: EditLeaseProof | null = null) => {
     if (lockRecheckInFlightRef.current) {
@@ -398,6 +429,34 @@ function useResourceEditLockController({
     });
   }, [canonicalResource, markLost, recover, resourceKey, resourceType, setOwned, updateState]);
 
+  // Returning to a tab re-validates the lease. While the local deadline still holds, do it
+  // without leaving "owned": editing and Save stay enabled, and `renew` keeps the token so a
+  // Save already in flight is not invalidated. Only a definite answer changes the state; a
+  // network blip is left to the heartbeat and the expiry timer.
+  const renewSilently = useCallback(() => {
+    const current = proofRef.current;
+    if (!current || !canonicalResource || !mountedRef.current) return;
+    commandSerialRef.current += 1;
+    const serial = commandSerialRef.current;
+    void command<EditLeaseServerStatus>("renew", {
+      generation: current.generation,
+      resourceId: canonicalResource.resourceId,
+      resourceType,
+      token: current.token,
+    }).then((result) => {
+      if (!mountedRef.current || serial !== commandSerialRef.current || proofRef.current?.token !== current.token) return;
+      if (isOwnedStatus(result) && performance.now() < deadlineRef.current) setOwned(current, result);
+      else markLost("lease_expired");
+    }).catch((error: LeaseCommandError) => {
+      if (!mountedRef.current || serial !== commandSerialRef.current || proofRef.current?.token !== current.token) return;
+      const code = error.code;
+      if (code === LEASE_TAKEN_OVER) markLost(LEASE_TAKEN_OVER);
+      else if (code === "lease_expired" || code === "lease_superseded") beginAcquire();
+      else if (code === undefined || code === "resource_busy_retry" || code.startsWith("http_5")) return;
+      else markLost(code);
+    });
+  }, [beginAcquire, canonicalResource, markLost, resourceType, setOwned]);
+
   const release = useCallback(async () => {
     const current = proofRef.current;
     if (!current || !canonicalResource || !mountedRef.current) return;
@@ -421,6 +480,7 @@ function useResourceEditLockController({
   const markLostFromLifecycle = useEffectEvent(markLost);
   const recoverFromLifecycle = useEffectEvent(recover);
   const renewFromLifecycle = useEffectEvent(renewCurrent);
+  const renewSilentlyFromLifecycle = useEffectEvent(renewSilently);
 
   // This browser-only effect owns lock acquisition and releases the lock on page hide.
   // react-doctor-disable-next-line no-fetch-in-effect -- network work is part of the resource-lock lifecycle, not cached page data.
@@ -436,6 +496,7 @@ function useResourceEditLockController({
     }
 
     const source = randomBase64Url(12);
+    sourceRef.current = source;
     const tabNonce = getStableTabNonce();
     tabNonceRef.current = tabNonce;
     let duplicateDetected = false;
@@ -450,6 +511,16 @@ function useResourceEditLockController({
         if (!message || message.source === source) return;
         if (message.type === "challenge" && message.nonce === tabNonce) {
           channel?.postMessage({ nonce: tabNonce, source, type: "presence" } satisfies BroadcastMessage);
+        } else if (message.type === "takeover") {
+          const current = proofRef.current;
+          if (
+            message.resourceKey === canonicalResource.resourceKey
+            && current
+            && message.generation > current.generation
+            && (stateRef.current === "owned" || stateRef.current === "uncertain")
+          ) {
+            markLostFromLifecycle(LEASE_TAKEN_OVER);
+          }
         } else if (message.type === "presence" && message.nonce === tabNonce) {
           duplicateDetected = true;
           const replacement = randomBase64Url(16);
@@ -477,6 +548,7 @@ function useResourceEditLockController({
       const elapsed = performance.now() - lifecycleAtRef.current;
       lifecycleAtRef.current = performance.now();
       const currentState = stateRef.current;
+      if (takenOverRef.current) return;
       // A refresh can fire both events during the startup handshake; don't race its pending acquire or recovery.
       if (
         currentState === "locked"
@@ -485,7 +557,8 @@ function useResourceEditLockController({
       ) {
         return;
       }
-      if (currentState !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recoverFromLifecycle();
+      if (currentState === "owned" && performance.now() < deadlineRef.current) renewSilentlyFromLifecycle();
+      else if (currentState !== "owned" || elapsed >= EDIT_LEASE_HEARTBEAT_MS) recoverFromLifecycle();
       else renewFromLifecycle();
     };
     const onPageHide = () => {
@@ -677,6 +750,23 @@ function useResourceEditLockController({
     };
   }, [beginAcquire, canonicalResource, enabled, markLost, resourceType, setLocked, setOwned, state]);
 
+  const reportRejectedSave = useCallback((code: string | null | undefined) => {
+    if (code === LEASE_TAKEN_OVER) {
+      markLost(LEASE_TAKEN_OVER);
+      return true;
+    }
+    if (code === STALE_CONTENT || code === "stale_revision") {
+      markLost(STALE_CONTENT);
+      return true;
+    }
+    if (code === "lease_superseded" || code === "lease_expired") {
+      // Re-acquire to find out why: another Kapten now holds it (shown as locked) or it is free again.
+      beginAcquire();
+      return true;
+    }
+    return false;
+  }, [beginAcquire, markLost]);
+
   const retry = useCallback(() => beginAcquire(), [beginAcquire]);
   const context = useMemo<ResourceEditLockContextValue>(() => ({
     canEdit: state === "owned" && proof !== null && remainingMs > EDIT_LEASE_SAFETY_MARGIN_MS,
@@ -688,10 +778,11 @@ function useResourceEditLockController({
     proof,
     release,
     remainingMs,
+    reportRejectedSave,
     retry,
     serverNow,
     state,
-  }), [holderEmail, holderName, holderUserId, lastError, proof, release, remainingMs, retry, serverNow, state]);
+  }), [holderEmail, holderName, holderUserId, lastError, proof, release, remainingMs, reportRejectedSave, retry, serverNow, state]);
 
   return context;
 }

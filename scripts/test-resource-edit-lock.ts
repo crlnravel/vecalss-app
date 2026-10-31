@@ -81,4 +81,13 @@ assert.match(client, /pagehide/u);
 assert.match(client, /commandSerialRef/u);
 assert.doesNotMatch(client, /resource-edit-lock\/[^"`]*\?/u, "proofs must not appear in URLs");
 
+// Returning to a tab re-validates the lease without pausing editing: while the local deadline holds it
+// renews silently (state stays "owned", token unchanged); only an expired deadline falls back to the
+// "uncertain" recover/renew path.
+const silent = /const renewSilently = useCallback\(\(\) => \{[\s\S]*?\}, \[beginAcquire/u.exec(client)?.[0] ?? "";
+assert.ok(silent.length > 0, "provider must define renewSilently");
+assert.doesNotMatch(silent, /updateState\("uncertain"\)/u, "a silent re-check must not leave the owned state");
+assert.match(silent, /command<EditLeaseServerStatus>\("renew"/u, "a silent re-check renews instead of rotating, so an in-flight save keeps a valid token");
+assert.match(client, /currentState === "owned" && performance\.now\(\) < deadlineRef\.current\) renewSilentlyFromLifecycle\(\)/u, "focus and visibility use the silent path while the deadline holds");
+
 console.log("resource edit-lock pure/route contract tests passed");

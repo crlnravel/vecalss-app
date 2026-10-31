@@ -364,6 +364,7 @@ function useQuizEditorPersistence({
   setHasUnsavedChanges: (value: boolean) => void;
 }) {
   const publishRequestIdRef = useRef<string | null>(null);
+  const { reportRejectedSave } = useResourceEditLock();
   const saveQuiz = useCallback(async () => {
     if (isSaving || editorDisabled) return;
     setIsSaving(true);
@@ -391,6 +392,8 @@ function useQuizEditorPersistence({
         title: form.title,
       });
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (mode === "edit" && reportRejectedSave(result.code)) return;
         showToast(result.message, { variant: "error" });
         return;
       }
@@ -429,6 +432,7 @@ function useQuizEditorPersistence({
     isSaving,
     mode,
     quizId,
+    reportRejectedSave,
     savedQuiz,
     setHasUnsavedChanges,
     setIsSaving,

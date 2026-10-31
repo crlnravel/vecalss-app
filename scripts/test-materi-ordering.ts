@@ -1,10 +1,32 @@
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import pg from "pg";
 
-import { reorderMateriSubject, saveMateriLesson } from "@/lib/materi/repository";
+import { getMentorMateriByCode, reorderMateriSubject, saveMateriLesson } from "@/lib/materi/repository";
 import { prisma } from "@/lib/prisma";
+import { acquireEditLease, EditLeaseServiceError, releaseEditLease } from "@/lib/resource-edit-lock/service";
 
 const { Client } = pg;
+
+/** The revision the editor loaded; saves of an existing lesson must prove which content they edit. */
+async function currentContentRevision(code: string) {
+  const lesson = await getMentorMateriByCode(code);
+  if (!lesson) throw new Error(`Materi ${code} is missing.`);
+  return lesson.contentRevision;
+}
+
+/** Editing an existing lesson requires the same edit proof the Kapten editor holds. */
+async function withMateriLease<T>(code: string, tutorId: string, run: (editLease: { generation: number; token: string }) => Promise<T>) {
+  const token = randomBytes(32).toString("base64url");
+  const lease = await acquireEditLease({ holderUserId: tutorId, newToken: token, resourceId: code, resourceType: "materi" });
+  if (lease.state !== "owned" || lease.generation === undefined) throw new Error(`Materi edit lease unavailable for ${code}.`);
+  const generation = lease.generation;
+  try {
+    return await run({ generation, token });
+  } finally {
+    await releaseEditLease({ generation, holderUserId: tutorId, resourceId: code, resourceType: "materi", token });
+  }
+}
 
 const SUBJECTS = [
   { code: "PU", slug: "penalaran-umum" },
@@ -459,20 +481,31 @@ async function main() {
     const overlapLesson = modulesFor(initial, "PU").find((module) => videoAsset(module)?.mediaUrl && videoAsset(module)?.durationSeconds) ?? initial.modules[0];
     const overlapVideo = videoAsset(overlapLesson);
     assert(overlapVideo?.mediaUrl && overlapVideo.durationSeconds, "A PU lesson with a usable video resource is required.");
+    const overlapDuration = overlapVideo.durationSeconds;
+    const overlapUrl = overlapVideo.mediaUrl;
     const saveOverlapTitle = `${overlapLesson.title} [harness save overlap]`;
     const saveOverlapOrder = [...puOrder].reverse();
-    await Promise.all([
+    // A reorder takes a transient lease on every lesson in the subject, so while an editor holds a lease
+    // on one lesson the reorder is refused outright and must not change the order. The save still commits.
+    const [overlapSave, overlapReorder] = await withMateriLease(overlapLesson.code, tutorId, async (editLease) => Promise.allSettled([
       saveMateriLesson({
         code: overlapLesson.code,
         document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+        editLease,
+        expectedContentRevision: await currentContentRevision(overlapLesson.code),
         subjectSlug: PU,
         title: saveOverlapTitle,
-        videoDuration: formatDuration(overlapVideo.durationSeconds),
-        videoUrl: overlapVideo.mediaUrl,
+        videoDuration: formatDuration(overlapDuration),
+        videoUrl: overlapUrl,
       }, tutorId),
       reorderMateriSubject(PU, saveOverlapOrder, tutorId),
-    ]);
-    await assertSubjectOrder(client, PU, saveOverlapOrder, "Save/reorder overlap did not retain the submitted reorder order.");
+    ]));
+    assert(overlapSave.status === "fulfilled", `The leased save did not commit: ${overlapSave.status === "rejected" ? String((overlapSave.reason as Error)?.message ?? overlapSave.reason) : ""}`);
+    assert(overlapReorder.status === "rejected" && overlapReorder.reason instanceof EditLeaseServiceError, "A reorder must be refused while an editor holds a lesson lease.");
+    await assertSubjectOrder(client, PU, puOrder, "A refused reorder changed the subject order.");
+    // With the lease released the same reorder is accepted and keeps the submitted order.
+    await reorderMateriSubject(PU, saveOverlapOrder, tutorId);
+    await assertSubjectOrder(client, PU, saveOverlapOrder, "Reorder after the editor released did not retain the submitted order.");
     const overlapResult = await client.query<{ media_url: string | null; title: string }>(
       `SELECT m.title,
               (SELECT a.media_url FROM module_assets a
@@ -521,24 +554,28 @@ async function main() {
     generatedModuleIds.push(createdModule.id);
     assert(
       createdModule.sequence_no === puOrder.length + 1 && createdModule.topic_code === canonicalTopicCodes("PU")[0]
-        && createdModule.status === "draft" && createdModule.title === HARNESS_TITLE
+        && createdModule.status === "published" && createdModule.title === HARNESS_TITLE
         && createdModule.document_asset_type === "attachment" && createdModule.document_media_url === ORDERING_DOCUMENT_URL
         && createdModule.video_asset_type === "video" && createdModule.video_media_url === "https://example.test/harness.mp4"
         && createdModule.video_duration_seconds === 61,
-      "Create must append a draft with explicit document and optional video resources.",
+      "Create must append a published lesson with explicit document and optional video resources.",
     );
 
     const movable = modulesFor(initial, "PU").find((module) => videoAsset(module)?.mediaUrl && videoAsset(module)?.durationSeconds) ?? initial.modules[0];
     const movableVideo = videoAsset(movable);
     assert(movableVideo?.mediaUrl && movableVideo.durationSeconds, "A PU lesson with a usable video resource is required for the subject move.");
-    await saveMateriLesson({
+    const movableDuration = movableVideo.durationSeconds;
+    const movableUrl = movableVideo.mediaUrl;
+    await withMateriLease(movable.code, tutorId, async (editLease) => saveMateriLesson({
       code: movable.code,
       document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+      editLease,
+      expectedContentRevision: await currentContentRevision(movable.code),
       subjectSlug: PPU,
       title: movable.title,
-      videoDuration: formatDuration(movableVideo.durationSeconds),
-      videoUrl: movableVideo.mediaUrl,
-    }, tutorId);
+      videoDuration: formatDuration(movableDuration),
+      videoUrl: movableUrl,
+    }, tutorId));
     const moved = await client.query<{
       asset_id: string | null; asset_type: string | null; code: string; duration_seconds: number | null; media_url: string | null;
       published_at: string | null; sequence_no: number; status: string; subject_code: SubjectCode; topic_code: string;
@@ -570,14 +607,16 @@ async function main() {
     const rollbackBefore = await snapshotTarget(client);
     await installFailureTrigger(client);
     await expectReject(
-      () => saveMateriLesson({
+      () => withMateriLease(forcedTarget.code, tutorId, async (editLease) => saveMateriLesson({
         code: forcedTarget.code,
         document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+        editLease,
+        expectedContentRevision: await currentContentRevision(forcedTarget.code),
         subjectSlug: PPU,
         title: FAILURE_TITLE,
         videoDuration: formatDuration(forcedDuration),
         videoUrl: forcedVideoUrl,
-      }, tutorId),
+      }, tutorId)),
       "Forced asset failure unexpectedly succeeded.",
     );
     assertEqual(await snapshotTarget(client), rollbackBefore, "Forced asset failure partially wrote state before cleanup.");

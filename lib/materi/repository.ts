@@ -58,6 +58,12 @@ type MateriDocumentResource = MateriDocument;
 
 type MentorMateriLesson = {
   code: string;
+  /**
+   * Fingerprint of what the editor can change (title, PDF, video). An edit sends
+   * the value it loaded so a stale tab cannot overwrite a newer save. Unlike
+   * `updatedAt` it ignores sibling reorders, which touch every module's row.
+   */
+  contentRevision: string;
   createdAt: string;
   document: MateriDocumentResource | null;
   lifecycleStatus: MateriLifecycleStatus;
@@ -101,6 +107,8 @@ type SaveMateriLessonInput = {
   /** Legacy alias retained so the current editor remains type-safe during cutover. */
   duration?: string;
   document?: MateriDocumentInput;
+  /** Required when editing an existing Materi; omitted for create. */
+  expectedContentRevision?: string;
   documentAssetId?: string;
   documentMimeType?: string;
   documentName?: string;
@@ -133,11 +141,14 @@ type MateriValidationField =
 
 class MateriValidationError extends Error {
   fieldErrors: Partial<Record<MateriValidationField, string>>;
+  /** "stale_content" when the editor's copy no longer matches what is stored. */
+  code?: "stale_content";
 
-  constructor(message: string, fieldErrors: Partial<Record<MateriValidationField, string>> = {}) {
+  constructor(message: string, fieldErrors: Partial<Record<MateriValidationField, string>> = {}, code?: "stale_content") {
     super(message);
     this.name = "MateriValidationError";
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -172,6 +183,20 @@ function toMateriResourceRead(assets: readonly MateriResourceLike[]): MateriReso
   return readMateriResources(assets);
 }
 
+function materiContentRevision(title: string, resources: MateriResourceRead) {
+  const { document, video } = resources;
+  return createHash("sha256")
+    .update(JSON.stringify([
+      title,
+      document
+        ? [document.sourceKind, document.sourceKind === "managed" ? document.managedAssetId : document.url]
+        : null,
+      video ? [video.mediaUrl, video.durationSeconds] : null,
+    ]), "utf8")
+    .digest("hex")
+    .slice(0, 32);
+}
+
 function toMentorLesson(module: {
   assets: MateriResourceLike[];
   code: string;
@@ -187,6 +212,7 @@ function toMentorLesson(module: {
 
   return {
     code: module.code,
+    contentRevision: materiContentRevision(module.title, resources),
     createdAt: module.createdAt.toISOString(),
     document: resources.document,
     lifecycleStatus: module.status,
@@ -595,6 +621,19 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       await tx.$queryRaw`SELECT id FROM modules WHERE id = ${current.id}::uuid FOR UPDATE`;
       current = await tx.module.findUnique({ where: { id: current.id }, select: { createdByUserId: true, title: true, estimatedMinutes: true, id: true, code: true, status: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } });
       if (!current) throw new MateriValidationError("Materi tidak ditemukan.");
+      // Compare under the row lock, after the lease proof, so a stale tab holding
+      // a valid lease still cannot overwrite what another tab already saved.
+      const storedResources = toMateriResourceRead(await tx.moduleAsset.findMany({
+        where: { moduleId: current.id },
+        orderBy: [{ assetType: "asc" }, { sortOrder: "asc" }],
+        select: {
+          assetType: true, durationSeconds: true, managedAssetId: true, mediaUrl: true, mimeType: true, originalName: true, sourceKind: true,
+          managedAsset: { select: { libraryScope: true, mimeType: true, objectKey: true, originalName: true, state: true, trashedAt: true, url: true } },
+        },
+      }));
+      if (input.expectedContentRevision !== materiContentRevision(current.title, storedResources)) {
+        throw new MateriValidationError("Materi telah diubah di tab lain. Muat ulang halaman lalu coba lagi.", {}, "stale_content");
+      }
     }
     if (current?.status === ContentStatus.archived) {
       throw new MateriValidationError("Materi yang diarsipkan tidak dapat diedit. Pulihkan materi terlebih dahulu.");

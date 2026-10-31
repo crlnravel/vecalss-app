@@ -270,6 +270,7 @@ function errorMessage(code: string) {
     invalid_request: "File belum dapat diproses. Pilih file kembali.",
     lease_expired: "Sesi pengeditan berakhir. Muat ulang halaman lalu coba lagi.",
     lease_superseded: "Bank Soal berubah di tempat lain. Muat ulang halaman lalu coba lagi.",
+    lease_taken_over: "Bank Soal sedang dibuka di tab atau perangkat lain. Muat ulang halaman lalu coba lagi.",
     multipart_incomplete: "File belum terkirim lengkap. Pilih file kembali untuk mengulang unggahan.",
     resource_busy_retry: "Sistem sedang sibuk. Coba lagi sebentar.",
     resource_inaccessible: "Bank Soal tidak dapat diakses.",

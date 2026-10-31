@@ -34,6 +34,8 @@
     "test:authoring-lock-family": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-authoring-lock-family.ts",
     "test:resource-edit-lock": "tsx scripts/test-resource-edit-lock.ts",
     "test:resource-edit-lock-db": "tsx scripts/test-resource-edit-lock-db.ts",
+    "test:resource-edit-lock-takeover-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-resource-edit-lock-takeover-db.ts",
+    "test:stale-save-guards-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-stale-save-guards-db.ts",
     "test:admin-import-worker-flap": "tsx scripts/test-admin-import-worker-flap.ts",
     "test:admin-import-worker-readiness": "tsx scripts/test-admin-import-worker-readiness.ts",
     "db:verify-demo": "node scripts/verify-demo-seed.mjs",

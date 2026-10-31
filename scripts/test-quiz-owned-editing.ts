@@ -67,6 +67,8 @@ async function run() {
           id: quiz.id, title: "Kuis dengan salinan yang diedit", description: "", opensAt: "", closesAt: "",
           subjectCode: source.subtest!.code, questionOwnership: "quiz" as const,
           editLease: { generation: lease.generation!, token },
+          // The versioned save refuses an omitted revision; null means the editor loaded no draft yet.
+          expectedDraftRevision: cutover === "enabled" ? null : undefined,
           questions: [{ ...snapshot, prompt: "Pertanyaan berubah hanya di Kuis", explanation: "Penjelasan yang diedit" }],
         };
         await assert.rejects(saveStandaloneQuiz({ ...input, editLease: undefined }, tutor.id), "A valid edit lease is still required");

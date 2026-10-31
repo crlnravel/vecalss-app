@@ -89,6 +89,7 @@ type CsvErrorCode =
   | "resource_locked"
   | "lease_expired"
   | "lease_superseded"
+  | "lease_taken_over"
   | "stale_revision"
   | "unauthenticated";
 
@@ -108,6 +109,8 @@ const CSV_ERROR_MESSAGES: Record<CsvErrorCode, string> = {
     "Sesi pengeditan Anda berakhir. Muat ulang halaman lalu coba lagi.",
   lease_superseded:
     "Bank Soal sedang diperbarui di tempat lain. Muat ulang halaman lalu coba lagi.",
+  lease_taken_over:
+    "Bank Soal sedang dibuka di tab atau perangkat lain. Muat ulang halaman lalu coba lagi.",
   stale_revision: "Bank Soal berubah. Muat ulang halaman lalu coba lagi.",
   unauthenticated: "Sesi Anda berakhir. Masuk lagi lalu coba lagi.",
 };

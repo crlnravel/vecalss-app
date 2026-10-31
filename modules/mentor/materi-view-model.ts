@@ -8,6 +8,7 @@ type KaptenMateriStatus = "draft" | "scheduled" | "published" | "archived";
 
 type KaptenMateriView = {
   code: string;
+  contentRevision: string;
   document: MateriDocumentResource | null;
   documentMimeType: string;
   documentName: string;
@@ -75,6 +76,7 @@ function toKaptenMateriView(
   const videoMetric = hasOptionalVideo ? `Video opsional${duration ? ` · ${duration}` : ""}` : "Tanpa video";
   return {
     code: lesson.code,
+    contentRevision: lesson.contentRevision,
     document: lesson.document,
     documentMimeType: lesson.document?.mimeType ?? "",
     documentName,

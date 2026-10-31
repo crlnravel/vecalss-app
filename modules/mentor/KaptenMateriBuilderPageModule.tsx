@@ -1161,12 +1161,19 @@ function MateriBuilderContent({
         creationRequestId: mode === "create" ? creationRequestIdRef.current ?? undefined : undefined,
         document: toDocumentInput(builderState),
         editLease: mode === "edit" ? resourceLock.proof ?? undefined : undefined,
+        expectedContentRevision: mode === "edit" ? savedMateri?.contentRevision : undefined,
         subjectSlug: builderState.subjectSlug,
         title: builderState.title,
         videoDuration: builderState.videoDuration,
         videoUrl: builderState.videoUrl,
       });
       if (!result.ok) {
+        // Out of date (taken over or already changed elsewhere): the page status notice
+        // explains it and offers the way forward, so skip this save's own error.
+        if (mode === "edit" && resourceLock.reportRejectedSave(result.code)) {
+          updateEditor({ hasUnsavedChanges: true });
+          return;
+        }
         updateEditor({
           errors: mapActionErrors(
             result.fieldErrors,

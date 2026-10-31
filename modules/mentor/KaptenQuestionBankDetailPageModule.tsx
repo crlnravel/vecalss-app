@@ -932,6 +932,8 @@ function QuestionBankDetailContent({
         title: trimmed,
       });
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (resourceLock.reportRejectedSave(result.code)) return;
         showToast(result.message, { variant: "error" });
         return;
       }
@@ -973,6 +975,8 @@ function QuestionBankDetailContent({
         title: bank.title,
       });
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (resourceLock.reportRejectedSave(result.code)) return;
         showToast(result.message, { variant: "error" });
         return;
       }
@@ -1010,6 +1014,8 @@ function QuestionBankDetailContent({
         },
       );
       if (!result.ok) {
+        // Out of date: the page status notice explains it, so skip this save's own error.
+        if (resourceLock.reportRejectedSave(result.code)) return;
         showToast(result.message, { variant: "error" });
         return;
       }

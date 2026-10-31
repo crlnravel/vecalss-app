@@ -108,9 +108,27 @@ function draftRevisionMatches(expected: number | null | undefined, actual: numbe
   return expected === undefined || expected === null || expected === actual;
 }
 
+/**
+ * Stale-write check for saving an EXISTING Kuis. An omitted revision never matches,
+ * so a caller cannot skip the check. `null` means the editor loaded no pending
+ * draft, so it only matches an untouched (revision 0) draft. With no pending draft
+ * there is nothing to compare: a draft that activated at a student start since the
+ * editor loaded is not an authoring conflict.
+ */
+function existingQuizDraftRevisionIsCurrent(
+  expected: number | null | undefined,
+  actual: number | null | undefined,
+  hasDraft: boolean,
+) {
+  if (expected === undefined) return false;
+  if (!hasDraft) return true;
+  return (expected ?? 0) === (actual ?? 0);
+}
+
 export {
   KUIS_VERSIONING_CUTOVER_ENV,
   draftRevisionMatches,
+  existingQuizDraftRevisionIsCurrent,
   isStandaloneQuizVersioningCutoverEnabled,
   nextStandaloneQuizVersionNo,
   versionedAssessmentDigest,
