@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import {
@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { buildMentorTryoutAttemptHref, parseMentorTryoutContext } from "@/lib/navigation/canonical-context";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
 import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
@@ -93,12 +94,12 @@ function SessionScheduleCard({
       className="mt-6 border-t border-primary-100 pt-6"
     >
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <h3
+        <h2
           className="text-lg font-semibold text-secondary-900"
           id="session-schedule-title"
         >
           {title}
-        </h3>
+        </h2>
         {onOpen ? (
           <Button disabled={openBusy} onClick={onOpen} variant="default">
             Buka sesi
@@ -123,6 +124,7 @@ function SessionScheduleCard({
 }
 
 function SessionAttemptsTable({ delivery, tryoutId }: { delivery: DeliverySession; tryoutId: string }) {
+  const context = parseMentorTryoutContext(useSearchParams());
   return (
     <section aria-labelledby="session-attempts-title" className="mt-8">
       <div className="flex items-center justify-between gap-3"><h2 id="session-attempts-title" className="text-xl font-semibold">Pengerjaan peserta</h2><span className="text-sm text-secondary-600">{delivery.attempts.length} pengerjaan</span></div>
@@ -131,7 +133,7 @@ function SessionAttemptsTable({ delivery, tryoutId }: { delivery: DeliverySessio
           <caption className="sr-only">Pengerjaan peserta untuk {delivery.name}</caption>
           <TableHeader className="bg-secondary-50/80"><TableRow className="border-primary-100 hover:bg-secondary-50/80"><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Test selesai</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead><TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Status</TableHead><TableHead className="h-11 w-24 px-4 py-2.5 text-right text-xs font-semibold text-secondary-700 sm:px-5">Aksi</TableHead></TableRow></TableHeader>
           <TableBody>
-            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} tryoutId={tryoutId} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada pengerjaan. Daftar muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
+            {delivery.attempts.length ? delivery.attempts.map((attempt) => <SessionAttemptRow attempt={attempt} key={attempt.id} href={buildMentorTryoutAttemptHref(tryoutId, attempt.id, { ...context, workspace: "operations", delivery: "sessions", session: delivery.id })} />) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>Belum ada pengerjaan. Daftar muncul setelah peserta memulai sesi ini.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </ReferenceSurface>
@@ -139,11 +141,11 @@ function SessionAttemptsTable({ delivery, tryoutId }: { delivery: DeliverySessio
   );
 }
 
-function SessionAttemptRow({ attempt, tryoutId }: { attempt: DeliverySession["attempts"][number]; tryoutId: string }) {
+function SessionAttemptRow({ attempt, href }: { attempt: DeliverySession["attempts"][number]; href: string }) {
   const completedRuns = attempt.runs.filter((run) => run.status === "sealed").length;
   const statusLabel = attemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
   const statusTone = ["scored", "submitted", "auto_submitted"].includes(attempt.attemptState) ? "bg-primary-700" : "bg-voyage-warm-sun";
-  return <TableRow className="border-primary-100 hover:bg-secondary-50/70"><TableCell className="px-4 py-3.5 sm:px-5"><span className="font-medium text-secondary-900">{attempt.student}</span></TableCell><TableCell className="px-4 py-3.5 text-secondary-700 sm:px-5">{completedRuns}/7</TableCell><TableCell className="px-4 py-3.5 font-medium text-secondary-900 sm:px-5">{attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}</TableCell><TableCell className="px-4 py-3.5 sm:px-5"><span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 rounded-full ${statusTone}`} />{statusLabel}</span></TableCell><TableCell className="px-4 py-3.5 text-right sm:px-5"><Button nativeButton={false} render={<Link href={`/mentor/tryout/${tryoutId}/operations/attempts/${attempt.id}`} />} size="sm" variant="outline">Lihat</Button></TableCell></TableRow>;
+  return <TableRow className="border-primary-100 hover:bg-secondary-50/70"><TableCell className="px-4 py-3.5 sm:px-5"><span className="font-medium text-secondary-900">{attempt.student}</span></TableCell><TableCell className="px-4 py-3.5 text-secondary-700 sm:px-5">{completedRuns}/7</TableCell><TableCell className="px-4 py-3.5 font-medium text-secondary-900 sm:px-5">{attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}</TableCell><TableCell className="px-4 py-3.5 sm:px-5"><span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 rounded-full ${statusTone}`} />{statusLabel}</span></TableCell><TableCell className="px-4 py-3.5 text-right sm:px-5"><Button nativeButton={false} render={<Link href={href} />} size="sm" variant="outline">Lihat</Button></TableCell></TableRow>;
 }
 
 function SessionOpenDialog({ busy, onConfirm, onOpenChange, open }: { busy: boolean; onConfirm: () => void; onOpenChange: (open: boolean) => void; open: boolean }) {
@@ -156,10 +158,12 @@ function SessionOpenDialog({ busy, onConfirm, onOpenChange, open }: { busy: bool
 
 function KaptenTryoutSessionDetailPageModule({
   embedded = false,
+  showAttempts = false,
   initial,
   sessionId,
 }: {
   embedded?: boolean;
+  showAttempts?: boolean;
   initial: TryoutOperationsView;
   sessionId: string;
 }) {
@@ -257,6 +261,7 @@ function KaptenTryoutSessionDetailPageModule({
           openBusy={busy}
           title="Waktu akses peserta"
         />
+        {showAttempts ? <SessionAttemptsTable delivery={delivery} tryoutId={initial.id} /> : null}
         <SessionOpenDialog
           busy={busy}
           onConfirm={() => void handleConfirm()}

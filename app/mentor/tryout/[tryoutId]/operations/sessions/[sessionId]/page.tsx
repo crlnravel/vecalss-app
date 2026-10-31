@@ -52,7 +52,7 @@ export default async function TryoutSessionDetailPage({
         parentId={typeof query.parent === "string" ? query.parent : undefined}
       >
         <TryoutOperationsNavigation initial={operations} active="sessions" parentId={typeof query.parent === "string" ? query.parent : undefined} />
-        <KaptenTryoutSessionDetailPageModule embedded initial={operations} sessionId={sessionId} />
+        <KaptenTryoutSessionDetailPageModule embedded showAttempts initial={operations} sessionId={sessionId} />
       </KaptenTryoutWorkspaceFrame>
     </MentorWorkspaceShell>
   );

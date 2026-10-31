@@ -24,11 +24,18 @@ function defaultMainSessionWindow(now = new Date()) {
   };
 }
 
+/** History must start on a session with records, rather than a later empty main session. */
+function selectTryoutHistorySession<T extends MainTryoutSessionCandidate & { id: string }>(sessions: readonly T[], attempts: readonly { sessionId: string }[]) {
+  const populated = new Set(attempts.map((attempt) => attempt.sessionId));
+  return sessions.find((session) => populated.has(session.id)) ?? selectMainTryoutSession(sessions);
+}
+
 export {
   DEFAULT_MAIN_SESSION_WINDOW_MS,
   MAIN_TRYOUT_SESSION_NAME,
   defaultMainSessionWindow,
   isMainTryoutSession,
   selectMainTryoutSession,
+  selectTryoutHistorySession,
 };
 export type { MainTryoutSessionCandidate };

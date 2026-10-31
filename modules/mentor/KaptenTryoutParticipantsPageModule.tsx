@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/data-table-filter-menu";
 import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, buildMentorTryoutOperationsHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
+import { selectMainTryoutSession, selectTryoutHistorySession } from "@/lib/tryout/main-session";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { TryoutSessionResultReadiness } from "@/modules/mentor/components/tryout-session-result-readiness";
@@ -98,7 +98,10 @@ function KaptenTryoutParticipantsPageModule({
 }) {
   const router = useRouter();
   const context = parseMentorTryoutContext(useSearchParams());
-  const selectedSession = initial.sessions?.find((session) => session.id === context.session) ?? selectMainTryoutSession(initial.sessions ?? []);
+  const selectedSession = initial.sessions?.find((session) => session.id === context.session)
+    ?? (initial.status === "archived"
+      ? selectTryoutHistorySession(initial.sessions ?? [], initial.attempts)
+      : selectMainTryoutSession(initial.sessions ?? []));
   const selectedSessionId = selectedSession?.id;
   const [query, setQuery] = useState(context.resultQ ?? "");
   const [filter, setFilter] = useState<ResultFilter>(context.resultStatus ?? "all");
