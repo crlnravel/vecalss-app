@@ -759,7 +759,7 @@ function latestReleaseMatchesIntent(
 
   ) ?? [];
   if (!randomSections.length) return true;
-  // Delivery/open/retake callers predate publication intents and pass no key.
+  // Delivery/open callers predate publication intents and pass no key.
   // They are read paths: on the same Tryout revision they must reuse the
   // immutable pinned release, even if the author used an explicit key when
   // publishing it. A deliberate new intent either increments the Tryout
@@ -1165,7 +1165,7 @@ async function resolveAndMaterializeAssemblies(
 }
 
 /**
- * One release-eligibility gate is shared by ordinary session open, retakes,
+ * One release-eligibility gate is shared by ordinary session open
  * and admin preview restarts.  It deliberately checks mutable source
  * readiness only while creating/pinning a new release; attempt start later
  * consumes the release-owned CBT snapshot and does not re-query live rows.
@@ -1350,7 +1350,7 @@ async function createOrReuseAssessmentRelease(
   publishedAt = new Date(),
   options: CreateAssessmentReleaseOptions = {},
 ) {
-  // Publishing, opening, and retake creation all share this aggregate lock.
+  // Publishing and opening both share this aggregate lock.
   // Callers may already hold it; PostgreSQL row locks are re-entrant inside
   // the same transaction, so keeping the guard here prevents a future caller
   // from racing release-number allocation accidentally.

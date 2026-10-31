@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { prisma } from "../lib/prisma";
 import { searchTryoutInvitationStudents } from "../lib/tryout/invitation-picker";
-import { assignTryoutDeliverySession, decideTryoutAdmission, inviteTryoutParticipant, registerForTryout, revokeTryoutDeliveryAssignment } from "../lib/tryout/delivery-repository";
+import { decideTryoutAdmission, inviteTryoutParticipant, registerForTryout, revokeTryoutDeliveryAssignment } from "../lib/tryout/delivery-repository";
 import { archiveTryout, setTryoutHidden, unpublishTryout } from "../lib/tryout/repository";
 import { getOwnedTryoutOperationsView, getOwnedTryoutParticipantsView } from "../lib/tryout/operations-view";
 import { participantTryoutCatalogue, participantTryoutDetail } from "../lib/tryout/participant-repository";
@@ -22,7 +22,7 @@ async function remember(name: string, fixture: Fixture) {
   await writeFile(new URL("../.scratch/tryout-ta03/final-fixtures.json", import.meta.url), JSON.stringify(ledger, null, 2));
 }
 async function counts(tryoutId: string) {
-  const audits = await prisma.tryoutDeliveryAudit.findMany({ where: { tryoutId, action: { in: ["admission.invited", "admission.access_restored", "delivery_session.assigned"] } }, select: { id: true } });
+  const audits = await prisma.tryoutDeliveryAudit.findMany({ where: { tryoutId, action: { in: ["admission.invited", "admission.access_restored"] } }, select: { id: true } });
   return {
     grants: audits.length,
     notifications: await prisma.notification.count({ where: { sourceEntityType: "tryout_invitation", sourceEntityId: { in: audits.map((item) => item.id) } } }),
@@ -238,11 +238,11 @@ try {
   ledger.excludedAccountCases = excluded.length;
   ledger.sameNameSeededPair = fixture.students.some((left, index) => fixture.students.slice(index + 1).some((right) => left.fullName?.trim() === right.fullName?.trim()));
   const missing = await prisma.tryoutAdmission.create({ data: { studentId: others[5].id, tryoutId: fixture.tryoutId, status: "active" } });
-  const assigned = await assignTryoutDeliverySession({ admissionId: missing.id, deliverySessionId: fixture.sessionId }, fixture.ownerId, "direct explicit grant");
-  await revokeTryoutDeliveryAssignment(assigned.id, fixture.ownerId, "direct revoke");
-  await assert.rejects(assignTryoutDeliverySession({ admissionId: missing.id, deliverySessionId: fixture.sessionId }, fixture.ownerId, "implicit restoration"));
-  await assignTryoutDeliverySession({ admissionId: missing.id, deliverySessionId: fixture.sessionId, restoreRevoked: true }, fixture.ownerId, "direct restore");
-  await assignTryoutDeliverySession({ admissionId: missing.id, deliverySessionId: fixture.sessionId, restoreRevoked: true }, fixture.ownerId, "direct retry");
+  const assigned = await grant(missing.studentId);
+  await revokeTryoutDeliveryAssignment(assigned.assignmentId, fixture.ownerId, "direct revoke");
+  await assert.rejects(grant(missing.studentId), /Konfirmasikan/);
+  await grant(missing.studentId, "restore");
+  assert.equal((await grant(missing.studentId, "restore")).changed, false, "an active grant is an idempotent no-op");
   assert.deepEqual(await counts(fixture.tryoutId), { grants: 8, notifications: 8, admissions: 6, assignments: 6 });
   await remember("invitations", fixture);
   assert(await getOwnedTryoutOperationsView(archived.tryoutId, archived.ownerId), "archived history remains readable");

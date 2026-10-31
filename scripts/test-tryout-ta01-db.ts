@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { prisma } from "../lib/prisma";
 import { createTa01Fixture } from "./tryout-ta01-fixture";
-import { assignTryoutDeliverySession, decideTryoutAdmission, revokeTryoutDeliveryAssignment } from "../lib/tryout/delivery-repository";
+import { decideTryoutAdmission, inviteTryoutParticipant, revokeTryoutDeliveryAssignment } from "../lib/tryout/delivery-repository";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "../lib/tryout/operations-view";
 import { participantTryoutDetail } from "../lib/tryout/participant-repository";
 import { startTryoutAttempt } from "../lib/tryout/attempt-repository";
@@ -17,7 +17,10 @@ try {
   assert.equal(view.participants.length, 5);
   assert.equal(view.attempts.length, 0);
   assert.equal(queryTryoutParticipants(view, {}).pendingCount, 2);
-  assert.equal(queryTryoutParticipants(view, { access: "revoked" }).rows[0].admissionId, revokedAccess.id);
+  // "Dicabut" covers both a revoked registration and revoked session access.
+  const revoked = queryTryoutParticipants(view, { status: "revoked" });
+  assert.equal(revoked.total, 2);
+  assert(revoked.rows.some((row) => row.admissionId === revokedAccess.id), "an approved student whose session access was removed is listed as Dicabut");
   assert.equal(await getOwnedTryoutOperationsView(fixture.tryoutId, approve.studentId), null);
   const otherTutor = await prisma.user.findFirst({ where: { id: { not: fixture.ownerId }, roleAssignments: { some: { role: "tutor", revokedAt: null } } } });
   assert(otherTutor, "seeded second Kapten is required");
@@ -78,13 +81,13 @@ try {
   assert(studentView);
   assert.equal(studentView.admissionStatus, "active");
   await assert.rejects(startTryoutAttempt(fixture.sessionId, approve.studentId), /belum|jadwal|dibuka/i);
-  await assert.rejects(assignTryoutDeliverySession({ admissionId: revokedAccess.id, deliverySessionId: fixture.sessionId }, fixture.ownerId, "implicit restore"), /Konfirmasikan/);
-  const restored = await assignTryoutDeliverySession({ admissionId: revokedAccess.id, deliverySessionId: fixture.sessionId, restoreRevoked: true }, fixture.ownerId, "explicit restore");
-  await revokeTryoutDeliveryAssignment(restored.id, fixture.ownerId, "revoke again");
+  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, revokedAccess.studentId, fixture.ownerId, "implicit restore", fixture.sessionId), /Konfirmasikan/);
+  const restored = await inviteTryoutParticipant(fixture.tryoutId, revokedAccess.studentId, fixture.ownerId, "explicit restore", fixture.sessionId, "restore");
+  await revokeTryoutDeliveryAssignment(restored.assignmentId, fixture.ownerId, "revoke again");
   const activeAssignment = await prisma.tryoutDeliveryAssignment.findFirstOrThrow({ where: { admissionId: approve.id } });
   await prisma.tryoutPackage.update({ where: { id: fixture.tryoutId }, data: { status: "archived" } });
   await assert.rejects(decideTryoutAdmission(reject.id, "reject", fixture.ownerId, "stale decision"), /diarsipkan/);
-  await assert.rejects(assignTryoutDeliverySession({ admissionId: revokedAccess.id, deliverySessionId: fixture.sessionId, restoreRevoked: true }, fixture.ownerId, "stale restore"), /diarsipkan/);
+  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, revokedAccess.studentId, fixture.ownerId, "stale restore", fixture.sessionId, "restore"), /diarsipkan/);
   await assert.rejects(revokeTryoutDeliveryAssignment(activeAssignment.id, fixture.ownerId, "stale revoke"), /diarsipkan/);
   const history = await getOwnedTryoutOperationsView(fixture.tryoutId, fixture.ownerId);
   assert(history && history.status === "archived");

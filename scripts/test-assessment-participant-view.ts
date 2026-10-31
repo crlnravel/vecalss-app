@@ -93,11 +93,10 @@ const assertOrder = (source: string, ...tokens: string[]) => {
 
 const registration = segment("async function registerForTryout(", "async function decideTryoutAdmission(");
 const approval = segment("async function decideTryoutAdmission(", "async function inviteTryoutParticipant(");
-const invitation = segment("async function inviteTryoutParticipant(", "async function assignTryoutDeliverySession(");
-const assignment = segment("async function assignTryoutDeliverySession(", "async function revokeTryoutDeliveryAssignment(");
-const revoke = segment("async function revokeTryoutDeliveryAssignment(", "async function createTryoutRetake(");
+const invitation = segment("async function inviteTryoutParticipant(", "async function revokeTryoutDeliveryAssignment(");
+const revoke = segment("async function revokeTryoutDeliveryAssignment(", "async function getOwnedTryoutDeliverySessionIdsWithAttempts(");
 
-for (const source of [registration, approval, invitation, assignment]) {
+for (const source of [registration, approval, invitation]) {
   assert.match(source, /prisma\.\$transaction\(async \(tx\)/);
   assert.match(source, /await lockStudent\(tx,/);
   assert.match(source, /await lockTryout\(tx,/);
@@ -106,7 +105,6 @@ for (const source of [registration, approval, invitation, assignment]) {
 assertOrder(registration, "lockStudent", "lockAdmissionForParticipant", "lockSessionScope", "lockTryout");
 assertOrder(approval, "lockStudent", "lockAdmission", "lockSessionScope", "lockTryout");
 assertOrder(invitation, "lockStudent", "lockAdmissionForParticipant", "lockSessionScope", "lockTryout");
-assertOrder(assignment, "lockStudent", "lockAdmission", "lockAssignment", "lockOverlappingDeliverySessions", "lockTryout");
 assertOrder(revoke, "lockStudent", "lockAdmission", "lockAssignment", "lockOverlappingDeliverySessions", "lockTryout");
 
 assert.match(registration, /status === TryoutAdmissionStatus\.active && !defaultSession/);

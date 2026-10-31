@@ -418,7 +418,7 @@ and then verify the source tree before making an implementation decision.
   would be invalidated. Blueprint Ready versions are scope/quota-only and are
   allowed through publish so this transaction creates their bridge.
 - Same explicit publication intent keys derive the same seed and canonical
-  digest. Delivery/open/retake callers without a key reuse the pinned release
+  digest. Delivery/open callers without a key reuse the pinned release
   for the same Tryout revision; authoring saves increment the revision, and a
   new explicit key represents a new publication intent.
 - Verification and final review PASS are recorded in
