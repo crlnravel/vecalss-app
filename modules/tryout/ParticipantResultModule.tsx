@@ -321,9 +321,9 @@ function ParticipantReleasedResult({ result, safeReturnHref }: { result: Release
   return <AssessmentResultWorkspace headerActions={<><Button className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} variant="outline"><RefreshCw />Lihat daftar Tryout</Button><Button aria-label="Kembali ke menu Tryout" className="hidden sm:inline-flex" nativeButton={false} render={<Link href={safeReturnHref} />} title="Kembali ke menu Tryout" variant="default"><House />Menu</Button></>} navigation={<AssessmentResultNavigation items={getParticipantResultNavigationItems(model.reviewItems, currentQuestion)} label="Ringkasan soal" onSelect={setCurrentQuestion} />} score={result.finalScore} scoreLabel="Skor Akhir" summary={<ParticipantResultSummary model={model} result={result} />} title={result.tryoutTitle}><div className="space-y-5"><ParticipantResultReviewPanel model={model} safeReturnHref={safeReturnHref} {...reviewProps} /><ParticipantResultPerformance runMetrics={model.runMetrics} /><ParticipantResultFocus weakRuns={model.weakRuns} /></div></AssessmentResultWorkspace>;
 }
 
-function ParticipantResultModule({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {
+function ParticipantResultModule({ attemptId, returnToHref }: { attemptId: string; returnToHref?: string }) {
   const { load, loadError, loadState, result } = useParticipantResultLoader(attemptId);
-  const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
+  const safeReturnHref = returnToHref ?? "/tryout";
 
   if (!result) return <ParticipantResultLoadState load={load} loadError={loadError} loadState={loadState} safeReturnHref={safeReturnHref} />;
   if (!result.released) return <ParticipantResultPendingState load={load} safeReturnHref={safeReturnHref} status={result.status} />;

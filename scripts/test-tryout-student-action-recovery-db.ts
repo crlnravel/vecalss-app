@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { randomInt } from "node:crypto";
 import { prisma } from "../lib/prisma";
-import { registerForTryout, TryoutDeliveryValidationError } from "../lib/tryout/delivery-repository";
+import { registerForTryout } from "../lib/tryout/delivery-repository";
 import { startTryoutAttempt, TryoutAttemptValidationError } from "../lib/tryout/attempt-repository";
 import { acquireTryoutIdentityMutex } from "../lib/tryout/locks";
 import { participantActionRecoveryState } from "../lib/tryout/participant-recovery-repository";
@@ -51,9 +51,9 @@ try {
       const f = await fixture();
       assert.equal(await prisma.tryoutAttempt.count({ where: { studentId: f.studentId, status: "in_progress", deliverySession: { availableFrom: { lt: f.session.availableUntil }, availableUntil: { gt: f.session.availableFrom } } } }), 0, "isolated test window has no peer attempt");
       at(f.session.availableFrom.getTime() + 1_000);
-      if (kind === "start") await registerForTryout(f.tryoutId, f.studentId, target, f.sessionId);
+      if (kind === "start") await registerForTryout(f.tryoutId, f.studentId, target);
       const auditBefore = await prisma.tryoutDeliveryAudit.count({ where: { tryoutId: f.tryoutId } });
-      const intent: ParticipantActionIntent = kind === "register" ? { kind, tryoutId: f.tryoutId, sessionId: f.sessionId, target } : { kind, tryoutId: f.tryoutId, sessionId: f.sessionId };
+      const intent: ParticipantActionIntent = kind === "register" ? { kind, tryoutId: f.tryoutId, target } : { kind, tryoutId: f.tryoutId, sessionId: f.sessionId };
       const gate = await holdIdentity(f.tryoutId);
       const firstDispatched = deferred<void>();
       const replayDispatched = deferred<void>();
@@ -61,7 +61,7 @@ try {
       let dispatches = 0;
       const command = async (): Promise<ParticipantActionWriteReply> => {
         if (kind === "register") {
-          const result = await registerForTryout(f.tryoutId, f.studentId, target, f.sessionId);
+          const result = await registerForTryout(f.tryoutId, f.studentId, target);
           assert(result.deliverySessionId);
           return { ok: true, destination: { kind: "waiting", sessionId: result.deliverySessionId } };
         }
@@ -122,9 +122,9 @@ try {
     }
 
     const approval = await fixture("approval_required");
-    const pending = await registerForTryout(approval.tryoutId, approval.studentId, target, approval.sessionId);
+    const pending = await registerForTryout(approval.tryoutId, approval.studentId, target);
     assert.equal(pending.state, "pending_approval");
-    const pendingState = await participantActionRecoveryState({ kind: "register", tryoutId: approval.tryoutId, sessionId: approval.sessionId }, approval.studentId);
+    const pendingState = await participantActionRecoveryState({ kind: "register", tryoutId: approval.tryoutId }, approval.studentId);
     assert.deepEqual(pendingState.destination, { kind: "detail" });
     assert.equal(pendingState.assignment, null);
     evidence.push({ scenario: "pending approval Continue is detail, without assignment", pendingState });
@@ -132,7 +132,7 @@ try {
     for (const offset of [-1, 0, 1]) {
       const f = await fixture();
       at(f.session.availableFrom.getTime());
-      await registerForTryout(f.tryoutId, f.studentId, target, f.sessionId);
+      await registerForTryout(f.tryoutId, f.studentId, target);
       const startIntent: ParticipantActionIntent = { kind: "start", tryoutId: f.tryoutId, sessionId: f.sessionId };
       at(f.session.availableFrom.getTime() - 1);
       assert.equal((await participantActionRecoveryState(startIntent, f.studentId)).canRetry, false, "future start remains blocked");
@@ -150,7 +150,9 @@ try {
       } else {
         await assert.rejects(startTryoutAttempt(f.sessionId, f.studentId), TryoutAttemptValidationError);
         const other = await prisma.user.findUniqueOrThrow({ where: { email: "arya@vecalss.local" }, select: { id: true } });
-        await assert.rejects(registerForTryout(f.tryoutId, other.id, target, f.sessionId), TryoutDeliveryValidationError);
+        const afterEnd = await registerForTryout(f.tryoutId, other.id, target);
+        assert.equal(afterEnd.state, "unavailable", "registration is refused once the session has ended");
+        assert.equal(await prisma.tryoutAdmission.count({ where: { tryoutId: f.tryoutId, studentId: other.id } }), 0, "a refused registration records no admission");
         assert.equal(await prisma.tryoutAttempt.count({ where: { deliverySessionId: f.sessionId } }), 0);
       }
       evidence.push({ scenario: "public command and recovery cutoff", offset, tryoutId: f.tryoutId, snapshot });

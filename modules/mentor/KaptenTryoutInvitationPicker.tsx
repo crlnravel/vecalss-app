@@ -82,7 +82,7 @@ function KaptenTryoutInvitationPicker({ onRefresh, sessions, tryoutId, participa
     generation.current += 1;
     try {
       const outcome = await performTryoutAccess(
-        () => inviteTryoutParticipantAction(tryoutId, student.id, reason, main.id, intent),
+        () => inviteTryoutParticipantAction(tryoutId, student.id, reason, intent),
         () => refreshTryoutParticipantsAction(tryoutId),
       );
       if (outcome.state === "refused") { showToast(outcome.message, { variant: "error" }); return; }

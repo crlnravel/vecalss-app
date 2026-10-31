@@ -226,39 +226,37 @@ function TryoutSectionList({
   );
 }
 
-function getParticipantTryoutDetailModel(tryout: ParticipantTryout, sessionId: string | undefined, returnToHref: string | undefined) {
+function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref: string | undefined) {
   const totalDuration = tryout.sections.reduce((sum, section) => sum + section.durationSeconds, 0);
   const totalQuestions = tryout.sections.reduce((sum, section) => sum + section.questionCount, 0);
-  const assignedSession = sessionId ? tryout.assignments.find((assignment) => assignment.id === sessionId) : tryout.assignments[0];
+  const assignedSession = tryout.assignment ?? undefined;
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
   const now = new Date();
-  const defaultAdmissionSession = tryout.sessions[0];
-  const selectedSession = sessionId ? tryout.sessions.find((deliverySession) => deliverySession.id === sessionId) : undefined;
+  const defaultAdmissionSession = tryout.session ?? undefined;
   const defaultOpenSession = defaultAdmissionSession && isTryoutAdmissionSessionAvailable(defaultAdmissionSession, now)
     ? defaultAdmissionSession
     : undefined;
   const canRequestAdmission = canRequestNewTryoutAdmission(
     tryout.admissionMode,
-    tryout.sessions,
+    tryout.session,
     now,
-    sessionId,
   );
   const registrationWindowClosed =
     tryout.admissionStatus === null &&
     tryout.admissionMode !== "invitation_only" &&
     !canRequestAdmission;
-  const registrationWindowSession = selectedSession ?? defaultAdmissionSession;
+  const registrationWindowSession = defaultAdmissionSession;
   const registrationWindowEnded = Boolean(
     registrationWindowSession &&
       isTryoutSessionExpired(registrationWindowSession.availableUntil, now),
   );
-  const summarySession = assignedSession ?? selectedSession ?? (
+  const summarySession = assignedSession ?? (
     tryout.admissionStatus === null && tryout.admissionMode !== "invitation_only"
       ? defaultAdmissionSession
       : undefined
   );
-  const context = { returnTo: returnToHref, session: summarySession?.id ?? sessionId };
+  const context = { returnTo: returnToHref };
 
   let actionHref = buildStudentTryoutHref(tryout.id, context);
   let actionLabel = "Daftar Tryout";
@@ -469,7 +467,6 @@ function TryoutDetailAction({
   majors,
   model,
   returnToHref,
-  sessionId,
   tryout,
   universities,
 }: {
@@ -478,13 +475,12 @@ function TryoutDetailAction({
   majors: MajorOption[];
   model: ParticipantTryoutDetailModel;
   returnToHref?: string;
-  sessionId?: string;
   tryout: ParticipantTryout;
   universities: UniversityOption[];
 }) {
   if (model.admissionNotice || !model.canTakeAction) return null;
   if (model.actionLabel === "Daftar Tryout") {
-    return <ParticipantTryoutEnrollmentPanel initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} returnToHref={returnToHref} sessionId={model.summarySession?.id ?? sessionId} tryoutId={tryout.id} universities={universities} />;
+    return <ParticipantTryoutEnrollmentPanel initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} returnToHref={returnToHref} tryoutId={tryout.id} universities={universities} />;
   }
   return <Link className={buttonVariants({ className: "w-full", size: "lg", variant: "default" })} href={model.actionHref}>{model.actionDisplayLabel}{model.actionDisplayLabel === "Daftar" ? null : <ArrowRight />}</Link>;
 }
@@ -495,7 +491,6 @@ function ParticipantTryoutDetailContent({
   majors,
   model,
   returnToHref,
-  sessionId,
   tryout,
   universities,
 }: {
@@ -504,11 +499,10 @@ function ParticipantTryoutDetailContent({
   majors: MajorOption[];
   model: ParticipantTryoutDetailModel;
   returnToHref?: string;
-  sessionId?: string;
   tryout: ParticipantTryout;
   universities: UniversityOption[];
 }) {
-  return <div className="min-h-full font-sans text-[var(--voyage-ink)]"><div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8"><TryoutDetailHero model={model} tryout={tryout} /><TryoutAdmissionNotice model={model} /><TryoutSectionList lockedSections={model.lockedSections} sectionGroups={model.sectionGroups} /><TryoutDetailAction initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></div></div>;
+  return <div className="min-h-full font-sans text-[var(--voyage-ink)]"><div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8"><TryoutDetailHero model={model} tryout={tryout} /><TryoutAdmissionNotice model={model} /><TryoutSectionList lockedSections={model.lockedSections} sectionGroups={model.sectionGroups} /><TryoutDetailAction initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} tryout={tryout} universities={universities} /></div></div>;
 }
 
 function ParticipantTryoutDetailModule({
@@ -518,7 +512,6 @@ function ParticipantTryoutDetailModule({
   notificationFeed,
   returnToHref,
   session,
-  sessionId,
   tryout,
   universities,
 }: {
@@ -528,12 +521,11 @@ function ParticipantTryoutDetailModule({
   notificationFeed?: StudentNotificationFeed;
   returnToHref?: string;
   session: SessionContext;
-  sessionId?: string;
   tryout: ParticipantTryout;
   universities: UniversityOption[];
 }) {
-  const model = getParticipantTryoutDetailModel(tryout, sessionId, returnToHref);
-  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail Tryout" mainClassName="max-w-none gap-0 !p-0" notificationFeed={notificationFeed} session={session} showSearch={false}><ParticipantTryoutDetailContent initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} sessionId={sessionId} tryout={tryout} universities={universities} /></CourseWorkspaceShell>;
+  const model = getParticipantTryoutDetailModel(tryout, returnToHref);
+  return <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail Tryout" mainClassName="max-w-none gap-0 !p-0" notificationFeed={notificationFeed} session={session} showSearch={false}><ParticipantTryoutDetailContent initialMajorId={initialMajorId} initialUniversityId={initialUniversityId} majors={majors} model={model} returnToHref={returnToHref} tryout={tryout} universities={universities} /></CourseWorkspaceShell>;
 }
 
 export { ParticipantTryoutDetailModule };

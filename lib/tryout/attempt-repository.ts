@@ -856,6 +856,13 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       );
       return { assessmentRelease: { digest: release.contentDigest, id: release.id, number: release.releaseNumber }, attemptId: existing.id, state: "existing" as const };
     }
+    // A Tryout has one session, so one attempt per student per Tryout. This also
+    // refuses a legacy second session on the same Tryout.
+    const priorAttempt = await tx.tryoutAttempt.findFirst({
+      select: { id: true },
+      where: { deliverySessionId: { not: deliverySessionId }, studentId, tryoutId: session.tryoutId },
+    });
+    if (priorAttempt) throw new TryoutAttemptValidationError("Kamu sudah pernah mengerjakan Tryout ini. Setiap Tryout hanya bisa dikerjakan satu kali.");
     const competing = await tx.tryoutAttempt.findFirst({ where: { studentId, status: { in: [...activeAttemptStatuses] }, deliverySession: { availableFrom: { lt: session.availableUntil }, availableUntil: { gt: session.availableFrom } } }, select: { id: true } });
     if (competing) throw new TryoutAttemptValidationError("Peserta masih memiliki Tryout aktif pada sesi yang waktunya bertumpang tindih.");
 

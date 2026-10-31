@@ -216,23 +216,15 @@ function ParticipantTryoutWorkspace({
                 (sum, section) => sum + section.durationSeconds,
                 0,
               );
-              const primarySession = tryout.assignments[0] ?? tryout.sessions[0];
-              const assignment = tryout.assignments[0];
+              const primarySession = tryout.assignment ?? tryout.session;
+              const assignment = tryout.assignment;
               const hasEnrolledAssignment =
                 tryout.admissionStatus === "active" && Boolean(assignment);
               const canEnterWaiting = canEnterParticipantWaitingRoom(tryout);
-              const hasDefaultAdmissionSession = tryout.sessions.length > 0;
-              const registrationSessionId =
-                tryout.admissionStatus === null &&
-                tryout.admissionMode === "approval_required" &&
-                !hasDefaultAdmissionSession
-                  ? undefined
-                  : primarySession?.id;
               const canRequestAdmission = canRequestNewTryoutAdmission(
                 tryout.admissionMode,
-                tryout.sessions,
+                tryout.session,
                 new Date(referenceTime),
-                registrationSessionId,
               );
               const registrationUnavailable =
                 tryout.admissionStatus === null &&
@@ -240,8 +232,8 @@ function ParticipantTryoutWorkspace({
                 !canRequestAdmission;
               const attempt = assignment?.attempt;
               const href = canEnterWaiting
-                ? buildStudentTryoutSubrouteHref(tryout.id, "waiting", { session: primarySession?.id })
-                : buildStudentTryoutHref(tryout.id, { session: registrationSessionId });
+                ? buildStudentTryoutSubrouteHref(tryout.id, "waiting")
+                : buildStudentTryoutHref(tryout.id);
               const actionLabel = attempt?.status === "in_progress"
                 ? "Lanjutkan"
                 : attempt

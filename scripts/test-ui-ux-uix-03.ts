@@ -123,8 +123,8 @@ check(invalidTryout.issues.some((item) => item.field === "workspace"), "Invalid 
 const duplicateTryout = parseMentorTryoutContext(new URLSearchParams("workspace=schedule&workspace=attempts&delivery=sessions&delivery=participants"));
 check(duplicateTryout.issues.some((item) => item.field === "workspace"), "Duplicate Tryout workspace is rejected");
 check(duplicateTryout.issues.some((item) => item.field === "delivery"), "Duplicate Tryout delivery is rejected");
-const duplicateStudentSession = parseStudentTryoutContext({ session: [sessionId, sessionId] });
-check(duplicateStudentSession.issues.some((item) => item.field === "session"), "Duplicate student Tryout session is rejected");
+const legacyStudentSession = parseStudentTryoutContext({ session: [sessionId, sessionId] });
+check(legacyStudentSession.issues.length === 0, "A legacy student Tryout session value is ignored without an issue");
 const attemptContext = parseMentorTryoutAttemptContext({
   workspace: "schedule",
   delivery: "sessions",
@@ -143,9 +143,9 @@ check(studentContext.tool === "analysis", "Student artifact context is preserved
 check(studentContext.returnTo === studentReturnTo, "Student returnTo is preserved");
 const invalidStudent = parseStudentContext({ tool: "not-a-tool" });
 check(invalidStudent.issues.some((item) => item.field === "tool"), "Invalid student tool is typed");
-check(buildStudentTryoutHref(tryoutId, { session: sessionId, returnTo: studentReturnTo }).includes(`session=${sessionId}`), "Student Tryout detail keeps session");
-check(buildStudentTryoutSubrouteHref(tryoutId, "waiting", { session: sessionId, returnTo: studentReturnTo }).includes("/waiting?"), "Student waiting transition is canonical");
-check(buildStudentAttemptHref(attemptId, { result: true, session: sessionId, returnTo: studentReturnTo }).includes("/result?"), "Student result transition is canonical");
+check(!buildStudentTryoutHref(tryoutId, { returnTo: studentReturnTo }).includes("session="), "Student Tryout detail carries no session");
+check(buildStudentTryoutSubrouteHref(tryoutId, "waiting", { returnTo: studentReturnTo }).includes("/waiting?"), "Student waiting transition is canonical");
+check(buildStudentAttemptHref(attemptId, { result: true, returnTo: studentReturnTo }).includes("/result?"), "Student result transition is canonical");
 check(getStudentEntryPath({ mustChangePassword: true }) === "/change-password", "Incomplete student enters change-password safely");
 check(getStudentEntryPath({ mustChangePassword: false, onboardingStatus: "completed" }) === "/dashboard", "Returning student enters dashboard");
 
@@ -184,19 +184,19 @@ check(createPage.includes("initialDeliveryArea={parsedQuery.delivery ?? undefine
 check(enrollmentPanel.includes("buildStudentTryoutSubrouteHref(tryoutId, \"waiting\""), "Enrollment waiting transition is canonical");
 check(!enrollmentPanel.includes("response.result.assignmentId"), "Enrollment does not treat assignment id as delivery session");
 check(enrollmentPanel.includes("registerForTryoutWithTargetAction(tryoutId, {"), "Enrollment uses the participant registration action");
-check(enrollmentPanel.includes("}, sessionId)"), "Enrollment forwards the requested session to registration");
+check(!enrollmentPanel.includes("}, sessionId)"), "Enrollment registers without a session choice");
 check(enrollmentPanel.includes("const destinationSessionId = response.result.deliverySessionId"), "Enrollment uses the server delivery-session id");
-check(detailRoute.includes("canEnterParticipantWaitingRoom(tryout, selectedSessionId)"), "Tryout detail gates eligibility for the selected session");
+check(detailRoute.includes("canEnterParticipantWaitingRoom(tryout)"), "Tryout detail gates eligibility for the Tryout's one session");
 check(!detailRoute.includes("tryout.sessions[0]?.id"), "Tryout detail leaves no-query registration on the server default session");
-check(waitingRoute.includes("canEnterParticipantWaitingRoom(tryout, parsedQuery.session)"), "Waiting route gates eligibility for the selected session");
-check(participantUtils.includes("selectedSessionId?: string | null"), "Participant eligibility accepts an optional selected session");
-check(participantUtils.includes("tryout.assignments.find"), "Participant eligibility resolves the selected assignment");
-check(participantActions.includes("registerForTryout(tryoutId, session.user.id, target, selectedSessionId)"), "Participant action forwards the selected session");
-check(deliveryRepository.includes("selectedSessionId?: string | null"), "Delivery registration accepts the selected session");
-check(deliveryRepository.includes("findSelectedSession(tx, tryoutId, selectedSessionId, now)"), "Delivery registration validates the selected session server-side");
+check(waitingRoute.includes("canEnterParticipantWaitingRoom(tryout)"), "Waiting route gates eligibility for the Tryout's one session");
+check(!participantUtils.includes("selectedSessionId"), "Participant eligibility takes no session choice");
+check(participantUtils.includes("tryout.assignment"), "Participant eligibility reads the one assignment");
+check(participantActions.includes("registerForTryout(tryoutId, session.user.id, target)"), "Participant action registers without a session choice");
+check(!deliveryRepository.includes("selectedSessionId"), "Delivery registration takes no selected session");
+check(deliveryRepository.includes("findDefaultSession(tx, tryoutId, now)"), "Delivery registration validates the Tryout's session server-side");
 check(deliveryRepository.includes("deliverySessionId: lockedRegistrationSession!.id"), "Delivery registration returns the canonical assigned session id");
 check(deliveryRepository.includes("deliverySessionId: existingAssignment?.deliverySessionId ?? null"), "Existing registration returns its canonical assigned session id");
-check(deliveryRepository.includes("if (selectedSessionId !== undefined && selectedSessionId !== null)"), "Selected registration never falls back to another assignment");
+check(!deliveryRepository.includes("Sesi Tryout yang dipilih"), "Registration refusals do not mention a chosen session");
 check(attemptRoute.includes("parseStudentTryoutContext"), "Attempt route parses student context");
 check(resultRoute.includes("parseStudentTryoutContext"), "Result route parses student context");
 check(attemptModule.includes("buildStudentAttemptHref"), "Attempt result transition preserves context");

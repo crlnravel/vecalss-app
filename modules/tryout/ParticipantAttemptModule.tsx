@@ -121,7 +121,6 @@ function ParticipantAttemptStatusScreen({
   onBegin,
   returnToHref,
   runs,
-  sessionId,
   tryoutDescription,
   tryoutEventName,
   tryoutOrganizer,
@@ -135,7 +134,6 @@ function ParticipantAttemptStatusScreen({
   onBegin: (runId: string) => void;
   returnToHref?: string;
   runs: RunSummary[];
-  sessionId?: string;
   tryoutDescription: string | null;
   tryoutEventName: string | null;
   tryoutOrganizer: string;
@@ -191,7 +189,7 @@ function ParticipantAttemptStatusScreen({
                 </div>
               ))}
             </div>
-            <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={buildStudentAttemptHref(attemptId, { result: true, returnTo: returnToHref, session: sessionId })} />} variant="default">Buka hasil <ArrowRight /></Button>
+            <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={buildStudentAttemptHref(attemptId, { result: true, returnTo: returnToHref })} />} variant="default">Buka hasil <ArrowRight /></Button>
           </section>
         ) : (
           <div className="grid gap-3">
@@ -221,7 +219,7 @@ function ParticipantAttemptStatusScreen({
   );
 }
 
-function useParticipantAttemptController({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {
+function useParticipantAttemptController({ attemptId, returnToHref }: { attemptId: string; returnToHref?: string }) {
   const [state, setState] = useState<State | null>(null);
   const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -254,7 +252,7 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
     };
   }, [attemptId, readAttemptState]);
   const router = useRouter();
-  const safeReturnHref = returnToHref ?? (sessionId ? `/tryout?session=${encodeURIComponent(sessionId)}` : "/tryout");
+  const safeReturnHref = returnToHref ?? "/tryout";
   const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
   usePageStatusToast({
     active: saveState === "saving" || (busy && state !== null),
@@ -619,8 +617,8 @@ function useParticipantAttemptController({ attemptId, returnToHref, sessionId }:
   };
 }
 
-function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { attemptId: string; returnToHref?: string; sessionId?: string }) {
-  const controller = useParticipantAttemptController({ attemptId, returnToHref, sessionId });
+function ParticipantAttemptModule({ attemptId, returnToHref }: { attemptId: string; returnToHref?: string }) {
+  const controller = useParticipantAttemptController({ attemptId, returnToHref });
   const { item, state } = controller;
   const run = state?.activeRun;
 
@@ -633,7 +631,7 @@ function ParticipantAttemptModule({ attemptId, returnToHref, sessionId }: { atte
 
   const nextRun = controller.sessionEnded ? undefined : state.runs.find((candidate) => candidate.status === "pending");
   if (!run) {
-    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} nextRun={nextRun} sessionEnded={controller.sessionEnded} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} sessionId={sessionId} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={controller.busy} finished={state.status !== "in_progress"} nextRun={nextRun} sessionEnded={controller.sessionEnded} onBegin={controller.begin} returnToHref={returnToHref} runs={state.runs} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
   }
   if (!item) {
     return <main className="student-page-canvas mx-auto min-h-svh max-w-3xl px-5 py-12"><p role="alert">Snapshot soal aktif tidak tersedia. Muat ulang untuk memulihkan keadaan server.</p><Button className="mt-5" onClick={() => void controller.refresh()} variant="default">Muat ulang</Button></main>;

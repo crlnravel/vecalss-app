@@ -60,34 +60,29 @@ assert.equal(isTryoutSessionExpired(futureDefaultSession.availableUntil, now), f
 assert.equal(isTryoutAdmissionSessionAvailable(expiredDefaultSession, now), false);
 assert.equal(isTryoutAdmissionSessionAvailable(futureDefaultSession, now), true);
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [expiredDefaultSession], now),
+  canRequestNewTryoutAdmission("approval_required", expiredDefaultSession, now),
   false,
   "an expired default session cannot accept an approval-pending admission",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [futureDefaultSession], now),
+  canRequestNewTryoutAdmission("approval_required", futureDefaultSession, now),
   true,
 );
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [], now),
+  canRequestNewTryoutAdmission("approval_required", null, now),
   true,
   "approval-required registration remains available before a session is created",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("open", [expiredDefaultSession], now),
+  canRequestNewTryoutAdmission("open", expiredDefaultSession, now),
   false,
 );
 assert.equal(
-  canRequestNewTryoutAdmission("open", [], now),
+  canRequestNewTryoutAdmission("open", null, now),
   false,
 );
 assert.equal(
-  canRequestNewTryoutAdmission(
-    "open",
-    [futureDefaultSession],
-    now,
-    futureDefaultSession.id,
-  ),
+  canRequestNewTryoutAdmission("open", futureDefaultSession, now),
   true,
 );
 assert.equal(isTryoutSessionExpired(now, now), true, "the end instant is exclusive");

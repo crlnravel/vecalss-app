@@ -64,8 +64,8 @@ function KaptenTryoutParticipantDetailPageModule({ admissionId, embedded = false
       const request = decision === "revoke"
         ? revokeTryoutDeliveryAssignmentAction(revokeTarget!, reason)
         : decision === "assign" || decision === "restore"
-          ? inviteTryoutParticipantAction(view.id, identity.id, reason, main!.id, decision === "restore" ? "restore" : "invite")
-          : decideTryoutAdmissionAction(admissionId, decision, reason, decision === "approve" ? main?.id : undefined);
+          ? inviteTryoutParticipantAction(view.id, identity.id, reason, decision === "restore" ? "restore" : "invite")
+          : decideTryoutAdmissionAction(admissionId, decision, reason);
       const result = await withTryoutRequestDeadline<{ ok: true; result: { status: string } } | { ok: false; message?: string }>(request);
       if (!result.ok) {
         setConfirmation(null);

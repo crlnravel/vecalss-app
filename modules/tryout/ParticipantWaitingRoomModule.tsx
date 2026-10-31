@@ -50,7 +50,7 @@ function WaitingRoomAttemptState({ assignment, notificationFeed, returnToHref, s
       : assignment.effectiveResultReleasePolicy === "manual"
         ? "Hasil belum dibuka oleh Kapten. Kamu bisa memeriksa statusnya lagi nanti."
         : "Hasil belum dibuka. Kamu bisa memeriksa statusnya lagi nanti.";
-  const href = buildStudentAttemptHref(attempt.id, resultReady ? { result: true, returnTo: returnToHref, session: assignment.id } : { returnTo: returnToHref, session: assignment.id });
+  const href = buildStudentAttemptHref(attempt.id, resultReady ? { result: true, returnTo: returnToHref } : { returnTo: returnToHref });
   const actionLabel = resultReady
     ? resultReleased ? "Lihat hasil" : "Periksa status hasil"
     : "Lanjutkan ujian";
@@ -93,12 +93,12 @@ function ParticipantWaitingRoomModule({
   const handleStart = async () => {
     if (!canStart) return;
     const destination = await controller.submit({ kind: "start", sessionId: assignment.id, tryoutId: tryout.id });
-    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref, assignment.id));
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref));
   };
 
   const navigateRecovered = async (action: "retry" | "continue") => {
     const destination = await controller[action]();
-    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref, assignment.id));
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryout.id, returnToHref));
   };
 
   if (attempt) return <WaitingRoomAttemptState assignment={assignment} notificationFeed={notificationFeed} returnToHref={returnToHref} session={session} />;

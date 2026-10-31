@@ -108,7 +108,6 @@ assertOrder(revoke, "lockStudent", "lockAdmission", "lockAssignment", "lockOverl
 
 assert.match(registration, /status === TryoutAdmissionStatus\.active && !defaultSession/);
 assert.match(registration, /lockedDefaultSession/);
-assert.match(approval, /selectedSessionId\?/);
 assert.match(approval, /findDefaultSession/);
 assert.ok(approval.indexOf("replayAssignment") < approval.indexOf("findDefaultSession"), "approval replay must short-circuit before default resolution");
 assert.match(invitation, /findSelectedSession/);
@@ -136,7 +135,7 @@ assert.ok(delivery.indexOf("const ownedTryout") < delivery.indexOf("student: { s
 assert.match(operations, /participants: toParticipantViews\(participantInputs\)/);
 assert.match(operations, /safeParticipantIdentity\(admission\.student\)/);
 assert.doesNotMatch(operations, /student\.email/);
-assert.match(actions, /selectedSessionId\?: string \| null/);
+assert.doesNotMatch(actions, /selectedSessionId/);
 assert.match(participants, /initial\.results/u);
 assert.match(participants, /initial\.attempts/u);
 assert.match(participants, /CompactFilterTabs/u);

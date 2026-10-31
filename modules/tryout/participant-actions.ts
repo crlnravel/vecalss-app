@@ -35,14 +35,11 @@ async function participantSession() {
   return session;
 }
 
-async function registerForTryoutAction(
-  tryoutId: string,
-  selectedSessionId?: string | null,
-) {
+async function registerForTryoutAction(tryoutId: string) {
   const session = await requireStudentSession();
   try {
     requireTryoutCapability(session, "tryout.admission.register");
-    const result = await registerForTryout(tryoutId, session.user.id, undefined, selectedSessionId);
+    const result = await registerForTryout(tryoutId, session.user.id);
     revalidatePath("/tryout");
     return { ok: true as const, result };
   } catch (error) {
@@ -53,12 +50,11 @@ async function registerForTryoutAction(
 async function registerForTryoutWithTargetAction(
   tryoutId: string,
   target: { majorId: string; universityId: string },
-  selectedSessionId?: string | null,
 ) {
   const session = await requireStudentSession();
   try {
     requireTryoutCapability(session, "tryout.admission.register");
-    const result = await registerForTryout(tryoutId, session.user.id, target, selectedSessionId);
+    const result = await registerForTryout(tryoutId, session.user.id, target);
     revalidatePath("/tryout");
     revalidatePath(`/tryout/${tryoutId}`);
     return { ok: true as const, result };

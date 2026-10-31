@@ -49,13 +49,13 @@ try {
   assert(selected, "an unregistered student is discoverable by account email");
   assert.deepEqual({ displayName: selected.displayName, email: (selected as unknown as { email: string }).email }, mentorParticipantIdentity(student), "picker uses the same approved account identity as participant list/detail");
   assert.equal(selected.admission, null, "new students are discoverable without a registration");
-  const grant = (studentId: string, intent: "invite" | "restore" = "invite") => inviteTryoutParticipant(fixture.tryoutId, studentId, fixture.ownerId, "TA-03 explicit access", fixture.sessionId, intent);
+  const grant = (studentId: string, intent: "invite" | "restore" = "invite") => inviteTryoutParticipant(fixture.tryoutId, studentId, fixture.ownerId, "TA-03 explicit access", intent);
   const otherTutor = await prisma.user.findFirstOrThrow({ where: { id: { not: fixture.ownerId }, roleAssignments: { some: { role: "tutor", revokedAt: null } } }, select: { id: true } });
   // Tryouts are shared across Kapten: another Kapten may search the invitation picker.
   assert(await searchTryoutInvitationStudents(fixture.tryoutId, otherTutor.id, "student"), "a second Kapten can use the picker");
   await assert.rejects(searchTryoutInvitationStudents(fixture.tryoutId, fixture.studentId, "student"));
-  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.studentId, "student actor", fixture.sessionId));
-  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, " ", fixture.sessionId));
+  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.studentId, "student actor"));
+  await assert.rejects(inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, " "));
   await assert.rejects(registerForTryout(fixture.tryoutId, fixture.studentId), /undangan/);
   await assert.rejects(startTryoutAttempt(fixture.sessionId, fixture.studentId));
   const duplicates = await Promise.all([grant(fixture.studentId), grant(fixture.studentId)]);
@@ -67,7 +67,7 @@ try {
   assert(projected?.sessions.every((session) => session.attempts.length === 0), "picker refresh never includes raw session attempts");
   const studentView = await participantTryoutDetail(fixture.tryoutId, fixture.studentId);
   assert.equal(studentView?.admissionStatus, "active");
-  assert.equal(studentView?.assignments[0].id, fixture.sessionId);
+  assert.equal(studentView?.assignment?.id, fixture.sessionId);
   await assert.rejects(startTryoutAttempt(fixture.sessionId, fixture.studentId), /belum|jadwal|dibuka/i);
   await revokeTryoutDeliveryAssignment(invited.assignmentId, fixture.ownerId, "TA-03 revoke before attempt");
   const repeated = await registerForTryout(fixture.tryoutId, fixture.studentId);
@@ -90,7 +90,7 @@ try {
       await assert.rejects(grant(target.id), /Setujui atau Tolak/);
       await assert.rejects(grant(target.id, "restore"), /Setujui atau Tolak/);
       await decideTryoutAdmission(admission.id, "reject", fixture.ownerId, "TA-03 pending rejection");
-      await assert.rejects(decideTryoutAdmission(admission.id, "approve", fixture.ownerId, "opposing decision", fixture.sessionId));
+      await assert.rejects(decideTryoutAdmission(admission.id, "approve", fixture.ownerId, "opposing decision"));
     }
     if (status !== "active") await assert.rejects(grant(target.id), /Konfirmasikan/);
     const result = await grant(target.id, status === "active" ? "invite" : "restore");
@@ -102,32 +102,27 @@ try {
   const blocked = await createTa03Fixture();
   for (const status of ["draft", "closed", "archived"] as const) {
     await prisma.tryoutDeliverySession.update({ where: { id: blocked.sessionId }, data: { status } });
-    await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "invalid session", blocked.sessionId));
+    await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "invalid session"));
     const blockedView = await getOwnedTryoutParticipantsView(blocked.tryoutId, blocked.ownerId);
     const blockedSession = blockedView?.sessions.find((item) => item.id === blocked.sessionId);
     assert.equal(blockedSession?.grantEligible, false);
     assert.equal(blockedSession?.grantBlockedReason, status === "draft" ? "inactive_session" : status === "closed" ? "closed_session" : "archived_session");
   }
   await prisma.tryoutDeliverySession.update({ where: { id: blocked.sessionId }, data: { status: "active" } });
-  const unbound = await prisma.tryoutDeliverySession.create({ data: { tryoutId: blocked.tryoutId, name: "TA-03 unprepared", status: "active", availableFrom: new Date(Date.now() + 60_000), availableUntil: new Date(Date.now() + 86_400_000), createdByUserId: blocked.ownerId, updatedByUserId: blocked.ownerId } });
-  await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "no content", unbound.id));
-  const unboundView = await getOwnedTryoutParticipantsView(blocked.tryoutId, blocked.ownerId);
-  assert.equal(unboundView?.sessions.find((item) => item.id === unbound.id)?.grantBlockedReason, "missing_content");
-  await assert.rejects(inviteTryoutParticipant(blocked.tryoutId, blocked.studentId, blocked.ownerId, "wrong target", fixture.sessionId));
   assert.deepEqual(await counts(blocked.tryoutId), { grants: 0, notifications: 0, admissions: 0, assignments: 0 });
   await remember("blockedSessions", blocked);
 
   const boundary = await createTa03Fixture();
   const cutoff = (await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: boundary.sessionId } })).availableUntil;
-  await atServerTime(new Date(cutoff.getTime() - 1), () => inviteTryoutParticipant(boundary.tryoutId, boundary.students[0].id, boundary.ownerId, "before end", boundary.sessionId));
-  await atServerTime(cutoff, () => assert.rejects(inviteTryoutParticipant(boundary.tryoutId, boundary.students[1].id, boundary.ownerId, "equal end", boundary.sessionId), /berakhir/));
+  await atServerTime(new Date(cutoff.getTime() - 1), () => inviteTryoutParticipant(boundary.tryoutId, boundary.students[0].id, boundary.ownerId, "before end"));
+  await atServerTime(cutoff, () => assert.rejects(inviteTryoutParticipant(boundary.tryoutId, boundary.students[1].id, boundary.ownerId, "equal end"), /berakhir/));
   await atServerTime(cutoff, async () => {
     const expiredView = await getOwnedTryoutParticipantsView(boundary.tryoutId, boundary.ownerId);
     const expiredSession = expiredView?.sessions.find((item) => item.id === boundary.sessionId);
     assert.equal(expiredSession?.grantEligible, false);
     assert.equal(expiredSession?.grantBlockedReason, "ended_session");
   });
-  await atServerTime(new Date(cutoff.getTime() + 1), () => assert.rejects(inviteTryoutParticipant(boundary.tryoutId, boundary.students[2].id, boundary.ownerId, "after end", boundary.sessionId), /berakhir/));
+  await atServerTime(new Date(cutoff.getTime() + 1), () => assert.rejects(inviteTryoutParticipant(boundary.tryoutId, boundary.students[2].id, boundary.ownerId, "after end"), /berakhir/));
   assert.deepEqual(await counts(boundary.tryoutId), { grants: 1, notifications: 1, admissions: 1, assignments: 1 });
   await remember("serverBoundary", boundary);
 
@@ -146,14 +141,14 @@ try {
   assert(!(await participantTryoutCatalogue(hiddenStudent.id)).some((item) => item.id === hidden.tryoutId));
   // A second Kapten invites into the owner's Tryout; the creator stays the owner of record and the audit row names the actor.
   assert.notEqual(otherTutor.id, hidden.ownerId);
-  const hiddenGrant = await inviteTryoutParticipant(hidden.tryoutId, hiddenStudent.id, otherTutor.id, "deliberate hidden invitation", hidden.sessionId);
+  const hiddenGrant = await inviteTryoutParticipant(hidden.tryoutId, hiddenStudent.id, otherTutor.id, "deliberate hidden invitation");
   const hiddenInviteAudit = await prisma.tryoutDeliveryAudit.findFirstOrThrow({ where: { admissionId: hiddenGrant.id, action: "admission.invited" }, include: { tryout: { select: { createdByUserId: true } } } });
   assert.equal(hiddenInviteAudit.actorUserId, otherTutor.id, "the audit row records the Kapten who acted");
   assert.equal(hiddenInviteAudit.tryout.createdByUserId, hidden.ownerId, "the creator stays the owner of record");
   const hiddenDetail = await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id);
   assert.equal(hiddenDetail?.admissionStatus, "active");
-  assert.equal(hiddenDetail?.assignments[0].id, hidden.sessionId, "invited student discovers the intended hidden schedule");
-  assert.equal(hiddenDetail?.assignments[0].isAvailableNow, false, "future hidden invitation still waits for opening");
+  assert.equal(hiddenDetail?.assignment?.id, hidden.sessionId, "invited student discovers the intended hidden schedule");
+  assert.equal(hiddenDetail?.assignment?.isAvailableNow, false, "future hidden invitation still waits for opening");
   assert((await participantTryoutCatalogue(hiddenStudent.id)).some((item) => item.id === hidden.tryoutId));
   await assert.rejects(startTryoutAttempt(hidden.sessionId, hiddenStudent.id), /belum|jadwal|dibuka/i);
   await assert.rejects(registerForTryout(hidden.tryoutId, hiddenOther.id));
@@ -173,7 +168,7 @@ try {
   const hiddenSession = await prisma.tryoutDeliverySession.findUniqueOrThrow({ where: { id: hidden.sessionId }, include: { assessmentRelease: true } });
   await atServerTime(hiddenSession.availableFrom, async () => {
     await assert.rejects(startTryoutAttempt(hidden.sessionId, hiddenOther.id));
-    assert.equal((await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id))?.assignments[0].isAvailableNow, true);
+    assert.equal((await participantTryoutDetail(hidden.tryoutId, hiddenStudent.id))?.assignment?.isAvailableNow, true);
     const started = await startTryoutAttempt(hidden.sessionId, hiddenStudent.id);
     assert.equal(started.state, "started");
     const attempt = await prisma.tryoutAttempt.findUniqueOrThrow({ where: { id: started.attemptId } });
@@ -191,29 +186,32 @@ try {
   await remember("hidden", hidden);
 
   const archived = await createTa03Fixture();
-  const race = await withTa02Lease(archived.tryoutId, archived.ownerId, (lease) => Promise.allSettled([archiveTryout(archived.tryoutId, archived.ownerId, lease), inviteTryoutParticipant(archived.tryoutId, archived.studentId, archived.ownerId, "archive race", archived.sessionId)]));
+  const race = await withTa02Lease(archived.tryoutId, archived.ownerId, (lease) => Promise.allSettled([archiveTryout(archived.tryoutId, archived.ownerId, lease), inviteTryoutParticipant(archived.tryoutId, archived.studentId, archived.ownerId, "archive race")]));
   assert.equal(race[0].status, "fulfilled");
   const archivedCounts = await counts(archived.tryoutId);
   assert.equal(archivedCounts.grants, race[1].status === "fulfilled" ? 1 : 0);
   assert.equal(archivedCounts.notifications, archivedCounts.grants);
-  await assert.rejects(inviteTryoutParticipant(archived.tryoutId, archived.studentId, archived.ownerId, "stale archive", archived.sessionId), /diarsipkan/);
+  await assert.rejects(inviteTryoutParticipant(archived.tryoutId, archived.studentId, archived.ownerId, "stale archive"), /diarsipkan/);
   assert.deepEqual(await counts(archived.tryoutId), archivedCounts);
   await remember("archiveRace", archived);
 
   const closing = await createTa03Fixture();
-  const closeRace = await withTa02Lease(closing.tryoutId, closing.ownerId, (lease) => Promise.allSettled([unpublishTryout(closing.tryoutId, closing.ownerId, lease), inviteTryoutParticipant(closing.tryoutId, closing.studentId, closing.ownerId, "close race", closing.sessionId)]));
+  const closeRace = await withTa02Lease(closing.tryoutId, closing.ownerId, (lease) => Promise.allSettled([unpublishTryout(closing.tryoutId, closing.ownerId, lease), inviteTryoutParticipant(closing.tryoutId, closing.studentId, closing.ownerId, "close race")]));
   assert.equal(closeRace[0].status, "fulfilled");
   const closeCounts = await counts(closing.tryoutId);
   assert.equal(closeCounts.grants, closeRace[1].status === "fulfilled" ? 1 : 0);
   assert.equal(closeCounts.notifications, closeCounts.grants);
-  await assert.rejects(inviteTryoutParticipant(closing.tryoutId, closing.studentId, closing.ownerId, "stale close", closing.sessionId));
+  await assert.rejects(inviteTryoutParticipant(closing.tryoutId, closing.studentId, closing.ownerId, "stale close"));
   await remember("closeRace", closing);
 
   const attempted = await createTa03Fixture();
-  const startedGrant = await inviteTryoutParticipant(attempted.tryoutId, attempted.studentId, attempted.ownerId, "attempt history", attempted.sessionId);
+  const startedGrant = await inviteTryoutParticipant(attempted.tryoutId, attempted.studentId, attempted.ownerId, "attempt history");
   const release = await prisma.assessmentRelease.findFirstOrThrow({ where: { deliverySessions: { some: { id: attempted.sessionId } } } });
   const immutable = await prisma.tryoutAttempt.create({ data: { assessmentReleaseId: release.id, assessmentReleaseNumber: release.releaseNumber, assessmentReleaseDigest: release.contentDigest, tryoutId: attempted.tryoutId, deliverySessionId: attempted.sessionId, admissionId: startedGrant.id, studentId: attempted.studentId, serverStartedAt: new Date(Date.now() + 3 * 86_400_000), serverDeadlineAt: new Date(Date.now() + 4 * 86_400_000), contentSnapshot: { fixture: "immutable" }, releasePolicySnapshot: {} } });
   await assert.rejects(revokeTryoutDeliveryAssignment(startedGrant.assignmentId, attempted.ownerId, "attempt revocation"), /pengerjaan/);
+  const legacySecond = await prisma.tryoutDeliverySession.create({ data: { tryoutId: attempted.tryoutId, name: "TA-03 legacy second session", status: "active", assessmentReleaseId: release.id, availableFrom: new Date(Date.now() - 60_000), availableUntil: new Date(Date.now() + 86_400_000), createdByUserId: attempted.ownerId, updatedByUserId: attempted.ownerId } });
+  await prisma.tryoutDeliveryAssignment.create({ data: { admissionId: startedGrant.id, deliverySessionId: legacySecond.id, assignedByUserId: attempted.ownerId } });
+  await assert.rejects(startTryoutAttempt(legacySecond.id, attempted.studentId), /sudah pernah mengerjakan/, "a student with an attempt cannot start a second one for the same Tryout");
   assert.deepEqual(await prisma.tryoutAttempt.findUniqueOrThrow({ where: { id: immutable.id } }), immutable);
   const attemptedRefresh = await getOwnedTryoutParticipantsView(attempted.tryoutId, attempted.ownerId);
   assert(!JSON.stringify(attemptedRefresh).includes("immutable"), "immutable attempt snapshot never leaks into picker refresh");

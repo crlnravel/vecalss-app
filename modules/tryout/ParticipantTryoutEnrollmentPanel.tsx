@@ -260,7 +260,6 @@ function ParticipantTryoutEnrollmentPanel({
   initialUniversityId,
   majors,
   returnToHref,
-  sessionId,
   tryoutId,
   universities,
 }: {
@@ -268,7 +267,6 @@ function ParticipantTryoutEnrollmentPanel({
   initialUniversityId: string | null;
   majors: MajorOption[];
   returnToHref?: string;
-  sessionId?: string;
   tryoutId: string;
   universities: UniversityOption[];
 }) {
@@ -344,13 +342,13 @@ function ParticipantTryoutEnrollmentPanel({
   const handleRegister = async () => {
     if (!university || !major) return;
     setMessage(null);
-    const destination = await controller.submit({ kind: "register", tryoutId, sessionId, target: { majorId: major.id, universityId: university.id } });
-    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref, sessionId));
+    const destination = await controller.submit({ kind: "register", tryoutId, target: { majorId: major.id, universityId: university.id } });
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref));
   };
 
   const navigateRecovered = async (action: "retry" | "continue") => {
     const destination = await controller[action]();
-    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref, sessionId));
+    if (destination) window.location.assign(participantRecoveryHref(destination, tryoutId, returnToHref));
   };
   const recoveryControls = <ParticipantActionRecoveryControls state={recoveryState} onInspect={() => void controller.inspect()} onRetry={() => void navigateRecovered("retry")} onContinue={() => void navigateRecovered("continue")} />;
 

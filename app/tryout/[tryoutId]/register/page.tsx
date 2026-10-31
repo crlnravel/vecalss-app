@@ -23,5 +23,5 @@ export default async function TryoutRegistrationPage({ params, searchParams }: {
       </CourseWorkspaceShell>
     );
   }
-  redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryoutId, { returnTo: parsed.returnTo, session: parsed.session }), ["/tryout"]));
+  redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryoutId, { returnTo: parsed.returnTo }), ["/tryout"]));
 }

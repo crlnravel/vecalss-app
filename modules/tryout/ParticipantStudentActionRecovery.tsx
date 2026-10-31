@@ -9,10 +9,10 @@ import { createParticipantActionRecovery, type ParticipantActionDestination, typ
 import { createParticipantRecoveryTransport, readParticipantRecovery } from "@/lib/tryout/participant-recovery-transport";
 import { registerForTryoutWithTargetAction, startTryoutAttemptAction } from "@/modules/tryout/participant-actions";
 
-export function participantRecoveryHref(destination: ParticipantActionDestination, tryoutId: string, returnToHref?: string, sessionId?: string) {
-  if (destination.kind === "attempt") return buildStudentAttemptHref(destination.attemptId, { returnTo: returnToHref, session: destination.sessionId, result: destination.result });
-  if (destination.kind === "waiting") return buildStudentTryoutSubrouteHref(tryoutId, "waiting", { returnTo: returnToHref, session: destination.sessionId });
-  return buildStudentTryoutHref(tryoutId, { returnTo: returnToHref, session: sessionId });
+export function participantRecoveryHref(destination: ParticipantActionDestination, tryoutId: string, returnToHref?: string) {
+  if (destination.kind === "attempt") return buildStudentAttemptHref(destination.attemptId, { returnTo: returnToHref, result: destination.result });
+  if (destination.kind === "waiting") return buildStudentTryoutSubrouteHref(tryoutId, "waiting", { returnTo: returnToHref });
+  return buildStudentTryoutHref(tryoutId, { returnTo: returnToHref });
 }
 
 export function useParticipantActionRecovery() {

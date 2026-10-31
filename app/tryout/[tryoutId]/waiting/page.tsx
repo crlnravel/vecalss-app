@@ -29,9 +29,6 @@ export default async function TryoutWaitingRoomPage({ params, searchParams }: { 
   ]);
   if (!tryout) notFound();
   const issues: CanonicalContextIssue[] = [...parsedQuery.issues];
-  if (parsedQuery.session && !tryout.sessions.some((candidate) => candidate.id === parsedQuery.session)) {
-    issues.push({ code: "unsupported", field: "session", message: "Sesi tryout tersebut tidak tersedia untuk dipilih.", value: parsedQuery.session });
-  }
   if (issues.length) {
     return (
       <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" notificationFeed={notificationFeed} session={session} showSearch={false}>
@@ -42,11 +39,9 @@ export default async function TryoutWaitingRoomPage({ params, searchParams }: { 
       </CourseWorkspaceShell>
     );
   }
-  const assignment = parsedQuery.session
-    ? tryout.assignments.find((candidate) => candidate.id === parsedQuery.session)
-    : tryout.assignments[0];
-  if (!assignment || !canEnterParticipantWaitingRoom(tryout, parsedQuery.session)) {
-    redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryout.id, { returnTo: parsedQuery.returnTo, session: parsedQuery.session }), ["/tryout"]));
+  const assignment = tryout.assignment;
+  if (!assignment || !canEnterParticipantWaitingRoom(tryout)) {
+    redirect(getSafeRedirectUrl(buildStudentTryoutHref(tryout.id, { returnTo: parsedQuery.returnTo }), ["/tryout"]));
   }
   return <ParticipantWaitingRoomModule assignment={assignment} notificationFeed={notificationFeed} returnToHref={parsedQuery.returnTo} session={session} tryout={tryout} />;
 }

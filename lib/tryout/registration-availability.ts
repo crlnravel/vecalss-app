@@ -1,5 +1,3 @@
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
-
 type TryoutAdmissionMode = "open" | "approval_required" | "invitation_only";
 
 type TryoutAdmissionSession = {
@@ -75,41 +73,18 @@ function tryoutAccessGrantBlockMessage(reason: TryoutAccessGrantBlockReason) {
 
 function canRequestNewTryoutAdmission(
   admissionMode: TryoutAdmissionMode,
-  sessions: TryoutAdmissionSession[],
+  session: TryoutAdmissionSession | null | undefined,
   now: Date,
-  selectedSessionId?: string | null,
 ) {
   if (admissionMode === "invitation_only") return false;
 
-  const defaultSession = selectMainTryoutSession(sessions);
-
-  // Approval-required admissions may be requested before the first session is
-  // created, but an existing default registration session must still be open.
-  if (
-    admissionMode === "approval_required" &&
-    defaultSession &&
-    !isTryoutAdmissionSessionAvailable(defaultSession, now)
-  ) {
-    return false;
+  // Approval-required admissions may be requested before the session exists,
+  // but an existing session must still be open.
+  if (admissionMode === "approval_required") {
+    return !session || isTryoutAdmissionSessionAvailable(session, now);
   }
 
-  if (selectedSessionId) {
-    const selectedSession = sessions.find(
-      (session) => session.id === selectedSessionId,
-    );
-    return Boolean(
-      selectedSession &&
-        isTryoutAdmissionSessionAvailable(selectedSession, now),
-    );
-  }
-
-  if (admissionMode === "open") {
-    return Boolean(
-      defaultSession && isTryoutAdmissionSessionAvailable(defaultSession, now),
-    );
-  }
-
-  return true;
+  return Boolean(session && isTryoutAdmissionSessionAvailable(session, now));
 }
 
 export {

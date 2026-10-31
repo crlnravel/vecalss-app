@@ -19,7 +19,8 @@ function recoveryScope(request: Request): ParticipantRecoveryScope | null {
   const sessionId = query.get("sessionId");
   if (!tryoutId || !uuid.test(tryoutId) || (sessionId !== null && !uuid.test(sessionId))) return null;
   if (kind === "start") return sessionId ? { kind, tryoutId, sessionId } : null;
-  return kind === "register" ? { kind, tryoutId, ...(sessionId ? { sessionId } : {}) } : null;
+  // A legacy sessionId on a register request is ignored: a Tryout has one session.
+  return kind === "register" ? { kind, tryoutId } : null;
 }
 
 /** Public GET boundary, also used by route behavior tests with session/DB boundaries. */

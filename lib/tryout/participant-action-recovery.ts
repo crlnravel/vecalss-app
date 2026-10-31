@@ -1,11 +1,11 @@
 export const PARTICIPANT_ACTION_DEADLINE_MS = 15_000;
 
 export type ParticipantActionIntent =
-  | { kind: "register"; tryoutId: string; sessionId?: string; target: { majorId: string; universityId: string } }
+  | { kind: "register"; tryoutId: string; target: { majorId: string; universityId: string } }
   | { kind: "start"; tryoutId: string; sessionId: string };
 
 export type ParticipantRecoveryScope =
-  | { kind: "register"; tryoutId: string; sessionId?: string }
+  | { kind: "register"; tryoutId: string }
   | { kind: "start"; tryoutId: string; sessionId: string };
 
 export type ParticipantActionDestination =

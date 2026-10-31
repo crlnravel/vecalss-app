@@ -9,5 +9,5 @@ export default async function TryoutAttemptPage({ params, searchParams }: { para
   if (parsed.issues.length) {
     return <TypedRouteState className="student-page-canvas" context="Pilih kembali sesi Tryout dari tautan yang masih berlaku." description={canonicalContextMessage(parsed.issues) ?? "Konteks percobaan Tryout tidak tersedia."} kind="unavailable" returnHref={parsed.returnTo ?? "/tryout"} returnLabel="Kembali ke Tryout" title="Konteks percobaan tidak tersedia" />;
   }
-  return <ParticipantAttemptModule attemptId={attemptId} returnToHref={parsed.returnTo} sessionId={parsed.session} />;
+  return <ParticipantAttemptModule attemptId={attemptId} returnToHref={parsed.returnTo} />;
 }

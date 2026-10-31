@@ -60,7 +60,7 @@ assert.match(workspace, /canEnterParticipantWaitingRoom\(tryout\)/);
 assert.match(workspace, /\? "Mulai"/);
 assert.match(workspace, /buildStudentTryoutSubrouteHref\(tryout\.id, "waiting"/);
 assert.match(workspace, /Reset pencarian/);
-assert.match(detailPage, /canEnterParticipantWaitingRoom\(tryout, selectedSessionId\)/);
+assert.match(detailPage, /canEnterParticipantWaitingRoom\(tryout\)/);
 assert.match(detailPage, /redirect\(buildStudentTryoutSubrouteHref\(tryout\.id, "waiting"/);
 assert.match(detail, /ParticipantTryoutEnrollmentPanel/);
 assert.match(detailPage, /participantTargetProfile/);
@@ -134,27 +134,27 @@ const futureDefaultSession = {
 assert.equal(isTryoutSessionExpired(expiredDefaultSession.availableUntil, registrationNow), true);
 assert.equal(isTryoutSessionExpired(futureDefaultSession.availableUntil, registrationNow), false);
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [expiredDefaultSession], registrationNow),
+  canRequestNewTryoutAdmission("approval_required", expiredDefaultSession, registrationNow),
   false,
   "approval-required admissions must close after the default session expires",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("open", [expiredDefaultSession], registrationNow),
+  canRequestNewTryoutAdmission("open", expiredDefaultSession, registrationNow),
   false,
   "open admissions must close after the default session expires",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [futureDefaultSession], registrationNow),
+  canRequestNewTryoutAdmission("approval_required", futureDefaultSession, registrationNow),
   true,
   "a future default session must continue to accept approval-required registrations",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("approval_required", [], registrationNow),
+  canRequestNewTryoutAdmission("approval_required", null, registrationNow),
   true,
   "approval-required registration remains available before a session is created",
 );
 assert.equal(
-  canRequestNewTryoutAdmission("open", [], registrationNow),
+  canRequestNewTryoutAdmission("open", null, registrationNow),
   false,
   "open registration still requires a default session",
 );

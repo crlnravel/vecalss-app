@@ -13,6 +13,7 @@ import { isImageMimeType } from "@/lib/media/domain";
 import { createMediaPreviewUrl, R2ConfigurationError } from "@/lib/media/r2";
 import { projectParticipantTryoutResultAvailability, type ParticipantTryoutResultAvailability } from "@/lib/tryout/participant-result-projection";
 import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { isTryoutSessionExpired } from "@/lib/tryout/registration-availability";
 import { prisma } from "@/lib/prisma";
 
@@ -56,7 +57,7 @@ type ParticipantTryout = {
   admissionMode: "open" | "approval_required" | "invitation_only";
   admissionStatus: "active" | "pending" | "rejected" | "revoked" | null;
   assessmentType: "tryout" | "diagnostic";
-  assignments: ParticipantTryoutAssignment[];
+  assignment: ParticipantTryoutAssignment | null;
   bannerUrl: string | null;
   description: string | null;
   examEvent: { id: string; name: string } | null;
@@ -65,7 +66,7 @@ type ParticipantTryout = {
   participantCount: number;
   publishedAt: Date | null;
   sections: ParticipantTryoutSection[];
-  sessions: ParticipantTryoutSession[];
+  session: ParticipantTryoutSession | null;
   title: string;
 };
 
@@ -191,6 +192,41 @@ async function resolveTryoutBannerUrl(
   }
 }
 
+type ParticipantSessionRecord = ParticipantTryoutRecord["deliverySessions"][number];
+
+function participantSessionView(
+  deliverySession: ParticipantSessionRecord,
+  defaultResultReleasePolicy: TryoutResultReleasePolicy,
+  now: Date,
+): ParticipantTryoutSession {
+  return {
+    assessmentRelease: deliverySession.assessmentRelease
+      ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
+      : null,
+    availableFrom: deliverySession.availableFrom,
+    availableUntil: deliverySession.availableUntil,
+    effectiveResultReleasePolicy: deliverySession.resultReleasePolicy === "inherit"
+      ? defaultResultReleasePolicy
+      : deliverySession.resultReleasePolicy,
+    fullscreenPrompt: deliverySession.fullscreenPrompt,
+    id: deliverySession.id,
+    isAvailableNow:
+      Boolean(deliverySession.assessmentRelease) &&
+      deliverySession.availableFrom <= now &&
+      deliverySession.availableUntil > now,
+    isExpired: isTryoutSessionExpired(deliverySession.availableUntil, now),
+    name: deliverySession.name,
+    rankingRule: deliverySession.rankingRule,
+    resultReleasePolicy: deliverySession.resultReleasePolicy,
+    releaseState: deliverySession.releaseState,
+    scheduledReleaseAt: deliverySession.scheduledReleaseAt,
+    sections: deliverySession.assessmentRelease
+      ? releaseSections(deliverySession.assessmentRelease)
+      : [],
+    status: deliverySession.status,
+  };
+}
+
 function serializeTryout(
   tryout: ParticipantTryoutRecord,
   studentId: string,
@@ -223,13 +259,13 @@ function serializeTryout(
     admissionMode: tryout.admissionMode,
     admissionStatus: admission?.status ?? null,
     assessmentType: tryout.assessmentType,
-    assignments: (admission?.assignments ?? []).map((assignment) => {
+    assignment: (() => {
+      const assignment = admission?.assignments[0];
+      if (!assignment) return null;
       const deliverySession = assignment.deliverySession;
       const attempt = deliverySession.attempts[0] ?? null;
       return {
-        assessmentRelease: deliverySession.assessmentRelease
-          ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
-          : null,
+        ...participantSessionView(deliverySession, tryout.defaultResultReleasePolicy, now),
         attempt: attempt
           ? {
             attemptReleaseState: attempt.releaseState,
@@ -244,29 +280,8 @@ function serializeTryout(
             status: attempt.status,
           }
           : null,
-        availableFrom: deliverySession.availableFrom,
-        availableUntil: deliverySession.availableUntil,
-        effectiveResultReleasePolicy: deliverySession.resultReleasePolicy === "inherit"
-          ? tryout.defaultResultReleasePolicy
-          : deliverySession.resultReleasePolicy,
-        fullscreenPrompt: deliverySession.fullscreenPrompt,
-        id: deliverySession.id,
-        isAvailableNow:
-          Boolean(deliverySession.assessmentRelease) &&
-          deliverySession.availableFrom <= now &&
-          deliverySession.availableUntil > now,
-        isExpired: isTryoutSessionExpired(deliverySession.availableUntil, now),
-        name: deliverySession.name,
-        rankingRule: deliverySession.rankingRule,
-        resultReleasePolicy: deliverySession.resultReleasePolicy,
-        releaseState: deliverySession.releaseState,
-        scheduledReleaseAt: deliverySession.scheduledReleaseAt,
-        sections: deliverySession.assessmentRelease
-          ? releaseSections(deliverySession.assessmentRelease)
-          : [],
-        status: deliverySession.status,
       };
-    }),
+    })(),
     bannerUrl,
     description: tryout.description,
     examEvent: tryout.examEvent,
@@ -275,32 +290,12 @@ function serializeTryout(
     participantCount: tryout._count.admissions,
     publishedAt: tryout.publishedAt,
     sections: summarySections,
-    sessions: tryout.deliverySessions.map((deliverySession) => ({
-      assessmentRelease: deliverySession.assessmentRelease
-        ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
-        : null,
-      availableFrom: deliverySession.availableFrom,
-      availableUntil: deliverySession.availableUntil,
-      effectiveResultReleasePolicy: deliverySession.resultReleasePolicy === "inherit"
-        ? tryout.defaultResultReleasePolicy
-        : deliverySession.resultReleasePolicy,
-      fullscreenPrompt: deliverySession.fullscreenPrompt,
-      id: deliverySession.id,
-      isAvailableNow:
-        Boolean(deliverySession.assessmentRelease) &&
-        deliverySession.availableFrom <= now &&
-        deliverySession.availableUntil > now,
-      isExpired: isTryoutSessionExpired(deliverySession.availableUntil, now),
-      name: deliverySession.name,
-      rankingRule: deliverySession.rankingRule,
-      resultReleasePolicy: deliverySession.resultReleasePolicy,
-      releaseState: deliverySession.releaseState,
-      scheduledReleaseAt: deliverySession.scheduledReleaseAt,
-      sections: deliverySession.assessmentRelease
-        ? releaseSections(deliverySession.assessmentRelease)
-        : [],
-      status: deliverySession.status,
-    })),
+    session: (() => {
+      const deliverySession = selectMainTryoutSession(tryout.deliverySessions);
+      return deliverySession
+        ? participantSessionView(deliverySession, tryout.defaultResultReleasePolicy, now)
+        : null;
+    })(),
     title: tryout.title,
   };
 }

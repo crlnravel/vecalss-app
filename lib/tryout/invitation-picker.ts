@@ -2,7 +2,6 @@ import "server-only";
 
 import { RoleName, UserStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
 
 class TryoutInvitationPickerError extends Error {}
@@ -14,7 +13,7 @@ async function assertManageableTryout(tryoutId: string, actorId: string) {
   });
   if (!actor) throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
   const tryout = await prisma.tryoutPackage.findFirst({
-    select: { deliverySessions: { select: { id: true, name: true } } },
+    select: { id: true },
     where: { id: tryoutId },
   });
   if (!tryout) throw new TryoutInvitationPickerError("Tryout tidak ditemukan atau tidak dapat diakses.");
@@ -23,10 +22,9 @@ async function assertManageableTryout(tryoutId: string, actorId: string) {
 
 async function searchTryoutInvitationStudents(tryoutId: string, actorId: string, query: string) {
   // Authorization precedes every directory read, including short queries.
-  const tryout = await assertManageableTryout(tryoutId, actorId);
+  await assertManageableTryout(tryoutId, actorId);
   const normalizedQuery = query.trim().slice(0, 80);
   if (normalizedQuery.length < 2) return [];
-  const main = selectMainTryoutSession(tryout.deliverySessions);
   const students = await prisma.user.findMany({
     orderBy: [{ fullName: "asc" }, { email: "asc" }],
     select: {
@@ -36,7 +34,8 @@ async function searchTryoutInvitationStudents(tryoutId: string, actorId: string,
         select: {
           id: true, status: true,
           assignments: {
-            where: { deliverySessionId: main?.id ?? "00000000-0000-0000-0000-000000000000" },
+            orderBy: { assignedAt: "desc" },
+            take: 1,
             select: { id: true, status: true, deliverySessionId: true },
           },
         },

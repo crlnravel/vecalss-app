@@ -475,34 +475,25 @@ export function parseStudentContext(input: NavigationQueryInput) {
   return { artifact: artifactValue, issues, returnTo: returnTo ?? undefined, tool };
 }
 
+/** A legacy `session` query value is accepted and dropped: a Tryout has one session. */
 export function parseStudentTryoutContext(input: NavigationQueryInput) {
-  const base = parseStudentContext(input);
-  const sessionParam = singleValue(input, "session");
-  const session = sessionParam.value?.trim() || undefined;
-  const issues = [...base.issues];
-  if (sessionParam.invalid || (sessionParam.present && !session) || (session !== undefined && !isSafeIdentifier(session) && !isUuid(session))) {
-    issues.push(issue("session", session, "Sesi tryout tersebut tidak tersedia."));
-  }
-  return { ...base, issues, session };
+  return parseStudentContext(input);
 }
 
-export function buildStudentTryoutHref(tryoutId: string, options: { returnTo?: string; session?: string } = {}) {
+export function buildStudentTryoutHref(tryoutId: string, options: { returnTo?: string } = {}) {
   const params = new URLSearchParams();
-  if (options.session) params.set("session", options.session);
   if (options.returnTo) params.set("returnTo", options.returnTo);
   return appendQuery(`/tryout/${encodeSegment(tryoutId)}`, params);
 }
 
-export function buildStudentTryoutSubrouteHref(tryoutId: string, subroute: "register" | "waiting", options: { returnTo?: string; session?: string } = {}) {
+export function buildStudentTryoutSubrouteHref(tryoutId: string, subroute: "register" | "waiting", options: { returnTo?: string } = {}) {
   const params = new URLSearchParams();
-  if (options.session) params.set("session", options.session);
   if (options.returnTo) params.set("returnTo", options.returnTo);
   return appendQuery(`/tryout/${encodeSegment(tryoutId)}/${subroute}`, params);
 }
 
-export function buildStudentAttemptHref(attemptId: string, options: { returnTo?: string; session?: string; result?: boolean } = {}) {
+export function buildStudentAttemptHref(attemptId: string, options: { returnTo?: string; result?: boolean } = {}) {
   const params = new URLSearchParams();
-  if (options.session) params.set("session", options.session);
   if (options.returnTo) params.set("returnTo", options.returnTo);
   return appendQuery(`/tryout/attempt/${encodeSegment(attemptId)}${options.result ? "/result" : ""}`, params);
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { selectMainTryoutSession } from "@/lib/tryout/main-session";
 import { canRequestNewTryoutAdmission } from "@/lib/tryout/registration-availability";
 import type { ParticipantRecoveryScope, ParticipantRecoverySnapshot } from "@/lib/tryout/participant-action-recovery";
 
@@ -26,8 +27,9 @@ export async function participantActionRecoveryState(intent: ParticipantRecovery
   if (!tryout) return empty;
 
   const admission = tryout.admissions[0] ?? null;
-  const assignment = admission?.assignments.find((item) => intent.sessionId ? item.deliverySessionId === intent.sessionId : item.status === "active") ?? null;
-  const session = tryout.deliverySessions.find((item) => item.id === (intent.sessionId ?? assignment?.deliverySessionId));
+  const requestedSessionId = intent.kind === "start" ? intent.sessionId : undefined;
+  const assignment = admission?.assignments.find((item) => requestedSessionId ? item.deliverySessionId === requestedSessionId : item.status === "active") ?? null;
+  const session = tryout.deliverySessions.find((item) => item.id === (requestedSessionId ?? assignment?.deliverySessionId));
   const attempt = session?.attempts[0] ?? null;
   const now = new Date();
   const snapshot: ParticipantRecoverySnapshot = {
@@ -44,7 +46,7 @@ export async function participantActionRecoveryState(intent: ParticipantRecovery
     return { ...snapshot, destination: waiting ? { kind: "waiting", sessionId: session.id } : { kind: "detail" }, message: admission.status === "pending" ? "Pendaftaranmu sudah tercatat dan sedang menunggu persetujuan Kapten." : "Pendaftaranmu sudah tercatat. Lanjutkan untuk melihat statusnya." };
   }
   if (intent.kind === "register") {
-    const canRetry = tryout.status === "published" && !tryout.isHidden && canRequestNewTryoutAdmission(tryout.admissionMode, tryout.deliverySessions, now, intent.sessionId);
+    const canRetry = tryout.status === "published" && !tryout.isHidden && canRequestNewTryoutAdmission(tryout.admissionMode, selectMainTryoutSession(tryout.deliverySessions), now);
     return { ...snapshot, canRetry, message: canRetry ? "Belum ada pendaftaran yang tercatat saat diperiksa. Kamu dapat mencoba lagi dengan pilihan yang sama." : "Pendaftaran belum tercatat dan sesi ini tidak menerima pendaftaran baru." };
   }
   const canRetry = tryout.status === "published" && admission?.status === "active" && assignment?.status === "active" && session?.status === "active" && Boolean(session.assessmentReleaseId) && session.availableFrom <= now && session.availableUntil > now;

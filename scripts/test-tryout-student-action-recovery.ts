@@ -18,14 +18,15 @@ function deadline() {
 const absent: ParticipantRecoverySnapshot = { admission: null, assignment: null, attempt: null, canRetry: true, destination: null, message: "Belum tercatat saat diperiksa." };
 const registered: ParticipantRecoverySnapshot = { ...absent, canRetry: false, admission: { id: "admission", status: "pending" }, destination: { kind: "detail" }, message: "Menunggu persetujuan." };
 const started: ParticipantRecoverySnapshot = { ...registered, attempt: { id: "original", status: "in_progress", serverDeadlineAt: "2027-06-01T10:00:00.000Z", assessmentReleaseId: "release", assessmentReleaseNumber: 2, assessmentReleaseDigest: "digest" }, destination: { kind: "attempt", attemptId: "original", sessionId: "session", result: false } };
-const registerIntent: ParticipantActionIntent = { kind: "register", tryoutId: "tryout", sessionId: "session", target: { universityId: "university", majorId: "major" } };
+const registerIntent: ParticipantActionIntent = { kind: "register", tryoutId: "tryout", target: { universityId: "university", majorId: "major" } };
 const startIntent: ParticipantActionIntent = { kind: "start", tryoutId: "tryout", sessionId: "session" };
 const tick = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
 const httpSession: SessionContext = { sessionId: "authenticated-session", expiresAt: new Date(Date.now() + 86_400_000), user: { id: "authenticated-student", email: "student@example.test", fullName: "Student", roles: ["student"], status: "active", mustChangePassword: false, onboardingStatus: "completed" } };
-const httpIntent: ParticipantActionIntent = { kind: "register", tryoutId: "11111111-1111-4111-8111-111111111111", sessionId: "22222222-2222-4222-8222-222222222222", target: { majorId: "retained-major", universityId: "retained-university" } };
+const httpSessionId = "22222222-2222-4222-8222-222222222222";
+const httpIntent: ParticipantActionIntent = { kind: "register", tryoutId: "11111111-1111-4111-8111-111111111111", target: { majorId: "retained-major", universityId: "retained-university" } };
 
 for (const kind of ["register", "start"] as const) {
-  const intent: ParticipantActionIntent = kind === "register" ? httpIntent : { kind, tryoutId: httpIntent.tryoutId, sessionId: httpIntent.sessionId! };
+  const intent: ParticipantActionIntent = kind === "register" ? httpIntent : { kind, tryoutId: httpIntent.tryoutId, sessionId: httpSessionId };
   const timer = deadline();
   const heldAction = deferred<never>();
   let writeHits = 0;
@@ -54,7 +55,7 @@ for (const kind of ["register", "start"] as const) {
 
 {
   let reads = 0;
-  const query = `kind=register&tryoutId=${httpIntent.tryoutId}&sessionId=${httpIntent.sessionId}`;
+  const query = `kind=register&tryoutId=${httpIntent.tryoutId}`;
   const request = (suffix = query, method = "GET") => new Request(`https://vecalss.test/api/tryout/recovery?${suffix}`, { method });
   const read = async () => { reads++; return absent; };
   for (const [session, expected] of [
@@ -72,7 +73,7 @@ for (const kind of ["register", "start"] as const) {
     assert.match(response.headers.get("cache-control")!, /private, no-store/);
   }
   assert.equal(reads, 0, "public read authorization negatives never query participant receipts");
-  for (const invalid of ["kind=wrong", "kind=start&tryoutId=invalid", `kind=start&tryoutId=${httpIntent.tryoutId}`, `${query}&sessionId=${httpIntent.sessionId}`, `${query}&studentId=someone-else`, `${query}&tryoutId=${httpIntent.tryoutId}`]) {
+  for (const invalid of ["kind=wrong", "kind=start&tryoutId=invalid", `kind=start&tryoutId=${httpIntent.tryoutId}`, `${query}&sessionId=${httpSessionId}&sessionId=${httpSessionId}`, `${query}&studentId=someone-else`, `${query}&tryoutId=${httpIntent.tryoutId}`]) {
     const response = await serveParticipantRecoveryRequest(request(invalid), { getSession: async () => httpSession, read });
     assert.equal(response.status, 400, "malformed, duplicated or injected principal scope is rejected");
   }
@@ -80,7 +81,7 @@ for (const kind of ["register", "start"] as const) {
   assert.equal(reads, 0);
   const owned = await serveParticipantRecoveryRequest(request(), { getSession: async () => httpSession, read: async (scope, studentId) => {
     assert.equal(studentId, httpSession.user.id);
-    assert.deepEqual(scope, { kind: "register", tryoutId: httpIntent.tryoutId, sessionId: httpIntent.sessionId });
+    assert.deepEqual(scope, { kind: "register", tryoutId: httpIntent.tryoutId });
     return started;
   } });
   assert.equal(owned.status, 200); assert.equal(owned.headers.get("vary"), "Cookie");

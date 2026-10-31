@@ -22,21 +22,16 @@ function formatSchedule(value?: Date) {
 
 function getTryoutState(tryout: ParticipantTryout, now: number): TryoutState {
   if (tryout.assessmentType === "diagnostic") return "practice";
-  const sessions = tryout.assignments.length ? tryout.assignments : tryout.sessions;
-  if (sessions.some((item) => new Date(item.availableFrom).getTime() <= now && new Date(item.availableUntil).getTime() > now)) return "ongoing";
-  if (sessions.some((item) => new Date(item.availableFrom).getTime() > now)) return "upcoming";
-  if (sessions.length && sessions.every((item) => new Date(item.availableUntil).getTime() <= now)) return "finished";
-  return "upcoming";
+  const session = tryout.assignment ?? tryout.session;
+  if (!session) return "upcoming";
+  if (new Date(session.availableFrom).getTime() <= now && new Date(session.availableUntil).getTime() > now) return "ongoing";
+  if (new Date(session.availableFrom).getTime() > now) return "upcoming";
+  return "finished";
 }
 
-function canEnterParticipantWaitingRoom(
-  tryout: ParticipantTryout,
-  selectedSessionId?: string | null,
-) {
+function canEnterParticipantWaitingRoom(tryout: ParticipantTryout) {
   if (tryout.admissionStatus !== "active") return false;
-  const assignment = selectedSessionId !== undefined && selectedSessionId !== null
-    ? tryout.assignments.find((candidate) => candidate.id === selectedSessionId)
-    : tryout.assignments[0];
+  const assignment = tryout.assignment;
   if (!assignment) return false;
   return Boolean(
     assignment.attempt ||

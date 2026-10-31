@@ -43,23 +43,18 @@ export default async function ParticipantTryoutDetailPage({
   ]);
   if (!tryout) notFound();
   const issues: CanonicalContextIssue[] = [...parsedQuery.issues];
-  if (parsedQuery.session && !tryout.sessions.some((candidate) => candidate.id === parsedQuery.session)) {
-    issues.push({ code: "unsupported", field: "session", message: "Sesi tryout tersebut tidak tersedia untuk dipilih.", value: parsedQuery.session });
-  }
   if (issues.length) {
     return (
       <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Detail tryout" notificationFeed={notificationFeed} session={session} showSearch={false}>
         <section aria-labelledby="student-tryout-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg" role="alert">
           <h1 className="text-lg font-semibold" id="student-tryout-context-unavailable">Konteks tryout tidak tersedia</h1>
           <p className="mt-2 text-sm leading-6">{canonicalContextMessage(issues)}</p>
-          <p className="mt-2 text-sm leading-6">Pilih sesi tryout yang tersedia untuk melanjutkan.</p>
         </section>
       </CourseWorkspaceShell>
     );
   }
-  const selectedSessionId = parsedQuery.session ?? tryout.assignments[0]?.id;
-  if (canEnterParticipantWaitingRoom(tryout, selectedSessionId)) {
-    redirect(buildStudentTryoutSubrouteHref(tryout.id, "waiting", { returnTo: parsedQuery.returnTo, session: selectedSessionId }));
+  if (canEnterParticipantWaitingRoom(tryout)) {
+    redirect(buildStudentTryoutSubrouteHref(tryout.id, "waiting", { returnTo: parsedQuery.returnTo }));
   }
   return (
     <ParticipantTryoutDetailModule
@@ -69,7 +64,6 @@ export default async function ParticipantTryoutDetailPage({
       notificationFeed={notificationFeed}
       returnToHref={parsedQuery.returnTo}
       session={session}
-      sessionId={selectedSessionId}
       tryout={tryout}
       universities={universities}
     />
