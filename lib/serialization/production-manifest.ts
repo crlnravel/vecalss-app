@@ -17,6 +17,8 @@ const PRODUCTION_NON_SOURCE_PATTERNS = [
   "test/**",
   "e2e/**",
   "scripts/test-*",
+  // Local/CI headless-browser launcher (Obscura); it never runs in production and writes no Tryout state.
+  "scripts/run-obscura.mjs",
   "migrations/**",
   "prisma/migrations/**",
   "generated/**",

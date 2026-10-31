@@ -13,7 +13,7 @@ const [delivery, operations, actions, participants, detail, notificationService,
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/notifications/service.ts", import.meta.url), "utf8"),
-  readFile(new URL("../modules/student/NotificationDetailPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/student/NotificationDetailModal.tsx", import.meta.url), "utf8"),
 ]);
 
 const fixture: ParticipantViewAdmissionInput = {
@@ -61,7 +61,6 @@ assert.deepEqual(Object.keys(view).sort(), [
   "participant",
   "score",
   "session",
-  "sessions",
   "tryoutId",
 ]);
 assert.equal(view.participant.id, "student-1");
@@ -95,28 +94,41 @@ const approval = segment("async function decideTryoutAdmission(", "async functio
 const invitation = segment("async function inviteTryoutParticipant(", "async function revokeTryoutDeliveryAssignment(");
 const revoke = segment("async function revokeTryoutDeliveryAssignment(", "async function getOwnedTryoutDeliverySessionIdsWithAttempts(");
 
-for (const source of [registration, approval, invitation]) {
+// Every admission-side transaction takes the participant identity scope first
+// (student row, then the Tryout aggregate) before touching sessions,
+// admissions or assignments.
+for (const source of [registration, approval, invitation, revoke]) {
   assert.match(source, /prisma\.\$transaction\(async \(tx\)/);
-  assert.match(source, /await lockStudent\(tx,/);
-  assert.match(source, /await lockTryout\(tx,/);
+  assert.match(source, /await lockTryoutParticipantIdentityScope\(tx,/);
+}
+for (const source of [registration, approval, invitation]) {
   assert.match(source, /await tx\.tryoutAdmission\.findUnique/);
 }
-assertOrder(registration, "lockStudent", "lockAdmissionForParticipant", "lockSessionScope", "lockTryout");
-assertOrder(approval, "lockStudent", "lockAdmission", "lockSessionScope", "lockTryout");
-assertOrder(invitation, "lockStudent", "lockAdmissionForParticipant", "lockSessionScope", "lockTryout");
-assertOrder(revoke, "lockStudent", "lockAdmission", "lockAssignment", "lockOverlappingDeliverySessions", "lockTryout");
 
-assert.match(registration, /status === TryoutAdmissionStatus\.active && !defaultSession/);
-assert.match(registration, /lockedDefaultSession/);
-assert.match(approval, /findDefaultSession/);
-assert.ok(approval.indexOf("replayAssignment") < approval.indexOf("findDefaultSession"), "approval replay must short-circuit before default resolution");
-assert.match(invitation, /findSelectedSession/);
-assert.match(invitation, /findDefaultSession/);
-assert.ok(invitation.indexOf("replayAssignment") < invitation.indexOf("findDefaultSession"), "invitation replay must short-circuit before default resolution");
-assert.ok(invitation.indexOf("assertTryoutOwnership") < invitation.indexOf("assertStudent"), "invitation ownership must precede participant reads");
+// Helper bodies: student lock must precede the Tryout aggregate lock, and
+// participant assignment locks run sessions -> admissions -> assignments.
+const identityScopeHelper = segment("async function lockTryoutParticipantIdentityScope(", "async function lockOverlappingDeliverySessions(");
+const participantAssignmentsHelper = segment("async function lockParticipantAssignments(", "async function ensureActiveAssignment(");
+assertOrder(identityScopeHelper, "acquireTryoutIdentityMutex(", "lockTryoutStudents(", "lockTryout(", "assertTryoutIdentityStable(");
+assertOrder(participantAssignmentsHelper, "lockTryoutSessions(", "lockTryoutAdmissions(", "lockTryoutAssignments(");
+
+// Transaction-level order: identity scope first, then session scope, admissions,
+// assignments (replay branch) or the participant-assignment helper (new branch).
+assertOrder(registration, "lockTryoutParticipantIdentityScope(", "lockParticipantAssignments(", "lockSessionScope(");
+assertOrder(approval, "lockTryoutParticipantIdentityScope(", "lockSessionScope(", "lockTryoutAdmissions(", "lockTryoutAssignments(", "lockParticipantAssignments(");
+assertOrder(invitation, "lockTryoutParticipantIdentityScope(", "lockSessionScope(", "lockTryoutAdmissions(", "lockTryoutAssignments(", "lockParticipantAssignments(");
+assertOrder(revoke, "lockTryoutParticipantIdentityScope(", "lockOverlappingDeliverySessions(", "lockTryoutAdmissions(", "lockTryoutAssignments(");
+
+// Replay short-circuits must return before the participant-assignment lock set
+// is acquired, so a replayed approve/invite does not re-lock the wider scope.
+assert.ok(approval.indexOf("if (replayedAssignment) return admission;") > 0, "approval replay short-circuit must exist");
+assert.ok(approval.indexOf("if (replayedAssignment) return admission;") < approval.indexOf("lockParticipantAssignments("), "approval replay must short-circuit before participant assignment locks");
+assert.ok(invitation.indexOf("if (replayedAssignment) return") > 0, "invitation replay short-circuit must exist");
+assert.ok(invitation.indexOf("if (replayedAssignment) return") < invitation.indexOf("lockParticipantAssignments("), "invitation replay must short-circuit before participant assignment locks");
+assert.ok(invitation.indexOf("await assertAdmissionMutationAllowed(") < invitation.indexOf("await assertInvitationStudent("), "invitation authorization must precede participant reads");
 assert.match(invitation, /createTryoutInvitationNotification/u);
-assert.ok(invitation.indexOf("await audit(tx, { action: \"admission.invited\"") < invitation.indexOf("createTryoutInvitationNotification"), "invitation notification must follow the admission audit");
-assert.match(invitation, /const invitationAudit = await audit\(tx, \{ action: "admission\.invited"/u, "invitation notification must use the lifecycle audit event");
+assert.ok(invitation.indexOf("const invitationAudit = await audit(tx, { action: needsRestore") < invitation.indexOf("createTryoutInvitationNotification"), "invitation notification must follow the admission audit");
+assert.match(invitation, /const invitationAudit = await audit\(tx, \{ action: needsRestore \? "admission\.access_restored" : "admission\.invited"/u, "invitation notification must use the lifecycle audit event");
 assert.match(invitation, /sourceEntityId: invitationAudit\.id/u, "invitation notification dedupe must use a lifecycle-specific key");
 assert.match(invitation, /existingAssignment\?\.status !== TryoutAssignmentStatus\.active/u, "replayed active invitations must not notify again");
 assert.match(invitation, /ensureActiveAssignment\(tx, restored\.id, lockedSelected\.id, actorId\)/u, "reinviting a revoked assignment must preserve the existing assignment lifecycle");
@@ -126,24 +138,29 @@ assert.match(delivery, /!session\.assessmentReleaseId/);
 assert.match(delivery, /ensureActiveAssignment/);
 assert.match(delivery, /existing\.status === TryoutAssignmentStatus\.active\) return existing/);
 assert.match(revoke, /tryoutAttempt\.findUnique/);
-assert.match(revoke, /riwayat peserta harus dipertahankan/);
+assert.match(revoke, /riwayat peserta tetap dipertahankan/);
 assert.match(revoke, /assignment\.status === TryoutAssignmentStatus\.revoked\) return assignment/);
 
 assert.match(delivery, /async function getTryoutDeliveryOperations\(tryoutId: string, actorId: string\)/);
-assert.match(delivery, /where: \{ createdByUserId: actorId, id: tryoutId \}/);
-assert.ok(delivery.indexOf("const ownedTryout") < delivery.indexOf("student: { select: { email"), "owner scope must precede PII-bearing graph load");
+const operationsRead = segment("async function getTryoutDeliveryOperations(", "export {");
+assert.match(operationsRead, /if \(!\(await isActiveTryoutManager\(tx, actorId\)\)\) return null;/);
+assert.ok(operationsRead.indexOf("isActiveTryoutManager(tx, actorId)") < operationsRead.indexOf("student: { select: { email"), "manager gate must precede PII-bearing graph load");
 assert.match(operations, /participants: toParticipantViews\(participantInputs\)/);
-assert.match(operations, /safeParticipantIdentity\(admission\.student\)/);
-assert.doesNotMatch(operations, /student\.email/);
+// Kapten operations views are owner-scoped management projections: they may show a participant's real
+// email (it is how same-named students are told apart), but only through mentorParticipantIdentity.
+// Student-facing and attempt-level projections keep the masked identity.
+assert.match(operations, /mentorParticipantIdentity\(participantInputs\[index\]\.student\)/);
+assert.match(operations, /student: safeParticipantIdentity\(attempt\.student\)\.displayName/);
+assert.doesNotMatch(operations, /email: (?!admission\.student\.email)[^,\n]*student\.email/u);
 assert.doesNotMatch(actions, /selectedSessionId/);
 assert.match(participants, /initial\.results/u);
 assert.match(participants, /initial\.attempts/u);
-assert.match(participants, /CompactFilterTabs/u);
+assert.match(participants, /DataTableFilterMenu/u);
 assert.match(participants, /scoreVisible/u);
 assert.match(participants, /buildMentorTryoutAttemptHref/u);
-assert.match(detail, /Sesi saat menyetujui/);
-assert.match(detail, /Penugasan sesi/);
-assert.match(detail, /riwayat attempt tetap dipertahankan/);
+assert.match(detail, /Akses sesi/);
+assert.match(detail, /Akses yang sudah memiliki pengerjaan tidak dapat dicabut/);
+assert.match(detail, /Riwayat pendaftaran tetap tersimpan/);
 assert.match(notificationService, /async function createTryoutInvitationNotification/u);
 assert.match(notificationService, /eventType: NotificationEventType\.custom/u);
 assert.match(notificationService, /sourceEntityType: TRYOUT_INVITATION_SOURCE_ENTITY_TYPE/u);

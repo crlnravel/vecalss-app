@@ -128,8 +128,15 @@ function assertTryoutMutationSourcesRegistered(excluded = new Set<string>()) {
 function assertPackageEntrypointsCovered() {
   const packageJson = JSON.parse(sourceText("package.json")) as { scripts: Record<string, string> };
   const paths = productionScriptSourcePaths(packageJson.scripts);
-  assert.deepEqual(paths, ["workers/admin-import-worker.ts"]);
+  assert.deepEqual(paths, [
+    "scripts/run-obscura.mjs",
+    "workers/admin-import-worker.ts",
+    "workers/vera-ai-reconciliation-worker.ts",
+  ]);
   for (const source of paths) assertProductionRootCovered(source);
+  // The Obscura launcher is dev/CI tooling: it is excluded explicitly, not covered by a production root.
+  assert.equal(isExplicitlyExcludedProductionPath("scripts/run-obscura.mjs"), true);
+  assert.equal(productionRootForPath("scripts/run-obscura.mjs"), null);
 
   assert.throws(
     () => assertProductionRootCovered("cli/future-production-entrypoint.ts"),
