@@ -57,7 +57,10 @@ import { DropdownField } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { ResourceAuthoringLockBanner } from "@/modules/mentor/components/resource-authoring-lock-banner";
-import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
+import {
+  AdministrationActionRow,
+  MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME,
+} from "@/modules/mentor/components/administration-action-row";
 import {
   KaptenQuizResultsContent,
   type KaptenQuizResultsData,
@@ -775,7 +778,7 @@ function QuizSettings({
         ) : null}
         <Button
           aria-busy={isSaving}
-          className="mt-5 w-full sm:ml-auto sm:flex sm:w-auto"
+          className={`mt-5 md:ml-auto md:flex ${MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME}`}
           data-quiz-settings-save="primary"
           disabled={
             disabled || isSaving || Boolean(scheduleError || durationError)

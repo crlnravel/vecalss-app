@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+export const MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME = "w-full max-w-full md:w-60";
+
 function AdministrationActionRow({
   action,
   children,
@@ -17,7 +19,9 @@ function AdministrationActionRow({
           {description}
         </p>
       </div>
-      <div className="flex shrink-0 items-center self-start md:self-center">
+      <div
+        className={`flex shrink-0 items-center self-start md:self-center ${MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME} [&>*]:w-full [&_[data-slot=button]]:w-full`}
+      >
         {children}
       </div>
     </div>

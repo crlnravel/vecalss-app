@@ -28,6 +28,7 @@ import {
 import type { SessionContext } from "@/lib/auth/types";
 import { BookOpen, Copy, UserRound } from "@/lib/icons";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME } from "@/modules/mentor/components/administration-action-row";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import {
   saveKaptenSettingsAction,
@@ -387,6 +388,7 @@ function KaptenSettingsPageModule({
               )}
               <footer className="flex flex-wrap items-center justify-end gap-4 border-t border-voyage-soft-border px-5 py-4">
                 <Button
+                  className={MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME}
                   disabled={!activeDirty || saving}
                   onClick={cancelChanges}
                   type="button"
@@ -394,7 +396,11 @@ function KaptenSettingsPageModule({
                 >
                   Batal
                 </Button>
-                <Button disabled={!activeDirty || saving} type="submit">
+                <Button
+                  className={MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME}
+                  disabled={!activeDirty || saving}
+                  type="submit"
+                >
                   {saving ? "Menyimpan…" : "Simpan perubahan"}
                 </Button>
               </footer>
