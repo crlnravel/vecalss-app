@@ -19,7 +19,7 @@ const registrationEnd = delivery.indexOf("async function decideTryoutAdmission("
 assert.ok(registrationStart >= 0 && registrationEnd > registrationStart);
 const registration = delivery.slice(registrationStart, registrationEnd);
 const defaultWindowCheck = registration.indexOf(
-  "findDefaultSessionCandidate(tx, tryoutId)",
+  "findTryoutSession(tx, tryoutId)",
 );
 const admissionCreate = registration.indexOf("tx.tryoutAdmission.create");
 assert.ok(defaultWindowCheck >= 0, "approval-required registration checks the default session");

@@ -214,7 +214,7 @@ function assertEligibleSession(
   return session;
 }
 
-async function findDefaultSessionCandidate(
+async function findTryoutSession(
   tx: Prisma.TransactionClient,
   tryoutId: string,
 ) {
@@ -232,13 +232,13 @@ async function findDefaultSessionCandidate(
   });
 }
 
-async function findDefaultSession(
+async function findOpenTryoutSession(
   tx: Prisma.TransactionClient,
   tryoutId: string,
   now: Date,
 ) {
   return assertEligibleSession(
-    await findDefaultSessionCandidate(tx, tryoutId),
+    await findTryoutSession(tx, tryoutId),
     now,
   );
 }
@@ -594,7 +594,7 @@ async function registerForTryout(
     let registrationSession: EligibleSession | null = null;
     if (status === TryoutAdmissionStatus.active) {
       try {
-        registrationSession = await findDefaultSession(tx, tryoutId, now);
+        registrationSession = await findOpenTryoutSession(tx, tryoutId, now);
       } catch (error) {
         if (error instanceof TryoutDeliveryValidationError) {
           return { admissionId: null, assignmentId: null, deliverySessionId: null, state: "unavailable" as const, status: null };
@@ -603,9 +603,9 @@ async function registerForTryout(
       }
     } else {
       try {
-        const defaultSession = await findDefaultSessionCandidate(tx, tryoutId);
-        if (defaultSession) {
-          registrationSession = assertEligibleSession(defaultSession, now);
+        const tryoutSession = await findTryoutSession(tx, tryoutId);
+        if (tryoutSession) {
+          registrationSession = assertEligibleSession(tryoutSession, now);
         }
       } catch (error) {
         if (error instanceof TryoutDeliveryValidationError) {
@@ -721,7 +721,7 @@ async function decideTryoutAdmission(
       }
       if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Pendaftaran sudah diputuskan. Muat ulang untuk melihat status terbaru.");
       const now = new Date();
-      const selected = await findDefaultSession(tx, admission.tryoutId, now);
+      const selected = await findOpenTryoutSession(tx, admission.tryoutId, now);
       const assignmentsToLock = admission.assignments
         .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)
         .sort((left, right) => left.id.localeCompare(right.id));
@@ -802,7 +802,7 @@ async function inviteTryoutParticipant(
     let admission = initialAdmission;
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     if (tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Undangan tersedia setelah Tryout diterbitkan.");
-    const intendedSessionId = (await findDefaultSessionCandidate(tx, tryoutId))?.id;
+    const intendedSessionId = (await findTryoutSession(tx, tryoutId))?.id;
     const replayAssignment = admission?.status === TryoutAdmissionStatus.active
       ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && assignment.deliverySessionId === intendedSessionId)
       : null;
@@ -829,7 +829,7 @@ async function inviteTryoutParticipant(
     }
     if (admission?.status === TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Pendaftaran menunggu persetujuan. Gunakan Setujui atau Tolak pada detail peserta.");
     const now = new Date();
-    const selected = await findDefaultSession(tx, tryoutId, now);
+    const selected = await findOpenTryoutSession(tx, tryoutId, now);
     if (admission) {
       const assignmentsToLock = admission.assignments
         .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)

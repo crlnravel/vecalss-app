@@ -193,7 +193,7 @@ check(!participantUtils.includes("selectedSessionId"), "Participant eligibility 
 check(participantUtils.includes("tryout.assignment"), "Participant eligibility reads the one assignment");
 check(participantActions.includes("registerForTryout(tryoutId, session.user.id, target)"), "Participant action registers without a session choice");
 check(!deliveryRepository.includes("selectedSessionId"), "Delivery registration takes no selected session");
-check(deliveryRepository.includes("findDefaultSession(tx, tryoutId, now)"), "Delivery registration validates the Tryout's session server-side");
+check(deliveryRepository.includes("findOpenTryoutSession(tx, tryoutId, now)"), "Delivery registration validates the Tryout's session server-side");
 check(deliveryRepository.includes("deliverySessionId: lockedRegistrationSession!.id"), "Delivery registration returns the canonical assigned session id");
 check(deliveryRepository.includes("deliverySessionId: existingAssignment?.deliverySessionId ?? null"), "Existing registration returns its canonical assigned session id");
 check(!deliveryRepository.includes("Sesi Tryout yang dipilih"), "Registration refusals do not mention a chosen session");

@@ -14,7 +14,7 @@ flowchart LR
 
     TryoutAuthor[Kapten Tryout builder] --> Assembly[Ready assembly validation]
     Assembly --> Release[Immutable AssessmentRelease]
-    Release --> Delivery[Admission + assignment + delivery session]
+    Release --> Delivery[Admission + assignment + the Tryout's one delivery session]
     Delivery --> Attempt[Attempt + seven runs + answers]
     Attempt --> Score[Calculate + materialize score]
     Score --> Result[Release result by policy]
@@ -92,9 +92,11 @@ The operational sequence is:
 1. A Kapten validates and publishes a Tryout package.
 2. The release resolver creates or reuses the immutable `AssessmentRelease`
    for that publication identity.
-3. Admission and assignment operations create or reuse a delivery session
-   that points to that release.
-4. A learner starts an attempt only from that session; the attempt records the
+3. Every Tryout has exactly one delivery session (created with the Tryout
+   and opened at publication) that points to that release. Admission and
+   assignment operations give a student access to it.
+4. A learner starts an attempt only from that session; a student has at most
+   one attempt per Tryout, and there is no retake. The attempt records the
    release identity and a content snapshot.
 5. Seven canonical section runs are answered and sealed.
 6. Scoring materializes the attempt result, then the configured release policy

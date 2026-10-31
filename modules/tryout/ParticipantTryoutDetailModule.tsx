@@ -233,9 +233,9 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
   const now = new Date();
-  const defaultAdmissionSession = tryout.session ?? undefined;
-  const defaultOpenSession = defaultAdmissionSession && isTryoutAdmissionSessionAvailable(defaultAdmissionSession, now)
-    ? defaultAdmissionSession
+  const tryoutSession = tryout.session ?? undefined;
+  const openTryoutSession = tryoutSession && isTryoutAdmissionSessionAvailable(tryoutSession, now)
+    ? tryoutSession
     : undefined;
   const canRequestAdmission = canRequestNewTryoutAdmission(
     tryout.admissionMode,
@@ -246,14 +246,14 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref
     tryout.admissionStatus === null &&
     tryout.admissionMode !== "invitation_only" &&
     !canRequestAdmission;
-  const registrationWindowSession = defaultAdmissionSession;
+  const registrationWindowSession = tryoutSession;
   const registrationWindowEnded = Boolean(
     registrationWindowSession &&
       isTryoutSessionExpired(registrationWindowSession.availableUntil, now),
   );
   const summarySession = assignedSession ?? (
     tryout.admissionStatus === null && tryout.admissionMode !== "invitation_only"
-      ? defaultAdmissionSession
+      ? tryoutSession
       : undefined
   );
   const context = { returnTo: returnToHref };
@@ -345,9 +345,9 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref
                     : assignedSession.isExpired
                       ? { label: "Selesai", tone: "neutral" as const }
                       : { label: "Terjadwal", tone: "neutral" as const }
-                : defaultOpenSession && defaultOpenSession.isAvailableNow
+                : openTryoutSession && openTryoutSession.isAvailableNow
                   ? { label: "Aktif", tone: "success" as const }
-                  : defaultOpenSession
+                  : openTryoutSession
                     ? { label: "Terjadwal", tone: "neutral" as const }
                     : { label: "Tersedia", tone: "neutral" as const };
 

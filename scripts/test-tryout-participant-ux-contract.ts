@@ -111,7 +111,7 @@ const newAdmissionTargetWrite = delivery.indexOf("await tx.studentProfile.update
 assert.ok(unavailableGuard > -1, "open registration must guard missing sessions");
 assert.ok(newAdmissionTargetWrite > unavailableGuard, "target changes must happen only after session availability is confirmed");
 const registrationStart = delivery.indexOf("async function registerForTryout(");
-const pendingWindowCheck = delivery.indexOf("findDefaultSessionCandidate(tx, tryoutId)", registrationStart);
+const pendingWindowCheck = delivery.indexOf("findTryoutSession(tx, tryoutId)", registrationStart);
 const newAdmissionCreate = delivery.indexOf("tx.tryoutAdmission.create", registrationStart);
 assert.ok(pendingWindowCheck > registrationStart, "approval-required admissions must check the configured default session");
 assert.ok(newAdmissionCreate > pendingWindowCheck, "expired registration windows must be rejected before an admission is created");

@@ -20,10 +20,10 @@ Vecalss tetap konsisten.
 | Kuis | Kegiatan latihan mandiri dengan soal dan hasil. Gunakan “Kuis” untuk nama fiturnya; “latihan” boleh digunakan untuk menyebut kegiatan berlatih secara umum. |
 | Bank Soal | Kumpulan soal yang dapat dipilih untuk menyusun Kuis atau Tryout. Jangan gunakan “Question Bank” pada antarmuka. |
 | Paket Soal | Kumpulan soal yang disiapkan untuk digunakan dalam Tryout. Bedakan dari Bank Soal, yang menjadi sumber pemilihan soal. |
-| Tryout | Simulasi ujian dengan sesi, batas waktu, pengumpulan jawaban, dan hasil yang dapat dirilis. Pertahankan ejaan “Tryout”. |
+| Tryout | Simulasi ujian dengan satu sesi, batas waktu, pengumpulan jawaban, dan hasil yang dapat dirilis. Pertahankan ejaan “Tryout”. |
 | Poin tetap | Nama metode penilaian Tryout yang menampilkan poin yang ditetapkan per soal. Gunakan kapitalisasi sesuai label “Poin tetap” di editor. |
 | Media | File gambar atau PDF yang digunakan di konten. Gunakan “pustaka media” untuk area pengelolaannya, “unggah” untuk menambahkan file, “unduh” untuk menyimpan file, dan “pratinjau” untuk melihatnya. |
-| Sesi Tryout | Waktu dan akses yang disediakan untuk mengerjakan suatu Tryout. Bedakan dari pengerjaan siswa. |
+| Sesi Tryout | Waktu buka dan tutup serta akses untuk mengerjakan suatu Tryout. Setiap Tryout memiliki tepat satu Sesi Tryout, dibuat otomatis bersama Tryout; tidak ada sesi tambahan dan tidak ada fitur mengulang (retake). Setiap siswa hanya memiliki satu pengerjaan per Tryout. Bedakan dari pengerjaan siswa. |
 | Pengerjaan | Aktivitas atau riwayat ketika siswa mengerjakan Kuis atau Tryout. Gunakan “percobaan” jika yang dimaksud adalah jatah mengulang. |
 | Tugas | Pekerjaan yang memang ditugaskan dan dikumpulkan. Jangan gunakan untuk menyebut Kuis atau Tryout. |
 | Jawaban | Respons siswa terhadap soal. “Kunci jawaban” adalah jawaban benar; “pembahasan” adalah penjelasan untuk membantu siswa memahami soal. |

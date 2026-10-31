@@ -158,6 +158,7 @@ and then verify the source tree before making an implementation decision.
   notifications, webhooks, external writes, delayed jobs, and learner-state
   mutations.
 - Kuis and Tryout preview surfaces use explicit recursive allowlists and are read-only; the admin Tryout preview restart was removed with multi-session Tryouts (a Tryout has one Sesi Tryout).
+- A Tryout has exactly one Sesi Tryout (`TryoutDeliverySession`, unique per Tryout) and a student has at most one attempt per Tryout (unique `[tryoutId, studentId]`). There is no retake, no session list or picker, no `?session=` in Tryout URLs (legacy values are dropped), and no default-registration flag. The session is auto-created with the Tryout. Admission, one assignment, the session and the attempt are the whole lifecycle; migration `20261031100000_single_tryout_session` collapsed legacy data and is only safe on disposable databases.
 - Banner editing is available only at the admin preview route, uses the CodeMirror editor with hidden form values, and keeps draft/admin-preview/published loaders and revalidation paths separate.
 
 ## Current AS-06 Kuis binding and AS-07 pickup (2026-08-23)
