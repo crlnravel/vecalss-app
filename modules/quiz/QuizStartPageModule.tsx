@@ -47,7 +47,7 @@ function QuizStartPageModule({
   const retryAvailableAtLabel = startAvailability.kind === "retry-wait"
     ? RETRY_AVAILABLE_AT_FORMATTER.format(new Date(startAvailability.retryAvailableAt))
     : null;
-  const stats = getPolicyStats(quiz.questionCount, policy);
+  const stats = getPolicyStats(quiz.questionCount, quiz.duration, policy);
 
   async function start() {
     if (isStarting) return;
@@ -76,7 +76,7 @@ function QuizStartPageModule({
 
   return (
     <main className="student-page-canvas flex min-h-svh w-full items-center px-5 py-12">
-      <section className="mx-auto w-full max-w-4xl p-7 sm:p-10">
+      <section className="mx-auto w-full max-w-4xl rounded-card border border-border bg-card p-7 shadow-sm sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary-700">
           {subjectTitle}
         </p>
@@ -87,9 +87,9 @@ function QuizStartPageModule({
           Siap mengasah logika? Cek dulu detail kuisnya, lalu mulai kalau kamu
           sudah siap!
         </p>
-        <div className="mt-7 grid gap-3 text-sm text-secondary-700 sm:grid-cols-3">
+        <dl className="mt-7 space-y-3 text-sm text-secondary-700">
           {stats.map((stat) => <PolicyStat key={stat.label} {...stat} />)}
-        </div>
+        </dl>
         <QuizAvailabilityStatus policy={policy} retryAvailableAtLabel={retryAvailableAtLabel} startAvailability={startAvailability} />
         <QuizStartActions
           availability={startAvailability}
@@ -104,7 +104,7 @@ function QuizStartPageModule({
   );
 }
 
-function getPolicyStats(questionCount: number, policy: QuizStartPolicy) {
+function getPolicyStats(questionCount: number, duration: string, policy: QuizStartPolicy) {
   const scorePolicyLabels: Record<QuizStartPolicy["scorePolicy"], string> = {
     highest: "Tertinggi",
     latest: "Terbaru",
@@ -118,6 +118,7 @@ function getPolicyStats(questionCount: number, policy: QuizStartPolicy) {
   };
   return [
     { label: "Jumlah soal", value: `${questionCount} soal` },
+    { label: "Waktu", value: duration || "Tanpa batas waktu" },
     { label: "Kesempatan", value: policy.attemptsAllowed === null ? "Tanpa batas" : `${policy.attemptsAllowed} kali` },
     { label: "Skor kamu", value: scorePolicyLabels[policy.scorePolicy] },
     { label: "Urutan soal", value: policy.formBehavior === "fresh_randomized" ? "Acak" : "Tetap" },
@@ -189,9 +190,9 @@ function getQuizStartLabel(availability: QuizStartAvailability, isStarting: bool
 
 function PolicyStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
-      <p className="text-xs font-medium text-secondary-500">{label}</p>
-      <p className="mt-1 font-semibold text-secondary-900">{value}</p>
+    <div className="flex flex-wrap gap-x-1">
+      <dt>{label}:</dt>
+      <dd className="font-semibold text-secondary-900">{value}</dd>
     </div>
   );
 }
