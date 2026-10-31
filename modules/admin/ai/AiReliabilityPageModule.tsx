@@ -130,6 +130,7 @@ function AiGracefulDegradationCard({
 }: {
   breakdown: VeraAiReliabilityDto["metrics"]["gracefulDegradationBreakdown"];
 }) {
+  if (!breakdown.available) return <section className="rounded-card border border-primary-100 bg-white p-6"><h2 className="text-base font-bold text-secondary-950">Jalur pemulihan</h2><p className="mt-2 text-sm text-secondary-600">Rincian jalur pemulihan belum tersedia. Status permintaan saja belum cukup untuk membedakan sumber pemulihannya.</p></section>;
   return (
     <div className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between border-b border-primary-50 pb-4">
@@ -343,7 +344,7 @@ function AiIncidentTaxonomySection({
                   />
                   <div>
                     <p className="font-bold text-secondary-900">{item.label}</p>
-                    <p className="text-secondary-500">{item.count.toLocaleString("id-ID")} kejadian (+{item.changePp} pp)</p>
+                    <p className="text-secondary-500">{item.count.toLocaleString("id-ID")} kejadian{item.changePp === null ? "" : ` (${item.changePp > 0 ? "+" : ""}${item.changePp} pp)`}</p>
                   </div>
                 </div>
                 <span
@@ -552,7 +553,8 @@ export function AiReliabilityPageModule({ session }: { session: SessionContext }
 
         {data ? <AiFreshnessBanner freshness={data.freshness} /> : null}
 
-        {data && (
+        {data?.privacyState === "suppressed" && <p className="text-sm text-secondary-600">Ringkasan keandalan disembunyikan untuk menjaga privasi siswa.</p>}
+        {data && data.privacyState !== "suppressed" && (
           <div className="space-y-6">
             <AiRequestClassificationCard classification={data.requestClassification} />
 

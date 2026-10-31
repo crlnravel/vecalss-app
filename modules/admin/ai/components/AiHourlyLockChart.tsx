@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { QuotaHealthState } from "@/lib/admin/ai/contracts";
 
 export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthState }) {
+  if (quotaHealth.privacyState === "suppressed" || quotaHealth.hourlyPrivacyState === "suppressed") return <section className="rounded-card border border-primary-100 bg-white p-6"><h2 className="text-base font-bold text-secondary-950">Distribusi batas kuota</h2><p className="mt-2 text-sm text-secondary-600">Rincian waktu disembunyikan untuk menjaga privasi siswa.</p></section>;
   const { hourlyLocks, earlyExhaustionAlert } = quotaHealth;
   const maxLocks = Math.max(1, ...hourlyLocks.map((h) => h.lockCount));
 
@@ -23,7 +24,7 @@ export function AiHourlyLockChart({ quotaHealth }: { quotaHealth: QuotaHealthSta
           </p>
         </div>
 
-        {earlyExhaustionAlert.status !== "normal" && (
+        {(earlyExhaustionAlert.status === "elevated" || earlyExhaustionAlert.status === "critical") && (
           <div
             aria-live="polite"
             className="flex min-w-0 items-center gap-2 rounded-card border border-warning-200 bg-warning-50 px-3.5 py-2 text-xs text-warning-900"

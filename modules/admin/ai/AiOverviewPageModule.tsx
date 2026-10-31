@@ -13,6 +13,7 @@ import { AiControlPlaneNav } from "./components/AiControlPlaneNav";
 import { AiRefreshBar } from "./components/AiRefreshBar";
 import { AiMetricCard } from "./components/AiMetricCard";
 import { AiQuotaGauge } from "./components/AiQuotaGauge";
+import { AiFreshnessBanner } from "./components/AiFreshnessBanner";
 import { formatAiFeatureLabel } from "./components/AiDisplayLabels";
 
 export function AiOverviewPageModule({
@@ -56,7 +57,7 @@ export function AiOverviewPageModule({
     ? Math.max(
         1,
         ...data.requestsOverTime.map(
-          (s) => s.succeeded + s.fallback + s.failed + s.pendingOrStaged,
+          (s) => s.total,
         ),
       )
     : 1;
@@ -115,6 +116,7 @@ export function AiOverviewPageModule({
 
         {data && (
           <div className="mt-8 space-y-10">
+            <AiFreshnessBanner freshness={data.freshness} policyVersion={data.activePolicy ? "Kebijakan berlaku" : undefined} activatedAt={data.activePolicy?.activatedAt} />
             {/* KPI band */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <AiMetricCard title="API Request Hari Ini" metric={data.kpis.requestsToday} />
@@ -146,9 +148,9 @@ export function AiOverviewPageModule({
                   </Link>
                 </div>
 
-                <div aria-hidden="true" className="mt-6 flex h-40 items-end gap-2 sm:gap-3">
+                {data.timeSeriesPrivacyState === "suppressed" ? <p className="mt-6 text-sm text-secondary-600">Rincian waktu disembunyikan untuk menjaga privasi siswa.</p> : <><div aria-hidden="true" className="mt-6 flex h-40 items-end gap-2 sm:gap-3">
                   {data.requestsOverTime.map((slot, index) => {
-                    const totalSlot = slot.succeeded + slot.fallback + slot.failed + slot.pendingOrStaged;
+                    const totalSlot = slot.total;
                     const heightPercent = Math.max(10, Math.round((totalSlot / maxRequestCount) * 100));
 
                     return (
@@ -172,14 +174,14 @@ export function AiOverviewPageModule({
 
                 <ul aria-label="Rincian API Request per rentang empat jam" className="sr-only">
                   {data.requestsOverTime.map((slot) => {
-                    const totalSlot = slot.succeeded + slot.fallback + slot.failed + slot.pendingOrStaged;
+                    const totalSlot = slot.total;
                     return (
                       <li key={`${slot.timeLabel}-summary`}>
-                        {slot.timeLabel}: {totalSlot.toLocaleString("id-ID")} total API Request; {slot.succeeded.toLocaleString("id-ID")} berhasil; {slot.fallback.toLocaleString("id-ID")} fallback; {slot.failed.toLocaleString("id-ID")} gagal; {slot.pendingOrStaged.toLocaleString("id-ID")} menunggu atau dipentaskan.
+                        {slot.timeLabel}: {totalSlot.toLocaleString("id-ID")} total permintaan.
                       </li>
                     );
                   })}
-                </ul>
+                </ul></>}
 
                 <div className="mt-4 border-t border-primary-50 pt-3 text-xs text-secondary-500">
                   Setiap batang menunjukkan jumlah API Request dalam rentang empat jam.
@@ -221,17 +223,17 @@ export function AiOverviewPageModule({
                     <div key={item.capability} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-secondary-800">{formatAiFeatureLabel(item.label)}</span>
-                        <div className="flex items-center gap-2">
+                        {item.privacyState === "suppressed" ? <span className="text-secondary-500">Disembunyikan untuk menjaga privasi siswa.</span> : <div className="flex items-center gap-2">
                           <span className="text-secondary-500">{item.quotaUnits.toLocaleString("id-ID")} kuota</span>
                           <span className="font-bold text-secondary-950">{item.sharePercentage}%</span>
-                        </div>
+                        </div>}
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-100">
+                      {item.privacyState !== "suppressed" && <div className="h-2 w-full overflow-hidden rounded-full bg-secondary-100">
                         <div
                           style={{ width: `${item.sharePercentage}%` }}
                           className="h-full rounded-full bg-primary-700 transition-[width] duration-500 motion-reduce:transition-none"
                         />
-                      </div>
+                      </div>}
                     </div>
                   ))}
                 </div>

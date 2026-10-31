@@ -109,6 +109,7 @@
     "test:vera-admin-usage-schema": "tsx scripts/test-vera-admin-usage-schema.ts",
     "test:vera-sprint5-t11": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sprint5-t11.ts",
     "test:admin-ai-control-plane": "tsx scripts/test-admin-ai-control-plane.ts",
+    "test:vera-control-plane": "pnpm test:admin-ai-control-plane && tsx scripts/test-vera-control-plane.ts && tsx scripts/test-vera-usage-request.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-control-plane-service.ts",
     "test:admin-ai-usage-seed": "node scripts/test-admin-ai-usage-seed.mjs",
     "test:vera-prisma-sprint5-t11": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-prisma-sprint5-t11.ts",
     "test:vera-learner-authority": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-learner-authority.ts",

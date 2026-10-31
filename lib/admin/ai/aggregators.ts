@@ -1,23 +1,19 @@
+import { startOfWibDay, startOfWibMonth, startOfNextWibMonth } from "./periods";
+import { distinctStudents, safeCell, summarySafe } from "../ai-usage/privacy";
 import {
   VERA_CAPABILITIES,
-  VERA_PRIVACY_MIN_COHORT_SIZE,
-  type CapabilityRoutingInfo,
   type CostMetrics,
   type FreshnessState,
-  type GatewayHealthInfo,
   type IncidentDomain,
-  type IncidentSummaryItem,
   type IncidentType,
   type QuotaHealthState,
   type RejectedReason,
   type ReliabilityMetrics,
   type SemanticMetric,
-  type SystemCapacityMetrics,
   type VeraAiOverviewDto,
   type VeraAiProvidersDto,
   type VeraAiReliabilityDto,
   type VeraAiUsageBreakdownDto,
-  type VeraCapability,
 } from "./contracts";
 
 export type RawAiRequestRecord = {
@@ -29,6 +25,8 @@ export type RawAiRequestRecord = {
   upstreamProvider: string | null;
   model: string | null;
   status: string; // 'succeeded' | 'fallback' | 'failed' | 'pending' | 'staged'
+  chargedProviderCostUsdMicros?: bigint | null;
+  errorCode?: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
   quotaUnitsReserved: number;
@@ -54,12 +52,33 @@ export type AggregateComputationInput = {
   requests: RawAiRequestRecord[];
   admissions: RawAiAdmissionRecord[];
   previousRequests?: RawAiRequestRecord[];
+  monthRequests?: RawAiRequestRecord[];
+  todayRequests?: RawAiRequestRecord[];
+  todayAdmissions?: RawAiAdmissionRecord[];
   now: Date;
   activePolicyVersion?: string;
   activePolicyActivatedAt?: string;
   dailyAllocatedQuota?: number;
   monthlyBudgetIdr?: number;
 };
+
+type CohortRow = { studentId: string | null };
+const cohortSafe = (rows: CohortRow[]) => rows.length === 0 || summarySafe(distinctStudents(rows));
+function partitionSafe(base: CohortRow[], cells: CohortRow[][]) {
+  const students = distinctStudents(base);
+  return cells.filter(rows => rows.length > 0).every(rows => safeCell(students, distinctStudents(rows)));
+}
+
+function observedCells<T extends CohortRow>(rows: T[], keyFor: (row: T) => string): T[][] {
+  const cells = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = keyFor(row);
+    const cell = cells.get(key) ?? [];
+    cell.push(row);
+    cells.set(key, cell);
+  }
+  return [...cells.values()];
+}
 
 export function classifyIncidentDomain(type: IncidentType): IncidentDomain {
   switch (type) {
@@ -103,7 +122,7 @@ export function formatSemanticMetric<T extends number>(
     return {
       state: "suppressed",
       reason: options?.suppressReason ?? "insufficient_cohort",
-      message: "Data unavailable because this cohort does not meet the minimum privacy threshold.",
+      message: "Ringkasan disembunyikan untuk menjaga privasi siswa.",
     };
   }
 
@@ -111,7 +130,7 @@ export function formatSemanticMetric<T extends number>(
     return {
       state: "unavailable",
       reason: options?.unavailableReason ?? "data_unavailable",
-      message: "Data temporarily unavailable",
+      message: "Data belum tersedia.",
     };
   }
 
@@ -148,6 +167,13 @@ export function calculateReliabilityMetrics(
   requests: RawAiRequestRecord[],
   admissions: RawAiAdmissionRecord[],
 ): ReliabilityMetrics {
+  if (!cohortSafe(requests) || !cohortSafe(admissions) || !partitionSafe(requests, observedCells(requests,r=>r.status))) {
+    const hidden = calculateReliabilityMetrics([], []);
+    for (const key of Object.keys(hidden) as (keyof ReliabilityMetrics)[]) {
+      if (key !== "gracefulDegradationBreakdown") hidden[key] = formatSemanticMetric("suppressed", 0);
+    }
+    return hidden;
+  }
   const terminal = requests.filter((r) =>
     r.status === "succeeded" || r.status === "fallback" || r.status === "failed",
   );
@@ -181,42 +207,40 @@ export function calculateReliabilityMetrics(
   const p95Ttft = computePercentile(ttfts, 0.95) ?? 0;
 
   return {
-    executionSuccessRate: formatSemanticMetric("available", executionSuccessRateVal, {
+    executionSuccessRate: formatSemanticMetric(terminalCount ? "available" : "unavailable", executionSuccessRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    effectiveCompletionRate: formatSemanticMetric("available", effectiveCompletionRateVal, {
+    effectiveCompletionRate: formatSemanticMetric(terminalCount ? "available" : "unavailable", effectiveCompletionRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    fallbackRate: formatSemanticMetric("available", fallbackRateVal, {
+    fallbackRate: formatSemanticMetric(terminalCount ? "available" : "unavailable", fallbackRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    executionFailureRate: formatSemanticMetric("available", executionFailureRateVal, {
+    executionFailureRate: formatSemanticMetric(terminalCount ? "available" : "unavailable", executionFailureRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    admissionRejectionRate: formatSemanticMetric("available", admissionRejectionRateVal, {
+    admissionRejectionRate: formatSemanticMetric(attemptedAdmissions ? "available" : "unavailable", admissionRejectionRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    fallbackRecoveryRate: formatSemanticMetric("available", fallbackRecoveryRateVal, {
+    fallbackRecoveryRate: formatSemanticMetric("unavailable", fallbackRecoveryRateVal, {
       formatter: (v) => `${(v * 100).toFixed(1)}%`,
     }),
-    p50LatencyMs: formatSemanticMetric("available", p50Lat, {
+    p50LatencyMs: formatSemanticMetric(latencies.length ? "available" : "unavailable", p50Lat, {
       formatter: (v) => `${v.toFixed(0)} ms`,
     }),
-    p95LatencyMs: formatSemanticMetric("available", p95Lat, {
+    p95LatencyMs: formatSemanticMetric(latencies.length ? "available" : "unavailable", p95Lat, {
       formatter: (v) => `${v.toFixed(0)} ms`,
     }),
-    p50TimeToFirstTokenMs: formatSemanticMetric("available", p50Ttft, {
+    p50TimeToFirstTokenMs: formatSemanticMetric(ttfts.length ? "available" : "unavailable", p50Ttft, {
       formatter: (v) => `${v.toFixed(0)} ms`,
     }),
-    p95TimeToFirstTokenMs: formatSemanticMetric("available", p95Ttft, {
+    p95TimeToFirstTokenMs: formatSemanticMetric(ttfts.length ? "available" : "unavailable", p95Ttft, {
       formatter: (v) => `${v.toFixed(0)} ms`,
     }),
     gracefulDegradationBreakdown: {
-      primaryLlmShare: terminalCount > 0 ? (succeeded - Math.floor(fallback * 0.3)) / terminalCount : 0.92,
-      alternativeModelShare: terminalCount > 0 ? (fallback * 0.6) / terminalCount : 0.045,
-      cachedCandidateBankShare: terminalCount > 0 ? (fallback * 0.3) / terminalCount : 0.025,
-      staticQuestionBankShare: terminalCount > 0 ? (fallback * 0.1) / terminalCount : 0.008,
-      unrecoverableShare: terminalCount > 0 ? failed / terminalCount : 0.002,
+      available: false,
+      primaryLlmShare: 0, alternativeModelShare: 0, cachedCandidateBankShare: 0,
+      staticQuestionBankShare: 0, unrecoverableShare: 0,
     },
   };
 }
@@ -224,8 +248,10 @@ export function calculateReliabilityMetrics(
 export function calculateQuotaHealth(
   requests: RawAiRequestRecord[],
   admissions: RawAiAdmissionRecord[],
-  allocatedDailyCapacity = 96000,
+  allocatedDailyCapacity = 0,
 ): QuotaHealthState {
+  const allRows = [...requests, ...admissions];
+  if (!cohortSafe(requests) || !cohortSafe(allRows)) return { ...calculateQuotaHealth([], [], allocatedDailyCapacity), privacyState: "suppressed", hourlyPrivacyState: "suppressed" };
   const consumedUnits = requests.reduce((acc, r) => acc + (r.quotaUnitsConsumed || 0), 0);
   const reservedUnits = requests
     .filter((r) => r.status === "pending" || r.status === "staged")
@@ -235,7 +261,7 @@ export function calculateQuotaHealth(
 
   const consumedPct = allocatedDailyCapacity > 0 ? Math.round((consumedUnits / allocatedDailyCapacity) * 100) : 0;
   const reservedPct = allocatedDailyCapacity > 0 ? Math.round((reservedUnits / allocatedDailyCapacity) * 100) : 0;
-  const availablePct = Math.max(0, 100 - consumedPct - reservedPct);
+  const availablePct = allocatedDailyCapacity > 0 ? Math.max(0, 100 - consumedPct - reservedPct) : 0;
 
   // Group requests by student to calculate threshold saturation
   const studentUsage = new Map<string, number>();
@@ -252,22 +278,23 @@ export function calculateQuotaHealth(
     hardLockAdmissions.map((a) => a.studentId).filter((id): id is string => Boolean(id)),
   );
 
-  const totalActiveStudents = Math.max(1, studentUsage.size);
-  const studentsAt80 = Array.from(studentUsage.values()).filter((u) => u >= 20).length; // assuming 25 unit limit
+  const totalActiveStudents = Math.max(1, new Set([...studentUsage.keys(), ...lockedStudentIds]).size);
   const studentsHardLocked = lockedStudentIds.size;
   const hardLockRate = Number(((studentsHardLocked / totalActiveStudents) * 100).toFixed(1));
 
   // Early quota exhaustion check (<12:00 WIB / 05:00 UTC)
-  const exhaustedEarly = hardLockAdmissions.filter((a) => {
-    const hours = a.occurredAt.getUTCHours() + 7; // WIB
-    return hours < 12;
-  }).length;
+  const exhaustedEarly = new Set(hardLockAdmissions.filter(a => (a.occurredAt.getUTCHours() + 7) % 24 < 12).map(a => a.studentId).filter(Boolean)).size;
   const earlyShare = Number(((exhaustedEarly / totalActiveStudents) * 100).toFixed(1));
   const isEarlyExhaustionElevated = earlyShare >= 3.0;
 
   // Hourly distribution
   const hourlyCounts = new Array(24).fill(0);
-  for (const a of hardLockAdmissions) {
+  const countedStudents = new Set<string>();
+  const firstLocks: RawAiAdmissionRecord[] = [];
+  for (const a of [...hardLockAdmissions].sort((a,b) => a.occurredAt.getTime() - b.occurredAt.getTime())) {
+    if (!a.studentId || countedStudents.has(a.studentId)) continue;
+    countedStudents.add(a.studentId);
+    firstLocks.push(a);
     const wibHour = (a.occurredAt.getUTCHours() + 7) % 24;
     hourlyCounts[wibHour] += 1;
   }
@@ -284,7 +311,15 @@ export function calculateQuotaHealth(
     };
   });
 
+  const hourlyCells = Array.from({length:24},(_,hour) => firstLocks.filter(a => (a.occurredAt.getUTCHours()+7)%24 === hour));
+  const cumulativeCells = Array.from({length:24},(_,hour) => firstLocks.filter(a => (a.occurredAt.getUTCHours()+7)%24 <= hour));
+  // Prefixes include the pre-noon and all-lock cohorts used by the displayed rates.
+  const hourlySafe = partitionSafe([...requests,...firstLocks], [...hourlyCells,...cumulativeCells]);
+
   return {
+    privacyState: "available",
+    hourlyPrivacyState: hourlySafe ? "available" : "suppressed",
+    capacityAvailable: allocatedDailyCapacity > 0,
     allocatedDailyUnits: allocatedDailyCapacity,
     consumedUnits,
     reservedUnits,
@@ -293,696 +328,215 @@ export function calculateQuotaHealth(
     consumedPercentage: consumedPct,
     reservedPercentage: reservedPct,
     availablePercentage: availablePct,
-    studentsAtOrAbove80Percent: studentsAt80,
-    studentsAtOrAbove80PercentShare: Number(((studentsAt80 / totalActiveStudents) * 100).toFixed(1)),
-    studentsHardLocked,
-    hardLockRate,
+    studentsAtOrAbove80Percent: null,
+    studentsAtOrAbove80PercentShare: null,
+    studentsHardLocked: hourlySafe ? studentsHardLocked : 0,
+    hardLockRate: hourlySafe ? hardLockRate : 0,
     earlyExhaustionAlert: {
-      status: isEarlyExhaustionElevated ? (earlyShare >= 6.0 ? "critical" : "elevated") : "normal",
-      exhaustedBeforeNoonShare: earlyShare,
+      status: !allRows.length || !hourlySafe ? "unavailable" : isEarlyExhaustionElevated ? (earlyShare >= 6.0 ? "critical" : "elevated") : "normal",
+      exhaustedBeforeNoonShare: hourlySafe ? earlyShare : 0,
       normalThresholdShare: 3.0,
-      message: isEarlyExhaustionElevated
+      message: !allRows.length ? "Belum ada aktivitas penggunaan yang dapat diringkas." : !hourlySafe ? "Ringkasan disembunyikan untuk menjaga privasi siswa." : isEarlyExhaustionElevated
         ? `${earlyShare}% of active AI learners reached their hard quota before 12:00 WIB (Normal: <3%).`
         : "Early quota exhaustion is within normal operating limits (<3%).",
     },
-    hourlyLocks,
+    hourlyLocks: hourlySafe ? hourlyLocks : [],
+  };
+}
+
+const USD_TO_IDR = 16_000;
+const terminalRequest = (r: RawAiRequestRecord) => ["succeeded", "fallback", "failed"].includes(r.status);
+
+function recordedCost(r: RawAiRequestRecord): number | null {
+  if (!terminalRequest(r) || r.chargedProviderCostUsdMicros == null) return null;
+  return Number(r.chargedProviderCostUsdMicros) / 1_000_000;
+}
+
+function coverageState(rows: RawAiRequestRecord[]): CostMetrics["state"] {
+  const terminal = rows.filter(terminalRequest);
+  const known = terminal.filter(r => recordedCost(r) !== null).length;
+  return terminal.length === 0 || known === terminal.length ? "available" : known === 0 ? "unavailable" : "partial";
+}
+
+function databaseFreshness(now: Date, costState: CostMetrics["state"] = "unavailable", coverage = 100): FreshnessState {
+  const asOf = now.toISOString();
+  return {
+    requests: { asOf, label: "Catatan penggunaan", state: "snapshot" },
+    quota: { asOf, label: "Dihitung dari catatan penggunaan", state: "snapshot" },
+    cost: { asOf, label: costState === "partial" ? `Biaya tercatat (${Math.round(coverage)}% cakupan)` : costState === "suppressed" ? "Disembunyikan untuk menjaga privasi" : costState === "available" ? "Berdasarkan biaya tercatat" : "Biaya belum tercatat", state: costState === "available" ? "snapshot" : costState },
+    analytics: { asOf, label: "Dihitung saat data dimuat", state: "snapshot" },
   };
 }
 
 export function calculateCostMetrics(
-  requests: RawAiRequestRecord[],
-  monthlyBudgetIdr = 8_000_000,
+  requests: RawAiRequestRecord[], monthlyBudgetIdr = 0,
+  monthRequests: RawAiRequestRecord[] = requests,
+  now = new Date(),
 ): CostMetrics {
-  const terminal = requests.filter(
-    (r) => r.status === "succeeded" || r.status === "fallback" || r.status === "failed",
-  );
-
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
-  let knownUsageCount = 0;
-
-  for (const r of terminal) {
-    if (r.inputTokens !== null && r.outputTokens !== null) {
-      totalInputTokens += r.inputTokens;
-      totalOutputTokens += r.outputTokens;
-      knownUsageCount += 1;
-    }
-  }
-
-  const terminalCount = terminal.length;
-  const coverageRatio = terminalCount > 0 ? knownUsageCount / terminalCount : 1;
-
-  // Approximate pricing model: $0.15 / 1M input tokens, $0.60 / 1M output tokens (approx GLM-4 / Claude-3.5-mini / etc)
-  const usdCost = (totalInputTokens / 1_000_000) * 0.15 + (totalOutputTokens / 1_000_000) * 0.6;
-  const usdToIdr = 16_000;
-  const spendMtdIdr = Math.round(usdCost * usdToIdr * 30); // 30 day extrapolation or cumulative
-  const projectedEomIdr = Math.round(spendMtdIdr * 1.35);
-  const projectedUtilizationShare = monthlyBudgetIdr > 0 ? projectedEomIdr / monthlyBudgetIdr : 0.65;
-
-  // Cost by capability
-  const capMap = new Map<VeraCapability, { units: number; requests: number }>();
-  for (const cap of VERA_CAPABILITIES) {
-    capMap.set(cap, { units: 0, requests: 0 });
-  }
-
-  for (const r of terminal) {
-    const key = r.featureKey as VeraCapability;
-    if (capMap.has(key)) {
-      const entry = capMap.get(key)!;
-      entry.units += r.quotaUnitsConsumed || 0;
-      entry.requests += 1;
-    }
-  }
-
-  const totalQuota = Array.from(capMap.values()).reduce((acc, e) => acc + e.units, 0) || 1;
-  const costByCapability = Array.from(capMap.entries()).map(([capability, data]) => {
-    const share = data.units / totalQuota;
-    const capCostIdr = Math.round(spendMtdIdr * share);
-    const capCostUsd = Number((usdCost * share).toFixed(2));
-    const costPerUnitUsd = data.units > 0 ? Number((capCostUsd / data.units).toFixed(5)) : 0;
-    return {
-      capability,
-      spendIdr: capCostIdr,
-      spendUsd: capCostUsd,
-      quotaUnits: data.units,
-      costPerUnitUsd,
-      share: Number((share * 100).toFixed(1)),
-    };
-  });
-
-  return {
-    spendMtdIdr,
-    projectedEomIdr,
-    monthlyBudgetIdr,
-    projectedUtilizationShare: Number((projectedUtilizationShare * 100).toFixed(1)),
-    costByCapability,
+  const terminal = requests.filter(terminalRequest);
+  const monthStart = startOfWibMonth(now);
+  const monthTerminal = monthRequests.filter(r => terminalRequest(r) && r.createdAt >= monthStart && r.createdAt <= now);
+  const sumCost = (rows: RawAiRequestRecord[]) => rows.reduce((sum, r) => sum + (recordedCost(r) ?? 0), 0);
+  const usdCost = sumCost(terminal);
+  const monthUsd = sumCost(monthTerminal);
+  const nextMonth = startOfNextWibMonth(now);
+  const elapsed = now.getTime() - monthStart.getTime();
+  const spendMtdIdr = Math.round(monthUsd * USD_TO_IDR);
+  const projectedEomIdr = elapsed > 0 ? Math.round(monthUsd * USD_TO_IDR * (nextMonth.getTime() - monthStart.getTime()) / elapsed) : 0;
+  const groups = VERA_CAPABILITIES.map(capability => ({ capability, rows: terminal.filter(r => r.featureKey === capability) }));
+  // Suppress the complete partition when a small cohort could be inferred by subtraction.
+  const otherRows = terminal.filter(r => !VERA_CAPABILITIES.some(capability => capability === r.featureKey));
+  const unsafePartition = !partitionSafe(terminal, [...groups.map(g=>g.rows), otherRows]);
+  const knownTokens = terminal.filter(r => r.inputTokens !== null && r.outputTokens !== null);
+  const tokenCoverage = terminal.length ? knownTokens.length / terminal.length : 1;
+  const costCoverage = terminal.length ? terminal.filter(r => recordedCost(r) !== null).length / terminal.length : 1;
+  const metrics: CostMetrics = {
+    state: coverageState(monthTerminal), rangeState: coverageState(terminal),
+    monthCoveragePercentage: monthTerminal.length ? monthTerminal.filter(r => recordedCost(r) !== null).length / monthTerminal.length * 100 : 100,
+    exchangeRateIdr: USD_TO_IDR, spendRangeIdr: Math.round(usdCost * USD_TO_IDR),
+    spendMtdIdr, projectedEomIdr, monthlyBudgetIdr,
+    projectedUtilizationShare: monthlyBudgetIdr > 0 ? Number((projectedEomIdr / monthlyBudgetIdr * 100).toFixed(1)) : 0,
+    costByCapability: groups.map(({capability, rows}) => {
+      const safe = !unsafePartition;
+      const cost = safe ? sumCost(rows) : 0;
+      const units = safe ? rows.reduce((sum, r) => sum + r.quotaUnitsConsumed, 0) : 0;
+      return { capability, spendIdr: Math.round(cost * USD_TO_IDR), spendUsd: cost, quotaUnits: units,
+        costPerUnitUsd: units ? cost / units : 0, share: safe && usdCost ? Number((cost / usdCost * 100).toFixed(1)) : 0,
+        privacyState: safe ? "available" : "suppressed", costAvailable: safe && coverageState(rows) !== "unavailable" };
+    }),
     tokenCoverage: {
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      totalTokens: totalInputTokens + totalOutputTokens,
-      knownPercentage: Number((coverageRatio * 100).toFixed(1)),
-      unavailablePercentage: Number(((1 - coverageRatio) * 100).toFixed(1)),
+      inputTokens: knownTokens.reduce((sum, r) => sum + r.inputTokens!, 0),
+      outputTokens: knownTokens.reduce((sum, r) => sum + r.outputTokens!, 0),
+      totalTokens: knownTokens.reduce((sum, r) => sum + r.inputTokens! + r.outputTokens!, 0),
+      knownPercentage: tokenCoverage * 100, unavailablePercentage: (1 - tokenCoverage) * 100,
     },
-    costCoverage: {
-      knownPercentage: Number((coverageRatio * 100).toFixed(1)),
-      estimatedCostUsd: Number(usdCost.toFixed(2)),
-    },
+    costCoverage: { knownPercentage: costCoverage * 100, estimatedCostUsd: usdCost },
   };
+  if (!cohortSafe(monthTerminal)) {
+    metrics.state = "suppressed";
+    metrics.spendMtdIdr = 0;
+    metrics.projectedEomIdr = 0;
+    metrics.projectedUtilizationShare = 0;
+    metrics.monthCoveragePercentage = 0;
+  }
+  if (!cohortSafe(terminal)) {
+    metrics.rangeState = "suppressed";
+    metrics.spendRangeIdr = 0;
+    metrics.tokenCoverage = {inputTokens:0,outputTokens:0,totalTokens:0,knownPercentage:0,unavailablePercentage:0};
+    metrics.costCoverage = {knownPercentage:0,estimatedCostUsd:0};
+  }
+  return metrics;
+}
+
+function incidentTaxonomy(input: AggregateComputationInput): VeraAiReliabilityDto["incidentTaxonomy"] {
+  const result: VeraAiReliabilityDto["incidentTaxonomy"] = { admission: [], infrastructure: [], upstream: [], application: [] };
+  const knownTypes: IncidentType[] = ["quota", "quota_overrun_lock", "burst", "concurrency", "redis_unavailable", "lease_failure", "queue_failure", "settlement_failure", "provider_timeout", "provider_rate_limit", "provider_5xx", "malformed_provider_response", "schema_validation", "context_pack_failure", "orchestration_failure"];
+  const events = [...input.admissions.map(a => ({type:a.reason,studentId:a.studentId})), ...input.requests.filter(r => r.status === "failed" && r.errorCode).map(r => ({type:r.errorCode!,studentId:r.studentId}))];
+  const total = input.requests.length + input.admissions.length;
+  if (!partitionSafe([...input.requests,...input.admissions], observedCells(events,e=>e.type))) return result;
+  for (const type of knownTypes) {
+    const rows = events.filter(e => e.type === type);
+    if (!rows.length || !partitionSafe([...input.requests,...input.admissions],[rows])) continue;
+    const domain = classifyIncidentDomain(type);
+    result[domain].push({ domain, type, label: type, count: rows.length, rate: total ? rows.length / total : 0,
+      changePp: null, severity: "warning", privacySatisfied: true });
+  }
+  return result;
 }
 
 export function buildVeraAiOverviewDto(input: AggregateComputationInput): VeraAiOverviewDto {
-  const { requests, admissions, previousRequests, now } = input;
-  const terminal = requests.filter(
-    (r) => r.status === "succeeded" || r.status === "fallback" || r.status === "failed",
-  );
-  const succeeded = terminal.filter((r) => r.status === "succeeded").length;
-  const terminalCount = terminal.length;
-
-  const distinctStudents = new Set(
-    requests.map((r) => r.studentId).filter((id): id is string => Boolean(id)),
-  );
-  const prevDistinctStudents = new Set(
-    (previousRequests ?? []).map((r) => r.studentId).filter((id): id is string => Boolean(id)),
-  );
-
-  const prevTerminal = (previousRequests ?? []).filter(
-    (r) => r.status === "succeeded" || r.status === "fallback" || r.status === "failed",
-  );
-  const prevSucceeded = prevTerminal.filter((r) => r.status === "succeeded").length;
-  const prevSuccessRate = prevTerminal.length > 0 ? prevSucceeded / prevTerminal.length : 1;
-  const currentSuccessRate = terminalCount > 0 ? succeeded / terminalCount : 1;
-
-  const quotaHealth = calculateQuotaHealth(requests, admissions, input.dailyAllocatedQuota ?? 96000);
-  const cost = calculateCostMetrics(requests, input.monthlyBudgetIdr ?? 8_000_000);
+  const { requests, admissions, previousRequests = [], now } = input;
   const rel = calculateReliabilityMetrics(requests, admissions);
-
-  const latencies = terminal
-    .map((r) => r.latencyMs)
-    .filter((l): l is number => typeof l === "number" && Number.isFinite(l));
-  const p95Lat = computePercentile(latencies, 0.95) ?? 4300;
-  const prevLatencies = prevTerminal
-    .map((r) => r.latencyMs)
-    .filter((l): l is number => typeof l === "number" && Number.isFinite(l));
-  const prevP95Lat = computePercentile(prevLatencies, 0.95) ?? 3700;
-
-  // Requests over time (grouped into 6 sample 4-hour slots or hourly buckets)
-  const timeBuckets = new Map<
-    string,
-    { succeeded: number; fallback: number; failed: number; pendingOrStaged: number }
-  >();
-  for (let h = 0; h < 24; h += 4) {
-    const label = `${String(h).padStart(2, "0")}:00`;
-    timeBuckets.set(label, { succeeded: 0, fallback: 0, failed: 0, pendingOrStaged: 0 });
-  }
-
-  for (const r of requests) {
-    const hour = (r.createdAt.getUTCHours() + 7) % 24;
-    const bucketHour = Math.floor(hour / 4) * 4;
-    const label = `${String(bucketHour).padStart(2, "0")}:00`;
-    const bucket = timeBuckets.get(label);
-    if (bucket) {
-      if (r.status === "succeeded") bucket.succeeded += 1;
-      else if (r.status === "fallback") bucket.fallback += 1;
-      else if (r.status === "failed") bucket.failed += 1;
-      else bucket.pendingOrStaged += 1;
-    }
-  }
-
-  const requestsOverTime = Array.from(timeBuckets.entries()).map(([timeLabel, counts]) => ({
-    timestamp: timeLabel,
-    timeLabel,
-    ...counts,
-  }));
-
-  // Feature breakdown
-  const featureCounts = new Map<VeraCapability, { units: number; reqs: number }>();
-  for (const c of VERA_CAPABILITIES) featureCounts.set(c, { units: 0, reqs: 0 });
-  for (const r of requests) {
-    const cap = r.featureKey as VeraCapability;
-    if (featureCounts.has(cap)) {
-      const e = featureCounts.get(cap)!;
-      e.units += r.quotaUnitsConsumed || 0;
-      e.reqs += 1;
-    }
-  }
-
-  const totalQuotaConsumed = quotaHealth.consumedUnits || 1;
-  const featureUsageBreakdown = Array.from(featureCounts.entries()).map(([capability, data]) => {
-    const share = Number(((data.units / totalQuotaConsumed) * 100).toFixed(1));
-    return {
-      capability,
-      label: capability,
-      quotaUnits: data.units,
-      requests: data.reqs,
-      sharePercentage: share,
-      privacyState: data.reqs >= VERA_PRIVACY_MIN_COHORT_SIZE ? ("available" as const) : ("suppressed" as const),
-    };
-  });
-
-  const freshness: FreshnessState = {
-    requests: { asOf: now.toISOString(), label: "Live • 12 sec ago", state: "live" },
-    quota: { asOf: now.toISOString(), label: "Live • 18 sec ago", state: "live" },
-    cost: { asOf: now.toISOString(), label: "Updated 4 min ago", state: "fresh" },
-    analytics: { asOf: now.toISOString(), label: "Generated recently", state: "fresh" },
-  };
-
-  const activeLearnersCount = distinctStudents.size;
-  const prevActiveLearners = prevDistinctStudents.size;
-  const learnerDelta = prevActiveLearners > 0
-    ? Number((((activeLearnersCount - prevActiveLearners) / prevActiveLearners) * 100).toFixed(1))
-    : 4.3;
-
-  const reqDelta = (previousRequests?.length ?? 0) > 0
-    ? Number((((requests.length - previousRequests!.length) / previousRequests!.length) * 100).toFixed(1))
-    : 8.2;
-
-  const successRateDelta = Number(((currentSuccessRate - prevSuccessRate) * 100).toFixed(1));
-  const latencyDelta = Math.round(p95Lat - prevP95Lat);
-
-  // Incidents
-  const openIncidents: IncidentSummaryItem[] = [
-    {
-      domain: "upstream",
-      type: "provider_timeout",
-      label: "P95 latency elevated",
-      count: 312,
-      rate: 0.012,
-      changePp: 0.6,
-      severity: "warning",
-      privacySatisfied: true,
-    },
-    {
-      domain: "upstream",
-      type: "provider_rate_limit",
-      label: "OpenRouter fallback rate elevated",
-      count: 88,
-      rate: 0.003,
-      changePp: 0.2,
-      severity: "warning",
-      privacySatisfied: true,
-    },
-    {
-      domain: "infrastructure",
-      type: "redis_unavailable",
-      label: "Redis guard",
-      count: 0,
-      rate: 0,
-      changePp: 0,
-      severity: "normal",
-      privacySatisfied: true,
-    },
-  ];
-
+  const quotaHealth = calculateQuotaHealth(requests, admissions, input.dailyAllocatedQuota);
+  const cost = calculateCostMetrics(requests, input.monthlyBudgetIdr, input.monthRequests ?? requests, now);
+  const distinct = (rows: RawAiRequestRecord[]) => new Set(rows.map(r => r.studentId).filter(Boolean)).size;
+  const delta = (current: number, previous: number) => previous > 0 ? Number(((current - previous) / previous * 100).toFixed(1)) : null;
+  const usage = buildVeraAiUsageDto(input);
+  const safe = cohortSafe(requests);
+  const previousSafe = cohortSafe(previousRequests) && partitionSafe([...requests,...previousRequests],[requests,previousRequests]);
+  const timeCells = Array.from({length:6},(_,index) => requests.filter(r=>Math.floor(((r.createdAt.getUTCHours()+7)%24)/4)===index));
+  const timeSafe = partitionSafe(requests,timeCells);
+  const headline = (value: number, formatter?: (v:number)=>string, trendDelta?:number|null) => formatSemanticMetric(safe?"available":"suppressed",value,{formatter,trendDelta:previousSafe?trendDelta:null});
   return {
-    systemStatus: p95Lat > 6000 ? "degraded" : openIncidents.some((i) => i.severity === "warning") ? "warning" : "healthy",
-    activePolicy: {
-      bundleVersion: input.activePolicyVersion ?? "VERA-POLICY-027",
-      activatedAt: input.activePolicyActivatedAt ?? "27 Aug 2026, 14:20 WIB",
-      dailyQuota: 25,
-      burst: "8 / 10 min",
-      concurrency: 2,
-    },
-    freshness,
+    systemStatus: "unavailable", // Request history cannot establish current infrastructure health.
+    activePolicy: input.activePolicyVersion ? { bundleVersion: input.activePolicyVersion, activatedAt: input.activePolicyActivatedAt ?? "" } : null,
+    freshness: databaseFreshness(now, cost.state, cost.monthCoveragePercentage),
     kpis: {
-      requestsToday: formatSemanticMetric("available", requests.length || 18420, {
-        trendDelta: reqDelta,
-        trendUnit: "%",
-        formatter: (v) => v.toLocaleString("id-ID"),
-      }),
-      activeLearnersToday: formatSemanticMetric("available", activeLearnersCount || 1284, {
-        trendDelta: learnerDelta,
-        trendUnit: "%",
-        formatter: (v) => v.toLocaleString("id-ID"),
-      }),
-      quotaConsumedToday: formatSemanticMetric("available", quotaHealth.consumedUnits || 61420, {
-        trendDelta: 6.1,
-        trendUnit: "%",
-        formatter: (v) => `${v.toLocaleString("id-ID")} kuota (${quotaHealth.consumedPercentage || 63}%)`,
-      }),
-      successRateToday: formatSemanticMetric("available", currentSuccessRate, {
-        trendDelta: successRateDelta,
-        trendUnit: "pp",
-        formatter: (v) => `${(v * 100).toFixed(1)}%`,
-      }),
-      p95LatencyTodayMs: formatSemanticMetric("available", p95Lat, {
-        trendDelta: latencyDelta,
-        trendUnit: "ms",
-        formatter: (v) => `${(v / 1000).toFixed(1)} sec`,
-      }),
-      spendMtdIdr: formatSemanticMetric("available", cost.spendMtdIdr || 4820000, {
-        trendDelta: 12,
-        trendUnit: "%",
-        formatter: (v) => `Rp ${(v / 1_000_000).toFixed(2)} jt`,
-      }),
+      requestsToday: headline(requests.length,v=>v.toLocaleString("id-ID"),delta(requests.length,previousRequests.length)),
+      activeLearnersToday: headline(distinct(requests),v=>v.toLocaleString("id-ID"),delta(distinct(requests),distinct(previousRequests))),
+      quotaConsumedToday: headline(quotaHealth.consumedUnits,v=>`${v.toLocaleString("id-ID")} kuota`),
+      successRateToday: rel.executionSuccessRate,
+      p95LatencyTodayMs: rel.p95LatencyMs,
+      spendMtdIdr: formatSemanticMetric(cost.state, cost.spendMtdIdr, {coverage: cost.state === "partial" ? cost.monthCoveragePercentage / 100 : 1, formatter:v=>`Rp ${v.toLocaleString("id-ID")}`}),
     },
-    requestsOverTime,
+    timeSeriesPrivacyState: timeSafe ? "available" : "suppressed",
+    requestsOverTime: !timeSafe ? [] : Array.from({length:6},(_,index) => {
+      const rows = requests.filter(r=> Math.floor(((r.createdAt.getUTCHours()+7)%24)/4)===index);
+      const timeLabel = `${String(index*4).padStart(2,"0")}:00`;
+      return {timestamp:timeLabel,timeLabel,total:rows.length};
+    }),
     quotaHealth,
     reliabilitySummary: {
-      successRate: Number((currentSuccessRate * 100).toFixed(1)),
-      fallbackRate: Number(((rel.fallbackRate.state === "available" ? rel.fallbackRate.value : 0.032) * 100).toFixed(1)),
-      p95LatencySec: Number((p95Lat / 1000).toFixed(1)),
-      p95TimeToFirstTokenSec: Number(((rel.p95TimeToFirstTokenMs.state === "available" ? rel.p95TimeToFirstTokenMs.value : 1400) / 1000).toFixed(1)),
+      successRate: "value" in rel.executionSuccessRate ? rel.executionSuccessRate.value * 100 : null,
+      fallbackRate: "value" in rel.fallbackRate ? rel.fallbackRate.value * 100 : null,
+      p95LatencySec: "value" in rel.p95LatencyMs ? rel.p95LatencyMs.value / 1000 : null,
+      p95TimeToFirstTokenSec: "value" in rel.p95TimeToFirstTokenMs ? rel.p95TimeToFirstTokenMs.value / 1000 : null,
     },
-    featureUsageBreakdown,
-    openIncidents,
+    featureUsageBreakdown: VERA_CAPABILITIES.map(capability => {
+      const item=usage.items.find(i=>i.id===capability);
+      return {capability,label:capability,quotaUnits:item?.quotaUnits??0,requests:item?.requests??0,sharePercentage:item?.sharePercentage??0,privacyState:usage.items.some(i=>i.privacyState==="suppressed")?"suppressed":item?.privacyState??"available"};
+    }),
+    openIncidents:Object.values(incidentTaxonomy(input)).flat(),
   };
 }
 
-export function buildVeraAiUsageDto(
-  input: AggregateComputationInput,
-  options?: {
-    metric?: "quota_units" | "requests" | "tokens" | "cost";
-    groupBy?: "feature" | "model" | "gateway" | "status";
-    from?: string;
-    to?: string;
-    timezone?: string;
-  },
-): VeraAiUsageBreakdownDto {
-  const metric = options?.metric ?? "quota_units";
-  const groupBy = options?.groupBy ?? "feature";
-  const { requests, admissions, now } = input;
-
-  const quotaHealth = calculateQuotaHealth(requests, admissions, input.dailyAllocatedQuota ?? 96000);
-  const cost = calculateCostMetrics(requests, input.monthlyBudgetIdr ?? 8_000_000);
-
-  // Group rows based on chosen pivot
-  const groups = new Map<string, { requests: number; units: number; tokens: number; cost: number; students: Set<string> }>();
-
-  for (const r of requests) {
-    let key = "unknown";
-    if (groupBy === "feature") key = r.featureKey ?? "unspecified";
-    else if (groupBy === "model") key = r.model ?? "unspecified";
-    else if (groupBy === "gateway") key = r.gateway ?? "unspecified";
-    else if (groupBy === "status") key = r.status ?? "unspecified";
-
-    if (!groups.has(key)) {
-      groups.set(key, { requests: 0, units: 0, tokens: 0, cost: 0, students: new Set() });
-    }
-    const g = groups.get(key)!;
-    g.requests += 1;
-    g.units += r.quotaUnitsConsumed || 0;
-    const tokens = (r.inputTokens || 0) + (r.outputTokens || 0);
-    g.tokens += tokens;
-    g.cost += (tokens / 1_000_000) * 0.35;
-    if (r.studentId) g.students.add(r.studentId);
+export function buildVeraAiUsageDto(input: AggregateComputationInput, options?: {
+  metric?: "quota_units" | "requests" | "tokens" | "cost";
+  groupBy?: "feature" | "model" | "gateway" | "status";
+  from?: string; to?: string; timezone?: string;
+}): VeraAiUsageBreakdownDto {
+  const metric=options?.metric??"quota_units", groupBy=options?.groupBy??"feature";
+  const {requests,admissions,now}=input;
+  const groups=new Map<string,RawAiRequestRecord[]>();
+  for(const r of requests) {
+    const id=(groupBy==="feature"?r.featureKey:groupBy==="model"?r.model:groupBy==="gateway"?r.gateway:r.status)??"unspecified";
+    groups.set(id,[...(groups.get(id)??[]),r]);
   }
-
-  const totalSelectedMetric = Array.from(groups.values()).reduce((acc, g) => {
-    if (metric === "quota_units") return acc + g.units;
-    if (metric === "requests") return acc + g.requests;
-    if (metric === "tokens") return acc + g.tokens;
-    return acc + g.cost;
-  }, 0) || 1;
-
-  const items = Array.from(groups.entries()).map(([id, g]) => {
-    const isSafe = g.students.size >= VERA_PRIVACY_MIN_COHORT_SIZE;
-    const metricVal = metric === "quota_units" ? g.units : metric === "requests" ? g.requests : metric === "tokens" ? g.tokens : g.cost;
-    const share = Number(((metricVal / totalSelectedMetric) * 100).toFixed(1));
-
-    return {
-      id,
-      label: id,
-      requests: isSafe ? g.requests : 0,
-      quotaUnits: isSafe ? g.units : 0,
-      tokens: isSafe ? g.tokens : 0,
-      costUsd: isSafe ? Number(g.cost.toFixed(2)) : 0,
-      sharePercentage: share,
-      privacyState: isSafe ? ("available" as const) : ("suppressed" as const),
-      suppressionMessage: isSafe
-        ? undefined
-        : "Data unavailable because this cohort does not meet the minimum privacy threshold.",
-    };
-  });
-
+  const unsafe=!partitionSafe(requests,[...groups.values()]);
+  const values=[...groups.entries()].map(([id,rows])=>({id,rows,units:rows.reduce((s,r)=>s+r.quotaUnitsConsumed,0),tokens:rows.reduce((s,r)=>s+(r.inputTokens??0)+(r.outputTokens??0),0),cost:rows.reduce((s,r)=>s+(recordedCost(r)??0),0)}));
+  const value=(g:typeof values[number])=>metric==="quota_units"?g.units:metric==="requests"?g.rows.length:metric==="tokens"?g.tokens:g.cost;
+  const total=values.reduce((s,g)=>s+value(g),0);
+  const cost=calculateCostMetrics(requests,input.monthlyBudgetIdr,input.monthRequests??requests,now);
   return {
-    range: {
-      from: options?.from ?? "2026-08-28",
-      to: options?.to ?? "2026-08-29",
-      timezone: options?.timezone ?? "Asia/Jakarta",
-    },
-    freshness: {
-      requests: { asOf: now.toISOString(), label: "Live • 12 sec ago", state: "live" },
-      quota: { asOf: now.toISOString(), label: "Live • 18 sec ago", state: "live" },
-      cost: { asOf: now.toISOString(), label: "Updated 4 min ago", state: "fresh" },
-      analytics: { asOf: now.toISOString(), label: "Fresh", state: "fresh" },
-    },
-    metricSelected: metric,
-    groupBySelected: groupBy,
-    items,
-    quotaHealth,
-    cost,
+    range:{from:options?.from??startOfWibDay(now).toISOString(),to:options?.to??now.toISOString(),timezone:options?.timezone??"Asia/Jakarta"},
+    freshness:databaseFreshness(now,cost.rangeState,cost.costCoverage.knownPercentage),metricSelected:metric,groupBySelected:groupBy,
+    // Do not disclose which categories exist inside a suppressed partition.
+    items:unsafe ? [{id:"suppressed",label:"Ringkasan penggunaan",requests:0,quotaUnits:0,tokens:0,costUsd:0,costAvailable:false,sharePercentage:0,privacyState:"suppressed",suppressionMessage:"Ringkasan disembunyikan untuk menjaga privasi siswa."}] : values.map(g=>({
+      id:g.id,label:g.id,requests:g.rows.length,quotaUnits:g.units,tokens:g.tokens,
+      costUsd:g.cost,costAvailable:coverageState(g.rows)!=="unavailable",
+      sharePercentage:total?Number((value(g)/total*100).toFixed(1)):0,privacyState:"available",
+    })),
+    quotaHealth:calculateQuotaHealth(input.todayRequests??requests,input.todayAdmissions??admissions,input.dailyAllocatedQuota),cost,
   };
 }
 
 export function buildVeraAiReliabilityDto(input: AggregateComputationInput): VeraAiReliabilityDto {
-  const { requests, admissions, now } = input;
-  const metrics = calculateReliabilityMetrics(requests, admissions);
-
-  const succeeded = requests.filter((r) => r.status === "succeeded").length;
-  const fallback = requests.filter((r) => r.status === "fallback").length;
-  const failed = requests.filter((r) => r.status === "failed").length;
-  const admittedTotal = succeeded + fallback + failed;
-
-  const rejectedReasons: Record<RejectedReason, number> = {
-    quota: 0,
-    quota_overrun_lock: 0,
-    burst: 0,
-    concurrency: 0,
-  };
-
-  for (const a of admissions) {
-    if (a.reason in rejectedReasons) {
-      rejectedReasons[a.reason as RejectedReason] += 1;
-    }
-  }
-
-  const rejectedTotal = admissions.length;
-  const attemptedTotal = requests.length + rejectedTotal;
-
-  const incidentTaxonomy = {
-    admission: [
-      {
-        domain: "admission" as const,
-        type: "quota" as const,
-        label: "Quota",
-        count: rejectedReasons.quota || 841,
-        rate: attemptedTotal > 0 ? (rejectedReasons.quota || 841) / attemptedTotal : 0.033,
-        changePp: 0.4,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-      {
-        domain: "admission" as const,
-        type: "burst" as const,
-        label: "Burst limit",
-        count: rejectedReasons.burst || 108,
-        rate: attemptedTotal > 0 ? (rejectedReasons.burst || 108) / attemptedTotal : 0.004,
-        changePp: -0.1,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-      {
-        domain: "admission" as const,
-        type: "concurrency" as const,
-        label: "Concurrency ceiling",
-        count: rejectedReasons.concurrency || 22,
-        rate: attemptedTotal > 0 ? (rejectedReasons.concurrency || 22) / attemptedTotal : 0.001,
-        changePp: 0.0,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-    ],
-    infrastructure: [
-      {
-        domain: "infrastructure" as const,
-        type: "redis_unavailable" as const,
-        label: "Redis unavailable",
-        count: 14,
-        rate: 0.0005,
-        changePp: 0.05,
-        severity: "warning" as const,
-        privacySatisfied: true,
-      },
-      {
-        domain: "infrastructure" as const,
-        type: "settlement_failure" as const,
-        label: "Settlement failure",
-        count: 2,
-        rate: 0.0001,
-        changePp: 0.0,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-    ],
-    upstream: [
-      {
-        domain: "upstream" as const,
-        type: "provider_timeout" as const,
-        label: "Provider timeout",
-        count: 312,
-        rate: 0.012,
-        changePp: 0.6,
-        severity: "warning" as const,
-        affectedFeatures: [
-          { feature: "vera.chat" as const, share: 62 },
-          { feature: "vera.review" as const, share: 21 },
-          { feature: "vera.drill" as const, share: 17 },
-        ],
-        affectedGateways: [
-          { gateway: "openrouter" as const, share: 94 },
-          { gateway: "direct_anthropic" as const, share: 6 },
-        ],
-        p50LatencyMs: 2400,
-        p95LatencyMs: 8200,
-        privacySatisfied: true,
-      },
-      {
-        domain: "upstream" as const,
-        type: "provider_5xx" as const,
-        label: "Provider 5xx error",
-        count: 45,
-        rate: 0.002,
-        changePp: 0.1,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-    ],
-    application: [
-      {
-        domain: "application" as const,
-        type: "context_pack_failure" as const,
-        label: "Context pack failure",
-        count: 6,
-        rate: 0.0002,
-        changePp: 0.0,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-      {
-        domain: "application" as const,
-        type: "schema_validation" as const,
-        label: "Schema validation failure",
-        count: 1,
-        rate: 0.00005,
-        changePp: -0.05,
-        severity: "normal" as const,
-        privacySatisfied: true,
-      },
-    ],
-  };
-
+  const {requests,admissions,now}=input;
+  const count=(status:string)=>requests.filter(r=>r.status===status).length;
+  const succeeded=count("succeeded"),fallback=count("fallback"),failed=count("failed");
+  const safe=cohortSafe(requests)&&cohortSafe(admissions)&&partitionSafe(requests,observedCells(requests,r=>r.status))&&partitionSafe([...requests,...admissions],observedCells(admissions,a=>a.reason));
+  const byReason:Record<RejectedReason,number>={quota:0,quota_overrun_lock:0,burst:0,concurrency:0};
+  for(const a of admissions) if(Object.hasOwn(byReason,a.reason)) byReason[a.reason as RejectedReason]++;
+  if(!safe) for(const reason of Object.keys(byReason) as RejectedReason[]) byReason[reason]=0;
   return {
-    range: { from: "2026-08-28", to: "2026-08-29", timezone: "Asia/Jakarta" },
-    freshness: {
-      requests: { asOf: now.toISOString(), label: "Live • 12 sec ago", state: "live" },
-      quota: { asOf: now.toISOString(), label: "Live • 18 sec ago", state: "live" },
-      cost: { asOf: now.toISOString(), label: "Updated 4 min ago", state: "fresh" },
-      analytics: { asOf: now.toISOString(), label: "Fresh", state: "fresh" },
-    },
-    requestClassification: {
-      attemptedAdmissions: attemptedTotal || 20450,
-      admittedRequests: {
-        total: admittedTotal || 19480,
-        succeeded: succeeded || 19220,
-        fallback: fallback || 620,
-        failed: failed || 80,
-      },
-      rejectedAdmissions: {
-        total: rejectedTotal || 970,
-        byReason: rejectedReasons,
-      },
-      terminalRequests: admittedTotal || 19920,
-    },
-    metrics,
-    incidentTaxonomy,
+    privacyState:safe?"available":"suppressed",
+    range:{from:startOfWibDay(now).toISOString(),to:now.toISOString(),timezone:"Asia/Jakarta"},freshness:databaseFreshness(now),
+    requestClassification:safe?{attemptedAdmissions:requests.length+admissions.length,admittedRequests:{total:requests.length,succeeded,fallback,failed},rejectedAdmissions:{total:admissions.length,byReason},terminalRequests:succeeded+fallback+failed}:{attemptedAdmissions:0,admittedRequests:{total:0,succeeded:0,fallback:0,failed:0},rejectedAdmissions:{total:0,byReason},terminalRequests:0},
+    metrics:calculateReliabilityMetrics(requests,admissions),incidentTaxonomy:incidentTaxonomy(input),
   };
 }
 
 export function buildVeraAiProvidersDto(now: Date): VeraAiProvidersDto {
-  const gateways: GatewayHealthInfo[] = [
-    {
-      gateway: "openrouter",
-      label: "OpenRouter Gateway",
-      status: "healthy",
-      trafficShare: 83,
-      successRate: 98.9,
-      p95LatencySec: 4.1,
-      fallbackTriggeredRate: 2.8,
-      credentialFingerprint: "•••••••••••••• 8D:4A",
-      lastRotatedDate: "2026-08-12",
-      credentialHealth: "valid",
-    },
-    {
-      gateway: "direct_anthropic",
-      label: "Direct Anthropic Gateway",
-      status: "healthy",
-      trafficShare: 14,
-      successRate: 99.3,
-      p95LatencySec: 5.2,
-      fallbackTriggeredRate: 1.1,
-      credentialFingerprint: "•••••••••••••• C1:9E",
-      lastRotatedDate: "2026-08-01",
-      credentialHealth: "valid",
-    },
-    {
-      gateway: "mock",
-      label: "Mock Gateway",
-      status: "disabled",
-      trafficShare: 0,
-      successRate: 100,
-      p95LatencySec: 0.1,
-      fallbackTriggeredRate: 0,
-      credentialFingerprint: "•••••••••••••• 00:00",
-      lastRotatedDate: "2026-01-01",
-      credentialHealth: "valid",
-    },
-  ];
-
-  const capacityHeadroom: SystemCapacityMetrics = {
-    quotaCapacityShare: 63,
-    quotaStatus: "healthy",
-    concurrencyShare: 81,
-    concurrencyStatus: "elevated",
-    providerRpmShare: 46,
-    providerRpmStatus: "healthy",
-    providerTpmShare: 52,
-    providerTpmStatus: "healthy",
-    queueDepthShare: 18,
-    queueDepthStatus: "healthy",
-  };
-
-  const capabilityRoutes: CapabilityRoutingInfo[] = [
-    {
-      capability: "vera.chat",
-      label: "Vera Chat",
-      configuredChain: {
-        primary: { gateway: "openrouter", model: "z-ai/glm-5.2:free" },
-        fallback1: { gateway: "direct_anthropic", model: "claude-3.5-sonnet" },
-        timeoutMs: 12000,
-        retryPolicy: "1 retry with exponential backoff",
-      },
-      observedLast24h: {
-        primaryCompletionShare: 96.2,
-        modelFallbackShare: 3.1,
-        staticFallbackShare: 0.0,
-        failedShare: 0.7,
-      },
-    },
-    {
-      capability: "vera.review",
-      label: "Vera Review",
-      configuredChain: {
-        primary: { gateway: "openrouter", model: "reasoning-model-A" },
-        fallback1: { gateway: "openrouter", model: "fast-model-B" },
-        fallback2: { type: "curated_bank", label: "Curated answer bank" },
-        timeoutMs: 8000,
-        retryPolicy: "1 retry",
-      },
-      observedLast24h: {
-        primaryCompletionShare: 94.7,
-        modelFallbackShare: 4.1,
-        staticFallbackShare: 0.8,
-        failedShare: 0.4,
-      },
-    },
-    {
-      capability: "vera.drill",
-      label: "Vera Adaptive Drill",
-      configuredChain: {
-        primary: { gateway: "openrouter", model: "z-ai/glm-5.2:free" },
-        fallback1: { gateway: "direct_anthropic", model: "claude-3.5-sonnet" },
-        fallback2: { type: "static_bank", label: "Static question bank" },
-        timeoutMs: 10000,
-        retryPolicy: "1 retry",
-      },
-      observedLast24h: {
-        primaryCompletionShare: 92.1,
-        modelFallbackShare: 4.2,
-        staticFallbackShare: 3.5,
-        failedShare: 0.2,
-      },
-    },
-    {
-      capability: "vera.analysis",
-      label: "Vera Learning Analysis",
-      configuredChain: {
-        primary: { gateway: "openrouter", model: "z-ai/glm-5.2:free" },
-        timeoutMs: 15000,
-        retryPolicy: "No retry",
-      },
-      observedLast24h: {
-        primaryCompletionShare: 97.4,
-        modelFallbackShare: 0.0,
-        staticFallbackShare: 2.1,
-        failedShare: 0.5,
-      },
-    },
-    {
-      capability: "vera.ptn",
-      label: "Vera PTN Recommendation",
-      configuredChain: {
-        primary: { gateway: "openrouter", model: "z-ai/glm-5.2:free" },
-        timeoutMs: 15000,
-        retryPolicy: "No retry",
-      },
-      observedLast24h: {
-        primaryCompletionShare: 98.1,
-        modelFallbackShare: 0.0,
-        staticFallbackShare: 1.5,
-        failedShare: 0.4,
-      },
-    },
-  ];
-
-  return {
-    freshness: {
-      requests: { asOf: now.toISOString(), label: "Live • 12 sec ago", state: "live" },
-      quota: { asOf: now.toISOString(), label: "Live • 18 sec ago", state: "live" },
-      cost: { asOf: now.toISOString(), label: "Updated 4 min ago", state: "fresh" },
-      analytics: { asOf: now.toISOString(), label: "Fresh", state: "fresh" },
-    },
-    gateways,
-    capacityHeadroom,
-    capabilityRoutes,
-  };
+  const unavailable={asOf:now.toISOString(),label:"Pengukuran belum tersedia",state:"unavailable" as const};
+  return {freshness:{requests:unavailable,quota:unavailable,cost:unavailable,analytics:unavailable},gateways:[],capacityHeadroom:null,capabilityRoutes:[]};
 }

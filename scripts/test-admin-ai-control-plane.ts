@@ -34,7 +34,7 @@ const suppressedMetric = formatSemanticMetric("suppressed", 2, {
 check(suppressedMetric.state === "suppressed", "suppressed metric state is suppressed");
 if (suppressedMetric.state === "suppressed") {
   check(
-    suppressedMetric.message?.includes("minimum privacy threshold") ?? false,
+    suppressedMetric.message?.includes("menjaga privasi") ?? false,
     "suppression message uses cohort threshold disclosure language",
   );
   check(!suppressedMetric.message?.includes("< 5"), "never leaks '< 5' text");
@@ -49,7 +49,7 @@ check(classifyIncidentDomain("provider_timeout") === "upstream", "timeout classi
 check(classifyIncidentDomain("schema_validation") === "application", "schema classified as application");
 
 // 3. Reliability math & request classification
-const mockRequests = [
+const requestFixtures = [
   {
     id: "req-1",
     studentId: "s-1",
@@ -106,7 +106,7 @@ const mockRequests = [
   },
 ];
 
-const mockAdmissions = [
+const admissionFixtures = [
   {
     id: "adm-1",
     studentId: "s-4",
@@ -119,6 +119,8 @@ const mockAdmissions = [
   },
 ];
 
+const mockRequests = requestFixtures.flatMap(row => Array.from({length:5},(_,i)=>({...row,id:`${row.id}-${i}`,studentId:`${row.studentId}-${i}`})));
+const mockAdmissions = admissionFixtures.flatMap(row => Array.from({length:5},(_,i)=>({...row,id:`${row.id}-${i}`,studentId:`${row.studentId}-${i}`})));
 const rel = calculateReliabilityMetrics(mockRequests, mockAdmissions);
 // Terminal = 3 (succeeded 1, fallback 1, failed 1)
 if (rel.executionSuccessRate.state === "available") {
@@ -136,7 +138,7 @@ if (rel.admissionRejectionRate.state === "available") {
 
 // 4. Quota health calculation
 const quotaHealth = calculateQuotaHealth(mockRequests, mockAdmissions, 100);
-check(quotaHealth.consumedUnits === 3, "consumed units is sum of consumed");
+check(quotaHealth.consumedUnits === 15, "consumed units is sum of consumed for the safe cohort");
 check(quotaHealth.allocatedDailyUnits === 100, "allocated daily capacity is preserved");
 check(quotaHealth.hourlyLocks.length === 24, "hourly locks distribution spans 24 hours");
 
@@ -144,7 +146,7 @@ check(quotaHealth.hourlyLocks.length === 24, "hourly locks distribution spans 24
 const cost = calculateCostMetrics(mockRequests, 8000000);
 check(cost.monthlyBudgetIdr === 8000000, "monthly budget preserved");
 check(cost.costByCapability.length === VERA_CAPABILITIES.length, "cost broken down across all capabilities");
-check(cost.tokenCoverage.totalTokens === 750, "token count summed correctly");
+check(cost.tokenCoverage.totalTokens === 3750, "token count summed correctly for five copies of each request");
 
 // 6. Full DTO Builders
 const overview = buildVeraAiOverviewDto({
@@ -153,8 +155,8 @@ const overview = buildVeraAiOverviewDto({
   now: new Date(),
 });
 check(overview.kpis.requestsToday.state === "available", "overview requestsToday KPI populated");
-check(overview.activePolicy.bundleVersion.length > 0, "overview active policy version present");
-check(overview.freshness.requests.label.includes("Live"), "requests freshness is live");
+check(overview.activePolicy === null, "absent policy source must not create a sample policy");
+check(overview.freshness.requests.state === "snapshot", "retrieval time is labelled as a database snapshot");
 
 const usage = buildVeraAiUsageDto({
   requests: mockRequests,
@@ -168,12 +170,12 @@ const reliability = buildVeraAiReliabilityDto({
   admissions: mockAdmissions,
   now: new Date(),
 });
-check(reliability.requestClassification.admittedRequests.total === 3, "reliability admitted requests correct");
-check(reliability.requestClassification.rejectedAdmissions.total === 1, "reliability rejected admissions correct");
+check(reliability.requestClassification.admittedRequests.total === 15, "reliability admitted requests correct");
+check(reliability.requestClassification.rejectedAdmissions.total === 5, "reliability rejected admissions correct");
 
 const providers = buildVeraAiProvidersDto(new Date());
-check(providers.gateways.length === 3, "providers gateways populated");
-check(providers.capacityHeadroom.concurrencyShare > 0, "capacity headroom populated");
-check(providers.capabilityRoutes.length > 0, "capability routes populated");
+check(providers.gateways.length === 0, "unmeasured gateway health is not invented");
+check(providers.capacityHeadroom === null, "unmeasured capacity is unavailable");
+check(providers.capabilityRoutes.length === 0, "unmeasured routing is not invented");
 
 console.log(`PASS admin-ai-control-plane: ${checks} checks`);

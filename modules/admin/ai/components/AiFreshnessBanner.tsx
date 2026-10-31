@@ -23,6 +23,9 @@ function formatAsOf(value: string) {
 
 function stateLabel(state: FreshnessState["requests"]["state"] | FreshnessState["cost"]["state"]) {
   if (state === "live" || state === "fresh") return "Tersedia";
+  if (state === "snapshot") return "Data saat dimuat";
+  if (state === "partial") return "Sebagian tersedia";
+  if (state === "suppressed") return "Disembunyikan";
   if (state === "stale") return "Stale";
   return "Tidak tersedia";
 }
@@ -36,7 +39,7 @@ export function AiFreshnessBanner({
 
   return (
     <div className="flex flex-col gap-3 rounded-card border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+      {hasPolicySnapshot && <div className="flex items-center gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 border border-primary-100">
           <Sparkles className="size-5" />
         </div>
@@ -55,7 +58,7 @@ export function AiFreshnessBanner({
             {activatedAt ? `Diterapkan ${activatedAt}` : "Waktu penerapan belum tersedia."}
           </p>
         </div>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-primary-50 pt-2 text-xs text-secondary-500 sm:border-0 sm:pt-0">
         <div className="flex items-center gap-1.5">

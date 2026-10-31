@@ -1,7 +1,6 @@
 import {
   VERA_REPORT_FEATURES,
   VERA_REPORT_INCIDENT_REASONS,
-  VERA_REPORT_MIN_GROUP_SIZE,
   VERA_REPORT_MODELS,
   VERA_REPORT_STATUSES,
   type VeraAdminAdmissionDbRow,
@@ -16,6 +15,7 @@ import {
 } from "./types";
 import { dateForDisplay } from "./validation";
 import type { VeraAdminReportDbRow, VeraAdminUsageSources } from "./types";
+import { distinctStudents, safeCell, summarySafe } from "./privacy";
 
 type MetricRows = VeraAdminReportDbRow[];
 
@@ -32,20 +32,8 @@ function percentile(values: number[], fraction: number): number | null {
   return sorted[index] ?? null;
 }
 
-function distinctStudents(rows: Array<{ studentId: string | null }>): Set<string> {
-  return new Set(rows.map((row) => row.studentId).filter((studentId): studentId is string => Boolean(studentId)));
-}
-
 function unionStudents(...sets: Set<string>[]): Set<string> {
   return new Set(sets.flatMap((set) => [...set]));
-}
-
-function safeCell(baseStudents: Set<string>, cellStudents: Set<string>, minimum = VERA_REPORT_MIN_GROUP_SIZE): boolean {
-  return baseStudents.size >= minimum && cellStudents.size >= minimum && baseStudents.size - cellStudents.size >= minimum;
-}
-
-function summarySafe(baseStudents: Set<string>, minimum = VERA_REPORT_MIN_GROUP_SIZE): boolean {
-  return baseStudents.size >= minimum;
 }
 
 function emptyMetrics(): VeraAggregateRow {

@@ -1,5 +1,7 @@
 "use client";
 
+import { AiControlPlaneNav } from "./ai/components/AiControlPlaneNav";
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -971,6 +973,7 @@ function AiPolicyPageModule(props: AiPolicyPageModuleProps) {
         title="Kebijakan kendali Vera AI"
       />
 
+      <AiControlPlaneNav activeTab="policies" />
       <AiPolicyMetadataSummary metadata={state.metadata} />
       <section className="grid gap-5 md:grid-cols-2">
         <div>

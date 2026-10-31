@@ -155,6 +155,9 @@ includes(emptyDenseTableMarkup, "!min-w-full", "Rendered empty DataTable class r
 excludes(emptyDenseTableMarkup, "min-w-[760px]", "Rendered empty DataTable class resolution does not retain the dense caller minimum width.");
 
 const quotaHealthFixture: QuotaHealthState = {
+  privacyState: "available",
+  hourlyPrivacyState: "available",
+  capacityAvailable: true,
   allocatedDailyUnits: 100,
   consumedUnits: 40,
   reservedUnits: 10,

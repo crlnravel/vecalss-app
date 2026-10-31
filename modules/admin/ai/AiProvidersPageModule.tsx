@@ -117,11 +117,12 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-secondary-950">Gateway Upstream</h2>
-                <span className="text-xs text-secondary-500">
+                  {data.gateways.length > 0 && <span className="text-xs text-secondary-500">
                    {data.gateways.filter((g) => g.status === "healthy").length} dari {data.gateways.length} gateway aktif
-                </span>
+                </span>}
               </div>
 
+              {data.gateways.length === 0 && <p className="text-sm text-secondary-600">Pengukuran kesehatan penyedia belum tersedia. Tidak ada status koneksi atau kredensial yang dapat diverifikasi dari halaman ini.</p>}
               <div className="grid gap-4 md:grid-cols-3">
                 {data.gateways.map((gw) => {
                   const isHealthy = gw.status === "healthy";
@@ -196,7 +197,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
             </div>
 
             {/* AI Capacity Headroom */}
-            <AiCapacityMeter capacity={data.capacityHeadroom} />
+            {data.capacityHeadroom ? <AiCapacityMeter capacity={data.capacityHeadroom} /> : <p className="text-sm text-secondary-600">Pengukuran kapasitas dan antrean belum tersedia.</p>}
 
             {/* Capability Routing Chain Visualizer */}
             <div>
@@ -209,7 +210,7 @@ export function AiProvidersPageModule({ session }: { session: SessionContext }) 
                 </p>
               </div>
 
-              <AiRoutingChainVisualizer routes={data.capabilityRoutes} />
+              {data.capabilityRoutes.length ? <AiRoutingChainVisualizer routes={data.capabilityRoutes} /> : <p className="text-sm text-secondary-600">Konfigurasi jalur dan pengamatan penyelesaian belum tersedia.</p>}
             </div>
 
           </div>

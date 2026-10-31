@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, ChevronDown } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
@@ -14,15 +13,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 import type { SessionContext } from "@/lib/auth/types";
-import type { VeraAiUsageBreakdownDto } from "@/lib/admin/ai/contracts";
+import type { CostMetrics, VeraAiUsageBreakdownDto } from "@/lib/admin/ai/contracts";
 import { AiControlPlaneNav } from "./components/AiControlPlaneNav";
 import { AiFreshnessBanner } from "./components/AiFreshnessBanner";
 import { AiHourlyLockChart } from "./components/AiHourlyLockChart";
 import { AiRefreshBar } from "./components/AiRefreshBar";
 import { formatAiCurrency, formatAiFeatureLabel } from "./components/AiDisplayLabels";
-
-type MetricOption = "quota_units" | "requests" | "tokens" | "cost";
-type PeriodOption = "today" | "7days" | "30days";
+import { useAiUsage, type MetricOption, type PeriodOption } from "./use-ai-usage";
 
 const METRIC_LABELS: Record<MetricOption, string> = {
   quota_units: "Kuota terpakai",
@@ -37,32 +34,18 @@ const PERIOD_LABELS: Record<PeriodOption, string> = {
   "30days": "30 hari terakhir",
 };
 
-function getUsageRange(period: PeriodOption) {
-  const to = new Date();
-  to.setHours(23, 59, 59, 999);
-  const from = new Date(to);
-  const daysBack = period === "today" ? 0 : period === "7days" ? 6 : 29;
-  from.setHours(0, 0, 0, 0);
-  from.setDate(from.getDate() - daysBack);
-
-  return {
-    from: from.toISOString(),
-    to: to.toISOString(),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Jakarta",
-  };
-}
-
 const RANGE_DATE_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   year: "numeric",
+  timeZone: "Asia/Jakarta",
 });
 
 function formatRange(from: string, to: string) {
   const fromDate = new Date(from);
   const toDate = new Date(to);
   if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return "Periode yang dipilih";
-  return fromDate.toDateString() === toDate.toDateString()
+  return RANGE_DATE_FORMATTER.format(fromDate) === RANGE_DATE_FORMATTER.format(toDate)
     ? RANGE_DATE_FORMATTER.format(fromDate)
     : `${RANGE_DATE_FORMATTER.format(fromDate)} – ${RANGE_DATE_FORMATTER.format(toDate)}`;
 }
@@ -71,47 +54,17 @@ function formatSelectedMetric(data: VeraAiUsageBreakdownDto["items"][number], me
   if (metric === "quota_units") return `${data.quotaUnits.toLocaleString("id-ID")} kuota`;
   if (metric === "requests") return `${data.requests.toLocaleString("id-ID")} API Request`;
   if (metric === "tokens") return `${data.tokens.toLocaleString("id-ID")} Token`;
-  return formatAiCurrency(data.costUsd * 16_000);
+  return data.costAvailable ? formatAiCurrency(data.costUsd * 16_000) : "Biaya belum tersedia";
+}
+
+function formatReportedCost(value: number, state: CostMetrics["state"]) {
+  if (state === "suppressed") return "Disembunyikan untuk menjaga privasi";
+  if (state === "unavailable") return "Belum tersedia";
+  return formatAiCurrency(value);
 }
 
 export function AiUsagePageModule({ session }: { session: SessionContext }) {
-  const [metric, setMetric] = useState<MetricOption>("quota_units");
-  const [period, setPeriod] = useState<PeriodOption>("today");
-  const [data, setData] = useState<VeraAiUsageBreakdownDto | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-
-  const loadUsage = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const range = getUsageRange(period);
-      const params = new URLSearchParams({
-        metric,
-        groupBy: "feature",
-        from: range.from,
-        to: range.to,
-        timezone: range.timezone,
-      });
-      const res = await fetch(`/api/admin/ai/usage?${params.toString()}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Data penggunaan Vera AI belum berhasil dimuat.");
-      const json = (await res.json()) as VeraAiUsageBreakdownDto;
-      setData(json);
-      setLastRefreshedAt(new Date());
-    } catch {
-      setError("Data penggunaan Vera AI belum berhasil dimuat. Segarkan halaman untuk mencoba lagi.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [metric, period]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadUsage();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadUsage]);
+  const { metric, period, data, isLoading, error, lastRefreshedAt, selectMetric, selectPeriod, loadUsage } = useAiUsage();
 
   return (
     <PortalShell
@@ -175,7 +128,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
           <CompactFilterTabs
             aria-label="Ukuran penggunaan"
             items={(Object.keys(METRIC_LABELS) as MetricOption[]).map((option) => ({ label: METRIC_LABELS[option], value: option }))}
-            onValueChange={setMetric}
+            onValueChange={selectMetric}
             value={metric}
           />
 
@@ -189,7 +142,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                 <ChevronDown className="size-3.5 text-secondary-400" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-40">
-                <DropdownMenuRadioGroup value={period} onValueChange={(value) => setPeriod(value as PeriodOption)}>
+                <DropdownMenuRadioGroup value={period} onValueChange={(value) => selectPeriod(value as PeriodOption)}>
                   {(Object.keys(PERIOD_LABELS) as PeriodOption[]).map((option) => (
                     <DropdownMenuRadioItem key={option} value={option}>
                       {PERIOD_LABELS[option]}
@@ -203,6 +156,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
 
         {data && (
           <div className="space-y-6">
+            <p className="text-sm text-secondary-600">Data ditampilkan: {METRIC_LABELS[data.metricSelected]} · {formatRange(data.range.from, data.range.to)} (WIB).</p>
             <AiHourlyLockChart quotaHealth={data.quotaHealth} />
 
             <section className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
@@ -230,12 +184,13 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                           {item.privacyState === "suppressed" ? (
                             <span className="text-secondary-500">Disembunyikan untuk menjaga privasi</span>
                           ) : (
-                            <span className="font-bold text-secondary-950">{formatSelectedMetric(item, metric)} · {item.sharePercentage}%</span>
+                            <span className="font-bold text-secondary-950">{formatSelectedMetric(item, data.metricSelected)}{data.metricSelected !== "cost" || item.costAvailable ? ` · ${item.sharePercentage}%` : ""}</span>
                           )}
                         </div>
                         <div
                           aria-label={item.privacyState === "suppressed"
                             ? `${formatAiFeatureLabel(item.label)}: Data disembunyikan untuk menjaga privasi siswa.`
+                            : data.metricSelected === "cost" && !item.costAvailable ? `${formatAiFeatureLabel(item.label)}: Biaya belum tersedia.`
                             : `${formatAiFeatureLabel(item.label)}: ${item.sharePercentage}% dari total`}
                           className="h-2.5 w-full overflow-hidden rounded-full bg-secondary-100"
                           role="img"
@@ -271,7 +226,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                               <>
                                 <TableCell>{item.requests.toLocaleString("id-ID")}</TableCell>
                                 <TableCell>{item.quotaUnits.toLocaleString("id-ID")}</TableCell>
-                                <TableCell>{formatAiCurrency(item.costUsd * 16_000)}</TableCell>
+                                <TableCell>{item.costAvailable ? formatAiCurrency(item.costUsd * data.cost.exchangeRateIdr) : "Belum tersedia"}</TableCell>
                               </>
                             )}
                           </TableRow>
@@ -286,25 +241,27 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
             <section className="rounded-card border border-primary-100 bg-white p-6 shadow-sm">
               <div className="border-b border-primary-50 pb-4">
                 <h2 className="text-base font-bold text-secondary-950">Perkiraan biaya</h2>
-                <p className="mt-1 text-xs text-secondary-500">Semua angka ditampilkan dalam rupiah agar mudah dibandingkan dengan anggaran bulanan.</p>
+                <p className="mt-1 text-xs text-secondary-500">Biaya tercatat dikonversi dengan kurs acuan Rp{data.cost.exchangeRateIdr.toLocaleString("id-ID")} per dolar AS. Proyeksi mengikuti laju biaya sejak awal bulan (WIB).</p>
+                <p className="mt-1 text-xs text-secondary-500">Periode terpilih: {formatReportedCost(data.cost.spendRangeIdr, data.cost.rangeState)}.</p>
+                {data.cost.rangeState !== "suppressed" && data.cost.state !== "suppressed" && <p className="mt-1 text-xs text-secondary-500">Cakupan biaya periode: {Math.round(data.cost.costCoverage.knownPercentage)}%; bulan ini: {Math.round(data.cost.monthCoveragePercentage)}%. Angka dengan cakupan sebagian hanya mencakup biaya yang sudah tercatat.</p>}
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-4 rounded-card bg-primary-50/40 p-4 sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-secondary-500">Bulan ini</p>
-                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatAiCurrency(data.cost.spendMtdIdr)}</p>
+                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatReportedCost(data.cost.spendMtdIdr, data.cost.state)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-secondary-500">Perkiraan akhir bulan</p>
-                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatAiCurrency(data.cost.projectedEomIdr)}</p>
+                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatReportedCost(data.cost.projectedEomIdr, data.cost.state)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-secondary-500">Anggaran bulanan</p>
-                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{formatAiCurrency(data.cost.monthlyBudgetIdr)}</p>
+                  <p className="mt-1 text-lg font-extrabold text-secondary-950">{data.cost.monthlyBudgetIdr > 0 ? formatAiCurrency(data.cost.monthlyBudgetIdr) : "Belum ditetapkan"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-secondary-500">Perkiraan pemakaian anggaran</p>
-                  <p className="mt-1 text-lg font-extrabold text-primary-800">{data.cost.projectedUtilizationShare}%</p>
+                  <p className="mt-1 text-lg font-extrabold text-primary-800">{data.cost.monthlyBudgetIdr > 0 && (data.cost.state === "available" || data.cost.state === "partial") ? `${data.cost.projectedUtilizationShare}%` : "Belum tersedia"}</p>
                 </div>
               </div>
 
@@ -314,15 +271,17 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                     <TableRow className="bg-primary-50/40">
                       <TableHead className="font-bold text-secondary-950">Fitur</TableHead>
                       <TableHead className="font-bold text-secondary-950">Kuota terpakai</TableHead>
-                      <TableHead className="font-bold text-secondary-950">Perkiraan biaya</TableHead>
+                      <TableHead className="font-bold text-secondary-950">Biaya periode terpilih</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.cost.costByCapability.map((capability) => (
                       <TableRow key={capability.capability}>
                         <TableCell className="font-medium text-secondary-900">{formatAiFeatureLabel(capability.capability)}</TableCell>
-                        <TableCell>{capability.quotaUnits.toLocaleString("id-ID")}</TableCell>
-                        <TableCell>{formatAiCurrency(capability.spendIdr)}</TableCell>
+                        {capability.privacyState === "suppressed" ? <TableCell colSpan={2}>Disembunyikan untuk menjaga privasi siswa.</TableCell> : <>
+                          <TableCell>{capability.quotaUnits.toLocaleString("id-ID")}</TableCell>
+                          <TableCell>{capability.costAvailable ? formatAiCurrency(capability.spendIdr) : "Belum tersedia"}</TableCell>
+                        </>}
                       </TableRow>
                     ))}
                   </TableBody>

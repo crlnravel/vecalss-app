@@ -83,7 +83,7 @@ export type IncidentSummaryItem = {
   label: string;
   count: number;
   rate: number;
-  changePp: number;
+  changePp: number | null;
   severity: IncidentSeverity;
   affectedFeatures?: Array<{ feature: VeraCapability; share: number }>;
   affectedGateways?: Array<{ gateway: VeraGateway; share: number }>;
@@ -94,6 +94,9 @@ export type IncidentSummaryItem = {
 };
 
 export type QuotaHealthState = {
+  privacyState: "available" | "suppressed";
+  hourlyPrivacyState: "available" | "suppressed";
+  capacityAvailable: boolean;
   allocatedDailyUnits: number;
   consumedUnits: number;
   reservedUnits: number;
@@ -102,12 +105,12 @@ export type QuotaHealthState = {
   consumedPercentage: number;
   reservedPercentage: number;
   availablePercentage: number;
-  studentsAtOrAbove80Percent: number;
-  studentsAtOrAbove80PercentShare: number;
+  studentsAtOrAbove80Percent: number | null;
+  studentsAtOrAbove80PercentShare: number | null;
   studentsHardLocked: number;
   hardLockRate: number;
   earlyExhaustionAlert: {
-    status: "normal" | "elevated" | "critical";
+    status: "normal" | "elevated" | "critical" | "unavailable";
     exhaustedBeforeNoonShare: number;
     normalThresholdShare: number;
     message: string;
@@ -132,6 +135,7 @@ export type ReliabilityMetrics = {
   p50TimeToFirstTokenMs: SemanticMetric<number>;
   p95TimeToFirstTokenMs: SemanticMetric<number>;
   gracefulDegradationBreakdown: {
+    available: boolean;
     primaryLlmShare: number;
     alternativeModelShare: number;
     cachedCandidateBankShare: number;
@@ -185,6 +189,11 @@ export type CapabilityRoutingInfo = {
 };
 
 export type CostMetrics = {
+  state: "available" | "partial" | "unavailable" | "suppressed";
+  rangeState: "available" | "partial" | "unavailable" | "suppressed";
+  spendRangeIdr: number;
+  exchangeRateIdr: number;
+  monthCoveragePercentage: number;
   spendMtdIdr: number;
   projectedEomIdr: number;
   monthlyBudgetIdr: number;
@@ -196,6 +205,8 @@ export type CostMetrics = {
     quotaUnits: number;
     costPerUnitUsd: number;
     share: number;
+    privacyState: "available" | "suppressed";
+    costAvailable: boolean;
   }>;
   tokenCoverage: {
     inputTokens: number;
@@ -211,21 +222,18 @@ export type CostMetrics = {
 };
 
 export type FreshnessState = {
-  requests: { asOf: string; label: string; state: "live" | "stale" | "unavailable" };
-  quota: { asOf: string; label: string; state: "live" | "stale" | "unavailable" };
-  cost: { asOf: string; label: string; state: "fresh" | "stale" | "unavailable" };
-  analytics: { asOf: string; label: string; state: "fresh" | "stale" | "unavailable" };
+  requests: { asOf: string; label: string; state: "live" | "snapshot" | "stale" | "unavailable" };
+  quota: { asOf: string; label: string; state: "live" | "snapshot" | "stale" | "unavailable" };
+  cost: { asOf: string; label: string; state: "fresh" | "snapshot" | "stale" | "unavailable" | "partial" | "suppressed" };
+  analytics: { asOf: string; label: string; state: "fresh" | "snapshot" | "stale" | "unavailable" };
 };
 
 export type VeraAiOverviewDto = {
-  systemStatus: "healthy" | "warning" | "degraded";
+  systemStatus: "healthy" | "warning" | "degraded" | "unavailable";
   activePolicy: {
     bundleVersion: string;
     activatedAt: string;
-    dailyQuota: number;
-    burst: string;
-    concurrency: number;
-  };
+  } | null;
   freshness: FreshnessState;
   kpis: {
     requestsToday: SemanticMetric<number>;
@@ -238,17 +246,15 @@ export type VeraAiOverviewDto = {
   requestsOverTime: Array<{
     timestamp: string;
     timeLabel: string;
-    succeeded: number;
-    fallback: number;
-    failed: number;
-    pendingOrStaged: number;
+    total: number;
   }>;
+  timeSeriesPrivacyState: "available" | "suppressed";
   quotaHealth: QuotaHealthState;
   reliabilitySummary: {
-    successRate: number;
-    fallbackRate: number;
-    p95LatencySec: number;
-    p95TimeToFirstTokenSec: number;
+    successRate: number | null;
+    fallbackRate: number | null;
+    p95LatencySec: number | null;
+    p95TimeToFirstTokenSec: number | null;
   };
   featureUsageBreakdown: Array<{
     capability: VeraCapability;
@@ -273,6 +279,7 @@ export type VeraAiUsageBreakdownDto = {
     quotaUnits: number;
     tokens: number;
     costUsd: number;
+    costAvailable: boolean;
     sharePercentage: number;
     privacyState: "available" | "suppressed";
     suppressionMessage?: string;
@@ -282,6 +289,7 @@ export type VeraAiUsageBreakdownDto = {
 };
 
 export type VeraAiReliabilityDto = {
+  privacyState: "available" | "suppressed";
   range: { from: string; to: string; timezone: string };
   freshness: FreshnessState;
   requestClassification: {
@@ -310,6 +318,6 @@ export type VeraAiReliabilityDto = {
 export type VeraAiProvidersDto = {
   freshness: FreshnessState;
   gateways: GatewayHealthInfo[];
-  capacityHeadroom: SystemCapacityMetrics;
+  capacityHeadroom: SystemCapacityMetrics | null;
   capabilityRoutes: CapabilityRoutingInfo[];
 };

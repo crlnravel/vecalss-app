@@ -44,7 +44,7 @@ function MetricCoverageBadge({ metric }: { metric: ActiveMetric }) {
 }
 
 function MetricTrendValue({ delta, unit }: { delta: number | null | undefined; unit?: string }) {
-  if (delta === undefined || delta === null) return <span className="text-secondary-400">Stabil</span>;
+  if (delta === undefined || delta === null) return <span className="text-secondary-500">Pembanding belum tersedia</span>;
   const isPositive = delta >= 0;
   const isNeutral = delta === 0;
   return <div className={cn("flex items-center gap-1 font-bold", isNeutral ? "text-secondary-500" : isPositive ? "text-primary-700" : "text-danger-600")}>

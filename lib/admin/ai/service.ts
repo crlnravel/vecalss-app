@@ -3,214 +3,75 @@ import "server-only";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
-  buildVeraAiOverviewDto,
-  buildVeraAiProvidersDto,
-  buildVeraAiReliabilityDto,
-  buildVeraAiUsageDto,
+  buildVeraAiOverviewDto, buildVeraAiProvidersDto, buildVeraAiReliabilityDto, buildVeraAiUsageDto,
   type AggregateComputationInput,
-  type RawAiAdmissionRecord,
-  type RawAiRequestRecord,
 } from "./aggregators";
-import type {
-  VeraAiOverviewDto,
-  VeraAiProvidersDto,
-  VeraAiReliabilityDto,
-  VeraAiUsageBreakdownDto,
-} from "./contracts";
+import { startOfWibDay, startOfWibMonth } from "./periods";
 
-const ACTIVE_POLICY_ACTIVATED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function parseUsageDate(value: string | undefined, endOfDay = false) {
-  if (!value) return undefined;
-
-  const normalized = value.trim();
-  const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
-    ? `${normalized}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`
-    : normalized;
-  const parsed = new Date(isoDate);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-}
+// Explicit projections exclude prompts, messages, responses and credential material.
+const REQUEST_FIELDS = {
+  id: true, studentId: true, createdAt: true, featureKey: true, gateway: true,
+  upstreamProvider: true, model: true, status: true, inputTokens: true, outputTokens: true,
+  quotaUnitsReserved: true, quotaUnitsConsumed: true, quotaOverrunUnits: true,
+  tokenUsageState: true, latencyMs: true, timeToFirstTokenMs: true,
+  chargedProviderCostUsdMicros: true, errorCode: true,
+} as const;
+const ADMISSION_FIELDS = {
+  id: true, studentId: true, occurredAt: true, featureKey: true, gateway: true,
+  upstreamProvider: true, model: true, reason: true,
+} as const;
 
 export class VeraAiControlPlaneService {
-  constructor(private readonly prisma: PrismaClient = defaultPrisma) {}
+  constructor(private readonly prisma: PrismaClient = defaultPrisma, private readonly clock = () => new Date()) {}
 
-  private async fetchTelemetry(options?: {
-    from?: Date;
-    to?: Date;
-  }): Promise<AggregateComputationInput> {
-    const now = new Date();
+  private async fetchTelemetry(options?: { from?: Date; to?: Date; now?: Date }): Promise<AggregateComputationInput> {
+    const now = options?.now ?? this.clock();
     const to = options?.to ?? now;
-    const from = options?.from ?? new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const from = options?.from ?? startOfWibDay(now);
     const prevFrom = new Date(from.getTime() - (to.getTime() - from.getTime()));
-
-    // Strict projection: NEVER select message, prompt, or response content!
-    const [dbRequests, prevDbRequests, dbAdmissions, activePolicy] = await Promise.all([
-      this.prisma.aiRequest.findMany({
-        where: {
-          createdAt: { gte: from, lte: to },
-        },
-        select: {
-          id: true,
-          studentId: true,
-          createdAt: true,
-          featureKey: true,
-          gateway: true,
-          upstreamProvider: true,
-          model: true,
-          status: true,
-          inputTokens: true,
-          outputTokens: true,
-          quotaUnitsReserved: true,
-          quotaUnitsConsumed: true,
-          quotaOverrunUnits: true,
-          tokenUsageState: true,
-          latencyMs: true,
-          timeToFirstTokenMs: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10000,
-      }),
-      this.prisma.aiRequest.findMany({
-        where: {
-          createdAt: { gte: prevFrom, lt: from },
-        },
-        select: {
-          id: true,
-          studentId: true,
-          createdAt: true,
-          featureKey: true,
-          gateway: true,
-          upstreamProvider: true,
-          model: true,
-          status: true,
-          inputTokens: true,
-          outputTokens: true,
-          quotaUnitsReserved: true,
-          quotaUnitsConsumed: true,
-          quotaOverrunUnits: true,
-          tokenUsageState: true,
-          latencyMs: true,
-          timeToFirstTokenMs: true,
-        },
-        take: 10000,
-      }),
-      this.prisma.aiAdmissionEvent.findMany({
-        where: {
-          occurredAt: { gte: from, lte: to },
-        },
-        select: {
-          id: true,
-          studentId: true,
-          occurredAt: true,
-          featureKey: true,
-          gateway: true,
-          upstreamProvider: true,
-          model: true,
-          reason: true,
-        },
-        orderBy: { occurredAt: "desc" },
-        take: 10000,
-      }),
-      this.prisma.aiPolicyBundle.findFirst({
-        where: { state: "active" },
-        orderBy: { effectiveAt: "desc" },
-        select: {
-          bundleVersion: true,
-          effectiveAt: true,
-        },
-      }),
+    const today = startOfWibDay(now);
+    const [requests, previousRequests, admissions, activePolicy, monthRequests, todayRequests, todayAdmissions] = await Promise.all([
+      this.prisma.aiRequest.findMany({where:{createdAt:{gte:from,lte:to}},select:REQUEST_FIELDS}),
+      this.prisma.aiRequest.findMany({where:{createdAt:{gte:prevFrom,lt:from}},select:REQUEST_FIELDS}),
+      this.prisma.aiAdmissionEvent.findMany({where:{occurredAt:{gte:from,lte:to}},select:ADMISSION_FIELDS}),
+      this.prisma.aiPolicyBundle.findFirst({where:{state:"active"},orderBy:{effectiveAt:"desc"},select:{bundleVersion:true,effectiveAt:true}}),
+      // Month and daily quota sources are independent of the selected feature-report range.
+      this.prisma.aiRequest.findMany({where:{createdAt:{gte:startOfWibMonth(now),lte:now}},select:REQUEST_FIELDS}),
+      this.prisma.aiRequest.findMany({where:{createdAt:{gte:today,lte:now}},select:REQUEST_FIELDS}),
+      this.prisma.aiAdmissionEvent.findMany({where:{occurredAt:{gte:today,lte:now}},select:ADMISSION_FIELDS}),
     ]);
-
-    const requests: RawAiRequestRecord[] = dbRequests.map((r) => ({
-      id: r.id,
-      studentId: r.studentId,
-      createdAt: r.createdAt,
-      featureKey: r.featureKey,
-      gateway: r.gateway,
-      upstreamProvider: r.upstreamProvider,
-      model: r.model,
-      status: r.status,
-      inputTokens: r.inputTokens,
-      outputTokens: r.outputTokens,
-      quotaUnitsReserved: r.quotaUnitsReserved,
-      quotaUnitsConsumed: r.quotaUnitsConsumed,
-      quotaOverrunUnits: r.quotaOverrunUnits,
-      tokenUsageState: r.tokenUsageState,
-      latencyMs: r.latencyMs,
-      timeToFirstTokenMs: r.timeToFirstTokenMs,
-    }));
-
-    const previousRequests: RawAiRequestRecord[] = prevDbRequests.map((r) => ({
-      id: r.id,
-      studentId: r.studentId,
-      createdAt: r.createdAt,
-      featureKey: r.featureKey,
-      gateway: r.gateway,
-      upstreamProvider: r.upstreamProvider,
-      model: r.model,
-      status: r.status,
-      inputTokens: r.inputTokens,
-      outputTokens: r.outputTokens,
-      quotaUnitsReserved: r.quotaUnitsReserved,
-      quotaUnitsConsumed: r.quotaUnitsConsumed,
-      quotaOverrunUnits: r.quotaOverrunUnits,
-      tokenUsageState: r.tokenUsageState,
-      latencyMs: r.latencyMs,
-      timeToFirstTokenMs: r.timeToFirstTokenMs,
-    }));
-
-    const admissions: RawAiAdmissionRecord[] = dbAdmissions.map((a) => ({
-      id: a.id,
-      studentId: a.studentId,
-      occurredAt: a.occurredAt,
-      featureKey: a.featureKey,
-      gateway: a.gateway,
-      upstreamProvider: a.upstreamProvider,
-      model: a.model,
-      reason: a.reason,
-    }));
-
-    return {
-      requests,
-      admissions,
-      previousRequests,
-      now,
-      activePolicyVersion: activePolicy?.bundleVersion ?? "VERA-POLICY-027",
-      activePolicyActivatedAt: activePolicy?.effectiveAt
-        ? ACTIVE_POLICY_ACTIVATED_AT_FORMATTER.format(activePolicy.effectiveAt)
-        : "27 Aug 2026, 14:20 WIB",
+    return { requests, previousRequests, admissions, monthRequests, todayRequests, todayAdmissions,
+      now, activePolicyVersion: activePolicy?.bundleVersion,
+      activePolicyActivatedAt: activePolicy?.effectiveAt?.toISOString(),
     };
   }
 
-  async getOverview(): Promise<VeraAiOverviewDto> {
-    const telemetry = await this.fetchTelemetry();
-    return buildVeraAiOverviewDto(telemetry);
+  async getOverview() {
+    return buildVeraAiOverviewDto(await this.fetchTelemetry());
   }
 
   async getUsage(options?: {
     metric?: "quota_units" | "requests" | "tokens" | "cost";
     groupBy?: "feature" | "model" | "gateway" | "status";
-    from?: string;
-    to?: string;
-    timezone?: string;
-  }): Promise<VeraAiUsageBreakdownDto> {
-    const requestedTo = parseUsageDate(options?.to, true);
-    const requestedFrom = parseUsageDate(options?.from);
-    const from = requestedFrom ?? (requestedTo ? new Date(requestedTo.getTime() - 24 * 60 * 60 * 1000) : undefined);
-    const telemetry = from || requestedTo ? await this.fetchTelemetry({ from, to: requestedTo }) : await this.fetchTelemetry();
-    return buildVeraAiUsageDto(telemetry, options);
+    from?: string; to?: string; timezone?: string;
+  }) {
+    const now = this.clock();
+    const from = options?.from ? new Date(options.from) : startOfWibDay(now);
+    const to = options?.to ? new Date(Math.min(new Date(options.to).getTime(), now.getTime())) : now;
+    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to || to.getTime() - from.getTime() > 31 * 86400000) {
+      throw new Error("Invalid usage range");
+    }
+    const telemetry = await this.fetchTelemetry({from,to,now});
+    return buildVeraAiUsageDto(telemetry,{...options,from:from.toISOString(),to:to.toISOString()});
   }
 
-  async getReliability(): Promise<VeraAiReliabilityDto> {
-    const telemetry = await this.fetchTelemetry();
-    return buildVeraAiReliabilityDto(telemetry);
+  async getReliability() {
+    return buildVeraAiReliabilityDto(await this.fetchTelemetry());
   }
 
-  async getProviders(): Promise<VeraAiProvidersDto> {
-    return buildVeraAiProvidersDto(new Date());
+  async getProviders() {
+    // No current health probe, credential audit or capacity source is connected.
+    return buildVeraAiProvidersDto(this.clock());
   }
 }
 
