@@ -32,10 +32,10 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
     if (group) group.sections.push(section.sequenceNo); else groups.push({ message, sections: [section.sequenceNo] });
     return groups;
   }, []);
-  if (initial.state === "released" || (calculated && !busy && !unresolved)) {
+  if (initial.state === "released") {
     return (
       <div className="grid gap-2 text-sm leading-6 text-secondary-700">
-        <p role="status">{initial.state === "released" ? initial.message : "Skor sudah tersimpan. Hasil peserta mengikuti aturan rilis sesi."}</p>
+        <p>{initial.message}</p>
         {!readOnly && flow.refreshFailed ? <Button className="min-h-11 w-fit" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
       </div>
     );
@@ -51,7 +51,7 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
           <Button className="min-h-11" disabled={retained || busy} type="submit">{state.phase === "writing" ? "Menghitung…" : "Pulihkan dan hitung skor"}</Button>
         </form> : null}
         {unresolved || state.phase === "reading" ? <section aria-label="Pemulihan perhitungan" className="grid gap-3 text-sm leading-6"><p>{state.message ?? "Periksa status perhitungan yang dikirim."}</p><div className="flex flex-wrap gap-2"><Button className="min-h-11" disabled={busy} onClick={() => void flow.inspect()} variant="outline">{state.phase === "reading" ? "Memeriksa…" : "Periksa status"}</Button>{state.phase === "retry" ? <Button className="min-h-11" disabled={busy || state.writePending} onClick={() => void flow.replay()}>Kirim ulang perhitungan yang sama</Button> : null}</div></section> : null}
-        {!readOnly && (calculated || flow.refreshFailed) ? <Button className="min-h-11" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
+        {!readOnly && flow.refreshFailed ? <Button className="min-h-11" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
       </CardContent>
     </Card>
   );

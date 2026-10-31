@@ -22,9 +22,6 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import {
-  AssessmentReleaseNotice,
-} from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { reconcileTryoutDisconnectAction, startTryoutDisconnectAction } from "@/modules/mentor/tryout-actions";
 import type { TryoutResultRecoverySnapshot } from "@/lib/tryout/result-recovery";
 import { TryoutAttemptResultRecovery } from "@/modules/mentor/components/tryout-attempt-result-recovery";
@@ -140,7 +137,6 @@ function KaptenTryoutAttemptDetailPageModule({
     <div className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <ReferencePageHeader actions={<StatusBadge status={attempt.status} />} className="min-w-0" title={attempt.student} />}
       {embedded && readOnly ? <ReferenceSectionHeading action={<StatusBadge status={attempt.status} />} title={attempt.student} /> : null}
-      {readOnly ? null : <AssessmentReleaseNotice label="Konten yang digunakan" missingDescription="Versi konten untuk pengerjaan ini belum tersedia. Periksa kembali detail sesi Tryout." release={attempt.assessmentRelease} />}
       <div className="mt-5 grid gap-5">
         <div className={cn("grid gap-5", !readOnly && "xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]")}>
           <AttemptRunsSection attempt={attempt} />
