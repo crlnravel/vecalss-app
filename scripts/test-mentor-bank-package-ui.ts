@@ -28,10 +28,10 @@ assert.doesNotMatch(bankCatalogue, /role="tablist"|aria-label="Tujuan Bank Soal"
 assert.doesNotMatch(bankCatalogue, /Koleksi utama/u, "Root copy should not use the superseded collection label");
 assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on the shell's single page landmark");
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
-assert.match(bankCatalogueTable, /import \{ MentorAssessmentGrid,[\s\S]*?from "\.\/mentor-assessment-table";[\s\S]*?<MentorAssessmentGrid table=\{table\}/u, "Bank Soal should use the shared assessment grid");
+assert.match(bankCatalogueTable, /import \{[^}]*\bMentorAssessmentGrid\b[^}]*\} from "\.\/mentor-assessment-table";[\s\S]*?<MentorAssessmentGrid table=\{table\}/u, "Bank Soal should use the shared assessment grid");
 assert.match(bankCatalogueTable, /<MentorAssessmentGrid table=\{table\} caption="Daftar folder dan bank soal"/u, "Bank Soal should expose one integrated table caption");
 assert.match(mentorAssessmentTable, /<TableCaption className=\{styles\.srOnly\}>\{caption\}<\/TableCaption>/u, "The shared assessment grid should render its accessible table caption");
-assert.match(bankCatalogueTable, /<section className=\{styles\.panel\} aria-label="Daftar folder dan bank soal" aria-busy=\{busy\}/u, "Bank Soal should announce when catalogue actions or fetches are busy");
+assert.match(bankCatalogueTable, /<MentorAssessmentPanel label="Daftar folder dan bank soal" busy=\{busy\}/u, "Bank Soal should announce when catalogue actions or fetches are busy");
 assert.match(bankCatalogueTable, /loadingState=\{state\.isCataloguePending \? <span role="status" aria-live="polite">Memuat bank soal…<\/span> : undefined\}/u, "Bank Soal should show its product loading message while the catalogue fetches");
 assert.match(mentorAssessmentTable, /loadingState \? <TableRow[\s\S]*?\{loadingState\}/u, "The shared assessment grid should render the catalogue loading state");
 assert.match(dataTable, /isLoading\?: boolean/u, "DataTable should accept an external loading state");
@@ -46,7 +46,8 @@ assert.match(bankCatalogue, /kind: "folder"/u, "The integrated Bank Soal table s
 assert.match(bankCatalogue, /kind: "bank"/u, "The integrated Bank Soal table should include bank rows");
 assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
 assert.match(bankCatalogue, /initialSort = "updated"/u, "Bank Soal should hydrate sort from the URL");
-assert.match(bankCatalogueTable, /<form className=\{styles\.search\} onSubmit=\{\(event\) => \{ event\.preventDefault\(\); navigate\(\{ query: String\(new FormData\(event\.currentTarget\)\.get\("q"\) \?\? ""\) \}\); \}\}>[\s\S]*?<Input[^>]*name="q"[^>]*placeholder="Cari bank soal…"/u, "Bank Soal should submit the search query from its catalogue control");
+assert.match(bankCatalogueTable, /<MentorAssessmentSearch[^>]*onSearch=\{\(query\) => navigate\(\{ query \}\)\}[^>]*placeholder="Cari bank soal…"/u, "Bank Soal should submit the search query from its catalogue control");
+assert.match(mentorAssessmentTable, /<form className=\{styles\.search\} onSubmit=\{\(event\) => \{ event\.preventDefault\(\); onSearch\?\.\(String\(new FormData\(event\.currentTarget\)\.get\("q"\) \?\? ""\)\); \}\}>/u, "The shared assessment search should submit its query through the form");
 assert.match(bankCataloguePage, /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
 assert.match(bankCataloguePage, /function getQuestionBankFolderId\(folder: string \| undefined\) \{\s*if \(!folder \|\| folder === "root" \|\| folder === "unfiled"\) return null;/u, "The root and unfiled catalogue selection should resolve to the no-folder query");
 assert.match(bankCataloguePage, /sort: requestedSort/u, "Question bank sorting should be server-side");

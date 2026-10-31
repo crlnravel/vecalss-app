@@ -138,8 +138,8 @@ assert.match(actions, /unpublishTryoutAction/u, "Tryout unpublish must be expose
 assert.match(attemptRepository, /status !== ContentStatus\.published[\s\S]*memulai attempt baru/u, "unpublished Tryouts must reject new participant attempts");
 assert.match(catalogue, /aria-label="Tryout terkunci"[\s\S]*<Lock aria-hidden/u, "Tryout catalogue locks must remain accessible while rendering icon-only");
 assert.doesNotMatch(catalogue, />Terkunci</u, "Tryout catalogue must remove the visible Terkunci label");
-assert.match(catalogue, /<Link[\s\S]*aria-label=\{`Buka \$\{item\.title\}`\}[\s\S]*href=\{`\/mentor\/tryout\/\$\{item\.id\}`\}/u, "Tryout catalogue cards must have one whole-card destination");
-assert.doesNotMatch(catalogue, /Buka operasional|\/operations`\}/u, "Tryout catalogue cards must not contain a competing operational destination");
+assert.match(catalogue, /<Link[\s\S]*aria-label=\{[\s\S]*`Buka \$\{item\.title\}`[\s\S]*href=\{withTryoutCatalogueReturn\(\s*`\/mentor\/tryout\/\$\{item\.id\}`/u, "Tryout catalogue rows must have one title destination");
+assert.doesNotMatch(catalogue, /Buka operasional|\/operations`\}/u, "Tryout catalogue rows must not contain a competing operational destination");
 assert.match(workspace, /KaptenTryoutOperationsModule embedded/u, "Operasional must render inside the shared workspace");
 assert.match(workspace, /aria-labelledby="tryout-operations-title"[\s\S]*id="tryout-operations-title"[\s\S]*Operasional/u, "Operasional must have a title inside the shared workspace card");
 assert.match(sessionDetail, /Waktu akses peserta/u, "Operasional must focus on schedule and access inside the workspace");

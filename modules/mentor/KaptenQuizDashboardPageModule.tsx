@@ -1,13 +1,10 @@
 "use client";
 
-import { Funnel } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { QuizDashboardMutation } from "@/lib/quiz/mentor-dashboard-repository";
 import { UserCardPopover } from "@/components/ui/user-card-popover";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -34,14 +31,11 @@ import { useRef, useState, useTransition } from "react";
 import {
   Archive,
   Trash2,
-  Check,
   ChevronDown,
   Eye,
   EyeOff,
   MoreHorizontal,
   Plus,
-  Search,
-  X,
 } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { showToast } from "@/components/ui/toast";
@@ -54,7 +48,20 @@ import {
   type QuizDashboardResult,
   type QuizDashboardRow,
 } from "@/modules/mentor/quiz-dashboard-contract";
-import { MentorGridMenu, MentorAssessmentGrid, MentorAssessmentPagination } from "./components/mentor-assessment-table";
+import {
+  MentorAssessmentFeedback,
+  MentorAssessmentGrid,
+  MentorAssessmentPagination,
+  MentorAssessmentPanel,
+  MentorAssessmentSearch,
+  MentorAssessmentToolbar,
+  MentorBulkMenu,
+  MentorFilterChips,
+  MentorFilterMenu,
+  MentorGridMenu,
+  MentorStatusFilterMenu,
+  mentorSelectionColumn,
+} from "./components/mentor-assessment-table";
 import styles from "./quiz-dashboard.module.css";
 
 const publicationLabels = {
@@ -181,29 +188,12 @@ export function KaptenQuizDashboardPageModule({
     }
   }
   const columns: ColumnDef<QuizDashboardRow>[] = [
-    {
-      id: "select",
-      size: 40,
-      header: ({ table }) => (
-        <Checkbox
-          aria-label="Pilih semua kuis di halaman ini"
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(checked) =>
-            table.toggleAllPageRowsSelected(checked)
-          }
-          disabled={pending || saving || !result.rows.length}
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          aria-label={`Pilih ${row.original.title}`}
-          checked={row.getIsSelected()}
-          onCheckedChange={(checked) => row.toggleSelected(checked)}
-          disabled={pending || saving}
-        />
-      ),
-    },
+    mentorSelectionColumn<QuizDashboardRow>({
+      allLabel: "Pilih semua kuis di halaman ini",
+      disabled: pending || saving,
+      hasRows: result.rows.length > 0,
+      rowLabel: (row) => `Pilih ${row.title}`,
+    }),
     {
       accessorKey: "title",
       size: 350,
@@ -406,116 +396,80 @@ export function KaptenQuizDashboardPageModule({
           </Button>
         }
       />
-      <section
-        className={styles.panel}
-        aria-label="Daftar kuis"
-        aria-busy={pending || saving}
-        data-quiz-dashboard
-      >
-        <div className={styles.toolbar} data-selected={selectedIds.length > 0}>
-          <form
-            className={styles.search}
-            onSubmit={(event) => {
-              event.preventDefault();
-              navigate({
-                q: String(new FormData(event.currentTarget).get("q") ?? ""),
-              });
-            }}
-          >
-            <Search aria-hidden="true" />
-            <Input
-              className="pl-9"
-              name="q"
-              key={query.q}
-              defaultValue={query.q}
-              placeholder="Cari kuis…"
-              aria-label="Cari kuis berdasarkan judul atau subtes"
-              type="search"
+      <MentorAssessmentPanel label="Daftar kuis" busy={pending || saving}>
+        <MentorAssessmentToolbar
+          hasSelection={selectedIds.length > 0}
+          search={
+            <MentorAssessmentSearch
               disabled={pending}
+              label="Cari kuis berdasarkan judul atau subtes"
+              onSearch={(q) => navigate({ q })}
+              placeholder="Cari kuis…"
+              value={query.q}
             />
-          </form>
-          <div className={styles.filters}>
-            <MentorGridMenu
-              className={styles.subject}
-              label="Filter subtes"
-              trigger={
-                <>
-                  {query.subject && query.subject !== "all"
-                    ? query.subject
-                    : "Semua subtes"}
-                  <ChevronDown />
-                </>
-              }
-            >
-              <DropdownMenuItem
-                size="sm"
-                onClick={() => navigate({ subject: "all" })}
-              >
-                Semua subtes
-              </DropdownMenuItem>
-              {subjects.map((subject) => (
-                <DropdownMenuItem
-                  size="sm"
-                  key={subject.code}
-                  onClick={() => navigate({ subject: subject.code })}
-                >
-                  {subject.code} — {subject.name}
-                  {query.subject === subject.code && <Check />}
-                </DropdownMenuItem>
-              ))}
-            </MentorGridMenu>
-            <MentorGridMenu
-              label="Filter status"
-              trigger={
-                <>
-                  <Funnel />
-                  Status
-                  {activeFilters.filter((filter) => filter.key !== "subject")
-                    .length > 0 && (
-                    <Badge size="xs" tone="neutral">
-                      {
-                        activeFilters.filter(
-                          (filter) => filter.key !== "subject",
-                        ).length
-                      }
-                    </Badge>
-                  )}
-                </>
-              }
-            >
-              <DropdownMenuItem
-                size="sm"
-                onClick={() =>
-                  navigate({ status: "", hidden: false, changed: false })
+          }
+          filters={
+            <>
+              <MentorFilterMenu
+                className={styles.subject}
+                label="Filter subtes"
+                trigger={
+                  <>
+                    {query.subject && query.subject !== "all"
+                      ? query.subject
+                      : "Semua subtes"}
+                    <ChevronDown />
+                  </>
                 }
-              >
-                Semua{!query.status && <Check />}
-              </DropdownMenuItem>
-              {Object.entries(publicationLabels).map(([value, label]) => (
-                <DropdownMenuItem
-                  size="sm"
-                  key={value}
-                  onClick={() =>
-                    navigate({
-                      status: value as QuizDashboardQuery["status"],
-                      hidden: false,
-                      changed: false,
-                    })
-                  }
-                >
-                  {label}
-                  {query.status === value && <Check />}
-                </DropdownMenuItem>
-              ))}
-            </MentorGridMenu>
-          </div>
-          {selectedIds.length > 0 && (
-            <div className={styles.bulkTools}>
-              <MentorGridMenu
-                className={styles.iconButton}
+                options={[
+                  {
+                    key: "all",
+                    label: "Semua subtes",
+                    onSelect: () => navigate({ subject: "all" }),
+                  },
+                  ...subjects.map((subject) => ({
+                    key: subject.code,
+                    label: `${subject.code} — ${subject.name}`,
+                    active: query.subject === subject.code,
+                    onSelect: () => navigate({ subject: subject.code }),
+                  })),
+                ]}
+              />
+              <MentorStatusFilterMenu
+                activeCount={
+                  activeFilters.filter((filter) => filter.key !== "subject")
+                    .length
+                }
+                options={[
+                  {
+                    key: "all",
+                    label: "Semua",
+                    active: !query.status,
+                    onSelect: () =>
+                      navigate({ status: "", hidden: false, changed: false }),
+                  },
+                  ...Object.entries(publicationLabels).map(
+                    ([value, label]) => ({
+                      key: value,
+                      label,
+                      active: query.status === value,
+                      onSelect: () =>
+                        navigate({
+                          status: value as QuizDashboardQuery["status"],
+                          hidden: false,
+                          changed: false,
+                        }),
+                    }),
+                  ),
+                ]}
+              />
+            </>
+          }
+          bulk={
+            selectedIds.length > 0 ? (
+              <MentorBulkMenu
                 disabled={pending || saving}
                 label={`Tindakan ${selectedIds.length} kuis terpilih`}
-                trigger={<MoreHorizontal size={16} />}
               >
                 <DropdownMenuItem
                   size="sm"
@@ -555,65 +509,31 @@ export function KaptenQuizDashboardPageModule({
                   <Trash2 />
                   Hapus
                 </DropdownMenuItem>
-              </MentorGridMenu>
-            </div>
-          )}
-        </div>
-        {activeFilters.length > 0 && (
-          <div className={styles.chips} aria-label="Filter aktif">
-            {activeFilters.map((filter) => (
-              <Button
-                key={filter.key}
-                type="button"
-                size="sm"
-                variant="quiet"
-                className="px-0"
-                aria-label={`Hapus filter ${filter.label}`}
-                onClick={() => navigate({ [filter.key]: filter.reset })}
-              >
-                <Badge size="sm" tone="category">
-                  {filter.label}
-                  <X className="size-3" aria-hidden="true" />
-                </Badge>
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              variant="quiet"
-              type="button"
-              onClick={() =>
-                navigate({
-                  subject: "all",
-                  status: "",
-                  hidden: false,
-                  changed: false,
-                })
-              }
-            >
-              Hapus semua
-            </Button>
-          </div>
-        )}
+              </MentorBulkMenu>
+            ) : null
+          }
+        />
+        <MentorFilterChips
+          chips={activeFilters.map((filter) => ({
+            key: filter.key,
+            label: filter.label,
+            onRemove: () => navigate({ [filter.key]: filter.reset }),
+          }))}
+          onClearAll={() =>
+            navigate({
+              subject: "all",
+              status: "",
+              hidden: false,
+              changed: false,
+            })
+          }
+        />
         {feedback && (
-          <div className={styles.feedback} role="status">
-            <div>
-              <p>Kuis berikut belum berhasil diproses:</p>
-              <ul>
-                {feedback.map((failure, index) => (
-                  <li key={index}>{failure}</li>
-                ))}
-              </ul>
-            </div>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="quiet"
-              aria-label="Tutup pemberitahuan"
-              onClick={() => setFeedback(null)}
-            >
-              <X size={16} />
-            </Button>
-          </div>
+          <MentorAssessmentFeedback
+            heading="Kuis berikut belum berhasil diproses:"
+            items={feedback}
+            onClose={() => setFeedback(null)}
+          />
         )}
         <MentorAssessmentGrid
           table={table}
@@ -677,7 +597,7 @@ export function KaptenQuizDashboardPageModule({
           onPageChange={(page) => navigate({ page })}
           onPageSizeChange={(pageSize) => navigate({ pageSize })}
         />
-      </section>
+      </MentorAssessmentPanel>
       <MentorQuizCreateDialog
         initialSubjectCode={
           query.subject && query.subject !== "all" ? query.subject : undefined

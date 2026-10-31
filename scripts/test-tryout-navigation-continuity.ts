@@ -6,8 +6,12 @@ const catalogue = "/mentor/tryout?q=UTBK+%26+logika&status=draft&page=3";
 const query = (href: string) => new URL(href, "http://local").searchParams;
 assert.deepEqual(readTryoutCatalogueContext(query(catalogue)), { q: "UTBK & logika", status: "draft", page: 3 });
 assert.equal(buildTryoutCatalogueHref(readTryoutCatalogueContext(query(catalogue))), catalogue);
-assert.deepEqual(readTryoutCatalogueContext(query("/?status=oops&page=-1")), { q: "", status: "", page: 1 });
-assert.equal(buildTryoutCatalogueHref({ q: "", status: "", page: 1 }), "/mentor/tryout");
+assert.deepEqual(readTryoutCatalogueContext(query("/?status=oops&page=-1")), { q: "", status: "published", page: 1 });
+assert.deepEqual(readTryoutCatalogueContext(query("/")), { q: "", status: "published", page: 1 });
+assert.deepEqual(readTryoutCatalogueContext(query("/?status=all")), { q: "", status: "", page: 1 });
+assert.deepEqual(readTryoutCatalogueContext(query("/?status=hidden")), { q: "", status: "hidden", page: 1 });
+assert.equal(buildTryoutCatalogueHref({ q: "", status: "", page: 1 }), "/mentor/tryout?status=all");
+assert.equal(buildTryoutCatalogueHref({ q: "", status: "published", page: 1 }), "/mentor/tryout?status=published");
 for (const unsafe of ["https://evil.test/mentor/tryout", "//evil.test/mentor/tryout", "/mentor/tryout/other", "/mentor/tryout/../settings", "javascript:alert(1)"]) {
   assert.equal(tryoutCatalogueReturnHref(unsafe), undefined);
   assert.equal(withTryoutCatalogueReturn("/mentor/tryout/exam", unsafe), "/mentor/tryout/exam");

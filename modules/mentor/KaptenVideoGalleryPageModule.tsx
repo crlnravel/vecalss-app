@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
-import { Funnel } from "@phosphor-icons/react";
 import {
   getCoreRowModel,
   useReactTable,
@@ -14,18 +13,14 @@ import {
 import {
   Archive,
   ArrowUpRight,
-  Check,
   ChevronDown,
   MoreHorizontal,
   Plus,
   RotateCcw,
-  Search,
   Trash2,
-  X,
 } from "@/lib/icons";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +41,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/toast";
 import type { SessionContext } from "@/lib/auth/types";
 import {
@@ -68,7 +61,15 @@ import {
 } from "@/modules/video/video-gallery-data";
 import {
   MentorAssessmentGrid,
+  MentorAssessmentPanel,
+  MentorAssessmentSearch,
+  MentorAssessmentToolbar,
+  MentorBulkMenu,
+  MentorFilterChips,
+  MentorFilterMenu,
   MentorGridMenu,
+  MentorStatusFilterMenu,
+  mentorSelectionColumn,
 } from "@/modules/mentor/components/mentor-assessment-table";
 import {
   emptyVideoDraft,
@@ -470,29 +471,12 @@ function KaptenVideoGalleryPageModule({
   }
 
   const columns: ColumnDef<VideoGalleryItem>[] = [
-    {
-      id: "select",
-      size: 40,
-      header: ({ table }) => (
-        <Checkbox
-          aria-label="Pilih semua video di halaman ini"
-          checked={table.getIsAllPageRowsSelected()}
-          disabled={isPending || !filteredVideos.length}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(checked) =>
-            table.toggleAllPageRowsSelected(checked)
-          }
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          aria-label={`Pilih ${row.original.title}`}
-          checked={row.getIsSelected()}
-          disabled={isPending}
-          onCheckedChange={(checked) => row.toggleSelected(checked)}
-        />
-      ),
-    },
+    mentorSelectionColumn<VideoGalleryItem>({
+      allLabel: "Pilih semua video di halaman ini",
+      disabled: isPending,
+      hasRows: filteredVideos.length > 0,
+      rowLabel: (video) => `Pilih ${video.title}`,
+    }),
     {
       id: "thumbnail",
       size: 120,
@@ -611,108 +595,77 @@ function KaptenVideoGalleryPageModule({
         titleClassName="font-display text-4xl font-extrabold tracking-[-0.04em] text-voyage-ink text-balance md:text-5xl"
       />
 
-      <section
-        aria-busy={isPending}
-        aria-label="Daftar video"
-        className={styles.panel}
-      >
-        <div className={styles.toolbar} data-selected={selectedVideos.length > 0}>
-          <form
-            className={styles.search}
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <Search aria-hidden="true" />
-            <Input
-              aria-label="Cari video berdasarkan judul atau subjek"
-              className="pl-9"
+      <MentorAssessmentPanel label="Daftar video" busy={isPending}>
+        <MentorAssessmentToolbar
+          hasSelection={selectedVideos.length > 0}
+          search={
+            <MentorAssessmentSearch
               disabled={isPending}
-              onChange={(event) => {
+              label="Cari video berdasarkan judul atau subjek"
+              onValueChange={(value) => {
                 setSelection({});
-                setQuery(event.target.value);
+                setQuery(value);
               }}
               placeholder="Cari video…"
-              type="search"
               value={query}
             />
-          </form>
-          <div className={styles.filters}>
-            <MentorGridMenu
-              className={styles.subject}
-              label="Filter subtes video"
-              trigger={
-                <>
-                  {activeSubtest === "Semua" ? "Semua subtes" : activeSubtest}
-                  <ChevronDown aria-hidden="true" />
-                </>
-              }
-            >
-              {videoFilters.map((filter) => (
-                <DropdownMenuItem
-                  key={filter}
-                  onClick={() => {
+          }
+          filters={
+            <>
+              <MentorFilterMenu
+                className={styles.subject}
+                label="Filter subtes video"
+                trigger={
+                  <>
+                    {activeSubtest === "Semua" ? "Semua subtes" : activeSubtest}
+                    <ChevronDown aria-hidden="true" />
+                  </>
+                }
+                options={videoFilters.map((filter) => ({
+                  key: filter,
+                  label: filter === "Semua" ? "Semua subtes" : filter,
+                  active: activeSubtest === filter,
+                  onSelect: () => {
                     setSelection({});
                     setActiveSubtest(filter);
-                  }}
-                  size="sm"
-                >
-                  {filter === "Semua" ? "Semua subtes" : filter}
-                  {activeSubtest === filter ? <Check aria-hidden="true" /> : null}
-                </DropdownMenuItem>
-              ))}
-            </MentorGridMenu>
-            <MentorGridMenu
-              label="Filter status"
-              trigger={
-                <>
-                  <Funnel aria-hidden="true" />
-                  Status
-                  {statusFilter ? (
-                    <Badge size="xs" tone="neutral">
-                      1
-                    </Badge>
-                  ) : null}
-                </>
-              }
-            >
-              <DropdownMenuItem
+                  },
+                }))}
+              />
+              <MentorStatusFilterMenu
+                activeCount={statusFilter ? 1 : 0}
                 disabled={isPending}
-                onClick={() => {
-                  setSelection({});
-                  setStatusFilter("");
-                }}
-                size="sm"
-              >
-                Semua
-                {!statusFilter ? <Check aria-hidden="true" /> : null}
-              </DropdownMenuItem>
-              {(Object.entries(videoStatusLabels) as Array<[
-                keyof typeof videoStatusLabels,
-                string,
-              ]>).map(([value, label]) => (
-                <DropdownMenuItem
-                  disabled={isPending}
-                  key={value}
-                  onClick={() => {
-                    setSelection({});
-                    setStatusFilter(value);
-                  }}
-                  size="sm"
-                >
-                  {label}
-                  {statusFilter === value ? (
-                    <Check aria-hidden="true" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
-            </MentorGridMenu>
-          </div>
-          {selectedVideos.length > 0 ? (
-            <div className={styles.bulkTools}>
-              <MentorGridMenu
-                className={styles.iconButton}
+                options={[
+                  {
+                    key: "all",
+                    label: "Semua",
+                    active: !statusFilter,
+                    onSelect: () => {
+                      setSelection({});
+                      setStatusFilter("");
+                    },
+                  },
+                  ...(
+                    Object.entries(videoStatusLabels) as Array<
+                      [keyof typeof videoStatusLabels, string]
+                    >
+                  ).map(([value, label]) => ({
+                    key: value,
+                    label,
+                    active: statusFilter === value,
+                    onSelect: () => {
+                      setSelection({});
+                      setStatusFilter(value);
+                    },
+                  })),
+                ]}
+              />
+            </>
+          }
+          bulk={
+            selectedVideos.length > 0 ? (
+              <MentorBulkMenu
                 disabled={isPending}
                 label={`Tindakan ${selectedVideos.length} video terpilih`}
-                trigger={<MoreHorizontal aria-hidden="true" size={16} />}
               >
                 <DropdownMenuItem
                   disabled={!canArchiveSelection || isPending}
@@ -740,47 +693,26 @@ function KaptenVideoGalleryPageModule({
                   <RotateCcw aria-hidden="true" />
                   Pulihkan
                 </DropdownMenuItem>
-              </MentorGridMenu>
-            </div>
-          ) : null}
-        </div>
-
-        {activeFilters.length > 0 ? (
-          <div aria-label="Filter aktif" className={styles.chips}>
-            {activeFilters.map((filter) => (
-              <Button
-                aria-label={`Hapus filter ${filter.label}`}
-                className="px-0"
-                key={filter.key}
-                onClick={() => {
-                  setSelection({});
-                  if (filter.key === "subtest") setActiveSubtest("Semua");
-                  if (filter.key === "status") setStatusFilter("");
-                }}
-                size="sm"
-                type="button"
-                variant="quiet"
-              >
-                <Badge size="sm" tone="category">
-                  {filter.label}
-                  <X aria-hidden="true" className="size-3" />
-                </Badge>
-              </Button>
-            ))}
-            <Button
-              onClick={() => {
-                setSelection({});
-                setActiveSubtest("Semua");
-                setStatusFilter("");
-              }}
-              size="sm"
-              type="button"
-              variant="quiet"
-            >
-              Hapus semua
-            </Button>
-          </div>
-        ) : null}
+              </MentorBulkMenu>
+            ) : null
+          }
+        />
+        <MentorFilterChips
+          chips={activeFilters.map((filter) => ({
+            key: filter.key,
+            label: filter.label,
+            onRemove: () => {
+              setSelection({});
+              if (filter.key === "subtest") setActiveSubtest("Semua");
+              if (filter.key === "status") setStatusFilter("");
+            },
+          }))}
+          onClearAll={() => {
+            setSelection({});
+            setActiveSubtest("Semua");
+            setStatusFilter("");
+          }}
+        />
 
         <MentorAssessmentGrid
           caption="Daftar video YouTube Kapten dengan subjek dan jumlah views."
@@ -813,7 +745,7 @@ function KaptenVideoGalleryPageModule({
           numericColumns={["views"]}
           table={table}
         />
-      </section>
+      </MentorAssessmentPanel>
 
       <VideoEditorDialog
         draft={draft}

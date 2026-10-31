@@ -818,7 +818,9 @@ type TryoutCatalogueDto = Omit<ReturnType<typeof toTryoutDto>, "status"> & {
   status: "draft" | "published" | "archived";
 };
 
-function toTryoutCatalogueDto(record: TryoutReadRecord): TryoutCatalogueDto {
+type TryoutCatalogueCreator = { avatarSrc: string | null; name: string; subject: string | null };
+function toTryoutCatalogueDto(record: TryoutReadRecord, creator: TryoutCatalogueCreator | null): TryoutCatalogueDto {
+  creator: TryoutCatalogueCreator | null;
   const dto = toTryoutDto(record);
   return {
     ...dto,
@@ -826,6 +828,7 @@ function toTryoutCatalogueDto(record: TryoutReadRecord): TryoutCatalogueDto {
       record.status === ContentStatus.archived ? "archived" : dto.status,
   };
 }
+    creator,
 
 async function readPackageUsageCounts(packageIds: readonly string[], client: typeof prisma | Prisma.TransactionClient = prisma) {
   if (!packageIds.length) return new Map<string, number>();
@@ -1469,7 +1472,7 @@ async function listTryouts(
     ) {
       return [];
     }
-    return [toTryoutCatalogueDto(record)];
+    return [toTryoutCatalogueDto(record, creatorById.get(record.createdByUserId) ?? null)];
   });
 }
 async function getTryoutForEdit(id: string, actorId: string) {
@@ -1579,6 +1582,11 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (!subtest) throw new TryoutValidationError("Subtes Tryout tidak ditemukan. Periksa kembali susunan Tryout.");
       const directQuestions = sectionInput.directQuestions ?? [];
       const sourceSelections = directQuestions.filter((question): question is DirectSourceQuestionInput => !isSnapshotQuestionInput(question));
+  const creators = await prisma.user.findMany({
+    select: { avatarUrl: true, fullName: true, id: true, tutorProfile: { select: { teachingSubject: { select: { name: true } } } } },
+    where: { id: { in: [...new Set(records.map((record) => record.createdByUserId))] } },
+  });
+  const creatorById = new Map(creators.map((user) => [user.id, { avatarSrc: user.avatarUrl, name: user.fullName, subject: user.tutorProfile?.teachingSubject?.name ?? null }]));
       const directSources = sourceSelections.length
         // react-doctor-disable-next-line async-await-in-loop -- validate each subject's source set within the shared transaction before continuing.
         ? await readAndValidateDirectSources(tx, sourceSelections, sectionInput.subtest)

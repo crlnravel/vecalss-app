@@ -1,13 +1,17 @@
 "use client";
 
 import { type ReactNode, type ComponentProps } from "react";
-import { flexRender, type Table as TanStackTable } from "@tanstack/react-table";
+import { Funnel } from "@phosphor-icons/react";
+import { flexRender, type ColumnDef, type Table as TanStackTable } from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Table, TableHeader, TableBody, TableHead, TableCell, TableRow, TableCaption } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationPage, PaginationPrevious, PaginationNext, PaginationEllipsis } from "@/components/ui/pagination";
 import { fieldLabelClassName } from "@/components/ui/field-constants";
-import { Check, ChevronDown } from "@/lib/icons";
+import { Check, ChevronDown, MoreHorizontal, Search, X } from "@/lib/icons";
 import styles from "../quiz-dashboard.module.css";
 
 export function MentorGridMenu({
@@ -203,4 +207,116 @@ export function MentorAssessmentPagination({
         </div>
 
   );
+}
+
+/** The bordered surface every Kapten assessment list (Kuis, Tryout) renders its toolbar, grid and footer in. */
+export function MentorAssessmentPanel({ label, busy = false, children }: { label: string; busy?: boolean; children: ReactNode }) {
+  return <section className={styles.panel} aria-label={label} aria-busy={busy} data-quiz-dashboard>{children}</section>;
+}
+
+/** Search, filters and (when rows are selected) bulk tools in one row above the grid. */
+export function MentorAssessmentToolbar({ search, filters, bulk, hasSelection = false }: { search: ReactNode; filters?: ReactNode; bulk?: ReactNode; hasSelection?: boolean }) {
+  return (
+    <div className={styles.toolbar} data-selected={hasSelection}>
+      {search}
+      {filters ? <div className={styles.filters}>{filters}</div> : null}
+      {bulk}
+    </div>
+  );
+}
+
+/**
+ * Search box. By default it searches on submit and remounts when `value` changes so the field follows the
+ * applied query; pass `onValueChange` instead to filter on every keystroke (client-side lists).
+ */
+export function MentorAssessmentSearch({ value, placeholder, label, disabled = false, onSearch, onValueChange }: { value: string; placeholder: string; label: string; disabled?: boolean; onSearch?: (query: string) => void; onValueChange?: (query: string) => void }) {
+  return (
+    <form className={styles.search} onSubmit={(event) => { event.preventDefault(); onSearch?.(String(new FormData(event.currentTarget).get("q") ?? "")); }}>
+      <Search aria-hidden="true" />
+      {onValueChange ? (
+        <Input className="pl-9" name="q" value={value} onChange={(event) => onValueChange(event.target.value)} placeholder={placeholder} aria-label={label} type="search" disabled={disabled} />
+      ) : (
+        <Input className="pl-9" name="q" key={value} defaultValue={value} placeholder={placeholder} aria-label={label} type="search" disabled={disabled} />
+      )}
+    </form>
+  );
+}
+
+export type MentorFilterOption = { key: string; label: ReactNode; active?: boolean; onSelect: () => void };
+
+export function MentorFilterMenu({ label, trigger, options, className, disabled = false }: { label: string; trigger: ReactNode; options: MentorFilterOption[]; className?: string; disabled?: boolean }) {
+  return (
+    <MentorGridMenu className={className} disabled={disabled} label={label} trigger={trigger}>
+      {options.map((option) => (
+        <DropdownMenuItem size="sm" key={option.key} onClick={option.onSelect}>
+          {option.label}
+          {option.active && <Check />}
+        </DropdownMenuItem>
+      ))}
+    </MentorGridMenu>
+  );
+}
+
+/** The funnel-and-count "Status" filter shared by the assessment lists. */
+export function MentorStatusFilterMenu({ options, activeCount = 0, label = "Filter status", disabled = false }: { options: MentorFilterOption[]; activeCount?: number; label?: string; disabled?: boolean }) {
+  return (
+    <MentorFilterMenu
+      disabled={disabled}
+      label={label}
+      options={options}
+      trigger={<><Funnel />Status{activeCount > 0 && <Badge size="xs" tone="neutral">{activeCount}</Badge>}</>}
+    />
+  );
+}
+
+export type MentorFilterChip = { key: string; label: string; ariaLabel?: string; onRemove: () => void };
+
+export function MentorFilterChips({ chips, onClearAll }: { chips: MentorFilterChip[]; onClearAll: () => void }) {
+  if (!chips.length) return null;
+  return (
+    <div className={styles.chips} role="group" aria-label="Filter aktif">
+      {chips.map((chip) => (
+        <Button key={chip.key} type="button" size="sm" variant="quiet" className="px-0" aria-label={chip.ariaLabel ?? `Hapus filter ${chip.label}`} onClick={chip.onRemove}>
+          <Badge size="sm" tone="category">{chip.label}<X className="size-3" aria-hidden="true" /></Badge>
+        </Button>
+      ))}
+      <Button size="sm" variant="quiet" type="button" onClick={onClearAll}>Hapus semua</Button>
+    </div>
+  );
+}
+
+/** The "..." menu that appears in the toolbar while rows are selected. */
+export function MentorBulkMenu({ label, disabled = false, children }: { label: string; disabled?: boolean; children: ReactNode }) {
+  return (
+    <div className={styles.bulkTools}>
+      <MentorGridMenu className={styles.iconButton} disabled={disabled} label={label} trigger={<MoreHorizontal size={16} />}>{children}</MentorGridMenu>
+    </div>
+  );
+}
+
+/** Per-item failures from a bulk action, listed above the grid until dismissed. */
+export function MentorAssessmentFeedback({ heading, items, onClose }: { heading: string; items: string[]; onClose: () => void }) {
+  return (
+    <div className={styles.feedback} role="status">
+      <div>
+        <p>{heading}</p>
+        <ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul>
+      </div>
+      <Button type="button" size="icon-sm" variant="quiet" aria-label="Tutup pemberitahuan" onClick={onClose}><X size={16} /></Button>
+    </div>
+  );
+}
+
+/** Checkbox column with a page-level "select all" header. */
+export function mentorSelectionColumn<T>({ allLabel, rowLabel, disabled = false, hasRows, isSelectable = () => true }: { allLabel: string; rowLabel: (row: T) => string; disabled?: boolean; hasRows: boolean; isSelectable?: (row: T) => boolean }): ColumnDef<T> {
+  return {
+    id: "select",
+    size: 40,
+    header: ({ table }) => (
+      <Checkbox aria-label={allLabel} checked={table.getIsAllPageRowsSelected()} indeterminate={table.getIsSomePageRowsSelected()} onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked)} disabled={disabled || !hasRows} />
+    ),
+    cell: ({ row }) => isSelectable(row.original) ? (
+      <Checkbox aria-label={rowLabel(row.original)} checked={row.getIsSelected()} onCheckedChange={(checked) => row.toggleSelected(checked)} disabled={disabled} />
+    ) : null,
+  };
 }
