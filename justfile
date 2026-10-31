@@ -203,7 +203,7 @@ local-reset: local-env _local-services _resource-status
     echo 'Local PostgreSQL was reset, migrated, and seeded; local Redis DBs 0 and 15 were cleared.'
     echo 'Prisma Client was regenerated. Fully stop and restart the Next dev process before using the app.'
 
-# Reset/migrate PostgreSQL without seeding and clear local Redis databases 0/15.
+# Reset/migrate PostgreSQL, seed accounts only, and clear local Redis DBs 0/15.
 local-reset-clean: local-env _local-services _resource-status
     #!/usr/bin/env bash
     set -euo pipefail
@@ -222,9 +222,16 @@ local-reset-clean: local-env _local-services _resource-status
     command_status=${PIPESTATUS[0]}
     set -e
     if [[ "$command_status" != 0 ]]; then exit "$command_status"; fi
+    # Reuse the baseline account seed (including profile reference taxonomy).
+    set +e
+    ./_harness/resource-guard.sh run -- rtk pnpm exec node prisma/seed-staging.mjs 2>&1 \
+      | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
+    command_status=${PIPESTATUS[0]}
+    set -e
+    if [[ "$command_status" != 0 ]]; then exit "$command_status"; fi
     docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 0 FLUSHDB
     docker compose -f docker-compose.dev.yml exec -T redis redis-cli -n 15 FLUSHDB
-    echo 'Local PostgreSQL was reset and migrated without seeding; local Redis DBs 0 and 15 were cleared.'
+    echo 'Local PostgreSQL was reset and migrated with accounts and profile reference data seeded; local Redis DBs 0 and 15 were cleared.'
     echo 'Prisma Client was regenerated. Fully stop and restart the Next dev process before using the app.'
 
 # Apply pending local migrations without dropping PostgreSQL data.
