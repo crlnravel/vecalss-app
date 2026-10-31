@@ -247,6 +247,7 @@ function KaptenTryoutParticipantsPageModule({
       </h2>
       {selectedSession && showReadiness ? (
         <TryoutSessionResultReadiness
+          compact
           key={selectedSession.id}
           scope={{ tryoutId: initial.id, sessionId: selectedSession.id }}
           tryoutTitle={initial.title}

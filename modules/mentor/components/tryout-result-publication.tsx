@@ -14,7 +14,7 @@ import { useTryoutPublicationRecovery } from "@/modules/mentor/use-tryout-public
 const notify = (message: string, saved: boolean) => showToast(message, { variant: saved ? "success" : "error" });
 
 /** Result maintenance is separate from archived authoring/operations permissions. */
-export function TryoutResultPublication({ initial, tryoutTitle, available = false, refresh }: { initial: TryoutSessionReadiness; tryoutTitle: string; available?: boolean; refresh: () => Promise<void> }) {
+export function TryoutResultPublication({ initial, tryoutTitle, available = false, refresh, compact = false }: { initial: TryoutSessionReadiness; tryoutTitle: string; available?: boolean; refresh: () => Promise<void>; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [invalid, setInvalid] = useState(false);
@@ -46,11 +46,11 @@ export function TryoutResultPublication({ initial, tryoutTitle, available = fals
   }
   // Freshness gates new writes, never access to a retained intent or receipt.
   if (initial.effectivePolicy !== "manual" && !receipt && !retained) return null;
-  return <section aria-label="Rilis hasil sesi" className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
+  return <section aria-label="Rilis hasil sesi" className={compact ? "grid min-w-0 gap-3" : "grid min-w-0 gap-4 border-t border-primary-100 pt-5"}>
     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    {receipt ? <dl className="grid min-w-0 gap-2 text-sm leading-6"><div><dt className="font-semibold text-secondary-900">Catatan rilis</dt><dd className="break-words text-secondary-700">{receipt.participantCount} peserta · {receipt.actorName ?? "Kapten"} · {formatTryoutDateTime(receipt.releasedAt)} WIB</dd></div><div><dt className="text-secondary-600">Alasan rilis</dt><dd className="break-words text-secondary-700">{receipt.reason}</dd></div></dl> : <h3 className="min-w-0 text-base font-semibold text-secondary-900">Rilis hasil sesi</h3>}
+    {!compact ? receipt ? <dl className="grid min-w-0 gap-2 text-sm leading-6"><div><dt className="font-semibold text-secondary-900">Catatan rilis</dt><dd className="break-words text-secondary-700">{receipt.participantCount} peserta · {receipt.actorName ?? "Kapten"} · {formatTryoutDateTime(receipt.releasedAt)} WIB</dd></div><div><dt className="text-secondary-600">Alasan rilis</dt><dd className="break-words text-secondary-700">{receipt.reason}</dd></div></dl> : <h3 className="min-w-0 text-base font-semibold text-secondary-900">Rilis hasil sesi</h3> : null}
     <AlertDialog open={open} onOpenChange={changeOpen}>
-      <AlertDialogTrigger render={<Button className="min-h-11 w-full max-w-full whitespace-normal sm:w-auto sm:shrink-0" variant={receipt || retained ? "outline" : "default"} disabled={!receipt && !retained && (!available || !initial.ready || Boolean(initial.publication))} />}>{receipt ? "Lihat catatan rilis" : retained ? "Lanjutkan pemeriksaan rilis" : "Rilis hasil sesi"}</AlertDialogTrigger>
+      <AlertDialogTrigger render={<Button className="min-h-11 w-full max-w-full whitespace-normal sm:w-auto sm:shrink-0" variant={receipt || retained ? "outline" : "default"} disabled={!receipt && !retained && (!available || !initial.ready || Boolean(initial.publication))} />}>{receipt ? "Lihat catatan rilis" : retained ? "Lanjutkan pemeriksaan rilis" : compact ? "Rilis hasil" : "Rilis hasil sesi"}</AlertDialogTrigger>
       <AlertDialogContent pending={busy} className="min-w-0 break-words" variant="warning">
         <AlertDialogHeader><AlertDialogTitle>{receipt ? "Hasil sesi sudah dirilis" : "Rilis hasil sesi?"}</AlertDialogTitle><AlertDialogDescription><span className="block break-words font-semibold">{tryoutTitle} · {initial.sessionName}</span><span className="mt-2 block">{receipt?.participantCount ?? initial.counts.candidates} peserta {receipt ? "dapat" : "akan dapat"} melihat seluruh skor, ulasan jawaban, pembahasan, peringkat, dan laporan. Hasil yang sudah dirilis tidak dapat ditarik kembali.</span></AlertDialogDescription></AlertDialogHeader>
         {receipt ? <p className="break-words text-sm leading-6">Dirilis oleh {receipt.actorName ?? "Kapten"} pada {formatTryoutDateTime(receipt.releasedAt)} WIB. Alasan: {receipt.reason}</p> : <form className="grid min-w-0 gap-4" onSubmit={(event) => { event.preventDefault(); void save(); }}>

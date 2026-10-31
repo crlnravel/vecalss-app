@@ -53,7 +53,17 @@ const Control = new Function("React", "useLayoutEffect", "useRef", "useState", "
   (props: Props) => createElement("span", null, props.error), (props: Props) => { input = props; return createElement("input", { value: props.value, readOnly: true }); }, simple,
   (props: Props) => { dialog = props; return createElement("div", null, props.children); }, (props: Props) => props.render ? React.cloneElement(props.render, {}, props.children) : simple(props), (props: Props) => { buttons.set("Batalkan", props); return createElement("button", { onClick: props.onClick }, props.children); },
   (props: Props) => dialog.open ? simple(props) : null, simple, simple, simple, simple,
-) as (props: { initial: TryoutSessionReadiness; tryoutTitle: string; refresh: () => Promise<void>; available?: boolean }) => React.ReactElement;
+) as (props: { initial: TryoutSessionReadiness; tryoutTitle: string; refresh: () => Promise<void>; available?: boolean; compact?: boolean }) => React.ReactElement;
+await withReactDomTest(async (root, render) => {
+  const props = { initial, tryoutTitle: "Tryout", refresh: async () => {}, available: true, compact: true };
+  await render(createElement(Control, props));
+  assert.equal(root.textContent, "Rilis hasil", "Compact Hasil exposes only the release trigger before confirmation");
+  assert.equal(buttons.get("Rilis hasil")?.disabled, false);
+  await render(createElement(Control, { ...props, initial: { ...initial, ready: false } }));
+  assert.equal(buttons.get("Rilis hasil")?.disabled, true, "Compact release retains readiness protection");
+  await render(createElement(Control, { ...props, initial: { ...initial, publication: { ...receipt, receipt } } }));
+  assert.equal(root.textContent, "Lihat catatan rilis", "Released receipt remains accessible without an inline widget");
+});
 await withReactDomTest(async (root, render) => {
   const props = { initial, tryoutTitle: "Tryout dengan nama panjang", refresh: async () => {}, available: true };
   await render(createElement(Control, props));

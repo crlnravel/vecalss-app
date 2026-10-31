@@ -24,7 +24,7 @@ async function inspect(scope: TryoutResultReadinessScope) {
 }
 
 /** Full selected session; table search/filter/page never enter this request. */
-export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tryout", allowPublication = false, sessionPicker, manageHref }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext; tryoutTitle?: string; allowPublication?: boolean; sessionPicker?: ReactNode; manageHref?: string }) {
+export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tryout", allowPublication = false, compact = false, sessionPicker, manageHref }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext; tryoutTitle?: string; allowPublication?: boolean; compact?: boolean; sessionPicker?: ReactNode; manageHref?: string }) {
   const [snapshot, setSnapshot] = useState<TryoutSessionReadiness | null>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,16 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
   const sessionNotes = allGroups.filter((group) => !group.attemptId).flatMap((group) => group.lines.map((line) => line.message));
   const excluded = snapshot ? [[snapshot.counts.void, "dibatalkan"], [snapshot.counts.abandoned, "ditinggalkan"], [snapshot.counts.noAttempt, "belum mengerjakan"]].filter(([count]) => Number(count) > 0).map(([count, label]) => `${count} ${label}`) : [];
   const visibleGroups = showAllBlockers ? blockerGroups : blockerGroups.slice(0, BLOCKER_PREVIEW);
+  if (compact) {
+    if (!allowPublication) return null;
+    return <div className="mb-5 flex min-w-0 flex-wrap items-center justify-end gap-3">
+      {failed ? <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm leading-6 text-secondary-700">Kesiapan terbaru belum dapat dimuat. Muat ulang sebelum melanjutkan.</p>
+        <Button variant="outline" disabled={loading} onClick={() => void refresh().catch(() => {})}>{loading ? "Memuat…" : "Muat ulang"}</Button>
+      </div> : null}
+      {snapshot ? <TryoutResultPublication compact initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : <Button disabled>Rilis hasil</Button>}
+    </div>;
+  }
   return (
     <ReferenceSurface as="section" className="mt-4 grid min-w-0 grid-cols-1 gap-5 p-4 sm:p-5" aria-labelledby="session-readiness-title">
       <h2 id="session-readiness-title" className="sr-only">Kesiapan hasil sesi</h2>
