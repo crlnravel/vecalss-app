@@ -1,6 +1,10 @@
 "use client";
 
-import { Clock, ShieldCheck, Sparkles } from "@/lib/icons";
+import { Clock, Info } from "@/lib/icons";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FreshnessState } from "@/lib/admin/ai/contracts";
 
 type AiFreshnessBannerProps = {
@@ -9,79 +13,94 @@ type AiFreshnessBannerProps = {
   freshness: FreshnessState;
 };
 
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("id-ID", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Jakarta",
+type SourceState = FreshnessState["requests"]["state"] | FreshnessState["cost"]["state"];
+
+const COMPACT_TIME = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
+});
+const FULL_TIME = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta",
 });
 
-function formatAsOf(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "waktu tidak tersedia";
-  return DATE_TIME_FORMATTER.format(date);
-}
-
-function stateLabel(state: FreshnessState["requests"]["state"] | FreshnessState["cost"]["state"]) {
-  if (state === "live" || state === "fresh") return "Tersedia";
-  if (state === "snapshot") return "Data saat dimuat";
+function stateLabel(state: SourceState) {
+  if (state === "live" || state === "fresh") return "Terkini";
+  if (state === "snapshot") return "Saat dimuat";
   if (state === "partial") return "Sebagian tersedia";
   if (state === "suppressed") return "Disembunyikan";
-  if (state === "stale") return "Stale";
-  return "Tidak tersedia";
+  if (state === "stale") return "Perlu disegarkan";
+  return "Belum tersedia";
 }
 
-export function AiFreshnessBanner({
-  policyVersion,
-  activatedAt,
-  freshness,
-}: AiFreshnessBannerProps) {
-  const hasPolicySnapshot = Boolean(policyVersion || activatedAt);
+function isException(state: SourceState) {
+  return state === "partial" || state === "suppressed" || state === "stale" || state === "unavailable";
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? `${FULL_TIME.format(date)} WIB` : "Waktu belum tersedia";
+}
+
+export function AiFreshnessBanner({ policyVersion, activatedAt, freshness }: AiFreshnessBannerProps) {
+  const sources = [
+    { name: "Permintaan", data: freshness.requests },
+    { name: "Kuota", data: freshness.quota },
+    { name: "Biaya", data: freshness.cost },
+    { name: "Analitik", data: freshness.analytics },
+  ];
+  const exceptions = sources.filter(source => isException(source.data.state));
+  const sharedException = exceptions.length === sources.length && exceptions.every(source => source.data.state === exceptions[0].data.state);
+  const observedTimes = sources
+    .filter(source => source.data.state !== "unavailable" && source.data.state !== "suppressed")
+    .map(source => Date.parse(source.data.asOf))
+    .filter(Number.isFinite);
+  // The oldest included snapshot is the conservative summary when sources differ.
+  const asOf = observedTimes.length ? new Date(Math.min(...observedTimes)) : null;
+  const sameTimestamp = sources.every(source => source.data.asOf === sources[0].data.asOf);
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-      {hasPolicySnapshot && <div className="flex items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 border border-primary-100">
-          <Sparkles className="size-5" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-secondary-500">
-              Kebijakan Aktif:
-            </span>
-            <span className="font-extrabold text-secondary-950 text-sm">{policyVersion ?? "Belum tersedia"}</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[10px] font-bold text-primary-700">
-              <ShieldCheck className="size-3" />
-              {hasPolicySnapshot ? "Snapshot terdeteksi" : "Snapshot belum tersedia"}
-            </span>
-          </div>
-          <p className="text-xs text-secondary-500">
-            {activatedAt ? `Diterapkan ${activatedAt}` : "Waktu penerapan belum tersedia."}
-          </p>
-        </div>
-      </div>}
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-primary-50 pt-2 text-xs text-secondary-500 sm:border-0 sm:pt-0">
-        <div className="flex items-center gap-1.5">
-          <Clock className="size-3.5 text-secondary-400" />
-          <span>Permintaan:</span>
-          <span className="font-semibold text-secondary-700">{stateLabel(freshness.requests.state)} · {freshness.requests.label} · {formatAsOf(freshness.requests.asOf)}</span>
-        </div>
-        <div className="hidden h-3 w-px bg-secondary-200 sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span>Kuota:</span>
-          <span className="font-semibold text-secondary-700">{stateLabel(freshness.quota.state)} · {freshness.quota.label} · {formatAsOf(freshness.quota.asOf)}</span>
-        </div>
-        <div className="hidden h-3 w-px bg-secondary-200 sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span>Biaya:</span>
-          <span className="font-semibold text-secondary-700">{stateLabel(freshness.cost.state)} · {freshness.cost.label} · {formatAsOf(freshness.cost.asOf)}</span>
-        </div>
-        <div className="hidden h-3 w-px bg-secondary-200 sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span>Analitik:</span>
-          <span className="font-semibold text-secondary-700">{stateLabel(freshness.analytics.state)} · {freshness.analytics.label} · {formatAsOf(freshness.analytics.asOf)}</span>
-        </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-secondary-600">
+      <div className="flex items-center gap-2">
+        <Clock aria-hidden="true" className="size-4 shrink-0" />
+        {sharedException ? (
+          <span>Data {stateLabel(exceptions[0].data.state).toLocaleLowerCase("id-ID")}</span>
+        ) : asOf ? (
+          <span>Data per <time className="font-semibold text-secondary-800" dateTime={asOf.toISOString()}>{COMPACT_TIME.format(asOf)} WIB</time></span>
+        ) : <span>Waktu data belum tersedia</span>}
       </div>
+
+      {!sharedException && exceptions.map(source => (
+        <Badge key={source.name} size="sm" tone={source.data.state === "partial" || source.data.state === "stale" ? "attention" : "neutral"}>
+          {source.name}: {stateLabel(source.data.state).toLocaleLowerCase("id-ID")}
+        </Badge>
+      ))}
+
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger render={<PopoverTrigger render={<Button aria-label="Lihat rincian sumber data" className="-my-2" size="icon" type="button" variant="quiet" />} />}>
+            <Info aria-hidden="true" className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent>Rincian sumber data</TooltipContent>
+        </Tooltip>
+        <PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] gap-3 motion-reduce:animate-none">
+          <div className="space-y-1">
+            <PopoverTitle className="text-sm font-semibold">Sumber data</PopoverTitle>
+            {sameTimestamp && <p className="text-xs text-secondary-500">{formatTime(sources[0].data.asOf)}</p>}
+          </div>
+          <dl className="divide-y divide-primary-100">
+            {sources.map(source => (
+              <div className="py-2 first:pt-0 last:pb-0" key={source.name}>
+                <div className="flex items-center justify-between gap-4 text-xs">
+                  <dt className="font-semibold text-secondary-800">{source.name}</dt>
+                  <dd className="text-right text-secondary-600">{stateLabel(source.data.state)}</dd>
+                </div>
+                {(source.data.state === "partial" || source.data.state === "stale") && <p className="mt-1 text-xs text-secondary-600">{source.data.label}</p>}
+                {!sameTimestamp && <p className="mt-1 text-xs text-secondary-500">{formatTime(source.data.asOf)}</p>}
+              </div>
+            ))}
+          </dl>
+          {(policyVersion || activatedAt) && <p className="border-t border-primary-100 pt-3 text-xs text-secondary-600">{activatedAt ? `Kebijakan berlaku sejak ${formatTime(activatedAt)}.` : "Kebijakan berlaku."}</p>}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
