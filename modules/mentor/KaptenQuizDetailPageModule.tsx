@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
+  BarChart3,
   Check,
+  ClipboardList,
   FilePenLine,
   ListChecks,
   Pencil,
+  Settings,
   X,
 } from "@/lib/icons";
 import { useState, type MouseEvent } from "react";
@@ -38,14 +41,10 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import {
-  FullWidthTabsList,
-  FullWidthTabsTrigger,
-} from "@/components/ui/full-width-tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   saveStandaloneQuizAction,
@@ -70,6 +69,12 @@ import {
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 
 type QuizDetailTab = "preview" | "hasil" | "pengaturan";
+
+// Match the Tryout workspace navigation while retaining keyboard tab semantics.
+const quizWorkspaceTabClassName =
+  "group relative -mb-px h-auto min-h-[44px] min-w-0 flex-1 flex-col gap-1 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 py-3 text-xs font-semibold text-secondary-500 shadow-none transition-colors duration-150 hover:border-primary-200 hover:text-secondary-900 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-primary-400 data-active:border-primary-800 data-active:bg-transparent data-active:font-bold data-active:text-primary-950 data-active:shadow-none data-active:hover:border-primary-800 data-active:focus-visible:border-primary-800 sm:flex-row sm:gap-2 sm:px-3 sm:text-sm";
+const quizWorkspaceTabIconClassName =
+  "size-4 shrink-0 text-secondary-400 group-data-active:text-primary-800";
 
 type SettingsForm = {
   attemptsAllowed: number | null;
@@ -1177,26 +1182,36 @@ function KaptenQuizDetailPageContent({
           onValueChange={changeTab}
           value={activeTab}
         >
-          <FullWidthTabsList aria-label="Bagian detail Kuis">
-            <FullWidthTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+          <TabsList
+            aria-label="Bagian detail Kuis"
+            className="h-auto gap-0 border-b border-primary-100"
+            layout="equal"
+          >
+            <TabsTrigger
+              className={quizWorkspaceTabClassName}
+              layout="equal"
               value="preview"
             >
-              Soal
-            </FullWidthTabsTrigger>
-            <FullWidthTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              <ClipboardList aria-hidden="true" className={quizWorkspaceTabIconClassName} />
+              <span className="max-w-full break-words text-center">Soal</span>
+            </TabsTrigger>
+            <TabsTrigger
+              className={quizWorkspaceTabClassName}
+              layout="equal"
               value="hasil"
             >
-              Hasil
-            </FullWidthTabsTrigger>
-            <FullWidthTabsTrigger
-              className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+              <BarChart3 aria-hidden="true" className={quizWorkspaceTabIconClassName} />
+              <span className="max-w-full break-words text-center">Hasil</span>
+            </TabsTrigger>
+            <TabsTrigger
+              className={quizWorkspaceTabClassName}
+              layout="equal"
               value="pengaturan"
             >
-              Pengaturan
-            </FullWidthTabsTrigger>
-          </FullWidthTabsList>
+              <Settings aria-hidden="true" className={quizWorkspaceTabIconClassName} />
+              <span className="max-w-full break-words text-center">Pengaturan</span>
+            </TabsTrigger>
+          </TabsList>
           <TabsContent className="m-0 space-y-4" value="preview">
             <QuizPreview
               returnHref={returnHref}
