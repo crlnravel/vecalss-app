@@ -110,9 +110,8 @@ function tryoutModelWrites(text: string) {
 
 function assertExternalTryoutWritersRegistered() {
   const external = AUTHORING_WRITER_REGISTRY.filter((entry) => entry.source.startsWith("lib/admin/") || entry.source.startsWith("modules/admin/"));
-  assert.ok(external.some((entry) => entry.name === "restartAdminStudentPreviewTryout"));
-  assert.ok(external.some((entry) => entry.name === "restartAdminStudentPreviewTryoutAction"));
-  assert.equal(tryoutModelWrites(sourceText("lib/admin/student-preview-tryout.ts")), true);
+  // The admin student preview is read-only: its restart mutation was removed with multi-session Tryouts.
+  assert.equal(external.some((entry) => entry.name.startsWith("restartAdminStudentPreviewTryout")), false);
 }
 
 function assertTryoutMutationSourcesRegistered(excluded = new Set<string>()) {

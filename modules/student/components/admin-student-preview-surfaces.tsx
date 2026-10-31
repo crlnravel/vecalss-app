@@ -40,7 +40,6 @@ import type {
   AdminPreviewTryoutSchedule,
 } from "@/lib/admin/student-preview-tryout-reads";
 import { MateriLessonPresentation } from "@/modules/courses/MateriLessonPresentation";
-import { AdminStudentPreviewTryoutRestart } from "@/modules/student/components/admin-student-preview-tryout-restart";
 import { AdminStudentPreviewBannerHeader } from "@/modules/student/components/admin-student-preview-banner-header";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 
@@ -447,7 +446,6 @@ function AdminStudentPreviewTryoutCatalogueSurface({
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {tryouts.map((tryout) => {
-              const activeOrClosedSessions = tryout.schedule.filter((session) => session.scheduleStatus === "active" || session.scheduleStatus === "closed");
               const currentSession = tryout.schedule.find((session) => session.scheduleStatus === "active")
                 ?? tryout.schedule.find((session) => session.scheduleStatus === "closed")
                 ?? tryout.schedule.find((session) => session.scheduleStatus === "future")
@@ -470,7 +468,7 @@ function AdminStudentPreviewTryoutCatalogueSurface({
                     <div className="relative mt-auto flex flex-wrap items-end justify-between gap-4 pt-8">
                       <span className="inline-flex items-center gap-1.5 text-sm font-bold text-secondary-700">
                         <Timer className="size-4" />
-                        {tryout.sections.length} bagian · {activeOrClosedSessions.length} sesi dapat dipilih
+                        {tryout.sections.length} bagian
                       </span>
                       <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--voyage-forest)] text-white shadow-[0_10px_24px_-16px_color-mix(in_oklab,var(--voyage-forest)_75%,transparent)]">
                         <ChevronRight className="size-5" strokeWidth={2.6} />
@@ -522,7 +520,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
       <Card className="rounded-card border border-[var(--warning-200)] bg-[var(--warning-50)] shadow-none">
         <CardHeader>
           <CardTitle className="text-lg">Pratinjau tampilan siswa</CardTitle>
-          <CardDescription>Halaman ini tidak membuka pengerjaan atau jawaban siswa. Gunakan tombol mulai ulang di bawah jika kamu perlu membuat sesi Tryout baru untuk pratinjau.</CardDescription>
+          <CardDescription>Halaman ini tidak membuka pengerjaan atau jawaban siswa.</CardDescription>
         </CardHeader>
       </Card>
 
@@ -530,7 +528,7 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         <Card className="rounded-card border border-secondary-200 bg-white shadow-none">
           <CardHeader>
             <CardTitle className="text-xl">Jadwal sesi</CardTitle>
-            <CardDescription>Pilih sesi aktif atau yang sudah ditutup sebagai sumber pengerjaan ulang.</CardDescription>
+            <CardDescription>Waktu buka dan tutup Tryout untuk siswa.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
             {tryout.schedule.length > 0 ? tryout.schedule.map((session) => <TryoutScheduleLine key={session.id} session={session} />) : (
@@ -541,13 +539,11 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
 
         <Card className="rounded-card border border-secondary-200 bg-white shadow-none">
           <CardHeader>
-            <CardTitle className="text-xl">Pendaftaran dan penugasan</CardTitle>
-            <CardDescription>Status pendaftaran dan penugasan ditampilkan terpisah dari status penerbitan Tryout.</CardDescription>
+            <CardTitle className="text-xl">Pendaftaran</CardTitle>
+            <CardDescription>Status pendaftaran ditampilkan terpisah dari status penerbitan Tryout.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
             <SummaryItem label="Pendaftaran Tryout" value={tryout.admission.status ? tryoutAdmissionLabels[tryout.admission.status] : "Belum ada pendaftaran"} />
-            <SummaryItem label="Penugasan saat ini" value={tryout.assignments.current ? "Aktif" : "Belum ada"} />
-            <SummaryItem label="Riwayat penugasan" value={`${tryout.assignments.history.length} penugasan`} />
           </CardContent>
         </Card>
       </div>
@@ -585,7 +581,6 @@ function AdminStudentPreviewTryoutDetailSurface({ tryout }: { tryout: AdminPrevi
         )}
       </section>
 
-      <AdminStudentPreviewTryoutRestart tryout={tryout} />
       <PreviewNavigation activeLabel="Tryout" />
     </section>
   );

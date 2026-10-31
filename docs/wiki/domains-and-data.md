@@ -38,23 +38,17 @@ The assessment model deliberately separates concerns:
 - Preview reads use a fixed safe subject and are side-effect-free: they must
   not create attempts, sessions, external writes, notifications, analytics,
   or learner-state mutations.
-- An explicit admin Tryout preview restart is a separate, audited mutation. It
-  may create or reuse the fixed preview student's active admission, a scoped
-  delivery session/assignment, and audit/idempotency records, but it must reuse
-  an existing published `AssessmentRelease` and never create an attempt,
-  answer, progress mutation, notification, or analytics event.
 
-### Preview read/restart split
+### Preview reads
 
 | Operation | Allowed writes | Must never do |
 | --- | --- | --- |
 | Preview read | None | Create an admission, session, assignment, attempt, answer, progress mutation, notification, analytics event, queue job, webhook, or external write. |
-| Explicit Tryout preview restart | Reuse an eligible published `AssessmentRelease`; create or reuse the fixed preview admission and scoped active delivery session/assignment; write audit and idempotency records. | Create a new release, attempt, answer, learner progress, notification, analytics event, or general impersonation state. |
 
-The split is implemented across `lib/admin/student-preview-reads.ts`,
-`lib/admin/student-preview-tryout-reads.ts`,
-`lib/admin/preview-read-boundary.ts`, and the explicit restart service in
-`lib/admin/student-preview-tryout.ts`.
+The preview is implemented in `lib/admin/student-preview-reads.ts`,
+`lib/admin/student-preview-tryout-reads.ts`, and
+`lib/admin/preview-read-boundary.ts`. The earlier explicit restart mutation was
+removed when a Tryout became a single-session assessment.
 
 ```mermaid
 stateDiagram-v2

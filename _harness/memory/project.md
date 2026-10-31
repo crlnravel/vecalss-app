@@ -157,7 +157,7 @@ and then verify the source tree before making an implementation decision.
   content boundary rejects persistence writes, queues/events, analytics,
   notifications, webhooks, external writes, delayed jobs, and learner-state
   mutations.
-- Kuis and Tryout preview surfaces use explicit recursive allowlists; Tryout restart uses a fixed safe retake policy, transaction-scoped advisory locks, an idempotency row keyed by preview student + request ID, and supersedes the prior current assignment without creating attempts.
+- Kuis and Tryout preview surfaces use explicit recursive allowlists and are read-only; the admin Tryout preview restart was removed with multi-session Tryouts (a Tryout has one Sesi Tryout).
 - Banner editing is available only at the admin preview route, uses the CodeMirror editor with hidden form values, and keeps draft/admin-preview/published loaders and revalidation paths separate.
 
 ## Current AS-06 Kuis binding and AS-07 pickup (2026-08-23)

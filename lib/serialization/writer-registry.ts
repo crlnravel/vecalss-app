@@ -115,8 +115,6 @@ const AUTHORING_WRITER_REGISTRY = [
   { name: "createOrReuseAssessmentRelease", source: "lib/tryout/assessment-release.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 7] },
   { name: "getOwnedTryoutOperationsView", source: "lib/tryout/operations-view.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 6, 7] },
   { name: "getOwnedTryoutParticipantsView", source: "lib/tryout/operations-view.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 6, 7] },
-  { name: "restartAdminStudentPreviewTryout", source: "lib/admin/student-preview-tryout.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 2, 4, 5, 6, 8] },
-  { name: "restartAdminStudentPreviewTryoutAction", source: "modules/admin/student-preview-actions.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 2, 4, 5, 6, 8] },
 
   // Media entries are registered here so future lease enforcement cannot
   // silently grow an unclassified mutation boundary.

@@ -613,7 +613,7 @@ async function startTryoutDisconnect(
     }
     const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa.");
     }
     await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
@@ -641,7 +641,7 @@ async function startTryoutDisconnect(
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa.");
     }
     if (attempt.admission.status !== "active" || assignment.status !== TryoutAssignmentStatus.active) {
       throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai dari admission dan penugasan sesi yang aktif.");
@@ -715,7 +715,7 @@ async function reconcileTryoutDisconnect(
     }
     const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
     if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa.");
     }
     await synchronizeAttempt(tx, attemptId, now, actorId, scope);
     const attempt = await tx.tryoutAttempt.findUnique({
@@ -740,7 +740,7 @@ async function reconcileTryoutDisconnect(
     }
     const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa. Buat sesi baru dari halaman admin.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dikerjakan lewat halaman siswa.");
     }
     if (attempt.admission.status !== "active" || assignment?.status !== TryoutAssignmentStatus.active) throw new TryoutAttemptValidationError("Reconcile disconnect memerlukan admission dan penugasan aktif.");
     if (attempt.status !== AttemptStatus.in_progress || attempt.attemptState !== AssessmentAttemptState.in_progress || run.status !== TryoutAttemptTestRunStatus.active) {
@@ -814,7 +814,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       where: { id: studentId },
     });
     if (isManagedPreviewPurpose(student?.previewPurpose)) {
-      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dimulai lewat halaman siswa. Buat sesi baru dari halaman admin.");
+      throw new TryoutAttemptValidationError("Sesi pratinjau tidak dapat dimulai lewat halaman siswa.");
     }
     const identity = await acquireTryoutIdentityMutex(tx, { id: deliverySessionId, kind: "session" });
     if (!identity) throw new TryoutAttemptValidationError("Sesi Tryout tidak ditemukan.");

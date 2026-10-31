@@ -6,7 +6,7 @@ import {
   digestAssessmentReleasePayload,
 } from "../lib/tryout/assessment-release-canonical.mjs";
 
-const [schema, migration, canonical, release, delivery, attempt, result, seed, participant, repository, preview, operationsView, mentorTryoutPage] = await Promise.all([
+const [schema, migration, canonical, release, delivery, attempt, result, seed, participant, repository, operationsView, mentorTryoutPage] = await Promise.all([
   readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260822120000_add_assessment_release_boundary/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/assessment-release-canonical.mjs", import.meta.url), "utf8"),
@@ -17,7 +17,6 @@ const [schema, migration, canonical, release, delivery, attempt, result, seed, p
   readFile(new URL("../prisma/seed-assessment.mjs", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/participant-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/repository.ts", import.meta.url), "utf8"),
-  readFile(new URL("../lib/admin/student-preview-tryout.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/page.tsx", import.meta.url), "utf8"),
 ]);
@@ -95,7 +94,6 @@ assert.doesNotMatch(participant, /current\?\.subtest/);
 assert.match(repository, /TryoutDeliverySessionStatus\.active/);
 assert.match(repository, /assessmentReleaseId: \{ not: null \}/);
 assert.match(repository, /Tutup atau arsipkan sesi/);
-assert.match(preview, /assertTryoutReleaseEligibility/);
 assert.match(attempt, /findAssessmentReleaseSectionForRun/);
 assert.match(attempt, /releaseSection\.subtestCode/);
 assert.match(result, /findAssessmentReleaseSectionForRun/);

@@ -20,7 +20,6 @@ flowchart LR
     Score --> Result[Release result by policy]
 
     PreviewRead[Admin preview read] --> PreviewDTO[Fixed subject + sanitized DTO]
-    PreviewRestart[Explicit preview restart] --> Delivery
 ```
 
 There are two assessment branches. Kuis is the standalone practice flow and
@@ -31,8 +30,7 @@ remains the stable catalogue/ownership identity with only `published` and
 Archiving is the only lifecycle action and cannot be reversed.
 Tryout is the released, operational assessment flow: mutable authoring data is
 resolved into an immutable release before delivery. The admin preview branch
-may enter delivery only through an explicit restart; a preview read never
-enters the runtime.
+is read-only: a preview read never enters the runtime.
 
 ## Stage map
 
@@ -113,23 +111,8 @@ The default admin preview path uses
 `lib/admin/student-preview-tryout-reads.ts`, and
 `lib/admin/preview-read-boundary.ts`. It resolves a fixed safe subject and
 returns sanitized DTOs without persistence writes, queue/event work,
-notifications, analytics, external writes, or learner-state mutation.
-
-An explicit restart in `lib/admin/student-preview-tryout.ts` is different and
-must be named as a mutation in code, UI, and documentation. It:
-
-- finds an eligible published Tryout/session and reuses the latest existing
-  `AssessmentRelease`;
-- creates or reuses the fixed preview student's active admission;
-- supersedes the current assignment and creates a scoped active delivery
-  session/assignment with the release pinned;
-- writes a `TryoutDeliveryAudit` record and an
-  `AdminPreviewTryoutRestart` idempotency record; and
-- never creates a new release, attempt, answer, progress mutation,
-  notification, or analytics event.
-
-This is a safe retake/delivery setup for preview, not general student
-impersonation. A read must never perform the restart as a hidden side effect.
+notifications, analytics, external writes, or learner-state mutation. The admin
+preview has no way to start or restart a Tryout.
 
 ## Locks, idempotency, and capability gates
 
@@ -138,7 +121,7 @@ impersonation. A read must never perform the restart as a hidden side effect.
 | Publish/release | Publication identity and deterministic release reuse prevent duplicate competing releases; release payload is immutable after creation. |
 | Admission/delivery | `tryout.delivery.configure`, `tryout.admission.manage`, and related management capabilities scope operations; transaction-scoped locks protect session, admission, and assignment transitions. |
 | Attempt runtime | Learner session plus `tryout.attempt.execute` capability is required; release consistency, attempt/run state, and content snapshots protect writes. |
-| Preview restart | A transaction-scoped lock plus request-id idempotency row makes the explicit restart retry-safe; preview reads have no write path. |
+| Preview read | Preview reads have no write path. |
 
 ## Verification map
 
