@@ -26,20 +26,16 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
   const available = !readOnly && initial.state === "ready" && state.phase !== "saved";
   const calculated = initial.state === "calculated" || state.phase === "saved";
   const unresolved = ["unknown", "retry", "blocked"].includes(state.phase);
+  const showRecovery = !readOnly && (unresolved || state.phase === "reading");
+  const showReload = !readOnly && flow.refreshFailed;
+  if (!available && !showRecovery && !showReload) return null;
+
   const blockedGroups = initial.sections.filter((section) => !section.ready).reduce<Array<{ message: string; sections: number[] }>>((groups, section) => {
     const message = section.message ?? "";
     const group = groups.find((item) => item.message === message);
     if (group) group.sections.push(section.sequenceNo); else groups.push({ message, sections: [section.sequenceNo] });
     return groups;
   }, []);
-  if (initial.state === "released") {
-    return (
-      <div className="grid gap-2 text-sm leading-6 text-secondary-700">
-        <p>{initial.message}</p>
-        {!readOnly && flow.refreshFailed ? <Button className="min-h-11 w-fit" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
-      </div>
-    );
-  }
   return (
     <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0 ring-0")}>
       <CardHeader><CardTitle className="text-lg font-semibold">Perhitungan hasil</CardTitle>{calculated && readOnly ? null : <CardDescription>{calculated ? "Rincian perhitungan terakhir dan alasan pencatatannya." : initial.message}</CardDescription>}</CardHeader>
@@ -50,8 +46,8 @@ export function TryoutAttemptResultRecovery({ initial, readOnly = false, refresh
           <Field data-invalid={reasonError || undefined}><FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="result-calculation-reason" required>Alasan perhitungan</FieldLabel><FieldInput aria-describedby={reasonError ? "result-calculation-reason-error" : undefined} aria-invalid={reasonError || undefined} aria-required="true" className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={retained || busy} id="result-calculation-reason" onChange={(event) => { setReason(event.target.value); if (event.target.value.trim()) setReasonError(false); }} required value={reason} /><FieldError error={reasonError ? "Isi alasan perhitungan terlebih dahulu." : undefined} id="result-calculation-reason-error" /></Field>
           <Button className="min-h-11" disabled={retained || busy} type="submit">{state.phase === "writing" ? "Menghitung…" : "Pulihkan dan hitung skor"}</Button>
         </form> : null}
-        {unresolved || state.phase === "reading" ? <section aria-label="Pemulihan perhitungan" className="grid gap-3 text-sm leading-6"><p>{state.message ?? "Periksa status perhitungan yang dikirim."}</p><div className="flex flex-wrap gap-2"><Button className="min-h-11" disabled={busy} onClick={() => void flow.inspect()} variant="outline">{state.phase === "reading" ? "Memeriksa…" : "Periksa status"}</Button>{state.phase === "retry" ? <Button className="min-h-11" disabled={busy || state.writePending} onClick={() => void flow.replay()}>Kirim ulang perhitungan yang sama</Button> : null}</div></section> : null}
-        {!readOnly && flow.refreshFailed ? <Button className="min-h-11" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
+        {showRecovery ? <section aria-label="Pemulihan perhitungan" className="grid gap-3 text-sm leading-6"><p>{state.message ?? "Periksa status perhitungan yang dikirim."}</p><div className="flex flex-wrap gap-2"><Button className="min-h-11" disabled={busy} onClick={() => void flow.inspect()} variant="outline">{state.phase === "reading" ? "Memeriksa…" : "Periksa status"}</Button>{state.phase === "retry" ? <Button className="min-h-11" disabled={busy || state.writePending} onClick={() => void flow.replay()}>Kirim ulang perhitungan yang sama</Button> : null}</div></section> : null}
+        {showReload ? <Button className="min-h-11" onClick={() => void flow.reload()} variant="outline">Muat ulang tampilan</Button> : null}
       </CardContent>
     </Card>
   );
