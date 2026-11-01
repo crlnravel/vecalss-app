@@ -5,6 +5,7 @@ import {
   convertToModelMessages,
   createUIMessageStreamResponse,
   isStepCount,
+  isToolUIPart,
   streamText,
   toUIMessageStream,
   type LanguageModelUsage,
@@ -28,6 +29,8 @@ import {
 } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
+import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
+import { createVeraTools } from "./tools";
 
 export const veraChatRequestSchema = z.object({
   conversationId: z.uuid().optional(),
@@ -70,15 +73,22 @@ function tallyOf(steps: Array<{ usage: LanguageModelUsage }>): UsageTally {
   return steps.reduce((tally, step) => addStepUsage(tally, step.usage), NO_USAGE);
 }
 
-/** Stops before another step could carry the answer past its ceiling, assuming that step uses its full caps. */
+/**
+ * Stops before the next step could carry the answer past its ceiling. A step after a tool call reads everything the last step
+ * read and wrote, plus up to one step's worth of tool output, and it may use its full output cap.
+ */
 function ceilingReached(
   steps: Array<{ usage: LanguageModelUsage }>,
   effort: { ceilingCredits: number; maxOutputTokens: number },
   prices: VeraPrices,
 ) {
   const ceilingMicros = effort.ceilingCredits * VERA_LIMITS.microUsdPerCredit;
+  const last = steps.at(-1)?.usage;
+  const nextInputTokens = last
+    ? (last.inputTokens ?? 0) + (last.outputTokens ?? 0) + VERA_LIMITS.maxToolOutputTokensPerStep
+    : VERA_LIMITS.maxInputTokensPerStep;
   const worstStepMicros = costUsdMicros(
-    { noCacheInputTokens: VERA_LIMITS.maxInputTokensPerStep, cachedInputTokens: 0, outputTokens: effort.maxOutputTokens },
+    { noCacheInputTokens: nextInputTokens, cachedInputTokens: 0, outputTokens: effort.maxOutputTokens },
     prices,
   );
   return costUsdMicros(tallyOf(steps), prices) >= ceilingMicros - worstStepMicros;
@@ -185,6 +195,7 @@ export async function runVeraChat({
     abortSignal: signal,
     maxOutputTokens: effort.maxOutputTokens,
     maxRetries: 1,
+    tools: createVeraTools({ studentId, now }),
     stopWhen: [isStepCount(VERA_LIMITS.maxSteps), ({ steps }) => ceilingReached(steps, effort, prices)],
     providerOptions: {
       openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
@@ -230,9 +241,39 @@ export async function runVeraChat({
   });
 }
 
-/** Reasoning and status parts are display-only, so only text goes back to the model. */
+/**
+ * Only text goes back to the model. Reasoning and status parts are display-only. A tool call from an earlier turn becomes one
+ * line, since its data already reached the student in that turn's answer.
+ */
 function toModelHistory(messages: UIMessage[]): UIMessage[] {
-  return messages.map((message) => ({ ...message, parts: message.parts.filter((part) => part.type === "text") }));
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.flatMap((part): UIMessage["parts"] => {
+      if (part.type === "text") return [part];
+      if (part.type.startsWith("tool-")) {
+        return [{ type: "text", text: `[Alat ${part.type.slice("tool-".length)} dipakai pada giliran sebelumnya.]` }];
+      }
+      return [];
+    }),
+  }));
+}
+
+/** The links that tool results carried. An answer lists only these, so its sources are what the student can open. */
+function sourcesOf(parts: UIMessage["parts"]): VeraSource[] {
+  return uniqueSources(collectSources(parts.filter(isToolUIPart).map((part) => part.output)));
+}
+
+/**
+ * A refused tool call stores no input. The ID the model asked for is not data the student was allowed to read, so only the
+ * refusal is kept.
+ */
+function storedParts(parts: UIMessage["parts"]): UIMessage["parts"] {
+  return parts.map((part) => (isToolUIPart(part) && isToolRefusal(part.output) ? { ...part, input: {} } : part));
+}
+
+/** Readers answer a refused lookup with an error object and nothing else. */
+function isToolRefusal(output: unknown) {
+  return !!output && typeof output === "object" && Object.keys(output).length === 1 && "error" in output;
 }
 
 async function persistAnswer({
@@ -253,11 +294,12 @@ async function persistAnswer({
   const answer = [...messages].reverse().find((message) => message.role === "assistant");
   try {
     if (answer) {
+      const kept = storedParts(answer.parts);
       const parts: UIMessage["parts"] = stopped
-        ? [...answer.parts, { type: STOPPED_PART_TYPE, data: { stopped: true } }]
-        : answer.parts;
+        ? [...kept, { type: STOPPED_PART_TYPE, data: { stopped: true } }]
+        : kept;
       await appendMessages(conversationId, [
-        { id: answer.id, role: "assistant", parts, effort, credits, createdAt: new Date() },
+        { id: answer.id, role: "assistant", parts, effort, credits, sources: sourcesOf(parts), createdAt: new Date() },
       ]);
     }
     await touchConversation(studentId, conversationId);

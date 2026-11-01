@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -10,6 +10,8 @@ import remarkMath from "remark-math";
 
 import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
 import { Reasoning } from "@/components/ai-elements/reasoning";
+import { Sources } from "@/components/ai-elements/sources";
+import { ToolStep } from "@/components/ai-elements/tool";
 import {
   PromptInput,
   PromptInputBody,
@@ -25,6 +27,7 @@ import { Sparkles } from "@/lib/icons";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import { estimateCreditRange, formatCredits, formatCreditRange } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
+import { collectSources, uniqueSources } from "@/lib/vera/sources/types";
 import { cn } from "@/lib/utils";
 import { VeraEffortMenu } from "@/modules/vera/VeraEffortMenu";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
@@ -330,12 +333,24 @@ function ThreadMessage({ message }: { message: UIMessage }) {
     (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
   );
   const credits = (message.metadata as { credits?: number } | undefined)?.credits;
+  // The links come from the tool results the answer used, so they only ever point at pages the student could open.
+  const sources = uniqueSources(collectSources(message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []))));
   return (
     <Message align="start">
       <MessageContent className="w-full min-w-0 space-y-3 text-sm leading-relaxed">
         {message.parts.map((part, index) => {
           if (part.type === "reasoning") {
             return <Reasoning key={index} streaming={part.state === "streaming"} text={part.text} />;
+          }
+          if (isToolUIPart(part)) {
+            return (
+              <ToolStep
+                key={index}
+                output={part.output}
+                state={part.state}
+                toolName={part.type.slice("tool-".length)}
+              />
+            );
           }
           if (part.type === "text") {
             return (
@@ -351,6 +366,7 @@ function ThreadMessage({ message }: { message: UIMessage }) {
           }
           return null;
         })}
+        {sources.length > 0 ? <Sources sources={sources} /> : null}
         {stopped ? <p className="text-xs text-muted-foreground">Jawaban dihentikan.</p> : null}
         {typeof credits === "number" ? (
           <p className="text-xs text-muted-foreground tabular-nums">{formatCredits(credits)} kredit</p>

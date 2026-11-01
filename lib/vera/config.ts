@@ -51,6 +51,8 @@ export const VERA_LIMITS = {
   microUsdPerCredit: 2_350,
   maxSteps: 5,
   maxInputTokensPerStep: 16_000,
+  /** Most tool output a single step can add to the next step's input. Each reader's output is bounded well below this. */
+  maxToolOutputTokensPerStep: 8_000,
   maxMessageChars: 4_000,
 } as const;
 

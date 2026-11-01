@@ -62,28 +62,32 @@ const MENTION_BUDGET_TOKENS = 6_000;
 const LOW_OUTPUT_TOKENS = 300;
 
 /**
- * The composer's estimate before sending. Low assumes a short answer. High
- * assumes the input doubles and the answer uses the effort's full output cap.
+ * The composer's estimate before sending. Low assumes a one-step short answer.
+ * High assumes two steps (a tool call, then the answer), both at the effort's
+ * full output cap, and never more than the effort's ceiling, which the server
+ * enforces.
  */
 export function estimateCreditRange(
   { effort, historyChars, mentionCount }: { effort: VeraEffortId; historyChars: number; mentionCount: number },
   prices: VeraPrices = VERA_DEFAULT_PRICES,
 ): { low: number; high: number } {
+  const { maxOutputTokens, ceilingCredits } = VERA_EFFORTS[effort];
   const mentionTokens = Math.min(MENTION_BUDGET_TOKENS, mentionCount * MENTION_TOKENS);
   const promptTokens = Math.min(
     VERA_LIMITS.maxInputTokensPerStep,
     SYSTEM_TOKENS + Math.ceil(historyChars / 4) + mentionTokens,
   );
   const low = creditsForUsage({ noCacheInputTokens: promptTokens, cachedInputTokens: 0, outputTokens: LOW_OUTPUT_TOKENS }, prices);
-  const high = creditsForUsage(
+  const firstStep = creditsForUsage({ noCacheInputTokens: promptTokens, cachedInputTokens: 0, outputTokens: maxOutputTokens }, prices);
+  const secondStep = creditsForUsage(
     {
-      noCacheInputTokens: Math.min(VERA_LIMITS.maxInputTokensPerStep, promptTokens * 2),
+      noCacheInputTokens: promptTokens + maxOutputTokens + VERA_LIMITS.maxToolOutputTokensPerStep,
       cachedInputTokens: 0,
-      outputTokens: VERA_EFFORTS[effort].maxOutputTokens,
+      outputTokens: maxOutputTokens,
     },
     prices,
   );
-  return { low, high };
+  return { low, high: Math.min(ceilingCredits, firstStep + secondStep) };
 }
 
 /** Indonesian decimal comma, as the UI shows it: 0,6. */

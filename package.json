@@ -17,6 +17,7 @@
     "test:vera-authorization": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-authorization.ts",
     "test:vera-chat": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-chat.ts",
     "test:vera-ledger": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-ledger.ts",
+    "test:vera-tools": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-tools.ts",
     "db:seed-materi": "node prisma/seed-materi.mjs",
     "db:apply-materi-reset": "node prisma/seed-materi.mjs --apply",
     "db:seed-assessment": "node prisma/seed-assessment.mjs",

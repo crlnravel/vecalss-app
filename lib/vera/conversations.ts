@@ -5,6 +5,7 @@ import type { UIMessage } from "ai";
 import type { Prisma, VeraEffort } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { VERA_CONVERSATION_TITLE, type VeraEffortId } from "./config";
+import type { VeraSource } from "./sources/types";
 
 export type StoredVeraMessage = {
   id: string;
@@ -12,6 +13,7 @@ export type StoredVeraMessage = {
   parts: UIMessage["parts"];
   effort?: VeraEffortId;
   credits?: number | null;
+  sources?: VeraSource[];
   createdAt: Date;
 };
 
@@ -61,6 +63,8 @@ export async function appendMessages(conversationId: string, messages: StoredVer
       parts: message.parts as unknown as Prisma.InputJsonValue,
       effort: message.effort ?? null,
       credits: message.credits ?? null,
+      // Left unset (NULL) when the answer used no tools, so an empty list never looks like a stored choice.
+      sources: message.sources?.length ? (message.sources as unknown as Prisma.InputJsonValue) : undefined,
       createdAt: message.createdAt,
     })),
   });
