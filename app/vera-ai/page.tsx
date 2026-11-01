@@ -1,16 +1,22 @@
 import { requireStudentSession } from "@/lib/auth/access";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
+import { getConversationWithMessages, getLatestConversationId } from "@/lib/vera/conversations";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
+import { VeraPageModule } from "@/modules/vera/VeraPageModule";
 
 export default async function VeraAiPage() {
   const session = await requireStudentSession();
-  const notificationFeed = await getStudentNotificationFeed({ userId: session.user.id });
+  const [notificationFeed, latestConversationId] = await Promise.all([
+    getStudentNotificationFeed({ userId: session.user.id }),
+    getLatestConversationId(session.user.id),
+  ]);
+  const conversation = latestConversationId
+    ? await getConversationWithMessages(session.user.id, latestConversationId)
+    : null;
 
   return (
     <CourseWorkspaceShell activeLabel="Vera AI" breadcrumbLabel="Vera AI" notificationFeed={notificationFeed} session={session} showSearch={false}>
-      <section aria-labelledby="vera-placeholder-title" className="rounded-3xl border border-border bg-card px-5 py-8 text-card-foreground">
-        <h1 className="text-lg font-semibold" id="vera-placeholder-title">Vera sedang disiapkan.</h1>
-      </section>
+      <VeraPageModule conversationId={conversation?.id ?? null} initialMessages={conversation?.messages ?? []} />
     </CourseWorkspaceShell>
   );
 }

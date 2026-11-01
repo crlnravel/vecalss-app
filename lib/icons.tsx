@@ -96,6 +96,7 @@ import {
   SkipForward as PhosphorSkipForward,
   SlidersHorizontal as PhosphorSlidersHorizontal,
   Sparkle as PhosphorSparkles,
+  Stop as PhosphorStop,
   Star as PhosphorStar,
   SpinnerGap as PhosphorLoaderCircle,
   SquaresFour as PhosphorSquaresFour,
@@ -249,6 +250,7 @@ export const SkipForward = PhosphorSkipForward;
 export const Star = PhosphorStar;
 export const SlidersHorizontal = PhosphorSlidersHorizontal;
 export const Sparkles = PhosphorSparkles;
+export const Stop = PhosphorStop;
 export const Target = PhosphorTarget;
 export const TableIcon = PhosphorTable;
 export const Tag = PhosphorTag;
