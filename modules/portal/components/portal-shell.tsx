@@ -24,7 +24,6 @@ import { AdminPortalNav } from "./admin-portal-nav";
 
 const adminSectionLabels = {
   ai: "Vera AI",
-  "ai-policy": "Policy Vera AI",
   "audit-logs": "Riwayat audit",
   affiliators: "Affiliator",
   "ai-usage": "Pemakaian AI",
@@ -39,7 +38,6 @@ const adminSectionLabels = {
 
 const adminSectionRootHrefs = {
   ai: "/admin/ai",
-  "ai-policy": "/admin/ai/policies",
   "audit-logs": "/admin/audit-logs",
   affiliators: "/admin/affiliators",
   "ai-usage": "/admin/ai/usage",
@@ -62,7 +60,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs" | "table-demo";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "student-banners" | "docs" | "table-demo";
   breadcrumbHref?: string;
   children: React.ReactNode;
   description: string;

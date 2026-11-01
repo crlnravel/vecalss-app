@@ -10,8 +10,6 @@ import {
   AssessmentResultMarker,
   AssessmentResultNavigation,
 } from "@/modules/assessment/AssessmentWorkspace";
-import { AiHourlyLockChart } from "@/modules/admin/ai/components/AiHourlyLockChart";
-import type { QuotaHealthState } from "@/lib/admin/ai/contracts";
 import { resolveDataTableClassName } from "@/components/ui/data-table-utils";
 import { Table } from "@/components/ui/table";
 
@@ -55,40 +53,7 @@ includes(studentSidebar, "motion-reduce:transition-none", "Student navigation tr
 includes(mentorSidebar, "motion-reduce:transition-none", "Mentor navigation transitions must respect reduced motion.");
 check((accountMenu.match(/motion-reduce:animate-none/g) ?? []).length >= 2, "Account-menu loading indicators must stop spinning under reduced motion.");
 
-const providers = read("modules/admin/ai/AiProvidersPageModule.tsx");
-const capacity = read("modules/admin/ai/components/AiCapacityMeter.tsx");
-const routing = read("modules/admin/ai/components/AiRoutingChainVisualizer.tsx");
-const reliability = read("modules/admin/ai/AiReliabilityPageModule.tsx");
-const metric = read("modules/admin/ai/components/AiMetricCard.tsx");
-const refresh = read("modules/admin/ai/components/AiRefreshBar.tsx");
-
-includes(providers, "aria-live=\"assertive\"", "Provider errors must be announced assertively.");
-includes(providers, "min-w-0 break-words", "Provider credential fingerprints must wrap at compact widths.");
-includes(providers, "<h2", "Provider sections must follow the page h1 with h2 headings.");
-includes(providers, "</h2>", "Provider section headings must be closed at the same level.");
-excludes(providers, "</h3>", "Provider section heading markup must not leave a stale h3 closing tag.");
-includes(capacity, "<meter", "Capacity bars must expose native meter semantics.");
-includes(capacity, "max={100}", "Capacity meters must expose their range.");
-includes(capacity, "value={Math.max", "Capacity meters must expose their current values.");
-includes(capacity, "motion-reduce:transition-none", "Capacity animation must respect reduced motion.");
-includes(routing, 'role="img"', "Routing charts must expose an accessible aggregate.");
-includes(routing, "Rincian penyelesaian aktual", "Routing charts must expose a visible value legend.");
-includes(routing, 'aria-hidden="true"', "Routing chart segments must remain decorative after the aggregate is announced.");
-includes(routing, "<h3", "Capability cards must continue the provider section heading hierarchy.");
-includes(metric, "motion-reduce:transition-none", "Metric card transitions must respect reduced motion.");
-includes(refresh, "min-h-11", "Refresh controls must meet the 44px target.");
-includes(refresh, "motion-reduce:animate-none", "Refresh animation must respect reduced motion.");
-includes(reliability, "aria-pressed", "Incident selection must expose a non-color selected state.");
-includes(reliability, "Pilih salah satu insiden", "Incident empty state must use an actionable selection label.");
-includes(reliability, "role=\"alert\"", "Reliability errors must be announced as alerts.");
-includes(reliability, "<h2", "Reliability sections must follow the page h1 with h2 headings.");
-includes(reliability, 'role="img"', "Graceful degradation charts must expose an accessible aggregate.");
-
 const portalShell = read("modules/portal/components/portal-shell.tsx");
-const aiOverview = read("modules/admin/ai/AiOverviewPageModule.tsx");
-const aiPolicies = read("modules/admin/ai/AiPoliciesPageModule.tsx");
-const aiUsage = read("modules/admin/ai/AiUsagePageModule.tsx");
-const aiHourlyLockChart = read("modules/admin/ai/components/AiHourlyLockChart.tsx");
 const dataTable = read("components/ui/data-table.tsx");
 const dataTableUtils = read("components/ui/data-table-utils.ts");
 const compactFilterTabs = read("components/ui/compact-filter-tabs.tsx");
@@ -98,23 +63,6 @@ const kaptenUi = read("modules/mentor/components/kapten-ui.tsx");
 includes(portalShell, 'aria-label="Buka atau tutup navigasi"', "Admin sidebar trigger must have a localized accessible label.");
 includes(portalShell, "size-[44px] min-h-[44px] min-w-[44px]", "Admin sidebar trigger must retain the 44px target at compact widths.");
 includes(portalShell, 'aria-label="Header workspace Admin"', "Admin workspace header must expose its landmark label.");
-includes(aiOverview, 'aria-labelledby="ai-overview-requests-heading"', "AI request chart must expose a named section.");
-includes(aiOverview, "Rincian API Request per rentang empat jam", "AI request chart must expose per-value semantic equivalents.");
-includes(aiOverview, 'role="alert"', "AI overview errors must be announced as alerts.");
-includes(aiOverview, "motion-reduce:transition-none", "AI overview transitions must respect reduced motion.");
-includes(aiPolicies, 'role="tablist"', "AI policy views must expose tab-list semantics.");
-includes(aiPolicies, 'aria-selected={activeTab === "active"}', "AI policy tabs must expose selected state.");
-includes(aiPolicies, 'role="tabpanel"', "AI policy content must expose panel semantics.");
-includes(aiPolicies, "max-w-full overflow-x-auto", "AI policy history must contain its dense table responsively.");
-includes(aiPolicies, "min-w-[760px]", "AI policy history must retain a readable dense-table minimum width inside its scroller.");
-includes(aiPolicies, "min-h-[44px]", "AI policy actions and tabs must retain the 44px target.");
-includes(aiUsage, "CompactFilterTabs", "AI usage metric selection must use the shared tabs contract.");
-includes(aiUsage, "min-h-[44px]", "AI usage period and retry controls must retain the 44px target.");
-includes(aiUsage, 'role="alert"', "AI usage errors must be announced as alerts.");
-includes(aiUsage, "Data disembunyikan untuk menjaga privasi siswa.", "AI usage suppressed values must not expose a false zero value.");
-includes(aiHourlyLockChart, "Rincian kunci batas kuota per jam", "Hourly lock chart must expose per-value semantic equivalents.");
-includes(aiHourlyLockChart, 'aria-hidden="true"', "Hourly lock chart visuals must remain decorative after semantic values are announced.");
-includes(aiHourlyLockChart, "motion-reduce:transition-none", "Hourly lock chart transitions must respect reduced motion.");
 includes(dataTable, "useId", "Data table search controls must use an instance-safe label association.");
 includes(dataTable, "htmlFor={searchId}", "Data table search labels must associate with their input.");
 includes(dataTable, "min-h-[44px] min-w-[44px]", "Data table compact controls must retain the 44px target.");
@@ -137,7 +85,6 @@ includes(kaptenUi, 'id = "kapten-content-search"', "Kapten SearchPanel must expo
 includes(kaptenUi, "htmlFor={id}", "Kapten SearchPanel labels must associate with their input.");
 includes(kaptenUi, "aria-label={placeholder}", "Kapten SearchPanel inputs must expose an accessible name.");
 includes(kaptenUi, 'size="default"', "Kapten empty-state recovery actions must retain the default 44px target.");
-includes(aiUsage, "transition-[width,background-color] duration-500 motion-reduce:transition-none", "AI usage feature bars must reset transitions under reduced motion.");
 
 const emptyDenseTableMarkup = renderToStaticMarkup(createElement(
   Table,
@@ -152,38 +99,6 @@ const emptyDenseTableMarkup = renderToStaticMarkup(createElement(
 ));
 includes(emptyDenseTableMarkup, "!min-w-full", "Rendered empty DataTable class resolution overrides a dense caller minimum width.");
 excludes(emptyDenseTableMarkup, "min-w-[760px]", "Rendered empty DataTable class resolution does not retain the dense caller minimum width.");
-
-const quotaHealthFixture: QuotaHealthState = {
-  privacyState: "available",
-  hourlyPrivacyState: "available",
-  capacityAvailable: true,
-  allocatedDailyUnits: 100,
-  consumedUnits: 40,
-  reservedUnits: 10,
-  overrunDebtUnits: 0,
-  availableUnits: 50,
-  consumedPercentage: 40,
-  reservedPercentage: 10,
-  availablePercentage: 50,
-  studentsAtOrAbove80Percent: 2,
-  studentsAtOrAbove80PercentShare: 10,
-  studentsHardLocked: 1,
-  hardLockRate: 5,
-  earlyExhaustionAlert: {
-    status: "normal",
-    exhaustedBeforeNoonShare: 0,
-    normalThresholdShare: 10,
-    message: "Tidak ada peringatan",
-  },
-  hourlyLocks: [
-    { hour: 8, hourLabel: "08:00 WIB", lockCount: 3, cumulativeLocks: 3 },
-    { hour: 18, hourLabel: "18:00 WIB", lockCount: 7, cumulativeLocks: 10 },
-  ],
-};
-const hourlyLockMarkup = renderToStaticMarkup(createElement(AiHourlyLockChart, { quotaHealth: quotaHealthFixture }));
-includes(hourlyLockMarkup, "Pukul 08:00 WIB", "Rendered hourly lock chart exposes its first semantic value.");
-includes(hourlyLockMarkup, "kumulatif 10", "Rendered hourly lock chart exposes cumulative semantic values.");
-check((hourlyLockMarkup.match(/<li/g) ?? []).length === 2, "Rendered hourly lock chart exposes one semantic item per hour.");
 
 const onboarding = read("modules/student/components/onboarding-form.tsx");
 const notifications = read("modules/student/NotificationsPageModule.tsx");
@@ -226,19 +141,6 @@ includes(result, "motion-reduce:transition-none", "Tryout result transitions mus
 includes(result, "outcome:", "Tryout result markers must retain their outcome state while one marker is current.");
 includes(quizResult, "const outcome =", "Quiz result markers must retain their outcome state while one marker is current.");
 includes(quizResult, "result.correctnessAvailable", "Quiz result outcome propagation must preserve correctness availability.");
-
-const vera = read("modules/vera-ai/VeraAiPageModule.tsx");
-includes(vera, "onOpenSessionSidebar", "Vera must expose a mobile session-history entry point.");
-includes(vera, "DialogTitle>Sesi", "Vera mobile session control must provide a dialog title.");
-includes(vera, "md:hidden", "Vera session history must have a mobile-only surface.");
-includes(vera, "onNewSession={onNewSession}", "Vera mobile session history must retain the new-session action.");
-includes(vera, "inline-flex min-h-[44px] min-w-[44px]", "Vera return-to-context links must meet the literal 44px actionable target.");
-includes(vera, "focus-visible:ring-3 focus-visible:ring-primary-300/35", "Vera return-to-context links must expose a visible keyboard focus ring.");
-includes(vera, "href={returnToHref}", "Vera return-to-context links must preserve the supplied destination.");
-includes(vera, "h-11 min-w-0 flex-1", "Vera composer input must meet the 44px target.");
-includes(vera, "motion-reduce:transition-none", "Vera transitions must respect reduced motion.");
-includes(vera, "motion-reduce:animate-none", "Vera loading animation must respect reduced motion.");
-includes(vera, 'size="icon"', "Vera compact controls must meet the 44px target.");
 
 const materi = read("modules/mentor/KaptenMateriCataloguePageModules.tsx");
 const quiz = read("modules/mentor/quiz-dashboard.module.css").replace(/\s+/g, "");
@@ -316,10 +218,6 @@ check(compactHeaderGeometry.controlsRow.bottom <= 390, "390px fullscreen control
 check(
   quiz.includes("transition:none"),
   "Rendered quiz hover transforms have an explicit reduced-motion reset.",
-);
-check(
-  /motion-safe:group-hover:[^\s"]+/.test(vera) && /motion-reduce:[^\s"]*translate/.test(vera),
-  "Rendered Vera hover transforms have an explicit reduced-motion reset.",
 );
 
 console.log(`PASS ui-ux-uix-04: ${checks} checks`);

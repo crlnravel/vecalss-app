@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+
 import { requireAdminSession } from "@/lib/auth/access";
-import { veraAiControlPlaneService } from "@/lib/admin/ai/service";
-import { AiOverviewPageModule } from "@/modules/admin/ai/AiOverviewPageModule";
+import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,10 @@ export const metadata: Metadata = {
 
 export default async function AdminAiOverviewPage() {
   const session = await requireAdminSession();
-  const initialData = await veraAiControlPlaneService.getOverview().catch(() => null);
 
-  return <AiOverviewPageModule session={session} initialData={initialData} />;
+  return (
+    <PortalShell activeAdminSection="ai" audience="admin" description="Ringkasan pemakaian Vera AI." session={session} title="Ringkasan">
+      <p className="text-sm text-muted-foreground">Ringkasan Vera AI sedang disiapkan.</p>
+    </PortalShell>
+  );
 }

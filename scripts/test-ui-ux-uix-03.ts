@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import {
-  buildAdminAiAliasTarget,
   buildMentorMateriCreateHref,
   buildMentorMateriDetailHref,
   buildMentorMateriSubjectHref,
@@ -149,12 +148,10 @@ check(buildStudentAttemptHref(attemptId, { result: true, returnTo: studentReturn
 check(getStudentEntryPath({ mustChangePassword: true }) === "/change-password", "Incomplete student enters change-password safely");
 check(getStudentEntryPath({ mustChangePassword: false, onboardingStatus: "completed" }) === "/dashboard", "Returning student enters dashboard");
 
-const [adminNav, materiModule, quizEditor, attemptsModule, veraModule, onboardingPage, createPage, enrollmentPanel, attemptRoute, resultRoute, attemptModule, resultModule, builderModule, waitingRoute, detailRoute, participantUtils, participantActions, deliveryRepository] = await Promise.all([
-  readFile(new URL("../modules/admin/ai/components/AiControlPlaneNav.tsx", import.meta.url), "utf8"),
+const [materiModule, quizEditor, attemptsModule, onboardingPage, createPage, enrollmentPanel, attemptRoute, resultRoute, attemptModule, resultModule, builderModule, waitingRoute, detailRoute, participantUtils, participantActions, deliveryRepository] = await Promise.all([
   readFile(new URL("../modules/mentor/KaptenMateriCataloguePageModules.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenQuizEditorPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptsPageModule.tsx", import.meta.url), "utf8"),
-  readFile(new URL("../modules/vera-ai/VeraAiPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/onboarding/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/create/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/ParticipantTryoutEnrollmentPanel.tsx", import.meta.url), "utf8"),
@@ -169,16 +166,11 @@ const [adminNav, materiModule, quizEditor, attemptsModule, veraModule, onboardin
   readFile(new URL("../modules/tryout/participant-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
 ]);
-check(adminNav.includes('href: "/admin/ai/providers"'), "Admin AI providers sibling is discoverable");
-check(adminNav.includes('href: "/admin/ai/reliability"'), "Admin AI reliability sibling is discoverable");
-check(adminNav.includes('href: "/admin/ai/policies"'), "Admin AI policies sibling is discoverable");
-check(buildAdminAiAliasTarget("policies", { reason: "audit" }) === "/admin/ai/policies?reason=audit", "Admin AI alias preserves query");
 check(materiModule.includes("buildCanonicalMateriCreateHref"), "Materi create uses canonical builder");
 check(materiModule.includes("const returnTo = buildMateriSubjectHref"), "Materi context carries full returnTo");
 check(quizEditor.includes("initialSubjectCode"), "Kuis editor reads subject context");
 check(quizEditor.includes("subjectCode: form.subjectCode"), "Kuis editor propagates subject to request");
 check(attemptsModule.includes("buildMentorTryoutAttemptHref"), "Attempts rows expose canonical detail links");
-check(veraModule.includes("returnToHref"), "Vera workspace exposes return context");
 check(onboardingPage.includes("redirectIfOnboardingAlreadyComplete"), "Onboarding guards returning students");
 check(createPage.includes("initialDeliveryArea={parsedQuery.delivery ?? undefined}"), "Tryout create preserves delivery area");
 check(enrollmentPanel.includes("buildStudentTryoutSubrouteHref(tryoutId, \"waiting\""), "Enrollment waiting transition is canonical");
