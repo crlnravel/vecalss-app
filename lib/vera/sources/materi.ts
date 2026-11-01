@@ -16,6 +16,8 @@ const SEARCH_LIMIT = 8;
 /** Candidates are checked against the catalogue one by one, so the pool stays small. */
 const SEARCH_CANDIDATES = 24;
 const SEARCH_TOKEN_LIMIT = 8;
+/** Recent lessons are checked against the catalogue one by one, the first visible one wins. */
+const RECENT_CANDIDATES = 8;
 /** Bump when the extraction changes, so cached text is read again. */
 const EXTRACTOR_VERSION = "pdfjs-legacy-5.4";
 const SECTION_TOPIC_CODE = /^materi:[a-z0-9-]+:section-[123]$/u;
@@ -75,19 +77,60 @@ export async function searchMateri({
   return ranked
     .filter((_, index) => visible[index])
     .slice(0, SEARCH_LIMIT)
-    .map(({ lesson }) => ({
-      moduleId: lesson.id,
-      title: lesson.title,
-      subtest: lesson.topic.subtest.name,
-      topic: lesson.topic.name,
-      snippet: (lesson.summary ?? "").slice(0, 200),
-      source: {
-        type: "materi",
-        id: lesson.id,
-        label: lesson.title,
-        href: materiHref(lesson.topic.code, lesson.code),
-      } satisfies VeraSource,
-    }));
+    .map(({ lesson }) => hitOf(lesson));
+}
+
+/** The fields a search hit or a recent lesson is built from. */
+const LESSON_SELECT = {
+  id: true,
+  code: true,
+  title: true,
+  summary: true,
+  topic: { select: { code: true, name: true, subtest: { select: { code: true, name: true } } } },
+} as const;
+
+type LessonRow = {
+  id: string;
+  code: string;
+  title: string;
+  summary: string | null;
+  topic: { code: string; name: string; subtest: { code: string; name: string } };
+};
+
+function hitOf(lesson: LessonRow) {
+  return {
+    moduleId: lesson.id,
+    title: lesson.title,
+    subtest: lesson.topic.subtest.name,
+    topic: lesson.topic.name,
+    snippet: (lesson.summary ?? "").slice(0, 200),
+    source: {
+      type: "materi",
+      id: lesson.id,
+      label: lesson.title,
+      href: materiHref(lesson.topic.code, lesson.code),
+    } satisfies VeraSource,
+  };
+}
+
+/** The Materi the student opened last, or else the newest published one. Only lessons the catalogue shows are offered. */
+export async function recentMateri({ studentId, now = new Date() }: { studentId: string; now?: Date }) {
+  const opened = await prisma.moduleProgress.findMany({
+    where: { studentId, lastOpenedAt: { not: null }, module: visibleMateriWhere(now) },
+    orderBy: { lastOpenedAt: "desc" },
+    take: RECENT_CANDIDATES,
+    select: { module: { select: LESSON_SELECT } },
+  });
+  const published = await prisma.module.findMany({
+    where: visibleMateriWhere(now),
+    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+    take: RECENT_CANDIDATES,
+    select: LESSON_SELECT,
+  });
+  for (const lesson of [...opened.map((row) => row.module), ...published]) {
+    if (SECTION_TOPIC_CODE.test(lesson.topic.code) && (await isCatalogueLesson(lesson))) return hitOf(lesson);
+  }
+  return null;
 }
 
 /**

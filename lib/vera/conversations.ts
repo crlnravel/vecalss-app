@@ -5,7 +5,7 @@ import type { UIMessage } from "ai";
 import type { Prisma, VeraEffort } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { VERA_CONVERSATION_TITLE, type VeraEffortId } from "./config";
-import type { VeraSource } from "./sources/types";
+import type { ResolvedMention, VeraSource } from "./sources/types";
 
 export type StoredVeraMessage = {
   id: string;
@@ -13,6 +13,7 @@ export type StoredVeraMessage = {
   parts: UIMessage["parts"];
   effort?: VeraEffortId;
   credits?: number | null;
+  mentions?: ResolvedMention[];
   sources?: VeraSource[];
   createdAt: Date;
 };
@@ -42,7 +43,7 @@ export async function getConversationWithMessages(studentId: string, conversatio
       title: true,
       messages: {
         orderBy: { createdAt: "asc" },
-        select: { id: true, role: true, parts: true, effort: true, credits: true },
+        select: { id: true, role: true, parts: true, effort: true, credits: true, mentions: true, sources: true },
       },
     },
   });
@@ -65,6 +66,7 @@ export async function appendMessages(conversationId: string, messages: StoredVer
       credits: message.credits ?? null,
       // Left unset (NULL) when the answer used no tools, so an empty list never looks like a stored choice.
       sources: message.sources?.length ? (message.sources as unknown as Prisma.InputJsonValue) : undefined,
+      mentions: message.mentions?.length ? (message.mentions as unknown as Prisma.InputJsonValue) : undefined,
       createdAt: message.createdAt,
     })),
   });
@@ -83,10 +85,14 @@ function toUiMessage(message: {
   parts: unknown;
   effort: VeraEffort | null;
   credits: Prisma.Decimal | null;
+  mentions: unknown;
+  sources: unknown;
 }): UIMessage {
   const metadata = {
     ...(message.effort ? { effort: message.effort } : {}),
     ...(message.credits !== null ? { credits: Number(message.credits) } : {}),
+    ...(message.mentions ? { mentions: message.mentions } : {}),
+    ...(message.sources ? { sources: message.sources } : {}),
   };
   return {
     id: message.id,

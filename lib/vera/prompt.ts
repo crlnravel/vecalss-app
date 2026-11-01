@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 
 import { VERA_TIME_ZONE } from "./config";
+import type { PinnedBlock } from "./sources/types";
 
 /** Rough token count. The provider bills the real number; this only sizes the history window. */
 export function estimateTokens(text: string) {
@@ -24,7 +25,15 @@ export function trimHistory(messages: UIMessage[], budgetTokens: number) {
   return kept.reverse();
 }
 
-export function buildVeraInstructions({ firstName, now }: { firstName: string; now: Date }) {
+export function buildVeraInstructions({
+  firstName,
+  now,
+  pinned = [],
+}: {
+  firstName: string;
+  now: Date;
+  pinned?: PinnedBlock[];
+}) {
   const today = new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: VERA_TIME_ZONE }).format(now);
   return [
     "Kamu Vera, tutor belajar PTN Pro untuk persiapan UTBK dan SNBT.",
@@ -35,5 +44,15 @@ export function buildVeraInstructions({ firstName, now }: { firstName: string; n
     "Tulis dengan markdown dan paragraf pendek.",
     "Tulis rumus dengan KaTeX: $...$ untuk rumus dalam kalimat. Untuk rumus yang berdiri sendiri, letakkan $$ di baris sendiri sebelum dan sesudah rumusnya.",
     `Hari ini ${today} (WIB). Nama depan siswa: ${firstName}.`,
+    ...(pinned.length > 0
+      ? ["Siswa menyematkan sumber berikut. Jadikan isinya dasar jawabanmu untuk pertanyaan ini.", ...pinned.map(pinnedBlock)]
+      : []),
   ].join("\n");
+}
+
+/** A pinned source as the model reads it. A body cannot close its own block early. */
+function pinnedBlock(block: PinnedBlock) {
+  const title = block.title.replace(/"/g, "&quot;");
+  const body = block.body.replace(/<\/pinned/gi, "&lt;/pinned");
+  return `<pinned type="${block.type}" id="${block.id}" title="${title}">\n${body}\n</pinned>`;
 }

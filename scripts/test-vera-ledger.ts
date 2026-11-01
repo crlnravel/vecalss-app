@@ -40,6 +40,7 @@ function userInput(text: string, effort: "cepat" | "seimbang" | "mendalam" = "ce
   return {
     message: { id: `msg-${crypto.randomUUID()}`, role: "user" as const, parts: [{ type: "text" as const, text }] },
     effort,
+    mentions: [],
   };
 }
 

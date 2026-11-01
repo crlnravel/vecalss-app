@@ -29,6 +29,7 @@ import {
 } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
+import { resolveMentions } from "./sources/mentions";
 import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
 import { createVeraTools } from "./tools";
 
@@ -43,6 +44,11 @@ export const veraChatRequestSchema = z.object({
       .length(1),
   }),
   effort: z.enum(VERA_EFFORT_IDS).default("seimbang"),
+  // Sources the student pinned with @. The server re-reads each one before it reaches the prompt.
+  mentions: z
+    .array(z.object({ type: z.enum(["materi", "kuis", "tryout"]), id: z.string().min(1).max(64) }))
+    .max(VERA_LIMITS.maxMentions)
+    .default([]),
 });
 
 export type VeraChatInput = z.infer<typeof veraChatRequestSchema>;
@@ -120,6 +126,9 @@ export async function runVeraChat({
     history = conversation.messages;
   }
 
+  // Pinned sources are read before anything is reserved or written, so a refused source costs nothing.
+  const pinned = await resolveMentions({ studentId, mentions: input.mentions, now });
+  const mentionSources = pinned.accepted.flatMap((mention) => (mention.source ? [mention.source] : []));
   const effort = VERA_EFFORTS[input.effort];
   const prices = getVeraPrices();
   // A refused request throws here, before the conversation or the message is written and before the provider is called.
@@ -143,14 +152,20 @@ export async function runVeraChat({
 
     const student = await prisma.user.findUnique({ where: { id: studentId }, select: { fullName: true } });
     const firstName = student?.fullName?.trim().split(/\s+/)[0] || "siswa";
-    instructions = buildVeraInstructions({ firstName, now });
+    instructions = buildVeraInstructions({ firstName, now, pinned: pinned.pinned });
     const historyBudget = VERA_LIMITS.maxInputTokensPerStep - estimateTokens(instructions) - effort.maxOutputTokens;
     modelMessages = await convertToModelMessages(
       toModelHistory([...trimHistory(history, Math.max(0, historyBudget)), userMessage]),
     );
 
     await appendMessages(conversationId, [
-      { id: userMessage.id, role: "user", parts: userMessage.parts, createdAt: now },
+      {
+        id: userMessage.id,
+        role: "user",
+        parts: userMessage.parts,
+        mentions: [...pinned.accepted, ...pinned.rejected],
+        createdAt: now,
+      },
     ]);
   } catch (error) {
     await releaseVeraReservation({ eventId, errorCode: "setup_failed", now });
@@ -217,7 +232,7 @@ export async function runVeraChat({
     originalMessages: [userMessage],
     generateMessageId: () => crypto.randomUUID(),
     messageMetadata: ({ part }) => {
-      if (part.type === "start") return { conversationId, effort: input.effort };
+      if (part.type === "start") return { conversationId, effort: input.effort, sources: mentionSources };
       if (part.type === "finish") return { effort: input.effort, credits: creditsForAnswer() };
       return undefined;
     },
@@ -230,6 +245,7 @@ export async function runVeraChat({
         effort: input.effort,
         credits: creditsForAnswer(),
         stopped: isAborted || isCancelled === true,
+        mentionSources,
       });
     },
   });
@@ -283,6 +299,7 @@ async function persistAnswer({
   effort,
   credits,
   stopped,
+  mentionSources,
 }: {
   studentId: string;
   conversationId: string;
@@ -290,6 +307,7 @@ async function persistAnswer({
   effort: VeraEffortId;
   credits: number | null;
   stopped: boolean;
+  mentionSources: VeraSource[];
 }) {
   const answer = [...messages].reverse().find((message) => message.role === "assistant");
   try {
@@ -298,8 +316,9 @@ async function persistAnswer({
       const parts: UIMessage["parts"] = stopped
         ? [...kept, { type: STOPPED_PART_TYPE, data: { stopped: true } }]
         : kept;
+      const sources = uniqueSources([...mentionSources, ...sourcesOf(parts)]);
       await appendMessages(conversationId, [
-        { id: answer.id, role: "assistant", parts, effort, credits, sources: sourcesOf(parts), createdAt: new Date() },
+        { id: answer.id, role: "assistant", parts, effort, credits, sources, createdAt: new Date() },
       ]);
     }
     await touchConversation(studentId, conversationId);

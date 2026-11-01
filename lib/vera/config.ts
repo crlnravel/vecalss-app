@@ -53,6 +53,9 @@ export const VERA_LIMITS = {
   maxInputTokensPerStep: 16_000,
   /** Most tool output a single step can add to the next step's input. Each reader's output is bounded well below this. */
   maxToolOutputTokensPerStep: 8_000,
+  /** Sources a student can pin with `@` in one message, and how much of the prompt all pinned sources together may fill. */
+  maxMentions: 5,
+  maxPinnedTokens: 6_000,
   maxMessageChars: 4_000,
 } as const;
 

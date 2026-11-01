@@ -10,6 +10,20 @@ export type VeraSource = {
 
 export type VeraToolError = { error: "not_found" | "under_review" | "not_available" | "unavailable" };
 
+export type VeraMentionType = "materi" | "kuis" | "tryout";
+
+/** A source the student pinned with `@`. `status` says whether it could be opened for this answer. */
+export type ResolvedMention = {
+  type: VeraMentionType;
+  id: string;
+  label: string;
+  status: "accepted" | "rejected";
+  source: VeraSource | null;
+};
+
+/** Text a pinned source adds to the instructions for one answer. */
+export type PinnedBlock = { type: VeraMentionType; id: string; title: string; body: string };
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
 /** Ids from the model are checked before any lookup, so a malformed id is simply not found. */

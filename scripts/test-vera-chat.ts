@@ -45,6 +45,7 @@ function userInput(text: string, overrides: Partial<VeraChatInput> = {}): VeraCh
   return {
     message: { id: `msg-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text }] },
     effort: "cepat",
+    mentions: [],
     ...overrides,
   };
 }

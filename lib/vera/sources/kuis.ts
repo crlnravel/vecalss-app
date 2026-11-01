@@ -19,7 +19,7 @@ const ANSWER_KEY_HIDDEN = "Kunci jawaban belum dibuka, jadi kebenaran tiap soal 
 const REVIEW_HIDDEN = "Pembahasan belum dibuka, jadi hanya skor yang bisa dilihat.";
 
 /** Result pages are routed by subject slug. A Kuis subtest carries its subject's title as its code. */
-function kuisSource(attemptId: string, quiz: { slug: string; title: string; subtest: { code: string } }): VeraSource {
+export function kuisSource(attemptId: string, quiz: { slug: string; title: string; subtest: { code: string } }): VeraSource {
   const subject = quizSubjects.find((candidate) => candidate.title === quiz.subtest.code);
   return {
     type: "kuis",

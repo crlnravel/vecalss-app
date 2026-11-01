@@ -100,6 +100,7 @@ function userInput(text: string): VeraChatInput {
   return {
     message: { id: `msg-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text }] },
     effort: "cepat",
+    mentions: [],
   };
 }
 

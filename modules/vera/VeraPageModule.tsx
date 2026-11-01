@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
+import Link from "next/link";
 import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -11,25 +12,20 @@ import remarkMath from "remark-math";
 import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
 import { Reasoning } from "@/components/ai-elements/reasoning";
 import { Sources } from "@/components/ai-elements/sources";
-import { ToolStep } from "@/components/ai-elements/tool";
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { ToolStep } from "@/components/ai-elements/tool";
+import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { Message, MessageContent } from "@/components/ui/message";
 import { Sparkles } from "@/lib/icons";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
-import { estimateCreditRange, formatCredits, formatCreditRange } from "@/lib/vera/credits-shared";
+import { formatCredits } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
-import { collectSources, uniqueSources } from "@/lib/vera/sources/types";
+import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
 import { cn } from "@/lib/utils";
-import { VeraEffortMenu } from "@/modules/vera/VeraEffortMenu";
+import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
+import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 
 const STARTER_PROMPTS = [
@@ -108,7 +104,6 @@ export function VeraPageModule({
   initialUsage: VeraUsageSnapshot;
 }) {
   const [tab, setTab] = useState<VeraTab>("chat");
-  const [input, setInput] = useState("");
   // The server creates the conversation on the first send and returns its id in the answer metadata.
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [chatId] = useState(() => initialConversationId ?? crypto.randomUUID());
@@ -159,25 +154,44 @@ export function VeraPageModule({
 
   const busy = status === "submitted" || status === "streaming";
   const blocked = blockedMessage(usage);
-  const canSend = input.trim().length > 0 && !busy && blocked === null;
   const historyChars = messages.reduce(
     (total, message) =>
       total + message.parts.reduce((sum, part) => sum + (part.type === "text" ? part.text.length : 0), 0),
     0,
   );
-  // The prices come from the server with the usage snapshot, so the estimate and the charge use the same numbers.
-  const estimate = formatCreditRange(estimateCreditRange({ effort, historyChars, mentionCount: 0 }, usage.prices));
 
-  function send(text: string) {
+  // The pinned sources travel twice: as metadata so the bubble can show them at once, and as ids for the server to re-read.
+  function send(text: string, chips: MentionChip[] = []) {
     void sendMessage(
-      { text: text.trim() },
-      { body: { conversationId: conversationId ?? undefined, effort } },
+      {
+        text: text.trim(),
+        metadata: {
+          mentions: chips.map((chip) => ({
+            type: chip.type,
+            id: chip.id,
+            label: chip.label,
+            status: "accepted",
+            source: { type: chip.type, id: chip.id, label: chip.label, href: chip.href },
+          })),
+        },
+      },
+      {
+        body: {
+          conversationId: conversationId ?? undefined,
+          effort,
+          mentions: chips.map((chip) => ({ type: chip.type, id: chip.id })),
+        },
+      },
     );
   }
 
   function changeEffort(next: VeraEffortId) {
     setEffortOverride(next);
     persistEffort(studentId, next);
+  }
+
+  function submitComposer({ text, chips }: ComposerSubmit) {
+    send(text, chips);
   }
 
   return (
@@ -238,31 +252,16 @@ export function VeraPageModule({
                 {blocked}
               </p>
             ) : null}
-            <PromptInput
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!canSend) return;
-                send(input);
-                setInput("");
-              }}
-            >
-              <PromptInputBody>
-                <PromptInputTextarea
-                  aria-label="Tulis pertanyaan untuk Vera"
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="Tanya Vera…"
-                  rows={1}
-                  value={input}
-                />
-                <PromptInputFooter>
-                  <VeraEffortMenu onChange={changeEffort} value={effort} />
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground tabular-nums">{estimate}</span>
-                    <PromptInputSubmit disabled={!canSend} onStop={() => void stop()} status={status} />
-                  </div>
-                </PromptInputFooter>
-              </PromptInputBody>
-            </PromptInput>
+            <VeraComposer
+              blocked={blocked}
+              effort={effort}
+              historyChars={historyChars}
+              onEffortChange={changeEffort}
+              onSend={submitComposer}
+              onStop={() => void stop()}
+              prices={usage.prices}
+              status={status}
+            />
             <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
           </div>
         </>
@@ -315,15 +314,38 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   );
 }
 
+/** The `@` sources a student pinned. A source the server could not open says so instead of linking. */
+function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      {mentions.map((mention) =>
+        mention.status === "accepted" && mention.source ? (
+          <Link className="max-w-full min-w-0" href={mention.source.href} key={`${mention.type}:${mention.id}`}>
+            <Badge className="max-w-full min-w-0 truncate" size="sm" tone="info">
+              {mention.label}
+            </Badge>
+          </Link>
+        ) : (
+          <Badge key={`${mention.type}:${mention.id}`} size="sm" tone="attention">
+            {`${mention.label}: tidak bisa dibuka`}
+          </Badge>
+        ),
+      )}
+    </div>
+  );
+}
+
 function ThreadMessage({ message }: { message: UIMessage }) {
   if (message.role === "user") {
     const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+    const mentions = (message.metadata as { mentions?: ResolvedMention[] } | undefined)?.mentions ?? [];
     return (
       <Message align="end">
-        <MessageContent>
+        <MessageContent className="flex flex-col items-end gap-2">
           <Bubble align="end" variant="muted">
             <BubbleContent>{text}</BubbleContent>
           </Bubble>
+          {mentions.length > 0 ? <MentionLinks mentions={mentions} /> : null}
         </MessageContent>
       </Message>
     );
@@ -333,8 +355,11 @@ function ThreadMessage({ message }: { message: UIMessage }) {
     (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
   );
   const credits = (message.metadata as { credits?: number } | undefined)?.credits;
-  // The links come from the tool results the answer used, so they only ever point at pages the student could open.
-  const sources = uniqueSources(collectSources(message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []))));
+  // Links come from the pinned sources the server accepted and from the tool results the answer used. Both only point at pages
+  // the student could open.
+  const pinnedSources = (message.metadata as { sources?: VeraSource[] } | undefined)?.sources ?? [];
+  const toolOutputs = message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []));
+  const sources = uniqueSources([...pinnedSources, ...collectSources(toolOutputs)]);
   return (
     <Message align="start">
       <MessageContent className="w-full min-w-0 space-y-3 text-sm leading-relaxed">
