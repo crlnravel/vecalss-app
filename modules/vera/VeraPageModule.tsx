@@ -22,14 +22,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Message, MessageContent } from "@/components/ui/message";
 import { Menu, Sparkles } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
+import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
-import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
+import { collectSources, studioDocumentHref, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
 import { cn } from "@/lib/utils";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
+import { VeraStudioPanel } from "@/modules/vera/VeraStudioPanel";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 
@@ -102,16 +104,24 @@ export function VeraPageModule({
   conversationId: initialConversationId,
   initialMessages,
   initialSessions,
+  initialTab,
+  initialStudioDocs,
+  initialStudioDocument,
   initialUsage,
 }: {
   studentId: string;
   conversationId: string | null;
   initialMessages: UIMessage[];
   initialSessions: VeraSessionSummary[];
+  initialTab: VeraTab;
+  initialStudioDocs: StudioDocumentSummary[];
+  initialStudioDocument: StudioDocument | null;
   initialUsage: VeraUsageSnapshot;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<VeraTab>("chat");
+  const [tab, setTab] = useState<VeraTab>(initialTab);
+  // A Studio document the student asks Vera about is pinned when the composer mounts.
+  const [composerSeed, setComposerSeed] = useState<{ key: number; chips: MentionChip[] } | null>(null);
   // The server creates the conversation on the first send and returns its id in the answer metadata.
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [chatId] = useState(() => initialConversationId ?? crypto.randomUUID());
@@ -201,6 +211,15 @@ export function VeraPageModule({
         },
       },
     );
+  }
+
+  // "Tanya Vera soal ini" opens the chat with the document already pinned as a source.
+  function askAboutDocument(doc: StudioDocument) {
+    setComposerSeed({
+      key: Date.now(),
+      chips: [{ type: "studio", id: doc.id, label: doc.title, href: studioDocumentHref(doc.id) }],
+    });
+    setTab("chat");
   }
 
   function changeEffort(next: VeraEffortId) {
@@ -295,14 +314,14 @@ export function VeraPageModule({
 
         <div className="flex min-w-0 flex-1 flex-col">
           {tab === "studio" ? (
-            <section aria-labelledby="vera-studio-soon" className="mx-auto w-full max-w-3xl px-4 py-10 text-center">
-              <h2 id="vera-studio-soon" className="text-base font-semibold text-secondary-950">
-                Segera hadir
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Analisis kelemahan, rute belajar, dan pembahasan soal salah akan tersedia di sini.
-              </p>
-            </section>
+            <div className="mx-auto w-full max-w-5xl py-4">
+              <VeraStudioPanel
+                initialDocument={initialStudioDocument}
+                initialDocuments={initialStudioDocs}
+                onAsk={askAboutDocument}
+                prices={usage.prices}
+              />
+            </div>
           ) : (
             <>
               {messages.length === 0 ? (
@@ -338,6 +357,8 @@ export function VeraPageModule({
                 <VeraComposer
                   blocked={blocked}
                   effort={effort}
+                  initialChips={composerSeed?.chips ?? []}
+                  key={composerSeed?.key ?? 0}
                   historyChars={historyChars}
                   onEffortChange={changeEffort}
                   onSend={submitComposer}

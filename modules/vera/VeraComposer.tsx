@@ -45,6 +45,7 @@ export function VeraComposer({
   blocked,
   onSend,
   onStop,
+  initialChips = [],
 }: {
   effort: VeraEffortId;
   onEffortChange: (effort: VeraEffortId) => void;
@@ -54,9 +55,11 @@ export function VeraComposer({
   blocked: string | null;
   onSend: (submit: ComposerSubmit) => void;
   onStop: () => void;
+  // Sources already pinned when the composer mounts, such as a Studio document the student asked Vera about.
+  initialChips?: MentionChip[];
 }) {
   const [input, setInput] = useState("");
-  const [chips, setChips] = useState<MentionChip[]>([]);
+  const [chips, setChips] = useState<MentionChip[]>(initialChips);
   // The `@` the caret is typing after, and the one the student dismissed (Esc, or a space with nothing to match).
   const [menu, setMenu] = useState<{ start: number; query: string } | null>(null);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
