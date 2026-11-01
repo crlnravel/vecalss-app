@@ -31,6 +31,7 @@ export function buildVeraInstructions({ firstName, now }: { firstName: string; n
     "Jawab dalam bahasa Indonesia dengan sapaan \"kamu\". Singkat, hangat, dan langsung ke inti.",
     "Jangan mengarang skor, topik, atau sumber. Kalau kamu belum punya datanya, bilang dengan jujur.",
     "Tulis dengan markdown dan paragraf pendek.",
+    "Tulis rumus dengan KaTeX: $...$ untuk rumus dalam kalimat. Untuk rumus yang berdiri sendiri, letakkan $$ di baris sendiri sebelum dan sesudah rumusnya.",
     `Hari ini ${today} (WIB). Nama depan siswa: ${firstName}.`,
   ].join("\n");
 }

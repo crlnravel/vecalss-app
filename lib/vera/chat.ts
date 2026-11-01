@@ -27,6 +27,7 @@ import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
 export const veraChatRequestSchema = z.object({
   conversationId: z.uuid().optional(),
   message: z.object({
+    // Only a request key. The stored id is assigned by the server, so reuse cannot collide.
     id: z.string().min(1).max(64),
     role: z.literal("user"),
     parts: z
@@ -70,7 +71,7 @@ export async function runVeraChat({
   const student = await prisma.user.findUnique({ where: { id: studentId }, select: { fullName: true } });
   const firstName = student?.fullName?.trim().split(/\s+/)[0] || "siswa";
   const effort = VERA_EFFORTS[input.effort];
-  const userMessage: UIMessage = { id: input.message.id, role: "user", parts: input.message.parts };
+  const userMessage: UIMessage = { id: crypto.randomUUID(), role: "user", parts: input.message.parts };
   const instructions = buildVeraInstructions({ firstName, now });
   const historyBudget = VERA_LIMITS.maxInputTokensPerStep - estimateTokens(instructions) - effort.maxOutputTokens;
   const modelMessages = await convertToModelMessages(

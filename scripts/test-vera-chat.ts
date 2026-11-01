@@ -132,6 +132,23 @@ try {
     (error: unknown) => error instanceof VeraError && error.code === "not_found" && VERA_ERROR_STATUS[error.code] === 404,
   );
 
+  // Two requests that reuse one client message id both succeed. The stored id comes from the server.
+  const reusedClientId = `client-${crypto.randomUUID()}`;
+  const beforeReuse = await prisma.veraMessage.count({ where: { conversationId } });
+  for (const turn of ["Pertama", "Kedua"]) {
+    setVeraModelForTests(answerModel([`Jawaban ${turn}.`]));
+    const reused = userInput(turn, { conversationId });
+    const events = await readEvents(
+      await runVeraChat({
+        studentId,
+        input: { ...reused, message: { ...reused.message, id: reusedClientId } },
+        signal: new AbortController().signal,
+      }),
+    );
+    assert.equal(streamedText(events), `Jawaban ${turn}.`, `Reused client id, turn "${turn}" streams its answer`);
+  }
+  assert.equal(await prisma.veraMessage.count({ where: { conversationId } }), beforeReuse + 4);
+
   // Without an API key, the request fails with a 503 before anything is written.
   const savedKey = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;

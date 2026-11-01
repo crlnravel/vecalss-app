@@ -4,7 +4,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { type ReactNode, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+
+// KaTeX styles load only with this page, which is where math answers appear.
+import "katex/dist/katex.min.css";
 
 import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
 import { Reasoning } from "@/components/ai-elements/reasoning";
@@ -223,7 +228,12 @@ function ThreadMessage({ message }: { message: UIMessage }) {
           if (part.type === "text") {
             return (
               <div className="min-w-0 space-y-2 break-words" key={index}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
+                <ReactMarkdown
+                  rehypePlugins={[[rehypeKatex, { strict: "ignore", throwOnError: false }]]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                >
+                  {part.text}
+                </ReactMarkdown>
               </div>
             );
           }
