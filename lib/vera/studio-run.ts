@@ -36,8 +36,9 @@ import { trackAnswerUsage } from "./usage-tracker";
 type ResolvedTarget = ReviewTarget & { source: VeraSource };
 
 /**
- * Runs one Studio tool and streams its document. The reservation is taken before the model is called. The document is saved only
- * when the run completes, so a cancelled or failed run leaves no half-written document. Its usage is settled either way.
+ * Runs one Studio tool and streams its document. The reservation is taken before the model is called. Once the run has written any
+ * text, its document is saved, marked incomplete when the run was cut off or failed. A run that wrote no text saves nothing. Its usage
+ * is settled either way.
  */
 export async function runVeraStudio({
   studentId,
@@ -110,7 +111,6 @@ export async function runVeraStudio({
     },
     onError: () => "Dokumen belum bisa disusun sekarang. Coba lagi.",
     onEnd: async ({ messages }) => {
-      if (usage.outcome() !== "completed") return;
       await saveRun({
         studentId,
         eventId,
@@ -119,6 +119,7 @@ export async function runVeraStudio({
         title,
         messages,
         credits: usage.creditsForAnswer() ?? 0,
+        complete: usage.outcome() === "completed",
         extraSources: target ? [target.source] : [],
       });
     },
@@ -162,7 +163,10 @@ async function newestResult(studentId: string, now: Date): Promise<ReviewTarget 
   return newest ? { type: newest.type, id: newest.id } : null;
 }
 
-/** Saves the finished document with the links its tools returned, then records it on the usage event that paid for it. */
+/**
+ * Saves the document with the links its tools returned, then records it on the usage event that paid for it. A run that wrote no text
+ * saves nothing.
+ */
 async function saveRun({
   studentId,
   eventId,
@@ -171,6 +175,7 @@ async function saveRun({
   title,
   messages,
   credits,
+  complete,
   extraSources,
 }: {
   studentId: string;
@@ -180,6 +185,7 @@ async function saveRun({
   title: string;
   messages: UIMessage[];
   credits: number;
+  complete: boolean;
   extraSources: VeraSource[];
 }) {
   try {
@@ -200,6 +206,7 @@ async function saveRun({
       sources,
       input: request.input,
       credits,
+      complete,
     });
     await prisma.veraUsageEvent.update({ where: { id: eventId }, data: { studioDocumentId: documentId } });
   } catch (error) {

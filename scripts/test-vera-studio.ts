@@ -1,6 +1,8 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 
+import { MockLanguageModelV4 } from "ai/test";
+
 import { prisma } from "../lib/prisma";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { VeraLimitError } from "../lib/vera/ledger";
@@ -33,8 +35,44 @@ function documentIdFrom(events: StreamEvent[]) {
   return metadata.documentId;
 }
 
+/** Reads a run until its first words arrive, then cancels it the way Hentikan does. Returns what the stream sent before it closed. */
+async function cutAfterFirstText(response: Response, controller: AbortController) {
+  const reader = response.body?.getReader();
+  assert.ok(reader, "A run streams its response");
+  const decoder = new TextDecoder();
+  let seen = "";
+  let aborted = false;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      seen += decoder.decode(value, { stream: true });
+      if (!aborted && seen.includes('"type":"text-delta"')) {
+        aborted = true;
+        controller.abort();
+      }
+    }
+  } catch {
+    // An aborted reader may reject. The saved document is what the checks read.
+  }
+  return seen;
+}
+
+/** The student's Studio usage, oldest first, once `count` runs have settled. */
+function settledStudioUsage(studentId: string, count: number) {
+  return waitFor(async () => {
+    const rows = await prisma.veraUsageEvent.findMany({
+      where: { studentId, kind: "studio" },
+      orderBy: { createdAt: "asc" },
+      select: { status: true, credits: true, errorCode: true },
+    });
+    return rows.length === count && rows.every((row) => row.status !== "reserved") ? rows : null;
+  }, `${count} Studio run(s) to settle`);
+}
+
 const createdDocumentIds: string[] = [];
 let testStudentId: string | null = null;
+let streamStudentId: string | null = null;
 
 try {
   // Each tool accepts its own options and refuses anything else.
@@ -184,6 +222,93 @@ try {
   const menuForeign = await searchMentions({ studentId: testStudent.id, query: "Analisis" });
   assert.ok(!menuForeign.studio.some((candidate) => candidate.id === weaknessId), "Another student's document is not offered");
 
+  // A run's stream ends in one of three ways. Each settles its reservation once, and saves a document only when it wrote some text.
+  const streamStudent = await prisma.user.upsert({
+    where: { email: "vera-studio-stream-test@vecalss.local" },
+    update: {},
+    create: { email: "vera-studio-stream-test@vecalss.local", fullName: "Vera Studio Stream Test", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  const streamId = streamStudent.id;
+  streamStudentId = streamId;
+  await prisma.veraStudioDocument.deleteMany({ where: { studentId: streamId } });
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: streamId } });
+  const studyRoute = parseRequest({ tool: "study_route", input: { minutesPerDay: 30 } });
+
+  // A provider failure before any text saves no document and releases the reservation: nothing was written, so nothing is billed.
+  setVeraModelForTests(
+    new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error("Provider tidak tersedia.");
+      },
+    }),
+  );
+  await readEvents(await runVeraStudio({ studentId: streamId, request: studyRoute, signal: new AbortController().signal }));
+  const [failedRun] = await settledStudioUsage(streamId, 1);
+  assert.ok(failedRun, "The failed run's usage is recorded");
+  assert.equal(failedRun.status, "released", "A failure before any text releases the reservation");
+  assert.equal(Number(failedRun.credits), 0);
+  assert.equal(await prisma.veraStudioDocument.count({ where: { studentId: streamId } }), 0, "A failure before any text saves nothing");
+
+  // A run cut off after its first words keeps them as an incomplete document, and is charged the Mendalam reserve.
+  setVeraModelForTests(
+    scriptedModel([{ chunks: answerChunks(["Bagian pertama dokumen ", "yang belum selesai ditulis."]), chunkDelayInMs: 40 }]),
+  );
+  const cut = new AbortController();
+  const cutBody = await cutAfterFirstText(await runVeraStudio({ studentId: streamId, request: studyRoute, signal: cut.signal }), cut);
+  const cutId = cutBody.match(/"documentId":"([0-9a-f-]{36})"/)?.[1];
+  assert.ok(cutId, "The cut-off run still names its document");
+  createdDocumentIds.push(cutId);
+  const cutDocument = await waitFor(() => getStudioDocument({ studentId: streamId, id: cutId }), "the cut-off document to be saved");
+  assert.equal(cutDocument.complete, false, "A run cut off after some text is kept as incomplete");
+  assert.ok(cutDocument.markdown.includes("Bagian pertama dokumen"), "The words written before the cut are kept");
+  assert.equal(cutDocument.credits, 5, "A cut-off run is charged the Mendalam reserve");
+  const cutUsage = await waitFor(
+    () =>
+      prisma.veraUsageEvent.findFirst({
+        where: { studioDocumentId: cutId },
+        select: { status: true, credits: true, errorCode: true },
+      }),
+    "the cut-off run's usage to be linked",
+  );
+  assert.equal(cutUsage.status, "settled", "A cut-off run that wrote text is settled, not released");
+  assert.equal(Number(cutUsage.credits), cutDocument.credits, "The charge on the document matches the settled usage");
+  assert.equal(cutUsage.errorCode, "aborted", "The settled row records that the run was cut off");
+
+  // A provider failure after some text keeps those words as an incomplete document, charged the same way.
+  setVeraModelForTests(
+    scriptedModel([
+      {
+        chunks: [
+          { type: "stream-start", warnings: [] },
+          { type: "text-start", id: "answer" },
+          { type: "text-delta", id: "answer", delta: "Rute yang sempat tersusun " },
+          { type: "error", error: new Error("Penyedia terputus.") },
+        ],
+      },
+    ]),
+  );
+  const brokenEvents = await readEvents(
+    await runVeraStudio({ studentId: streamId, request: studyRoute, signal: new AbortController().signal }),
+  );
+  const brokenId = documentIdFrom(brokenEvents);
+  createdDocumentIds.push(brokenId);
+  const broken = await waitFor(() => getStudioDocument({ studentId: streamId, id: brokenId }), "the interrupted document to be saved");
+  assert.equal(broken.complete, false, "A failure after some text is kept as incomplete");
+  assert.ok(broken.markdown.includes("Rute yang sempat tersusun"), "The words written before the failure are kept");
+  assert.equal(broken.credits, 5, "A failed run that wrote text is charged the Mendalam reserve");
+  const brokenUsage = await waitFor(
+    () =>
+      prisma.veraUsageEvent.findFirst({
+        where: { studioDocumentId: brokenId },
+        select: { status: true, credits: true, errorCode: true },
+      }),
+    "the interrupted run's usage to be linked",
+  );
+  assert.equal(brokenUsage.status, "settled", "A failed run that wrote text is settled, not released");
+  assert.equal(Number(brokenUsage.credits), broken.credits, "The charge on the document matches the settled usage");
+  assert.equal(brokenUsage.errorCode, "error", "The settled row records the failure");
+
   // The day's limit applies to Studio runs: a refused run saves nothing and reaches no model.
   await prisma.veraUsageEvent.create({
     data: {
@@ -215,5 +340,9 @@ try {
   await prisma.veraUsageEvent.deleteMany({ where: { studioDocumentId: { in: createdDocumentIds } } });
   await prisma.veraStudioDocument.deleteMany({ where: { id: { in: createdDocumentIds } } });
   if (testStudentId) await prisma.veraUsageEvent.deleteMany({ where: { studentId: testStudentId } });
+  if (streamStudentId) {
+    await prisma.veraStudioDocument.deleteMany({ where: { studentId: streamStudentId } });
+    await prisma.veraUsageEvent.deleteMany({ where: { studentId: streamStudentId } });
+  }
   await prisma.$disconnect();
 }

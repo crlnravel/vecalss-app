@@ -67,6 +67,9 @@ export function VeraStudioPanel({
   const busy = status === "submitted" || status === "streaming";
   const estimate = formatCreditRange(estimateCreditRange({ effort: "mendalam", historyChars: 0, mentionCount: 0 }, prices));
   const preview = [...messages].reverse().find((message) => message.role === "assistant") ?? null;
+  // The run names its document in the start metadata, so the status line can tell whether the list holds that document.
+  const previewDocumentId = (preview?.metadata as { documentId?: string } | undefined)?.documentId;
+  const previewSaved = docs.documents.some((doc) => doc.id === previewDocumentId);
 
   function run(request: StudioRequest) {
     void sendMessage({ text: STUDIO_TOOLS[request.tool].label }, { body: request });
@@ -91,7 +94,7 @@ export function VeraStudioPanel({
       {preview || busy ? (
         <section aria-label="Pratinjau dokumen" className="rounded-2xl border border-border bg-card p-4">
           <p className="mb-3 text-xs text-muted-foreground" role="status">
-            {busy ? "Vera sedang menyusun dokumen…" : "Dokumen selesai. Lihat di daftar di bawah."}
+            {busy ? "Vera sedang menyusun dokumen…" : previewSaved ? "Dokumen tersimpan. Lihat di daftar di bawah." : null}
           </p>
           <div className="space-y-3 text-sm leading-relaxed">
             {(preview?.parts ?? []).map((part, index) => {

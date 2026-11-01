@@ -17,7 +17,7 @@ const NO_USAGE: UsageTally = { noCacheInputTokens: 0, cachedInputTokens: 0, outp
 /** The part of an effort that the usage rules read. */
 export type UsageLimits = { reserveCredits: number; ceilingCredits: number; maxOutputTokens: number };
 
-/** How a generation ended. Only a completed one is saved as a message or a document. */
+/** How a generation ended. A Studio document is marked complete only when its outcome is "completed". */
 export type AnswerOutcome = "completed" | "aborted" | "failed" | null;
 
 function addStepUsage(tally: UsageTally, usage: LanguageModelUsage | undefined): UsageTally {
@@ -96,14 +96,17 @@ export function trackAnswerUsage({ eventId, effort, prices }: { eventId: string;
     outcome: () => outcome,
     stopWhen: ({ steps }: { steps: Array<{ usage: LanguageModelUsage }> }) => ceilingReached(steps, effort, prices),
     onChunk: ({ chunk }: { chunk: { type: string } }) => {
-      if (!CONTROL_PART_TYPES.has(chunk.type)) unfinishedStepStarted = true;
+      if (!settled && !CONTROL_PART_TYPES.has(chunk.type)) unfinishedStepStarted = true;
     },
     onStepEnd: (step: { usage: LanguageModelUsage }) => {
+      // Once settled, the charge is fixed. The SDK still finishes the step after an error, and that step is not billed again.
+      if (settled) return;
       tally = addStepUsage(tally, step.usage);
       unfinishedStepStarted = false;
     },
     onEnd: () => {
-      outcome = "completed";
+      // The SDK also ends the stream after an error part, so an outcome already recorded stays as it is.
+      if (outcome === null) outcome = "completed";
       return settleOnce(null);
     },
     onAbort: () => {

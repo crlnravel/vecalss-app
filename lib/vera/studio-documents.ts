@@ -14,6 +14,8 @@ export type StudioDocumentSummary = {
   title: string;
   createdAt: string;
   credits: number;
+  /** False when the run was cut off or failed after some text. The text is what was written before it stopped. */
+  complete: boolean;
 };
 
 export type StudioDocument = StudioDocumentSummary & {
@@ -27,7 +29,7 @@ export async function listStudioDocuments({ studentId }: { studentId: string }):
     where: { studentId },
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: STUDIO_LIST_LIMIT,
-    select: { id: true, tool: true, title: true, createdAt: true, credits: true },
+    select: { id: true, tool: true, title: true, createdAt: true, credits: true, complete: true },
   });
   return rows.map((row) => ({
     id: row.id,
@@ -35,6 +37,7 @@ export async function listStudioDocuments({ studentId }: { studentId: string }):
     title: row.title,
     createdAt: row.createdAt.toISOString(),
     credits: Number(row.credits),
+    complete: row.complete,
   }));
 }
 
@@ -43,7 +46,7 @@ export async function getStudioDocument({ studentId, id }: { studentId: string; 
   if (!isUuid(id)) return null;
   const row = await prisma.veraStudioDocument.findFirst({
     where: { id, studentId },
-    select: { id: true, tool: true, title: true, markdown: true, sources: true, createdAt: true, credits: true },
+    select: { id: true, tool: true, title: true, markdown: true, sources: true, createdAt: true, credits: true, complete: true },
   });
   if (!row) return null;
   return {
@@ -54,6 +57,7 @@ export async function getStudioDocument({ studentId, id }: { studentId: string; 
     sources: (row.sources as VeraSource[] | null) ?? [],
     createdAt: row.createdAt.toISOString(),
     credits: Number(row.credits),
+    complete: row.complete,
   };
 }
 
@@ -72,6 +76,7 @@ export async function saveStudioDocument({
   sources,
   input,
   credits,
+  complete,
 }: {
   id: string;
   studentId: string;
@@ -81,6 +86,7 @@ export async function saveStudioDocument({
   sources: VeraSource[];
   input: unknown;
   credits: number;
+  complete: boolean;
 }) {
   await prisma.veraStudioDocument.create({
     data: {
@@ -92,6 +98,7 @@ export async function saveStudioDocument({
       sources: sources as unknown as Prisma.InputJsonValue,
       input: input as Prisma.InputJsonValue,
       credits,
+      complete,
     },
   });
 }

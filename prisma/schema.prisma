@@ -3397,6 +3397,8 @@ model VeraStudioDocument {
   sources   Json?
   input     Json?
   credits   Decimal        @default(0) @db.Decimal(6, 1)
+  // False for a document whose run was cut off or failed after some text: it is kept, and the card says so.
+  complete  Boolean        @default(true)
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
   student   User           @relation("VeraStudioDocuments", fields: [studentId], references: [id], onDelete: Cascade)
 

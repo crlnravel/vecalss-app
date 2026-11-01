@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { VERA_TIME_ZONE } from "@/lib/vera/config";
@@ -50,7 +51,14 @@ export function VeraStudioDocCards({
             onClick={() => onOpen(doc.id)}
             type="button"
           >
-            <span className="text-xs text-muted-foreground">{STUDIO_TOOLS[doc.tool].label}</span>
+            <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {STUDIO_TOOLS[doc.tool].label}
+              {doc.complete ? null : (
+                <Badge size="xs" tone="attention">
+                  Belum selesai
+                </Badge>
+              )}
+            </span>
             <span className="text-sm font-semibold text-secondary-950">{doc.title}</span>
             <span className="text-xs text-muted-foreground tabular-nums">
               {DATE_TIME.format(new Date(doc.createdAt))} · {formatCredits(doc.credits)} kredit
@@ -92,6 +100,14 @@ export function VeraStudioDocDialog({
               </DialogHeader>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="space-y-3 break-words text-sm leading-relaxed">
+                  {doc.complete ? null : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge size="xs" tone="attention">
+                        Belum selesai
+                      </Badge>
+                      <p className="text-sm text-muted-foreground">Dokumen ini terhenti sebelum selesai.</p>
+                    </div>
+                  )}
                   <ReactMarkdown
                     rehypePlugins={[[rehypeKatex, { strict: "ignore", throwOnError: false }]]}
                     remarkPlugins={[remarkGfm, remarkMath]}
