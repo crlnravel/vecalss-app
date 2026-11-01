@@ -28,7 +28,7 @@ export async function createConversation(studentId: string) {
 
 export async function getLatestConversationId(studentId: string) {
   const conversation = await prisma.veraConversation.findFirst({
-    where: { studentId, archivedAt: null },
+    where: { studentId, archivedAt: null, messages: { some: {} } },
     orderBy: { updatedAt: "desc" },
     select: { id: true },
   });
@@ -77,6 +77,81 @@ export async function touchConversation(studentId: string, conversationId: strin
     where: { id: conversationId, studentId },
     data: { updatedAt: new Date() },
   });
+}
+
+/** How many sessions the sidebar lists per view. */
+export const SESSION_LIST_LIMIT = 50;
+
+export type VeraSessionSummary = { id: string; title: string; updatedAt: string; archived: boolean };
+
+/**
+ * The sessions the sidebar lists, newest first. A session with no message yet is not listed, so an abandoned one never shows.
+ */
+export async function listSessions({
+  studentId,
+  archived,
+}: {
+  studentId: string;
+  archived: boolean;
+}): Promise<VeraSessionSummary[]> {
+  const rows = await prisma.veraConversation.findMany({
+    where: { studentId, archivedAt: archived ? { not: null } : null, messages: { some: {} } },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    take: SESSION_LIST_LIMIT,
+    select: { id: true, title: true, updatedAt: true, archivedAt: true },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    updatedAt: row.updatedAt.toISOString(),
+    archived: row.archivedAt !== null,
+  }));
+}
+
+/**
+ * Renames and archives or restores one session. The change is scoped to the student, so another student's id changes nothing and
+ * reports false, exactly like a missing one.
+ */
+export async function updateSession({
+  studentId,
+  conversationId,
+  title,
+  archived,
+  now = new Date(),
+}: {
+  studentId: string;
+  conversationId: string;
+  title?: string;
+  archived?: boolean;
+  now?: Date;
+}): Promise<boolean> {
+  const result = await prisma.veraConversation.updateMany({
+    where: { id: conversationId, studentId },
+    data: {
+      ...(title !== undefined ? { title } : {}),
+      ...(archived !== undefined ? { archivedAt: archived ? now : null } : {}),
+    },
+  });
+  return result.count === 1;
+}
+
+/**
+ * Hard-deletes one session. Its messages go with it. Usage events stay, because the ledger keeps what was spent.
+ */
+export async function deleteSession({ studentId, conversationId }: { studentId: string; conversationId: string }) {
+  const result = await prisma.veraConversation.deleteMany({ where: { id: conversationId, studentId } });
+  return result.count === 1;
+}
+
+/** Removes a session this request created when its first write failed, so an empty session never stays behind. */
+export async function discardEmptyConversation({
+  studentId,
+  conversationId,
+}: {
+  studentId: string;
+  conversationId: string;
+}) {
+  await prisma.veraConversation.deleteMany({ where: { id: conversationId, studentId, messages: { none: {} } } });
 }
 
 function toUiMessage(message: {

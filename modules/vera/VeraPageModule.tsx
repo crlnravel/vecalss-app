@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -17,16 +18,20 @@ import { ToolStep } from "@/components/ai-elements/tool";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Message, MessageContent } from "@/components/ui/message";
-import { Sparkles } from "@/lib/icons";
+import { Menu, Sparkles } from "@/lib/icons";
+import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
 import { cn } from "@/lib/utils";
-import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
 import { type MentionChip } from "@/modules/vera/mention-model";
+import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
+import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
+import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 
 const STARTER_PROMPTS = [
   "Kenapa skor PK-ku turun?",
@@ -96,18 +101,24 @@ export function VeraPageModule({
   studentId,
   conversationId: initialConversationId,
   initialMessages,
+  initialSessions,
   initialUsage,
 }: {
   studentId: string;
   conversationId: string | null;
   initialMessages: UIMessage[];
+  initialSessions: VeraSessionSummary[];
   initialUsage: VeraUsageSnapshot;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<VeraTab>("chat");
   // The server creates the conversation on the first send and returns its id in the answer metadata.
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [chatId] = useState(() => initialConversationId ?? crypto.randomUUID());
   const [usage, setUsage] = useState(initialUsage);
+  const sessions = useVeraSessions(initialSessions);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
 
   const storedEffort = useSyncExternalStore(
     subscribeToStorage,
@@ -144,8 +155,15 @@ export function VeraPageModule({
     transport,
     onFinish: ({ message }) => {
       const id = (message.metadata as { conversationId?: string } | undefined)?.conversationId;
-      if (id) setConversationId(id);
+      if (id) {
+        setConversationId(id);
+        // The URL follows the session without a navigation, so a reload restores it.
+        window.history.replaceState(null, "", `/vera-ai?c=${id}`);
+      }
       void refreshUsage();
+      sessions.refresh();
+      // The title is written after the response, so the list asks again once it has had a moment.
+      window.setTimeout(() => sessions.refresh(), 2_500);
     },
     onError: () => {
       void refreshUsage();
@@ -194,11 +212,54 @@ export function VeraPageModule({
     send(text, chips);
   }
 
+  // Switching sessions goes through the URL, so the page loads that session's messages and the chat starts from them.
+  function openSession(id: string) {
+    setSessionsOpen(false);
+    router.push(`/vera-ai?c=${id}`);
+  }
+
+  function newSession() {
+    setSessionsOpen(false);
+    router.push("/vera-ai?c=new");
+  }
+
+  function deleteSession(id: string) {
+    void sessions.remove(id);
+    if (id === conversationId) newSession();
+  }
+
+  const panel = {
+    view: sessions.view,
+    sessions: sessions.sessions,
+    loading: sessions.loading,
+    error: sessions.error,
+    activeId: conversationId,
+    onViewChange: sessions.changeView,
+    onNew: newSession,
+    onOpen: openSession,
+    onRename: (id: string, title: string) => void sessions.rename(id, title),
+    onArchive: (id: string, toArchive: boolean) => void sessions.archive(id, toArchive),
+    onDelete: deleteSession,
+  };
+
   return (
     <div className="flex min-h-[calc(100svh-8rem)] min-w-0 flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-2">
         <h1 className="text-lg font-semibold text-secondary-950">Vera AI</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <Dialog onOpenChange={setSessionsOpen} open={sessionsOpen}>
+            <DialogTrigger render={<Button className="md:hidden" size="sm" type="button" variant="outline" />}>
+              <Menu />
+              Sesi
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Sesi Vera</DialogTitle>
+                <DialogDescription>Pilih sesi untuk dilanjutkan, atau mulai sesi baru.</DialogDescription>
+              </DialogHeader>
+              <VeraSessionsPanel {...panel} />
+            </DialogContent>
+          </Dialog>
           <VeraUsagePopover onOpen={() => void refreshUsage()} usage={usage} />
           <div role="tablist" aria-label="Bagian Vera" className="flex rounded-full bg-muted p-1">
             <TabButton selected={tab === "chat"} onClick={() => setTab("chat")}>
@@ -211,61 +272,85 @@ export function VeraPageModule({
         </div>
       </header>
 
-      {tab === "studio" ? (
-        <section aria-labelledby="vera-studio-soon" className="mx-auto w-full max-w-3xl px-4 py-10 text-center">
-          <h2 id="vera-studio-soon" className="text-base font-semibold text-secondary-950">
-            Segera hadir
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Analisis kelemahan, rute belajar, dan pembahasan soal salah akan tersedia di sini.
-          </p>
-        </section>
-      ) : (
-        <>
-          {messages.length === 0 ? (
-            <EmptyState onPick={(text) => blocked === null && !busy && send(text)} />
-          ) : (
-            <ChatThread className="mx-auto w-full max-w-3xl">
-              {messages.map((message) => (
-                <ChatTurn key={message.id} messageId={message.id} fromUser={message.role === "user"}>
-                  <ThreadMessage message={message} />
-                </ChatTurn>
-              ))}
-            </ChatThread>
-          )}
-
-          {error ? (
-            <div
-              role="alert"
-              className="mx-auto mb-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm"
-            >
-              <span>{answerErrorMessage(error)}</span>
-              <Button onClick={() => regenerate()} size="sm" type="button" variant="outline">
-                Coba lagi
-              </Button>
-            </div>
-          ) : null}
-
-          <div className="mx-auto w-full max-w-3xl px-4 pb-4 pt-2">
-            {blocked ? (
-              <p role="status" className="mb-2 text-sm text-muted-foreground">
-                {blocked}
-              </p>
+      <div className="flex min-h-0 min-w-0 flex-1 gap-6 px-4">
+        <aside className={cn("hidden shrink-0 md:block", sidebarOpen ? "w-64" : "w-10")}>
+          <div className="flex items-start gap-2">
+            {sidebarOpen ? (
+              <div className="min-w-0 flex-1">
+                <VeraSessionsPanel {...panel} />
+              </div>
             ) : null}
-            <VeraComposer
-              blocked={blocked}
-              effort={effort}
-              historyChars={historyChars}
-              onEffortChange={changeEffort}
-              onSend={submitComposer}
-              onStop={() => void stop()}
-              prices={usage.prices}
-              status={status}
-            />
-            <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
+            <Button
+              aria-expanded={sidebarOpen}
+              aria-label={sidebarOpen ? "Sembunyikan sesi" : "Tampilkan sesi"}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              size="icon-sm"
+              type="button"
+              variant="quiet"
+            >
+              <Menu />
+            </Button>
           </div>
-        </>
-      )}
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {tab === "studio" ? (
+            <section aria-labelledby="vera-studio-soon" className="mx-auto w-full max-w-3xl px-4 py-10 text-center">
+              <h2 id="vera-studio-soon" className="text-base font-semibold text-secondary-950">
+                Segera hadir
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Analisis kelemahan, rute belajar, dan pembahasan soal salah akan tersedia di sini.
+              </p>
+            </section>
+          ) : (
+            <>
+              {messages.length === 0 ? (
+                <EmptyState onPick={(text) => blocked === null && !busy && send(text)} />
+              ) : (
+                <ChatThread className="mx-auto w-full max-w-3xl">
+                  {messages.map((message) => (
+                    <ChatTurn key={message.id} messageId={message.id} fromUser={message.role === "user"}>
+                      <ThreadMessage message={message} />
+                    </ChatTurn>
+                  ))}
+                </ChatThread>
+              )}
+
+              {error ? (
+                <div
+                  role="alert"
+                  className="mx-auto mb-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm"
+                >
+                  <span>{answerErrorMessage(error)}</span>
+                  <Button onClick={() => regenerate()} size="sm" type="button" variant="outline">
+                    Coba lagi
+                  </Button>
+                </div>
+              ) : null}
+
+              <div className="mx-auto w-full max-w-3xl pb-4 pt-2">
+                {blocked ? (
+                  <p role="status" className="mb-2 text-sm text-muted-foreground">
+                    {blocked}
+                  </p>
+                ) : null}
+                <VeraComposer
+                  blocked={blocked}
+                  effort={effort}
+                  historyChars={historyChars}
+                  onEffortChange={changeEffort}
+                  onSend={submitComposer}
+                  onStop={() => void stop()}
+                  prices={usage.prices}
+                  status={status}
+                />
+                <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

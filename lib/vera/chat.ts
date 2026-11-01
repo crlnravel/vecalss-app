@@ -18,7 +18,13 @@ import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 import { VERA_EFFORT_IDS, VERA_EFFORTS, VERA_LIMITS, type VeraEffortId } from "./config";
 import { costUsdMicros, creditsFromMicros, settlementCharge, type VeraPrices, type VeraTokenUsage } from "./credits-shared";
-import { appendMessages, createConversation, getConversationWithMessages, touchConversation } from "./conversations";
+import {
+  appendMessages,
+  createConversation,
+  discardEmptyConversation,
+  getConversationWithMessages,
+  touchConversation,
+} from "./conversations";
 import { VeraError } from "./errors";
 import {
   attachReservationConversation,
@@ -30,6 +36,7 @@ import {
 import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
 import { resolveMentions } from "./sources/mentions";
+import { scheduleConversationTitle } from "./titles";
 import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
 import { createVeraTools } from "./tools";
 
@@ -151,9 +158,12 @@ export async function runVeraChat({
   let conversationId: string;
   let instructions: string;
   let modelMessages: ModelMessage[];
+  // Set only when this request created the session, so a failed setup can take that empty session back out.
+  let createdConversationId: string | null = null;
   try {
     conversationId = input.conversationId ?? (await createConversation(studentId));
     if (!input.conversationId) {
+      createdConversationId = conversationId;
       await attachReservationConversation(eventId, conversationId);
     }
 
@@ -176,7 +186,13 @@ export async function runVeraChat({
     ]);
   } catch (error) {
     await releaseVeraReservation({ eventId, errorCode: "setup_failed", now });
+    if (createdConversationId) await discardEmptyConversation({ studentId, conversationId: createdConversationId });
     throw error;
+  }
+
+  // The first answer of a session is titled once the response has finished. Later answers keep the title.
+  if (!history.some((message) => message.role === "assistant")) {
+    scheduleConversationTitle({ studentId, conversationId });
   }
 
   // Usage is tallied per completed step. A step that began generating but was cut off is billed at least the reserve,
