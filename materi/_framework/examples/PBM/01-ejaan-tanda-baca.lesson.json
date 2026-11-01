@@ -1,0 +1,726 @@
+{
+  "title": "MATERI 01 — Ejaan & Tanda Baca",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/01 - Ejaan & Tanda Baca.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "konsep-dasar",
+      "title": "MATERI 01 — Ejaan & Tanda Baca",
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
+        },
+        {
+          "type": "heading",
+          "text": "A. Konsep Dasar: EYD Edisi V"
+        },
+        {
+          "type": "paragraph",
+          "text": "Sejak 16 Agustus 2022, pedoman ejaan bahasa Indonesia resmi bernama EYD (Ejaan yang Disempurnakan) Edisi V, menggantikan istilah PUEBI (Pedoman Umum Ejaan Bahasa Indonesia) yang berlaku sejak 2015. Materi ejaan adalah salah satu materi berbobot besar di Subtes PBM UTBK-SNBT karena hampir selalu diuji lewat kalimat yang mengandung kesalahan huruf, penulisan kata, atau tanda baca yang harus dikenali."
+        },
+        {
+          "type": "paragraph",
+          "text": "Perubahan penting EYD Edisi V yang wajib diketahui:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Aspek",
+            "EYD/PUEBI Lama",
+            "EYD Edisi V (Berlaku Sekarang)"
+          ],
+          "rows": [
+            [
+              "Diftong",
+              "ai, au, oi (3 diftong)",
+              "ai, au, oi, ei (4 diftong) — mengakomodasi kata seperti survei, geiser"
+            ],
+            [
+              "Huruf kapital untuk julukan",
+              "belum ditegaskan",
+              "Ditegaskan: julukan ikut kapital, mis. Jenderal Kancil, Pangeran Diponegoro"
+            ],
+            [
+              "Huruf tebal",
+              "belum diatur khusus",
+              "Aturan baru: menegaskan bagian yang sudah dimiringkan & judul bab/subbab karangan"
+            ]
+          ],
+          "widths": [
+            1,
+            1.1,
+            1.8
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Kabar baiknya, sebagian besar aturan inti (huruf kapital, penulisan kata, tanda baca) tidak berubah dari PUEBI 2015 — jadi seluruh kaidah pada materi ini tetap berlaku, hanya nama pedomannya yang diperbarui menjadi \"EYD Edisi V\"."
+        }
+      ]
+    },
+    {
+      "id": "kapital",
+      "title": "B. Pemakaian Huruf",
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "B1. Huruf Kapital"
+        },
+        {
+          "type": "paragraph",
+          "text": "Berikut aturan huruf kapital yang paling sering diuji, lengkap dengan pengecualiannya."
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Huruf pertama awal kalimat dan huruf pertama kalimat dalam petikan langsung: Ibu berkata, \"Kita harus pulang.\" (huruf K kapital setelah tanda petik karena mengawali kalimat baru).",
+            "Nama orang, termasuk julukan (aturan baru EYD V): Amir Hamzah; Jenderal Kancil; Dewa Pedang. Tidak kapital jika nama orang sudah jadi nama jenis/satuan: ikan mujair, mesin diesel.",
+            "Partikel bin, binti, van, dari yang bermakna \"anak dari\" tetap huruf kecil: Abdul Rahman bin Zaini (bukan \"Bin\").",
+            "Nama agama, kitab suci, Tuhan, dan kata ganti-Nya: Islam, Alquran, Allah, Tuhan, rahmat-Nya.",
+            "Jabatan/pangkat kapital hanya jika diikuti nama orang atau menggantikan nama tertentu: Wakil Presiden Adam Malik. Tidak kapital bila jabatan berdiri umum tanpa nama diri: \"beberapa gubernur hadir dalam rapat\".",
+            "Nama peristiwa sejarah sebagai nama diri kapital: Proklamasi Kemerdekaan, Perang Dunia II. Tidak kapital bila bukan nama diri: \"memproklamasikan kemerdekaan\".",
+            "Nama geografi sebagai nama diri kapital: Jakarta, Asia Tenggara, Gunung Semeru. Arah mata angin biasa tetap huruf kecil: \"berjalan ke timur\" — beda dengan nama wilayah \"Jawa Timur\".",
+            "Judul buku/artikel: semua kata kapital kecuali kata tugas yang tidak di awal: buku *Dari Ave Maria ke Jalan Lain ke Roma* (bukan \"...Ke Jalan Lain Ke Roma\").",
+            "Kata kekerabatan (bapak, ibu, kakak, saudara) kapital hanya dalam penyapaan/pengacuan langsung: \"Bapak berangkat?\" — tidak kapital bila bukan sapaan langsung: \"menghormati bapak dan ibu\".",
+            "Kata ganti Anda selalu kapital: \"Terima kasih atas kunjungan Anda.\""
+          ],
+          "marker": "•"
+        }
+      ]
+    },
+    {
+      "id": "miring-imbuhan",
+      "title": "B2. Huruf Miring dan Huruf Tebal",
+      "source_pages": [
+        3
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "Fungsi",
+            "Contoh"
+          ],
+          "rows": [
+            [
+              "Huruf miring — judul buku/film/media massa dalam kalimat",
+              "Buku *Salah Asuhan*; film *Habibie dan Ainun*"
+            ],
+            [
+              "Huruf miring — menegaskan/mengkhususkan huruf atau kata",
+              "Huruf terakhir kata abad adalah d"
+            ],
+            [
+              "Huruf miring — kata/ungkapan bahasa daerah, asing, atau nama ilmiah",
+              "*tut wuri handayani*; *Garcinia mangostana*"
+            ],
+            [
+              "Huruf tebal (baru di EYD V) — menegaskan bagian yang sudah dimiringkan",
+              "kata et pada frasa *ora et labora*"
+            ],
+            [
+              "Huruf tebal (baru di EYD V) — judul bab/subbab karangan",
+              "BAB I PENDAHULUAN, 1.1 Latar Belakang"
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Pengecualian penting: nama diri (orang, lembaga, merek) dalam bahasa asing tidak dimiringkan meski berasal dari bahasa asing."
+        },
+        {
+          "type": "heading",
+          "text": "C. Penulisan Kata"
+        },
+        {
+          "type": "heading",
+          "text": "C1. Kata Berimbuhan dan Kaidah Meluluh"
+        },
+        {
+          "type": "paragraph",
+          "text": "Imbuhan ditulis serangkai dengan kata dasarnya: berjalan, menulis, perbaikan. Bentuk terikat (bio-, non-, pasca-, pra-, sub-) juga serangkai: biokimia, nonaktif, pascasarjana — kecuali diikuti huruf kapital atau kata asing, memakai tanda hubung: non-Indonesia, anti-mainstream."
+        },
+        {
+          "type": "paragraph",
+          "text": "Awalan meng- melebur (luluh) jika kata dasar berawal huruf hidup: ubah → mengubah (bukan \"merubah\", karena kata dasarnya ubah, bukan rubah yang berarti nama hewan)."
+        }
+      ]
+    },
+    {
+      "id": "gabungan-kata",
+      "title": "C2. Bentuk Ulang dan Gabungan Kata",
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Semua bentuk ulang ditulis dengan tanda hubung, bukan angka 2: anak-anak, berulang-ulang (bukan \"anak2\")."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Aturan Gabungan Kata",
+            "Contoh"
+          ],
+          "rows": [
+            [
+              "Umumnya ditulis terpisah",
+              "duta besar, kambing hitam, meja tulis, orang tua"
+            ],
+            [
+              "Pakai tanda hubung bila berpotensi bermakna ganda",
+              "anak-istri pejabat (2 orang) ≠ anak istri-pejabat (1 orang)"
+            ],
+            [
+              "Serangkai jika dapat awalan DAN akhiran sekaligus",
+              "dilipatgandakan, pertanggungjawaban, menggarisbawahi"
+            ],
+            [
+              "Serangkai karena sudah dianggap satu kata padu",
+              "acapkali, apalagi, bagaimanapun, seringkali, daripada"
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Jebakan klasik UTBK: \"sering kali\" (dua kata, salah) vs \"seringkali\" (satu kata padu, benar) — sudah dianggap satu kesatuan leksikal sejajar dengan \"bagaimanapun\"."
+        }
+      ]
+    },
+    {
+      "id": "kata-depan-partikel",
+      "title": "C3. Kata Depan vs Awalan di-",
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "Kata Depan (Preposisi)",
+            "Awalan di- (Prefiks)"
+          ],
+          "rows": [
+            [
+              "Ditulis",
+              "Terpisah",
+              "Serangkai"
+            ],
+            [
+              "Diikuti oleh",
+              "kata benda/keterangan tempat",
+              "kata kerja (bentuk pasif)"
+            ],
+            [
+              "Uji cepat",
+              "tidak bisa diubah jadi kalimat aktif",
+              "bisa diubah jadi aktif (\"dimakan\" → \"memakan\")"
+            ],
+            [
+              "Contoh benar",
+              "di rumah, ke kantor, di mana, ke depan",
+              "dimakan, ditulis, dibawa"
+            ]
+          ],
+          "widths": [
+            0.7,
+            1.5,
+            1.5
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Jebakan paling sering diuji: dimana (salah) → di mana; kedepan (salah) → ke depan; disini/disitu (salah) → di sini / di situ. Pengecualian yang sudah lazim serangkai: kepada, daripada, kemari."
+        },
+        {
+          "type": "heading",
+          "text": "C4. Partikel, Singkatan, Akronim, Angka"
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "-lah, -kah, -tah selalu serangkai: Bacalah buku itu! Apakah itu benar?",
+            "pun terpisah jika berdiri sendiri (bermakna \"juga/meski\"): Apa pun masalahnya... — tetapi serangkai pada 12 kata baku: meskipun, walaupun, adapun, bagaimanapun, sekalipun, ataupun, maupun, dsb.",
+            "per terpisah bila bermakna \"demi/tiap/mulai\": satu per satu; Rp50.000 per meter.",
+            "Akronim nama diri kapital di awal: Bappenas, Suramadu. Akronim bukan nama diri huruf kecil semua: iptek, pemilu, puskesmas.",
+            "Singkatan gelar diikuti titik tiap unsur: Prof. Dr. Ahmad, S.H. Singkatan umum (KTP, NKRI, WHO) kapital semua tanpa titik.",
+            "Kalimat tidak boleh dimulai dengan angka (lebih dari 1 kata) — ubah strukturnya: \"Sebanyak 2.500 peserta diundang.\" (bukan \"2.500 peserta diundang.\")"
+          ],
+          "marker": "•"
+        }
+      ]
+    },
+    {
+      "id": "titik-koma",
+      "title": "D. Pemakaian Tanda Baca",
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "D1. Titik (.) dan Koma (,)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Titik dipakai di akhir kalimat pernyataan dan memisahkan jam.menit.detik (pukul 01.35.20), serta ribuan yang menunjukkan jumlah (Rp225.000.000,00) — tidak dipakai pada tahun atau nomor identitas (tahun 1998, NIP 199701112015041002) dan tidak dipakai di akhir judul karangan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Koma — tiga aturan paling sering diuji UTBK:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Aturan Koma",
+            "Contoh"
+          ],
+          "rows": [
+            [
+              "Antarunsur perincian ≥3 unsur, sebelum \"dan/atau\" terakhir",
+              "Telepon, komputer, atau internet bukan hal asing."
+            ],
+            [
+              "Sebelum konjungsi setara tetapi, sedangkan, melainkan",
+              "Dia rajin belajar, tetapi nilai ujiannya tetap rendah."
+            ],
+            [
+              "Anak kalimat mendahului induk kalimat → pakai koma; anak kalimat mengikuti induk kalimat (setelah karena, sehingga, agar, jika) → tidak pakai koma",
+              "Karena macet, saya datang terlambat. (koma) ↔ Saya datang terlambat karena macet. (tanpa koma)"
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Jebakan paling klasik: menulis koma sebelum karena/sehingga/maka padahal anak kalimatnya ada di belakang induk kalimat — kalimat \"Saya terlambat, karena macet\" itu salah; yang benar \"Saya terlambat karena macet\" (tanpa koma)."
+        }
+      ]
+    },
+    {
+      "id": "titik-dua-hubung-pisah",
+      "title": "D2. Titik Dua (:) dan Titik Koma (;)",
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Titik dua dipakai setelah pernyataan lengkap yang diikuti perincian: \"Mereka memerlukan perabot: kursi, meja, dan lemari.\" Tidak dipakai bila perincian sudah jadi bagian integral kalimat: \"Kita memerlukan kursi, meja, dan lemari.\" (tanpa titik dua).",
+            "Titik koma menjadi pengganti kata hubung antara dua kalimat setara: \"Hari sudah malam; anak-anak masih membaca buku.\"",
+            "Titik koma memisahkan bagian perincian yang masing-masing sudah memakai koma, agar tidak ambigu: \"Ibu membeli buku, pensil, dan tinta; baju dan celana; serta pisang dan jeruk.\""
+          ],
+          "marker": "•"
+        },
+        {
+          "type": "heading",
+          "text": "D3. Tanda Hubung (-) vs Tanda Pisah (–)"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "Tanda Hubung (-)",
+            "Tanda Pisah (–)"
+          ],
+          "rows": [
+            [
+              "Fungsi utama",
+              "Menyambung dua unsur setara/berpasangan atau bentuk ulang",
+              "Menyatakan rentang (waktu, tempat, angka) bermakna \"sampai dengan\""
+            ],
+            [
+              "Contoh",
+              "Soekarno-Hatta; Indonesia-Malaysia; anak-anak",
+              "Tahun 2019–2022; Senin–Jumat; Jakarta–Bandung"
+            ]
+          ],
+          "widths": [
+            0.8,
+            1.5,
+            1.5
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Fungsi lain tanda hubung: menandai kata terpenggal pergantian baris, merangkai huruf kapital/angka dengan kata (se-Indonesia, ke-2, hari-H), dan memperjelas hubungan bagian kata agar tidak salah baca (ber-evolusi ≠ be-revolusi)."
+        }
+      ]
+    },
+    {
+      "id": "tanda-baca-lain",
+      "title": "D4. Tanda Baca Lainnya",
+      "source_pages": [
+        7
+      ],
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Tanda kurung ( ) — mengapit keterangan tambahan/singkatan: Uji Kemahiran Berbahasa Indonesia (UKBI).",
+            "Tanda petik dua (\"...\") — mengapit petikan langsung dan judul artikel/bab/lagu dalam kalimat: lagu \"Maju Tak Gentar\".",
+            "Tanda petik tunggal ('...') — mengapit kutipan di dalam kutipan lain, atau makna/terjemahan istilah: lockdown 'karantina wilayah'.",
+            "Garis miring (/) — pengganti kata dan/atau/tiap: AD/ART; Rp75.000,00/meter; atau untuk nomor surat/alamat: No. 7/PK/II/2022.",
+            "Apostrof (') — menunjukkan bagian kata/angka tahun yang dihilangkan dalam ragam nonformal/sastra: Malam 'lah tiba (=telah); jarang dipakai dalam tulisan formal, biasanya jadi pengecoh di soal."
+          ],
+          "marker": "•"
+        }
+      ]
+    },
+    {
+      "id": "ringkasan-awal",
+      "title": "E. Ringkasan Kilat — 16 Jebakan Ejaan & Tanda Baca yang Paling Sering Muncul",
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Baca ulang tabel ini H-1 sebelum ujian. Kolom kiri bentuk salah, kolom kanan bentuk benar."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Jangan Tulis",
+            "Tulis",
+            "Jangan Tulis",
+            "Tulis"
+          ],
+          "rows": [
+            [
+              "dimana, disini, kesana",
+              "di mana, di sini, ke sana",
+              "kedepan, kebelakang",
+              "ke depan, ke belakang"
+            ],
+            [
+              "Gubernur Jawa Barat hadir (semua gubernur, tanpa nama)",
+              "huruf kecil \"gubernur\" jika tanpa nama diri",
+              "jalan ke arah Timur kota",
+              "jalan ke arah timur kota (arah biasa)"
+            ],
+            [
+              "sering kali (dalam makna \"acapkali\")",
+              "seringkali",
+              "mengkonfirmasi, mengkritisi",
+              "mengonfirmasi (cek kaidah luluh per kata)"
+            ],
+            [
+              "Saya terlambat, karena macet",
+              "Saya terlambat karena macet (tanpa koma)",
+              "anak2, berulang2",
+              "anak-anak, berulang-ulang"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ringkasan-lanjut",
+      "title": "",
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "rows": [
+            [
+              "praktek, resiko, apotik, aktifitas",
+              "praktik, risiko, apotek, aktivitas",
+              "analisa, hipotesa, atlit",
+              "analisis, hipotesis, atlet"
+            ],
+            [
+              "Sumatera, Perancis",
+              "Sumatra, Prancis",
+              "Dr. Ahmad, SPd (tanpa titik gelar akhir)",
+              "Dr. Ahmad, S.Pd."
+            ],
+            [
+              "Buku itu berjudul: \"Laskar Pelangi\"",
+              "Buku itu berjudul \"Laskar Pelangi\". (tanpa titik dua)",
+              "Ali bin Abu Thalib → \"Bin\" dikapitalkan",
+              "Ali bin Abu Thalib (bin selalu huruf kecil)"
+            ],
+            [
+              "PEMILU, IPTEK ditulis kapital di kalimat biasa",
+              "pemilu, iptek (akronim bukan nama diri = huruf kecil)",
+              "merubah (kata dasar dikira \"rubah\")",
+              "mengubah (kata dasarnya \"ubah\")"
+            ]
+          ]
+        }
+      ],
+      "continuation": true
+    },
+    {
+      "id": "strategi",
+      "title": "F. Strategi Mengerjakan Soal Ejaan dan Tanda Baca UTBK",
+      "source_pages": [
+        8,
+        9
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Gunakan langkah berikut agar tidak terjebak opsi pengecoh:"
+        },
+        {
+          "type": "steps",
+          "items": [
+            "Baca kalimat utuh dulu, jangan hanya fokus ke bagian yang digarisbawahi — konteks kalimat menentukan benar-salahnya ejaan.",
+            "Untuk kata depan vs awalan di-: coba ubah predikat jadi bentuk aktif. Bisa diubah aktif → itu awalan (serangkai). Tidak bisa → itu kata depan (pisah).",
+            "Untuk koma dalam kalimat majemuk bertingkat: cek posisi anak kalimat. Anak kalimat di depan induk → pakai koma. Anak kalimat di belakang (setelah karena/sehingga/agar/jika) → tidak pakai koma.",
+            "Untuk perincian dengan koma: hitung jumlah unsurnya. ≥3 unsur → koma sebelum \"dan/atau\" terakhir. 2 unsur → tidak pakai koma sebelum \"dan\".",
+            "Untuk kata baku: bayangkan KBBI mental — hindari pola serapan sembarangan dari bahasa Inggris/daerah (analisa→analisis, resiko→risiko).",
+            "Untuk tanda hubung vs pisah: tanyakan apakah dua unsur itu setara/berpasangan (pakai hubung) atau menyatakan rentang waktu/tempat/angka (pakai pisah)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "soal-1",
+      "title": "G. Contoh Soal Beserta Pembahasan",
+      "source_pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "type": "question",
+          "id": "1",
+          "labels": "abcde",
+          "prompt": "Kalimat manakah yang penulisan huruf kapitalnya sudah benar? (kategori soal MUDAH)",
+          "options": [
+            "Setiap tahun, Gubernur Jawa Barat meresmikan jembatan baru di Kabupaten Bandung.",
+            "Ayah bekerja sebagai Dokter di rumah sakit umum daerah.",
+            "Beberapa Gubernur di Pulau Jawa menghadiri rapat koordinasi bencana.",
+            "**Wakil Presiden Adam Malik meresmikan gedung tersebut pada tahun 1978.**",
+            "Kami akan berlibur ke pantai di sebelah Selatan kota ini."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi D benar karena \"Wakil Presiden\" diikuti langsung nama orang (Adam Malik), sehingga huruf kapital tepat sesuai aturan jabatan + nama diri."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A salah karena \"jembatan\" (nomina umum) tidak perlu kapital."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi B salah karena \"Dokter\" tanpa nama diri di belakangnya seharusnya huruf kecil."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi C salah karena \"Gubernur\" di sini umum/jamak tanpa nama diri, seharusnya huruf kecil."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi E salah karena \"Selatan\" di sini arah biasa (bukan nama wilayah), seharusnya huruf kecil \"selatan\"."
+        }
+      ]
+    },
+    {
+      "id": "soal-2",
+      "title": "",
+      "source_pages": [
+        10
+      ],
+      "blocks": [
+        {
+          "type": "question",
+          "id": "2",
+          "labels": "abcde",
+          "prompt": "Kalimat berikut yang seluruh kata bercetak tebalnya sudah merupakan bentuk baku adalah ... (kategori soal MUDAH)",
+          "options": [
+            "Tim itu melakukan **analisa** dan **hipotesa** sebelum membuat laporan **resiko**.",
+            "Perusahaan itu memakai **sistim** kerja yang efektif dan praktis.",
+            "**Hasil survei menunjukkan tingkat risiko yang tinggi bagi aktivitas ekspor.**",
+            "Mereka membuat **jadual** kegiatan dan mencetak kuitansi rangkap dua.",
+            "Petugas memeriksa **fotocopy** dan **kwitansi** milik peserta ujian."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi C seluruhnya baku: survei (baku sesuai EYD V yang mengakomodasi diftong \"ei\"), risiko, dan aktivitas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A tidak baku: analisa → seharusnya analisis; hipotesa → hipotesis; resiko → risiko."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi B tidak baku: sistim → seharusnya sistem."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi D tidak baku: jadual → seharusnya jadwal."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi E tidak baku: fotocopy → seharusnya fotokopi; kwitansi → kuitansi."
+        }
+      ],
+      "continuation": true
+    },
+    {
+      "id": "soal-3",
+      "title": "",
+      "source_pages": [
+        10,
+        11
+      ],
+      "blocks": [
+        {
+          "type": "question",
+          "id": "3",
+          "labels": "abcde",
+          "prompt": "Kalimat manakah yang pemakaian tanda komanya sudah tepat? (kategori soal SEDANG)",
+          "options": [
+            "**Karena hujan turun sangat deras, pertandingan sepak bola itu terpaksa dihentikan.**",
+            "Pertandingan sepak bola itu terpaksa dihentikan, karena hujan turun sangat deras.",
+            "Panitia menyediakan konsumsi, berupa nasi kotak dan air mineral.",
+            "Peserta yang lolos seleksi administrasi, akan mengikuti tes wawancara.",
+            "Dia rajin belajar tetapi nilai ujiannya tetap rendah."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A benar karena anak kalimat (\"Karena hujan turun sangat deras\") berada di depan induk kalimat, sehingga wajib diberi koma sebelum induk kalimat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi B salah karena anak kalimat \"karena...\" berada di belakang induk kalimat — pada posisi ini tidak boleh didahului koma."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi C salah karena koma sebelum \"berupa\" tidak diperlukan (bukan perincian ≥3 unsur maupun aposisi)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi D salah karena koma memisahkan subjek dan predikat inti tanpa alasan yang sah."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi E salah karena kata hubung setara \"tetapi\" di tengah kalimat majemuk setara wajib didahului koma: \"Dia rajin belajar, tetapi nilai ujiannya tetap rendah.\""
+        }
+      ],
+      "continuation": true
+    },
+    {
+      "id": "soal-4",
+      "title": "",
+      "source_pages": [
+        11,
+        12
+      ],
+      "blocks": [
+        {
+          "type": "question",
+          "id": "4",
+          "labels": "abcde",
+          "prompt": "Perhatikan kalimat berikut: \"Konferensi tingkat tinggi ASEAN–Tiongkok akan digelar pada 12–15 Oktober 2026 untuk membahas kerja sama lintas-sektor.\" Penilaian yang tepat terhadap tanda hubung/pisah pada kalimat tersebut adalah ... (kategori soal SULIT)",
+          "options": [
+            "Semua penggunaan tanda hubung dan pisah pada kalimat sudah benar.",
+            "**\"ASEAN–Tiongkok\" seharusnya memakai tanda hubung (-), bukan tanda pisah, karena kedua unsur adalah pasangan setara, bukan rentang.**",
+            "\"12–15 Oktober\" seharusnya memakai tanda hubung (-) karena bukan menyatakan rentang.",
+            "\"lintas-sektor\" seharusnya ditulis tanpa tanda hubung menjadi \"lintassektor\".",
+            "Tanda pisah tidak pernah digunakan dalam kalimat berita formal."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Tanda hubung (-) menyambung dua unsur yang setara/berpasangan seperti nama kerja sama dua pihak (ASEAN-Tiongkok, Indonesia-Malaysia), sedangkan tanda pisah (–) dipakai untuk rentang waktu/tempat/angka bermakna \"sampai dengan\"."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pada kalimat soal, \"ASEAN–Tiongkok\" salah menggunakan tanda pisah — seharusnya tanda hubung \"ASEAN-Tiongkok\" karena ini pasangan setara, bukan rentang."
+        },
+        {
+          "type": "paragraph",
+          "text": "Sebaliknya, \"12–15 Oktober\" sudah benar memakai tanda pisah karena menyatakan rentang tanggal."
+        },
+        {
+          "type": "paragraph",
+          "text": "\"lintas-sektor\" sudah benar memakai tanda hubung karena \"lintas-\" adalah bentuk terikat yang digabung dengan kata dasar."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah B."
+        }
+      ],
+      "continuation": true
+    },
+    {
+      "id": "tips",
+      "title": "🦆 VECO TIPS — Cara Cepat & Trik Khusus",
+      "source_pages": [
+        12
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Trik Hapus Mental!",
+          "text": "Bingung mana kalimat utama? Coba 'hapus' tiap kalimat secara mental. Kalimat yang kalau dihapus bikin paragraf kehilangan makna utamanya — itulah kalimat utama!"
+        },
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Ide Pokok ≠ Kalimat Pertama",
+          "text": "Jangan otomatis pilih kalimat pertama! Paragraf induktif taruh ide pokok di akhir. Selalu baca sampai habis sebelum memutuskan mana kalimat utamanya!"
+        },
+        {
+          "type": "tip",
+          "tone": "warning",
+          "title": "⚠️ Kesalahan Umum yang Sering Terjadi",
+          "items": [
+            "Memilih kalimat penjelas yang mengandung data/contoh sebagai ide pokok",
+            "Otomatis memilih kalimat pertama tanpa membaca keseluruhan paragraf",
+            "Memilih jawaban yang terlalu spesifik — ide pokok harus mencakup seluruh paragraf",
+            "Tidak membedakan topik (apa yang dibicarakan) dan ide pokok (apa yang dikatakan tentang topik itu)"
+          ],
+          "marker": "●"
+        }
+      ]
+    }
+  ]
+}

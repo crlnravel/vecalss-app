@@ -26,7 +26,7 @@ export const VERA_CONTEXT_TOOL_SCHEMA = Object.freeze({
   type: "function",
   function: {
     name: VERA_CONTEXT_TOOL_NAME,
-    description: "Find relevant released Vecalss learning evidence the authenticated learner may access.",
+    description: "Find relevant released PTN Pro learning evidence the authenticated learner may access.",
     parameters: {
       type: "object",
       additionalProperties: false,

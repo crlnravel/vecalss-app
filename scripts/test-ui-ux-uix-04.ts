@@ -35,18 +35,17 @@ function excludes(source: string, unexpected: string, message: string) {
   check(!source.includes(unexpected), message);
 }
 
-const button = read("components/ui/button.tsx");
-const input = read("components/ui/input.tsx");
+const button = read("components/ui/button.tsx") + read("components/ui/button-variants.ts");
+const input = read("components/ui/input.tsx") + read("components/ui/field-constants.ts");
 const copyValue = read("modules/admin/components/copy-value-button.tsx");
 const previewShell = read("modules/student/components/admin-student-preview-shell.tsx");
 const studentSidebar = read("modules/student/components/student-sidebar.tsx");
 const mentorSidebar = read("modules/mentor/components/mentor-sidebar.tsx");
 const accountMenu = read("modules/student/components/student-account-menu.tsx");
 
-includes(button, "motion-reduce:translate-y-0", "Button translate transforms must reset under reduced motion.");
-includes(button, "motion-reduce:transform-none", "Button active transforms must reset under reduced motion.");
+check(!/\btranslate-|\bscale-/u.test(button), "Buttons use a tactile shadow edge, so hover and press must not move or scale them.");
 includes(button, "motion-reduce:transition-none", "Button transitions must respect reduced motion.");
-includes(input, "h-11", "Shared inputs must expose a 44px base target.");
+includes(input, "min-h-[44px]", "Shared inputs must expose a 44px base target.");
 includes(input, "motion-reduce:transition-none", "Shared input transitions must respect reduced motion.");
 includes(copyValue, 'size={iconOnly ? "icon" : "default"}', "Copy controls must meet the 44px target in both modes.");
 includes(copyValue, "disabled={masked}", "Masked values must remain unavailable to copy.");
@@ -118,7 +117,7 @@ includes(aiHourlyLockChart, 'aria-hidden="true"', "Hourly lock chart visuals mus
 includes(aiHourlyLockChart, "motion-reduce:transition-none", "Hourly lock chart transitions must respect reduced motion.");
 includes(dataTable, "useId", "Data table search controls must use an instance-safe label association.");
 includes(dataTable, "htmlFor={searchId}", "Data table search labels must associate with their input.");
-includes(dataTable, "size-[44px]", "Data table compact actions must retain the 44px target.");
+includes(dataTable, "min-h-[44px] min-w-[44px]", "Data table compact controls must retain the 44px target.");
 includes(dataTableUtils, "resolveDataTableClassName", "Data table width classes must resolve through an instance-safe helper.");
 includes(dataTable, "!min-w-full", "Data table empty states must take precedence over caller dense minimum widths.");
 includes(dataTable, "motion-reduce:transform-none motion-reduce:transition-none", "Data table clear-all actions must reset transform and transition under reduced motion.");

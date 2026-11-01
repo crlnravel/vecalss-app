@@ -1,0 +1,949 @@
+{
+  "title": "MATERI 03 — Morfologi & Pembentukan Kata",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/03 - Morfologi & Pembentukan Kata.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "pbm03-reviewed-01",
+      "title": "MATERI 03 — Morfologi & Pembentukan Kata",
+      "continuation": false,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "*Subtes:* *PBM* *·* *Pemahaman* *Bacaan* *&* *Menulis*",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "**A.** **Konsep** **Dasar:** **Morfem** **dan** **Morfologi**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Morfologi** adalah cabang ilmu bahasa yang mempelajari **pembentukan** **kata** — bagaimana satuan-satuan bahasa terkecil bermakna (**morfem**) bergabung membentuk kata. Memahami morfologi penting untuk UTBK karena soal PBM sering menguji ketepatan **kata** **baku** **hasil** **afiksasi**, pembedaan **makna** **akibat** **proses** **pembentukan** **kata**, dan **kelas** **kata** yang terbentuk dari proses tersebut."
+        },
+        {
+          "type": "heading",
+          "text": "**Morfem:** **Satuan** **Terkecil** **Pembentuk** **Kata**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Morfem** adalah satuan bahasa terkecil yang memiliki makna (leksikal atau gramatikal) dan tidak dapat dibagi lagi menjadi bagian bermakna yang lebih kecil. Satu kata bisa terdiri atas satu morfem (*makan*) atau lebih dari satu morfem (*me-makan-kan* = 3 morfem)."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Jenis** **Morfem**",
+            "**Ciri**",
+            "**Contoh**"
+          ],
+          "rows": [
+            [
+              "**Morfem** **bebas**",
+              "dapat berdiri sendiri sebagai kata, punya makna leksikal penuh",
+              "*makan*, *rumah*, *jalan*, *besar*"
+            ],
+            [
+              "**Morfem** **terikat**",
+              "tidak dapat berdiri sendiri, harus melekat pada morfem lain",
+              "awalan *me-*, akhiran *-kan*, sisipan *-el-*, bentuk unik *renta* (pada *tua* *renta*)"
+            ],
+            [
+              "**Morfem** **dasar/akar**",
+              "unsur inti yang menjadi dasar pembentukan, biasanya morfem bebas",
+              "*ajar* pada *belajar,* *mengajar,* *pelajaran*"
+            ],
+            [
+              "**Morfem** **afiks**",
+              "morfem terikat yang melekat pada dasar untuk membentuk kata baru",
+              "*ber-,* *me-,* *di-,* *ter-,* *pe-,* *-kan,* *-i,* *-an,* *ke-...-an*"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ],
+          "_column_edges": [
+            72.25,
+            192.66666666666666,
+            372.6666666666667,
+            537.625
+          ],
+          "_source_pages": [
+            1
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Kata dibedakan menjadi **kata** **dasar** (belum mendapat imbuhan: *tulis,* *ajar,* *main*) dan **kata** **berimbuhan/kata** **jadian** (sudah mendapat proses morfologis: *menulis,* *pelajaran,* *permainan*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**B.** **Proses** **Morfologis:** **Afiksasi**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Afiksasi** adalah proses pembubuhan afiks (imbuhan) pada bentuk dasar untuk membentuk kata baru. Berdasarkan letaknya, afiks dibagi menjadi empat jenis."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Jenis** **Afiks**",
+            "**Letak**",
+            "**Contoh** **Afiks**",
+            "**Contoh** **Kata**"
+          ],
+          "rows": [
+            [
+              "**Prefiks** (awalan)",
+              "di depan bentuk dasar",
+              "me-, ber-, di-, ter-, pe-, se-, ke-",
+              "me-**nulis**, ber-**lari**, ter-**tawa**"
+            ],
+            [
+              "**Infiks** (sisipan)",
+              "di tengah bentuk dasar",
+              "-el-, -em-, -er-",
+              "g-**el**-etar, g-**em**-uruh, s-**er**-abut"
+            ],
+            [
+              "**Sufiks** (akhiran)",
+              "di belakang bentuk dasar",
+              "-kan, -i, -an, -nya, -wan, -isasi",
+              "tulis-**kan**, jual-**an**, wisata-**wan**"
+            ],
+            [
+              "**Konfiks** (imbuhan gabung)",
+              "melekat serentak di depan **dan** belakang, tidak bisa dipisah maknanya",
+              "ke-...-an, per-...-an, se-...-nya",
+              "**ke**indah**an**, **per**tunjuk**an**, **se**baik**nya**"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "_column_edges": [
+            72.25,
+            186.16666666666666,
+            292.5,
+            408.6666666666667,
+            538.5
+          ],
+          "_source_pages": [
+            2
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Konfiks berbeda dengan **gabungan** **dua** **afiks** **(afiksasi** **bertingkat)**: pada konfiks, prefiks dan sufiks dibubuhkan **serentak/bersamaan** dan maknanya baru muncul setelah keduanya lengkap (*ke-* atau *-an* saja pada *keindahan* tidak bermakna apa-apa). Pada afiksasi bertingkat, proses terjadi **bertahap**: *ber-pakaian* → *ber-pakai-an* (dasar *pakai* + sufiks *-an* → *pakaian*, baru + prefiks *ber-*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**B1.** **Kaidah** **Peluluhan** **(KTSP)** **pada** **Prefiks** **me-** **dan** **pe-**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Salah satu jebakan UTBK paling sering adalah **kaidah** **peluluhan** **konsonan** **K,** **T,** **S,** **P** saat bertemu prefiks *me-* atau *pe-*. Jika bentuk dasar diawali konsonan **K,** **T,** **S,** **P**, konsonan itu **luluh** **(lebur)** **menjadi** **ng-,** **n-,** **ny-,** **atau** **m-** — dengan pengecualian penting."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Konsonan** **Awal**",
+            "**Berubah** **Jadi**",
+            "**Contoh** **Dasar**",
+            "**Hasil** **Berimbuhan**"
+          ],
+          "rows": [
+            [
+              "**K**",
+              "menjadi **ng-**",
+              "kupas, kirim",
+              "me-**nguphas** → **mengupas**, **mengirim**"
+            ],
+            [
+              "**T**",
+              "menjadi **n-**",
+              "tulis, terima",
+              "**menulis**, **menerima**"
+            ],
+            [
+              "**S**",
+              "menjadi **ny-**",
+              "sapu, sikat",
+              "**menyapu**, **menyikat**"
+            ],
+            [
+              "**P**",
+              "menjadi **m-**",
+              "pukul, pinjam",
+              "**memukul**, **meminjam**"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "_column_edges": [
+            72.25,
+            178.5,
+            282.1666666666667,
+            400.5,
+            537.625
+          ],
+          "_source_pages": [
+            3
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "**Pengecualian** **—** **konsonan** **K/T/S/P** **TIDAK** **luluh** jika: (1) diikuti oleh **konsonan** **lain** membentuk gugus konsonan (*me-*+*skors* → **menskors**, bukan *menyekors*; *me-*+*traktir* → **mentraktir**; *me-*+*sponsori* → **mensponsori**; *me-*+*kritik* → **mengkritik** — cek: *kritik* diawali K diikuti vokal, seharusnya luluh menjadi *mengeritik*, namun *mengkritik* lazim dipakai; PUEBI tetap menetapkan bentuk baku ***mengkritik*** karena dianggap gugus kr-), atau (2) merupakan **istilah** **khusus/serapan** **yang** **mempertahankan** **bentuk** **asli** (*men-*+*trans-*fer → **mentransfer**, *pe-*+*proses* → **memproses**). Kata-kata seperti *terampil,* *tren,* *standar* saat diberi *me-/pe-* mengikuti kaidah reguler: **menstandarkan** (gugus konsonan *st-* → tidak luluh), tetapi ***mentaati*** (dari *taat*, T tunggal → luluh menjadi **menaati**, BUKAN *mentaati*)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Contoh **kata** **baku** **vs** **tidak** **baku** yang wajib dihafal: **menyukseskan** (bukan *mensukseskan*), **mengubah** (bukan *merubah* — dasar *ubah*, bukan *rubah*!), **menyontek** (bukan *mencontek* — dasar *contek*, C bukan salah satu KTSP sehingga **tidak** **luluh**, prefiksnya tetap *me-N* menjadi *meny-* karena C dianggap dekat fonetis dengan S dalam beberapa kaidah lama, namun KBBI menetapkan **menyontek** sebagai baku), **mempengaruhi** → sebenarnya tidak baku, yang baku adalah **memengaruhi** (dasar *pengaruh* diawali P → luluh menjadi *m-*), dan **mengesampingkan** (dasar *kesampingkan*, K di awal → luluh menjadi *ng-*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**C.** **Proses** **Morfologis:** **Reduplikasi** **(Perulangan)**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Reduplikasi** adalah proses pengulangan bentuk dasar, baik seluruhnya, sebagian, maupun dengan perubahan bunyi, yang menghasilkan makna gramatikal baru (jamak, intensitas, kemiripan, dsb)."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Jenis** **Reduplikasi**",
+            "**Definisi**",
+            "**Contoh**"
+          ],
+          "rows": [
+            [
+              "**Dwilingga** **(utuh)**",
+              "pengulangan seluruh bentuk dasar tanpa perubahan",
+              "rumah-rumah, buku-buku, lari-lari"
+            ],
+            [
+              "**Dwipurwa** **(sebagian)**",
+              "pengulangan pada suku kata awal saja, biasanya dengan pelemahan vokal",
+              "lelaki (dari laki), tetangga (dari tangga), sesama (dari sama)"
+            ],
+            [
+              "**Dwilingga** **salin** **suara**",
+              "pengulangan utuh disertai **perubahan** **bunyi/fonem**",
+              "sayur-mayur, gerak-gerik, warna-warni, mondar-mandir"
+            ],
+            [
+              "**Reduplikasi** **berimbuhan**",
+              "pengulangan bentuk dasar yang disertai afiksasi",
+              "kemerah-merahan, tarik-menarik, tembak-menembak, sebaik-baiknya"
+            ],
+            [
+              "**Reduplikasi** **semu**",
+              "kata yang **berbentuk** **seperti** kata ulang tetapi bentuk dasarnya tidak ada/tidak bermakna sendiri",
+              "kupu-kupu, laba-laba, kunang-kunang, mondar-mandir (bentuk *mondar* tidak berdiri sendiri)"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ],
+          "_column_edges": [
+            72.25,
+            204.16666666666666,
+            373.5,
+            537.625
+          ],
+          "_source_pages": [
+            4
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Makna gramatikal yang muncul dari reduplikasi antara lain: **jamak/banyak** (*mobil-mobil* = banyak mobil), **bermacam-macam** (*buah-buahan*), **menyerupai** (*kuda-kudaan,* *langit-langit*), **agak/intensitas** **rendah** (*kemerah-merahan* = agak merah), **saling** (*tarik-menarik*, *tolong-menolong*), dan **paling/superlatif** (*sebaik-baiknya*, *setinggi-tingginya*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**D.** **Proses** **Morfologis:** **Pemajemukan** **(Kata** **Majemuk)**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Pemajemukan** adalah proses penggabungan dua morfem dasar atau lebih yang menghasilkan **satu** **makna** **baru** **yang** **menyatu/idiomatis**, berbeda dari sekadar penjumlahan makna unsur-unsurnya. Kata majemuk memiliki ciri: (1) **tidak** **bisa** **disisipi** kata lain tanpa merusak makna, (2) unsur-unsurnya **tidak** **bisa** **dipertukarkan** urutannya secara bebas, dan (3) membentuk **satu** **kesatuan** **makna** **leksikal** **baru**."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Kategori**",
+            "**Contoh**",
+            "**Catatan**"
+          ],
+          "rows": [
+            [
+              "Bermakna denotatif menyatu",
+              "rumah sakit, kereta api, meja hijau (=pengadilan)",
+              "\"meja hijau\" sudah idiomatis, bukan makna harfiah meja berwarna hijau"
+            ],
+            [
+              "Berupa istilah teknis",
+              "daya tahan, garis lintang, tanda tangan",
+              "lazim dalam ragam ilmiah/teknis"
+            ],
+            [
+              "Ditulis serangkai (sudah leksikalisasi penuh)",
+              "matahari, kacamata, olahraga, sukacita, hulubalang",
+              "penulisan digabung karena sudah dianggap satu kata utuh menurut PUEBI"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ],
+          "_column_edges": [
+            72.25,
+            219.16666666666666,
+            384.1666666666667,
+            537.4375
+          ],
+          "_source_pages": [
+            5
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Lihat **Materi** **02** **—** **Frasa,** **Bagian** **A** untuk perbandingan lengkap kata majemuk versus frasa: kata majemuk **tidak** **bisa** **disisipi** (*rumah* *sakit* ≠ *rumah* *yang* *sakit*), sedangkan frasa **bisa** (*rumah* *besar* → *rumah* *yang* *besar*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**E.** **Pergeseran/Perubahan** **Kelas** **Kata** **Akibat** **Afiksasi**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Proses morfologis sering **mengubah** **kelas** **kata** dari bentuk dasarnya. Menguasai pola ini membantu menjawab soal yang menguji ketepatan pilihan kata berimbuhan sesuai konteks kalimat."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Proses**",
+            "**Afiks** **Umum**",
+            "**Dasar** **→** **Kelas** **Kata**",
+            "**Contoh**"
+          ],
+          "rows": [
+            [
+              "**Nominalisasi** (→ nomina)",
+              "pe-, per-...-an, ke-...-an, -an",
+              "verba/adjektiva → nomina",
+              "ajar (v) → **pelajaran** (n); indah (adj) → **keindahan** (n)"
+            ],
+            [
+              "**Verbalisasi** (→ verba)",
+              "me-, ber-, di-, -kan, -i",
+              "nomina/adjektiva → verba",
+              "cat (n) → **mengecat** (v); besar (adj) → **membesarkan** (v)"
+            ],
+            [
+              "**Adjektivalisasi** (→ adjektiva)",
+              "-i, ter-, -wi, -iah",
+              "nomina/verba → adjektiva",
+              "ilmu (n) → **ilmiah** (adj); duga (v) → **terduga** (adj)"
+            ],
+            [
+              "**Adverbialisasi** (→ adverbia)",
+              "-nya, se-...-nya",
+              "adjektiva → adverbia",
+              "cepat (adj) → **secepatnya** (adv)"
+            ]
+          ],
+          "widths": [
+            1.1,
+            1.05,
+            1.15,
+            1.7
+          ],
+          "_column_edges": [
+            72.33333333333333,
+            195.5,
+            291.5,
+            417.5,
+            537.3333333333334
+          ],
+          "_source_pages": [
+            6
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Kesalahan umum: memakai bentuk **nomina** pada posisi yang seharusnya **verba** atau sebaliknya. Contoh: kalimat \"Pemerintah akan **pembangunan** jalan tol\" salah karena posisi predikat butuh verba → seharusnya \"Pemerintah akan **membangun** jalan tol.\""
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**F.** **Ringkasan** **Kilat:** **15** **Jebakan** **Morfologi** **UTBK**"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**No**",
+            "**Jebakan**"
+          ],
+          "rows": [
+            [
+              "1",
+              "Menganggap *merubah* baku, padahal dasar kata adalah *ubah* → baku: **mengubah**."
+            ],
+            [
+              "2",
+              "Menulis *mempengaruhi*, padahal dasar *pengaruh* (P luluh) → baku: **memengaruhi**."
+            ],
+            [
+              "3",
+              "Menulis *mensukseskan*, padahal S luluh → baku: **menyukseskan**."
+            ],
+            [
+              "4",
+              "Menulis *terlanjur* dianggap salah, padahal justru **baku** (bukan *terlanjut*)."
+            ],
+            [
+              "5",
+              "Salah membedakan konfiks (*ke-...-an* serentak) dengan afiksasi bertingkat (*ber-* + *-an* bertahap)."
+            ],
+            [
+              "6",
+              "Menganggap semua kata berulang adalah reduplikasi bermakna jamak, padahal ada reduplikasi semu (*kupu-kupu*) tanpa bentuk dasar mandiri."
+            ],
+            [
+              "7",
+              "Salah menulis kata ulang berimbuhan: *bermain-main* (benar, imbuhan di dasar pertama saja) vs kesalahan menulis *bermain-bermain*."
+            ],
+            [
+              "8",
+              "Menyisipi kata majemuk seperti frasa: *rumah* *yang* *sakit* untuk maksud *rumah* *sakit* (mengubah makna total)."
+            ],
+            [
+              "9",
+              "Salah kelas kata: memakai nomina pada posisi predikat verba, atau sebaliknya."
+            ],
+            [
+              "10",
+              "Menulis *mensyaratkan* dianggap salah, padahal S di awal dasar *syarat* diikuti konsonan gugus **sy-** sehingga baku: **mensyaratkan** (tidak luluh)."
+            ],
+            [
+              "11",
+              "Menulis *penilaian* dianggap dari *nilai* + *pe-an* biasa, padahal ini konfiks *pe-...-an* yang serentak, bukan *peN-* + *nilai*."
+            ],
+            [
+              "12",
+              "Menganggap prefiks *ter-* selalu bermakna \"paling\" (superlatif), padahal juga bisa bermakna \"tidak sengaja\" (*terpukul*) atau \"dapat di-\" (*terangkat*)."
+            ],
+            [
+              "13",
+              "Salah eja afiks *di-* (kata kerja pasif, dipisah dari kata dasarnya secara makna tapi ditulis serangkai: *dibaca*) dengan preposisi *di* (ditulis terpisah: *di* *rumah*)."
+            ],
+            [
+              "14",
+              "Menganggap *mengkritik* salah karena mengira harus *mengeritik* — KBBI/PUEBI menetapkan **mengkritik** sebagai bentuk baku karena gugus konsonan *kr-*."
+            ],
+            [
+              "15",
+              "Salah menempatkan infiks: menganggap *-el-,* *-em-,* *-er-* produktif (bisa dipakai bebas), padahal infiks Indonesia **tidak** **produktif**, hanya melekat pada sejumlah kata lama (*gemuruh,* *gerigi,* *telunjuk*)."
+            ]
+          ],
+          "widths": [
+            0.08,
+            0.92
+          ],
+          "_column_edges": [
+            72.33333333333333,
+            129.16666666666666,
+            537.3333333333334
+          ],
+          "_source_pages": [
+            6
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**G.** **Strategi** **Menjawab** **Soal** **Morfologi**"
+        },
+        {
+          "type": "bullets",
+          "marker": "1.",
+          "items": [
+            "**Kenali** **bentuk** **dasar** **terlebih** **dahulu.** Lepas semua afiks untuk menemukan akar kata sebelum menilai kaidah peluluhan atau kelas kata."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "2.",
+          "items": [
+            "**Uji** **kaidah** **KTSP** **secara** **eksplisit.** Tanyakan: dasar diawali K/T/S/P tunggal (luluh) atau gugus konsonan/istilah khusus (tidak luluh)?"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "3.",
+          "items": [
+            "**Cek** **kesesuaian** **kelas** **kata** **dengan** **fungsi** **sintaksis** dalam kalimat — apakah posisi itu butuh nomina, verba, atau adjektiva."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "4.",
+          "items": [
+            "**Bedakan** **konfiks** **dari** **afiksasi** **bertingkat** dengan mengecek apakah salah satu unsur (prefiks/sufiks saja) sudah bermakna secara mandiri."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "5.",
+          "items": [
+            "**Untuk** **reduplikasi,** **cari** **bentuk** **dasarnya** — jika tidak ada bentuk dasar mandiri yang bermakna, itu reduplikasi semu."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "6.",
+          "items": [
+            "**Rujuk** **KBBI/PUEBI** **dalam** **pikiran** untuk bentuk-bentuk yang sering diperdebatkan (*mengubah,* *memengaruhi,* *menyukseskan,* *mengkritik,* *mensyaratkan*) — ini adalah kosakata \"wajib hafal\" UTBK."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**H.** **Latihan** **Soal** **UTBK**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**1.** Bentuk kata yang **baku** untuk mengisi kalimat \"Kebijakan baru itu diharapkan dapat ... kinerja pegawai.\" adalah ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "mempengaruhi"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**b.**",
+          "items": [
+            "**memengaruhi**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "mensugesti kinerja"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "terpengaruhi"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "pengaruhi"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Dasar kata adalah **pengaruh**, diawali konsonan **P** → sesuai kaidah KTSP, P luluh menjadi **m-**, sehingga bentuk baku adalah **memengaruhi**, bukan *mempengaruhi*."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A (*mempengaruhi*) adalah kesalahan yang sangat umum karena orang mengira P tidak luluh, padahal aturannya konsisten untuk dasar berkonsonan tunggal K/T/S/P."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **B**."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8,
+        9
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "**2.** Kata berimbuhan yang penulisannya **tidak** **baku** terdapat pada kalimat ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "Panitia akan **menyukseskan** acara wisuda tahun ini."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "b.",
+          "items": [
+            "Ia berusaha **mengubah** kebiasaan buruknya."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "Pemerintah **mensyaratkan** dokumen tambahan bagi pelamar."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "Siswa itu ketahuan **menyontek** saat ujian berlangsung."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**e.**",
+          "items": [
+            "**Perusahaan** **merubah** **sistem** **penggajian** **karyawan.**"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Bentuk **merubah** salah kaprah karena seolah dasarnya *rubah*, padahal dasar kata yang benar adalah **ubah**; bentuk baku yang tepat adalah **mengubah** (me- + ubah, tanpa peluluhan karena U adalah vokal)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A (*menyukseskan*), B (*mengubah* — salah, ini justru contoh baku, bandingkan dengan opsi E), C (*mensyaratkan*, S diikuti gugus *sy-* sehingga tidak luluh), dan D (*menyontek*) semuanya sudah baku."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **E**."
+        },
+        {
+          "type": "paragraph",
+          "text": "**3.** Proses pembentukan kata pada kata **\"keindahan\"** termasuk jenis afiks ... **(kategori** **soal** **MUDAH)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "prefiks"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "b.",
+          "items": [
+            "infiks"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "sufiks"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**d.**",
+          "items": [
+            "**konfiks**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "afiksasi bertingkat"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Bentuk *ke-* saja pada \"ke-indah\" tidak bermakna apa-apa, begitu pula *-an* saja pada \"indah-an\". Makna gramatikal \"hal/keadaan yang indah\" baru muncul setelah **ke-** dan **-an** melekat **serentak** pada dasar *indah*."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri inilah yang membedakan **konfiks** dari afiksasi bertingkat, di mana salah satu unsur afiks sudah bermakna secara mandiri sebelum afiks kedua ditambahkan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **D**."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        10
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "**4.** Kata ulang yang termasuk kategori **reduplikasi** **semu** (bentuk dasarnya tidak bermakna mandiri) terdapat pada ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "rumah-rumah"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**b.**",
+          "items": [
+            "**kupu-kupu**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "sayur-mayur"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "tarik-menarik"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "kemerah-merahan"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "\"Kupu\" tanpa perulangan tidak memiliki makna mandiri dalam bahasa Indonesia — kata \"kupu-kupu\" hanya bermakna sebagai satu kesatuan bentuk ulang, sama seperti *laba-laba* dan *kunang-kunang*."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi A adalah dwilingga bermakna jamak, C adalah dwilingga salin suara, D dan E adalah reduplikasi berimbuhan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **B**."
+        },
+        {
+          "type": "paragraph",
+          "text": "**5.** Kalimat berikut yang menunjukkan **ketidaktepatan** **kelas** **kata** akibat afiksasi adalah ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "Pemerintah akan **membangun** infrastruktur baru tahun depan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "b.",
+          "items": [
+            "Proyek itu memerlukan **pembangunan** yang matang."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**c.**",
+          "items": [
+            "**Pemerintah** **akan** **pembangunan** **jalan** **tol** **trans-Jawa.**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "**Pembangunan** ekonomi daerah menjadi prioritas utama."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "Ia terlibat dalam **pembangunan** rumah susun."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Posisi setelah \"akan\" pada opsi C membutuhkan **verba** sebagai predikat (menyatakan tindakan), sedangkan **pembangunan** adalah **nomina** hasil nominalisasi (konfiks *pe-...-an*). Kalimat menjadi rancu secara gramatikal."
+        },
+        {
+          "type": "paragraph",
+          "text": "Seharusnya: \"Pemerintah akan **membangun** jalan tol trans-Jawa.\""
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **C**."
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-11",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        11
+      ],
+      "blocks": [
+        {
+          "type": "title",
+          "text": "🦆 **VECO** **TIPS** **—** **Cara** **Cepat** **&** **Trik** **Khusus**"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips** **1:** **Tes** **\"Lepas** **Afiks\"**",
+          "text": "*Saat* *ragu* *apakah* *sebuah* *kata* *berimbuhan* *sudah* *baku,* ***lepaskan*** ***semua*** ***afiksnya*** *dan* *tanyakan:* *\"Apa* *bentuk* *dasarnya?\"* *Jika* *dasarnya* *diawali* *K/T/S/P* *tunggal,* *ingat* *kaidah* *peluluhan;* *jika* *diawali* *gugus* *konsonan* *(kr-,* *tr-,* *sy-,* *st-,* *sp-)* *atau* *vokal,* *afiks* *meN-/peN-* ***tidak*** ***meluluhkan*** *apa* *pun* *—* *hanya* *menempel.*"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips** **2:** **Daftar** **\"10** **Kata** **Wajib** **Hafal\"**",
+          "text": "*Buat* *daftar* *pribadi* *berisi* *kata-kata* *baku* *yang* *sering* *salah:* ***mengubah*** *(bukan* *merubah),* ***memengaruhi*** *(bukan* *mempengaruhi),* ***menyukseskan*** *(bukan* *mensukseskan),* ***mengkritik****,* ***mensyaratkan****,* ***menstabilkan****,* ***menaati*** *(bukan* *mentaati),* ***menyontek****,* ***terlanjur****,* ***mengesampingkan****.* *Kata-kata* *ini* *paling* *sering* *muncul* *sebagai* *jebakan* *di* *soal* *PBM* *UTBK.*"
+        }
+      ]
+    },
+    {
+      "id": "pbm03-reviewed-12",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        11,
+        12
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "marker": "●",
+          "items": [
+            "Menganggap semua prefiks *me-/pe-* selalu meluluhkan konsonan awal dasar kata, padahal hanya berlaku untuk dasar berkonsonan **tunggal** **K,** **T,** **S,** **P**.",
+            "Menulis *merubah,* *mempengaruhi,* *mensukseskan* karena mengikuti pengucapan lisan sehari-hari, bukan kaidah baku tertulis.",
+            "Tidak bisa membedakan **konfiks** (serentak, satu unit makna) dari **afiksasi** **bertingkat** (bertahap, tiap tahap sudah bermakna).",
+            "Menyamakan semua kata berulang sebagai reduplikasi \"biasa\", padahal ada reduplikasi semu tanpa bentuk dasar mandiri.",
+            "Salah menempatkan kelas kata hasil afiksasi (nomina vs verba) dalam struktur kalimat, sehingga kalimat menjadi taktata atau ambigu.",
+            "Menganggap kata majemuk sebagai frasa biasa sehingga menyisipinya dengan kata penghubung dan merusak makna idiomatisnya.",
+            "Mengira bentuk seperti *mengkritik* dan *mensyaratkan* salah eja karena \"seharusnya luluh\", padahal gugus konsonan pada dasar kata mencegah peluluhan."
+          ],
+          "tone": "warning"
+        }
+      ]
+    }
+  ]
+}

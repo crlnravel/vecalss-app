@@ -35,9 +35,9 @@ for (const [label, source] of [["detail route", detailRoute], ["editor route", e
 assert.match(detailRoute, /searchParams: Promise/u, "detail route must accept a deep-linked tab");
 assert.match(detail, /breadcrumbLabel="Detail Kuis"/u, "detail breadcrumb must use the detail label");
 assert.match(detail, /value="preview"/u, "detail must expose Preview Soal");
-assert.match(detail, /value="preview"[\s\S]*?>\s*Soal\s*<\/FullWidthTabsTrigger>/u, "detail must label the question tab Soal");
+assert.match(detail, /value="preview"[\s\S]*?>\s*Soal\s*<\/span>/u, "detail must label the question tab Soal");
 assert.match(detail, /value="hasil"/u, "detail must expose Hasil");
-assert.match(detail, /value="hasil"[\s\S]*?>\s*Hasil\s*<\/FullWidthTabsTrigger>/u, "Hasil tab must remain text-only");
+assert.match(detail, /value="hasil"[\s\S]*?>\s*Hasil\s*<\/span>/u, "detail must label the results tab Hasil");
 assert.match(detail, /value="pengaturan"/u, "detail must expose Pengaturan");
 assert.match(detail, /Edit soal/u, "detail must expose the dedicated editor action");
 assert.match(editorRoute, /KaptenQuizEditorPageModule/u, "editor route must render the dedicated editor");

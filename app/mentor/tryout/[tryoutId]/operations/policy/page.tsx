@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireTutorSession } from "@/lib/auth/access";
 import { buildMentorTryoutHref, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 
-export const metadata: Metadata = { title: "Kebijakan Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Kebijakan Tryout | PTN Pro LMS" };
 
 export default async function TryoutPolicyPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<Record<string, NavigationQueryValue>> }) {
   await requireTutorSession();

@@ -15,7 +15,7 @@ const videoIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const metadata: Metadata = {
-  title: "Edit Video Kapten | Vecalss LMS",
+  title: "Edit Video Kapten | PTN Pro LMS",
 };
 
 export default async function MentorVideoEditorPage({

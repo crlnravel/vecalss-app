@@ -5,7 +5,7 @@ import { listQuestionBankCategories, listQuestionBankSourcePage } from "@/lib/qu
 import { KaptenPackageBuilderPageModule } from "@/modules/mentor/KaptenPackageBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Buat Paket Soal Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Buat Paket Soal Kapten | PTN Pro LMS" };
 
 export default async function CreatePackagePage() {
   const session = await requireTutorSession();

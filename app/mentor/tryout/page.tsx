@@ -9,7 +9,7 @@ import { listTryouts } from "@/lib/tryout/repository";
 import { KaptenTryoutCataloguePageModule } from "@/modules/mentor/KaptenTryoutCataloguePageModule";
 
 export const metadata: Metadata = {
-  title: "Tryout Kapten | Vecalss LMS",
+  title: "Tryout Kapten | PTN Pro LMS",
 };
 
 export default async function MentorTryoutPage({

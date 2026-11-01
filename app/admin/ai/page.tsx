@@ -6,7 +6,7 @@ import { AiOverviewPageModule } from "@/modules/admin/ai/AiOverviewPageModule";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Ringkasan Vera AI | Vecalss Admin",
+  title: "Ringkasan Vera AI | PTN Pro Admin",
 };
 
 export default async function AdminAiOverviewPage() {

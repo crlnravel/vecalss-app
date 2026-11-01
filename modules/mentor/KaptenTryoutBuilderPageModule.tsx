@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { buildTryoutWorkspaceHref, tryoutWorkspaceForQuery } from "@/lib/navigation/mentor-tryout-continuity";
+import {
+  buildTryoutWorkspaceHref,
+  tryoutWorkspaceForQuery,
+} from "@/lib/navigation/mentor-tryout-continuity";
 import { useTryoutCatalogueReturn } from "@/modules/mentor/use-tryout-catalogue-return";
 import { TryoutIdentityHeader } from "@/modules/mentor/components/tryout-identity-header";
 import {
@@ -69,10 +72,16 @@ import {
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { OptionSet } from "@/modules/mentor/KaptenTryoutOperationalShared";
-import { TryoutAdmissionModeField } from "@/modules/mentor/TryoutAdmissionModeField";
 import { KaptenTryoutDraftAdmissionModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
-import { TryoutRequestDeadlineError, withTryoutRequestDeadline } from "@/modules/mentor/tryout-request-recovery";
-import { continueAfterTryoutSave, createTryoutSaveRequest, finishTryoutSave } from "@/modules/mentor/tryout-save-request";
+import {
+  TryoutRequestDeadlineError,
+  withTryoutRequestDeadline,
+} from "@/modules/mentor/tryout-request-recovery";
+import {
+  continueAfterTryoutSave,
+  createTryoutSaveRequest,
+  finishTryoutSave,
+} from "@/modules/mentor/tryout-save-request";
 import {
   type DefaultPolicy,
   type Mode,
@@ -82,10 +91,7 @@ import {
   CBT_FIXED_POINTS_METHOD,
   CBT_IRT_2PL_METHOD,
 } from "@/lib/tryout/cbt-scoring-policy";
-import {
-  isImageMimeType,
-  validateMediaUpload,
-} from "@/lib/media/domain";
+import { isImageMimeType, validateMediaUpload } from "@/lib/media/domain";
 import type { MediaUploadTicket } from "@/lib/media/types";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import {
@@ -514,9 +520,7 @@ function TryoutBannerHero({
           Banner Tryout
         </p>
       ) : null}
-      <div
-        className={tryoutBannerFrameClassName(presentation, hasBanner)}
-      >
+      <div className={tryoutBannerFrameClassName(presentation, hasBanner)}>
         {bannerMediaId ? (
           <MediaAssetPreview
             alt="Banner Tryout"
@@ -674,9 +678,10 @@ function TryoutBannerActions({
   presentation: "dialog" | "page";
 }) {
   if (!bannerMediaId && presentation === "dialog") return null;
-  const position = presentation === "dialog"
-    ? "right-3 top-3 sm:right-4 sm:top-4"
-    : "right-4 top-4";
+  const position =
+    presentation === "dialog"
+      ? "right-3 top-3 sm:right-4 sm:top-4"
+      : "right-4 top-4";
 
   return (
     <>
@@ -1126,7 +1131,6 @@ function TryoutDescriptionEditingForm({
 }
 
 function TryoutIdentityPanel({
-  compact = false,
   draft,
   metadataSaving,
   mode,
@@ -1136,11 +1140,9 @@ function TryoutIdentityPanel({
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
-  onAdmissionModeChange,
   presentation = "page",
   saving,
 }: {
-  compact?: boolean;
   draft: TryoutDraft;
   metadataSaving: boolean;
   mode: WorkflowMode;
@@ -1150,7 +1152,6 @@ function TryoutIdentityPanel({
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
-  onAdmissionModeChange: (mode: Mode) => void;
   presentation?: "dialog" | "page";
   saving: boolean;
 }) {
@@ -1192,14 +1193,12 @@ function TryoutIdentityPanel({
     <>
       <div className="grid min-w-0 w-full gap-6">
         <TryoutIdentityInformation
-          compact={compact}
           status={draft.status}
           bannerHero={bannerHero}
           descriptionField={descriptionField}
           presentation={presentation}
           titleField={titleField}
         />
-        {onCreate ? <TryoutAdmissionModeField value={draft.admissionMode ?? "open"} onChange={onAdmissionModeChange} disabled={identityDisabled} /> : null}
       </div>
       {onCreate ? (
         <TryoutIdentityCreateAction
@@ -1215,14 +1214,12 @@ function TryoutIdentityPanel({
 
 function TryoutIdentityInformation({
   bannerHero,
-  compact,
   descriptionField,
   presentation,
   status,
   titleField,
 }: {
   bannerHero: ReactNode;
-  compact: boolean;
   descriptionField: ReactNode;
   presentation: "dialog" | "page";
   status: string;
@@ -1245,7 +1242,7 @@ function TryoutIdentityInformation({
   }
 
   return (
-    <TryoutIdentityHeader compact={compact} status={status} title={titleField}>
+    <TryoutIdentityHeader status={status} title={titleField}>
       {bannerHero}
       {descriptionField}
     </TryoutIdentityHeader>
@@ -1367,7 +1364,9 @@ function TryoutSavedQuestionList({
                   : difficulty === "adaptive"
                     ? "Adaptif"
                     : "Sedang";
-            const questionTypeLabel = questionAnswerModeLabel(question.questionType);
+            const questionTypeLabel = questionAnswerModeLabel(
+              question.questionType,
+            );
             const options = question.options ?? [];
 
             return (
@@ -1656,8 +1655,8 @@ function TryoutSubtestMetadataCard({
     String(activeSection.durationMinutes),
   );
   const [editingScoringMethod, setEditingScoringMethod] = useState(false);
-  const [scoringMethodDraft, setScoringMethodDraft] = useState(
-    () => scoringMethodForSection(activeSection),
+  const [scoringMethodDraft, setScoringMethodDraft] = useState(() =>
+    scoringMethodForSection(activeSection),
   );
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsDraft, setInstructionsDraft] = useState(
@@ -1697,109 +1696,111 @@ function TryoutSubtestMetadataCard({
           {subjectName}
         </h1>
         <div className="space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-        <TryoutSubtestMetadataField
-          canSave={durationIsValid}
-          disabled={!canEdit}
-          editing={editingDuration}
-          label="Durasi"
-          onCancel={cancelDurationEdit}
-          required
-          onEdit={() => {
-            setDurationDraft(String(activeSection.durationMinutes));
-            setEditingDuration(true);
-          }}
-          onSave={() => {
-            if (!durationIsValid) return;
-            onUpdateSection({ durationMinutes: durationValue });
-            setEditingDuration(false);
-          }}
-          value={
-            activeSection.durationMinutes > 0 ? (
-              `${activeSection.durationMinutes} menit`
-            ) : (
-              <span className="italic text-secondary-400">Belum diatur</span>
-            )
-          }
-        >
-          <div className="relative">
-            <FieldInput
-              aria-label="Durasi dalam menit"
-              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <TryoutSubtestMetadataField
+              canSave={durationIsValid}
               disabled={!canEdit}
-              id={`tryout-subtest-duration-${sectionId}`}
-              min={1}
-              onChange={(event) => setDurationDraft(event.target.value)}
+              editing={editingDuration}
+              label="Durasi"
+              onCancel={cancelDurationEdit}
               required
-              type="number"
-              value={durationDraft}
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">
-              menit
-            </span>
-          </div>
-          {!durationIsValid ? (
-            <p className="text-xs leading-5 text-danger-500" role="alert">
-              Masukkan durasi dalam jumlah menit yang lebih dari nol.
-            </p>
-          ) : null}
-        </TryoutSubtestMetadataField>
+              onEdit={() => {
+                setDurationDraft(String(activeSection.durationMinutes));
+                setEditingDuration(true);
+              }}
+              onSave={() => {
+                if (!durationIsValid) return;
+                onUpdateSection({ durationMinutes: durationValue });
+                setEditingDuration(false);
+              }}
+              value={
+                activeSection.durationMinutes > 0 ? (
+                  `${activeSection.durationMinutes} menit`
+                ) : (
+                  <span className="italic text-secondary-400">
+                    Belum diatur
+                  </span>
+                )
+              }
+            >
+              <div className="relative">
+                <FieldInput
+                  aria-label="Durasi dalam menit"
+                  className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`}
+                  disabled={!canEdit}
+                  id={`tryout-subtest-duration-${sectionId}`}
+                  min={1}
+                  onChange={(event) => setDurationDraft(event.target.value)}
+                  required
+                  type="number"
+                  value={durationDraft}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">
+                  menit
+                </span>
+              </div>
+              {!durationIsValid ? (
+                <p className="text-xs leading-5 text-danger-500" role="alert">
+                  Masukkan durasi dalam jumlah menit yang lebih dari nol.
+                </p>
+              ) : null}
+            </TryoutSubtestMetadataField>
 
-        <TryoutSubtestMetadataField
-          disabled={!canEdit}
-          editing={editingScoringMethod}
-          label="Metode penilaian"
-          onCancel={cancelScoringMethodEdit}
-          onEdit={() => {
-            setScoringMethodDraft(scoringMethodForSection(activeSection));
-            setEditingScoringMethod(true);
-          }}
-          required
-          onSave={() => {
-            onUpdateSection({
-              scoringConfig:
-                scoringMethodDraft === CBT_IRT_2PL_METHOD
-                  ? {
-                      estimatorVersion: "bounded-map-v1",
-                      method: CBT_IRT_2PL_METHOD,
-                      modelVersion: "irt-2pl-cbt-v1",
-                      normalizationVersion: "logistic-0-100-v1",
-                    }
-                  : {
-                      correctAnswerPoints: 1,
-                      method: CBT_FIXED_POINTS_METHOD,
-                      unansweredPoints: 0,
-                      wrongAnswerPoints: 0,
-                    },
-            });
-            setEditingScoringMethod(false);
-          }}
-          value={
-            scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD
-              ? "IRT"
-              : "Poin tetap"
-          }
-        >
-          <OptionSet
-            label="Metode penilaian"
-            onValueChange={setScoringMethodDraft}
-            options={[
-              {
-                label: "Poin tetap",
-                value: CBT_FIXED_POINTS_METHOD,
-              },
-              {
-                label: "IRT",
-                tooltip:
-                  "IRT membutuhkan kalibrasi yang disetujui untuk seluruh soal sebelum rilis.",
-                value: CBT_IRT_2PL_METHOD,
-              },
-            ]}
-            required
-            value={scoringMethodDraft}
-          />
-        </TryoutSubtestMetadataField>
-        </div>
+            <TryoutSubtestMetadataField
+              disabled={!canEdit}
+              editing={editingScoringMethod}
+              label="Metode penilaian"
+              onCancel={cancelScoringMethodEdit}
+              onEdit={() => {
+                setScoringMethodDraft(scoringMethodForSection(activeSection));
+                setEditingScoringMethod(true);
+              }}
+              required
+              onSave={() => {
+                onUpdateSection({
+                  scoringConfig:
+                    scoringMethodDraft === CBT_IRT_2PL_METHOD
+                      ? {
+                          estimatorVersion: "bounded-map-v1",
+                          method: CBT_IRT_2PL_METHOD,
+                          modelVersion: "irt-2pl-cbt-v1",
+                          normalizationVersion: "logistic-0-100-v1",
+                        }
+                      : {
+                          correctAnswerPoints: 1,
+                          method: CBT_FIXED_POINTS_METHOD,
+                          unansweredPoints: 0,
+                          wrongAnswerPoints: 0,
+                        },
+                });
+                setEditingScoringMethod(false);
+              }}
+              value={
+                scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD
+                  ? "IRT"
+                  : "Poin tetap"
+              }
+            >
+              <OptionSet
+                label="Metode penilaian"
+                onValueChange={setScoringMethodDraft}
+                options={[
+                  {
+                    label: "Poin tetap",
+                    value: CBT_FIXED_POINTS_METHOD,
+                  },
+                  {
+                    label: "IRT",
+                    tooltip:
+                      "IRT membutuhkan kalibrasi yang disetujui untuk seluruh soal sebelum rilis.",
+                    value: CBT_IRT_2PL_METHOD,
+                  },
+                ]}
+                required
+                value={scoringMethodDraft}
+              />
+            </TryoutSubtestMetadataField>
+          </div>
 
           <TryoutSubtestMetadataField
             disabled={!canEdit}
@@ -1958,9 +1959,7 @@ function TryoutSubtestEditor({
           />
         ) : null}
 
-        {view.showIrtCalibrationNotice ? (
-          <TryoutIrtCalibrationNotice />
-        ) : null}
+        {view.showIrtCalibrationNotice ? <TryoutIrtCalibrationNotice /> : null}
       </div>
     </TooltipProvider>
   );
@@ -1975,7 +1974,11 @@ function tryoutSubtestEditorView({
   readOnly,
 }: Pick<
   TryoutSubtestEditorProps,
-  "activeDirectQuestions" | "activeSection" | "draft" | "editorMode" | "readOnly"
+  | "activeDirectQuestions"
+  | "activeSection"
+  | "draft"
+  | "editorMode"
+  | "readOnly"
 > & { packageBound: boolean }) {
   const canPublishWithIrt =
     scoringMethodForSection(activeSection) === CBT_IRT_2PL_METHOD;
@@ -2249,10 +2252,7 @@ function TryoutLifecycleModals({
           <AlertDialogHeader>
             <AlertDialogTitle>Jadikan Tryout draf?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat
-              pengerjaan peserta dan soal yang sudah digunakan tetap tersimpan.
-              Tindakan ini hanya dapat dilakukan saat tidak ada peserta yang
-              sedang mengerjakan.
+              Tryout tidak lagi tersedia untuk pendaftaran baru.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2438,8 +2438,15 @@ function useTryoutBuilderState({
   } = state;
 
   const savedDraftRef = useRef<TryoutDraft>(initialFormDraft);
-  const [recoveredCreateHref, setRecoveredCreateHref] = useState<string | null>(null);
-  const saveRequestRef = useRef(createTryoutSaveRequest<{ draft: TryoutDraft; status: "draft" | "published" }, Awaited<ReturnType<typeof saveTryoutAction>>>());
+  const [recoveredCreateHref, setRecoveredCreateHref] = useState<string | null>(
+    null,
+  );
+  const saveRequestRef = useRef(
+    createTryoutSaveRequest<
+      { draft: TryoutDraft; status: "draft" | "published" },
+      Awaited<ReturnType<typeof saveTryoutAction>>
+    >(),
+  );
   const latestDraftRef = useRef<TryoutDraft>(initialFormDraft);
   const pendingHrefRef = useRef<string | null>(null);
   const autosaveInFlightRef = useRef<Promise<boolean> | null>(null);
@@ -2465,11 +2472,11 @@ function useTryoutBuilderState({
   const isEditLocked = Boolean(id && !resourceLock.canEdit);
   const isAutosaveSubtest = Boolean(
     !manualQuestionEditor &&
-      initialSubtest &&
-      id &&
-      mode === "draft" &&
-      !draft.locked &&
-      dirty,
+    initialSubtest &&
+    id &&
+    mode === "draft" &&
+    !draft.locked &&
+    dirty,
   );
   const activeSection =
     draft.sections.find((section) => section.subtest === activeCode) ??
@@ -2689,63 +2696,73 @@ function useTryoutBuilderState({
       if (id && !resourceLock.canEdit) return false;
       dispatch({ saving: true, type: "setSaving" });
       dispatch({ error: null, type: "setError" });
-      let request: ReturnType<typeof saveRequestRef.current.getOrStart> | undefined;
+      let request:
+        | ReturnType<typeof saveRequestRef.current.getOrStart>
+        | undefined;
       try {
-        request = saveRequestRef.current.getOrStart({ draft: draftToSave, status }, ({ draft: draftToSave, status }) => saveTryoutAction({
-          admissionMode: draftToSave.admissionMode ?? "open",
-          bannerMediaId: draftToSave.bannerMediaId ?? null,
-          defaultResultReleasePolicy: id
-            ? undefined
-            : defaultPolicyForDraft(draftToSave.defaultReleasePolicy),
-          description: draftToSave.description,
-          editLease: id ? (resourceLock.proof ?? undefined) : undefined,
-          id,
-          sections: draftToSave.sections.map((section) => ({
-            directQuestions: section.directQuestions?.map((question) => {
-              if ("snapshotId" in question) {
-                return {
-                  difficulty: question.difficulty,
-                  explanation: question.explanation,
-                  explanationAssetId: question.explanationAssetId,
-                  options: question.options.map((option, sortOrder) => ({
-                    assetId: option.assetId,
-                    choiceKey: option.choiceKey,
-                    content: option.content,
-                    isCorrect: option.isCorrect,
-                    snapshotOptionId: option.snapshotOptionId,
-                    sortOrder,
-                  })),
-                  prompt: question.prompt,
-                  promptAssetId: question.promptAssetId,
-                  questionType: question.questionType,
-                  snapshotId: question.snapshotId,
-                };
-              }
-              return {
-                sourceContentDigest: question.sourceContentDigest ?? "",
-                sourceQuestionId: question.sourceQuestionId,
-                sourceQuestionRevisionId:
-                  question.sourceQuestionRevisionId ?? "",
-              };
+        request = saveRequestRef.current.getOrStart(
+          { draft: draftToSave, status },
+          ({ draft: draftToSave, status }) =>
+            saveTryoutAction({
+              admissionMode: draftToSave.admissionMode ?? "open",
+              bannerMediaId: draftToSave.bannerMediaId ?? null,
+              defaultResultReleasePolicy: id
+                ? undefined
+                : defaultPolicyForDraft(draftToSave.defaultReleasePolicy),
+              description: draftToSave.description,
+              editLease: id ? (resourceLock.proof ?? undefined) : undefined,
+              id,
+              sections: draftToSave.sections.map((section) => ({
+                directQuestions: section.directQuestions?.map((question) => {
+                  if ("snapshotId" in question) {
+                    return {
+                      difficulty: question.difficulty,
+                      explanation: question.explanation,
+                      explanationAssetId: question.explanationAssetId,
+                      options: question.options.map((option, sortOrder) => ({
+                        assetId: option.assetId,
+                        choiceKey: option.choiceKey,
+                        content: option.content,
+                        isCorrect: option.isCorrect,
+                        snapshotOptionId: option.snapshotOptionId,
+                        sortOrder,
+                      })),
+                      prompt: question.prompt,
+                      promptAssetId: question.promptAssetId,
+                      questionType: question.questionType,
+                      snapshotId: question.snapshotId,
+                    };
+                  }
+                  return {
+                    sourceContentDigest: question.sourceContentDigest ?? "",
+                    sourceQuestionId: question.sourceQuestionId,
+                    sourceQuestionRevisionId:
+                      question.sourceQuestionRevisionId ?? "",
+                  };
+                }),
+                durationMinutes: section.durationMinutes,
+                instructions: section.instructions,
+                scoringConfig: section.scoringConfig,
+                shuffleItems: true,
+                subtest: section.subtest,
+                testType: "cbt",
+              })),
+              status,
+              title: draftToSave.title,
             }),
-            durationMinutes: section.durationMinutes,
-            instructions: section.instructions,
-            scoringConfig: section.scoringConfig,
-            shuffleItems: true,
-            subtest: section.subtest,
-            testType: "cbt",
-          })),
-          status,
-          title: draftToSave.title,
-        }));
+        );
         if (request.input.status !== status) {
-          showToast("Periksa hasil penyimpanan draf sebelum menerbitkan Tryout. Klik Simpan draf untuk melanjutkan.", { variant: "warning" });
+          showToast(
+            "Periksa hasil penyimpanan draf sebelum menerbitkan Tryout. Klik Simpan draf untuk melanjutkan.",
+            { variant: "warning" },
+          );
           return false;
         }
         draftToSave = request.input.draft;
         const result = await withTryoutRequestDeadline(request.response);
         if (!result.ok) {
-          if ("outcomeUnknown" in result && result.outcomeUnknown) throw new Error("unknown-save-outcome");
+          if ("outcomeUnknown" in result && result.outcomeUnknown)
+            throw new Error("unknown-save-outcome");
           saveRequestRef.current.clear(request);
           showToast(result.message, { variant: "error" });
           return false;
@@ -2767,22 +2784,36 @@ function useTryoutBuilderState({
             dispatch({ draft: receipt, type: "setDraft" });
             dispatch({ dirty: false, type: "setDirty" });
           },
-          onCreateNavigate: !id ? () => {
-          const nextUrl = new URL(
-            redirectSubtest
-              ? tryoutSubtestDetailHref(result.result.id, redirectSubtest)
-              : `/mentor/tryout/${result.result.id}`,
-            window.location.origin,
-          );
-          if (!redirectSubtest && redirectWorkspace !== "basics")
-            nextUrl.searchParams.set("workspace", redirectWorkspace);
-          try { window.location.assign(`${nextUrl.pathname}${nextUrl.search}`); }
-          catch { showToast("Tryout tersimpan. Klik Buat lagi untuk membuka Tryout yang sama.", { variant: "warning" }); }
-          } : undefined,
+          onCreateNavigate: !id
+            ? () => {
+                const nextUrl = new URL(
+                  redirectSubtest
+                    ? tryoutSubtestDetailHref(result.result.id, redirectSubtest)
+                    : `/mentor/tryout/${result.result.id}`,
+                  window.location.origin,
+                );
+                if (!redirectSubtest && redirectWorkspace !== "basics")
+                  nextUrl.searchParams.set("workspace", redirectWorkspace);
+                try {
+                  window.location.assign(
+                    `${nextUrl.pathname}${nextUrl.search}`,
+                  );
+                } catch {
+                  showToast(
+                    "Tryout tersimpan. Klik Buat lagi untuk membuka Tryout yang sama.",
+                    { variant: "warning" },
+                  );
+                }
+              }
+            : undefined,
         });
-        if (!latestSaved) showToast(id
-          ? "Draf sebelumnya tersimpan. Perubahan terbaru masih tersedia; klik Simpan draf lagi sebelum meninggalkan halaman."
-          : "Tryout sebelumnya tersimpan. Perubahan terbaru tetap tersedia di sini. Buka draf tersimpan hanya jika perubahan terbaru boleh dibuang.", { variant: "warning" });
+        if (!latestSaved)
+          showToast(
+            id
+              ? "Draf sebelumnya tersimpan. Perubahan terbaru masih tersedia; klik Simpan draf lagi sebelum meninggalkan halaman."
+              : "Tryout sebelumnya tersimpan. Perubahan terbaru tetap tersedia di sini. Buka draf tersimpan hanya jika perubahan terbaru boleh dibuang.",
+            { variant: "warning" },
+          );
         return latestSaved;
       } catch (saveError) {
         // A transport rejection does not prove rollback. Retain the gate even
@@ -3013,11 +3044,7 @@ function useTryoutBuilderState({
   };
 
   useEffect(() => {
-    if (
-      (initialSubtest && !manualQuestionEditor) ||
-      !dirty ||
-      mode !== "draft"
-    )
+    if ((initialSubtest && !manualQuestionEditor) || !dirty || mode !== "draft")
       return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -3382,33 +3409,44 @@ function TryoutQuestionEditorHeader({
   dirty: boolean;
   draftTitle: string;
   editLocked: boolean;
-  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  guardExternalNavigation: (
+    href: string,
+    event: { preventDefault: () => void },
+  ) => void;
   saveDraft: () => Promise<boolean>;
   readOnly: boolean;
   saving: boolean;
   subtest: SubjectCode;
 }) {
   const returnHref = useTryoutCatalogueReturn();
-  return <QuestionEditorHeader
-    backControl={<Button
-      aria-label={`Kembali ke detail subtes ${subtest}`}
-      className="shrink-0"
-      disabled={saving || editLocked}
-      nativeButton={false}
-      onClick={(event) => guardExternalNavigation(returnHref(backHref), event)}
-      render={<Link href={returnHref(backHref)} />}
-      size="sm"
-      type="button"
-      variant="outline"
-    >Kembali</Button>}
-    category={subtest}
-    dirty={dirty}
-    onSave={readOnly ? undefined : () => void saveDraft()}
-    saveDisabled={saving || editLocked}
-    saveId="tryout-save-button"
-    saving={saving}
-    title={draftTitle || "Tryout"}
-  />;
+  return (
+    <QuestionEditorHeader
+      backControl={
+        <Button
+          aria-label={`Kembali ke detail subtes ${subtest}`}
+          className="shrink-0"
+          disabled={saving || editLocked}
+          nativeButton={false}
+          onClick={(event) =>
+            guardExternalNavigation(returnHref(backHref), event)
+          }
+          render={<Link href={returnHref(backHref)} />}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Kembali
+        </Button>
+      }
+      category={subtest}
+      dirty={dirty}
+      onSave={readOnly ? undefined : () => void saveDraft()}
+      saveDisabled={saving || editLocked}
+      saveId="tryout-save-button"
+      saving={saving}
+      title={draftTitle || "Tryout"}
+    />
+  );
 }
 
 function TryoutBuilderHeader({
@@ -3449,9 +3487,7 @@ function TryoutBuilderHeader({
         >
           {children}
         </TryoutWorkspaceHeader>
-        <TryoutBuilderNotices
-          error={error}
-        />
+        <TryoutBuilderNotices error={error} />
       </>
     );
   }
@@ -3462,9 +3498,7 @@ function TryoutBuilderHeader({
         className="min-w-0"
         title={id ? "Konten Tryout" : "Buat Tryout"}
       />
-      <TryoutBuilderNotices
-        error={error}
-      />
+      <TryoutBuilderNotices error={error} />
     </>
   );
 }
@@ -3532,26 +3566,28 @@ function TryoutWorkspaceContent({
 
   if (activeWorkspace === "operations" && operationsInitial) {
     return (
-      <ReferenceSurface
-        aria-labelledby="tryout-operations-title"
-        as="section"
-        className="mt-4 p-5 sm:p-7"
-      >
+      <section aria-labelledby="tryout-operations-title" className="mt-6">
         <h2 className="sr-only" id="tryout-operations-title">
           Operasional
         </h2>
-        <KaptenTryoutOperationsModule embedded initial={operationsInitial} draftAdmission={draftAdmission} />
-      </ReferenceSurface>
+        <KaptenTryoutOperationsModule
+          embedded
+          initial={operationsInitial}
+          draftAdmission={draftAdmission}
+        />
+      </section>
     );
   }
 
   if (activeWorkspace === "participants" && operationsInitial) {
     return (
-      <KaptenTryoutParticipantsPageModule
-        embedded
-        initial={operationsInitial}
-        parentId={initialParent?.id}
-      />
+      <div className="mt-6 min-w-0">
+        <KaptenTryoutParticipantsPageModule
+          embedded
+          initial={operationsInitial}
+          parentId={initialParent?.id}
+        />
+      </div>
     );
   }
 
@@ -3650,7 +3686,11 @@ function TryoutBuilderPageWorkspace({
                 event,
               )
             }
-            render={<Link href={returnHref(tryoutSubtestListHref(id, initialParent?.id))} />}
+            render={
+              <Link
+                href={returnHref(tryoutSubtestListHref(id, initialParent?.id))}
+              />
+            }
             variant="outline"
           >
             Kembali ke daftar subtes
@@ -3678,13 +3718,33 @@ function TryoutBuilderPageWorkspace({
         mode={mode}
         onArchive={() => void state.archive()}
         onDelete={() => void state.remove()}
-        onDuplicate={() => state.dispatch({ open: true, type: "setDuplicateOpen" })}
+        onDuplicate={() =>
+          state.dispatch({ open: true, type: "setDuplicateOpen" })
+        }
         onOpenSubtest={onOpenSubtest}
         onPublish={() => state.dispatch({ open: true, type: "setPublishOpen" })}
         onSetHidden={(hidden) => void state.setTryoutVisibility(hidden)}
-        onUnpublish={() => state.dispatch({ open: true, type: "setUnpublishOpen" })}
+        onUnpublish={() =>
+          state.dispatch({ open: true, type: "setUnpublishOpen" })
+        }
         operationsInitial={operationsInitial}
-        draftAdmission={<KaptenTryoutDraftAdmissionModule value={viewDraft.admissionMode ?? "open"} onChange={(admissionMode) => state.updateDraft((current) => ({ ...current, admissionMode }))} onSave={() => state.save("draft")} onNavigate={(href) => state.guardExternalNavigation(href, { preventDefault: () => undefined })} disabled={viewDraft.locked || state.editLocked} saving={state.saving} dirty={state.dirty} />}
+        draftAdmission={
+          <KaptenTryoutDraftAdmissionModule
+            value={viewDraft.admissionMode ?? "open"}
+            onChange={(admissionMode) =>
+              state.updateDraft((current) => ({ ...current, admissionMode }))
+            }
+            onSave={() => state.save("draft")}
+            onNavigate={(href) =>
+              state.guardExternalNavigation(href, {
+                preventDefault: () => undefined,
+              })
+            }
+            disabled={viewDraft.locked || state.editLocked}
+            saving={state.saving}
+            dirty={state.dirty}
+          />
+        }
         renderSubtestEditor={renderSubtestEditor}
         saving={viewSaving}
       />
@@ -3744,11 +3804,14 @@ function TryoutBuilderLifecycleDialogContent({
       }}
       onConfirmSaveDirty={() => {
         const href = pendingHrefRef.current;
-        void continueAfterTryoutSave(() => save("draft"), () => {
-          if (href) window.location.assign(href);
-          pendingHrefRef.current = null;
-          dispatch({ open: false, type: "setDirtyNavigationOpen" });
-        });
+        void continueAfterTryoutSave(
+          () => save("draft"),
+          () => {
+            if (href) window.location.assign(href);
+            pendingHrefRef.current = null;
+            dispatch({ open: false, type: "setDirtyNavigationOpen" });
+          },
+        );
       }}
       onConfirmUnpublish={() => {
         dispatch({ open: false, type: "setUnpublishOpen" });
@@ -3810,9 +3873,11 @@ function TryoutBuilderContent({
   const createDialogDirtyRef = useRef(false);
   const workspaceQuery = useSearchParams();
   const returnHref = useTryoutCatalogueReturn();
-  const activeWorkspace = initialSubtest ? "subtests" : workspaceQuery.has("workspace") || workspaceQuery.has("delivery")
-    ? tryoutWorkspaceForQuery(workspaceQuery)
-    : (initialWorkspace ?? "subtests");
+  const activeWorkspace = initialSubtest
+    ? "subtests"
+    : workspaceQuery.has("workspace") || workspaceQuery.has("delivery")
+      ? tryoutWorkspaceForQuery(workspaceQuery)
+      : (initialWorkspace ?? "subtests");
   const state = useTryoutBuilderState({
     id,
     initialDraft,
@@ -3887,37 +3952,55 @@ function TryoutBuilderContent({
   };
   const identityPanel = (
     <>
-    {state.recoveredCreateHref ? <ReferenceSurface variant="inset" className="mb-4 space-y-3 p-4 text-sm leading-6" role="status">
-      <p>Tryout sudah dibuat. Perubahan terbaru masih ada di halaman ini. Membuka draf tersimpan akan membuang perubahan tersebut.</p>
-      <Button type="button" variant="outline" onClick={() => setRecoveredDraftOpen(true)}>Buka draf tersimpan</Button>
-      <UnsavedChangesConfirmationDialog open={recoveredDraftOpen} onOpenChange={setRecoveredDraftOpen} description="Perubahan terbaru belum disimpan. Buka draf yang sudah tersimpan dan buang perubahan terbaru?" onDiscard={() => {
-        const href = state.recoveredCreateHref;
-        discardDraft();
-        setRecoveredDraftOpen(false);
-        if (href) window.location.assign(href);
-      }} />
-    </ReferenceSurface> : null}
-    <TryoutIdentityPanel
-      compact={Boolean(id) && activeWorkspace !== "subtests"}
-      draft={viewDraft}
-      metadataSaving={viewMetadataSaving}
-      mode={mode}
-      onBannerChange={(bannerMediaId) =>
-        updateIdentityDraft((current) => ({ ...current, bannerMediaId }))
-      }
-      onBannerUploadStateChange={setBannerUploading}
-      onCreate={!id ? () => void save("draft") : undefined}
-      onDescriptionChange={(description) =>
-        updateIdentityDraft((current) => ({ ...current, description }))
-      }
-      onSaveMetadata={() => void saveMetadata()}
-      onTitleChange={(title) =>
-        updateIdentityDraft((current) => ({ ...current, title }))
-      }
-      onAdmissionModeChange={(admissionMode) => updateIdentityDraft((current) => ({ ...current, admissionMode }))}
-      presentation={isCreateDialog ? "dialog" : "page"}
-      saving={viewSaving || bannerUploading}
-    />
+      {state.recoveredCreateHref ? (
+        <ReferenceSurface
+          variant="inset"
+          className="mb-4 space-y-3 p-4 text-sm leading-6"
+          role="status"
+        >
+          <p>
+            Tryout sudah dibuat. Perubahan terbaru masih ada di halaman ini.
+            Membuka draf tersimpan akan membuang perubahan tersebut.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setRecoveredDraftOpen(true)}
+          >
+            Buka draf tersimpan
+          </Button>
+          <UnsavedChangesConfirmationDialog
+            open={recoveredDraftOpen}
+            onOpenChange={setRecoveredDraftOpen}
+            description="Perubahan terbaru belum disimpan. Buka draf yang sudah tersimpan dan buang perubahan terbaru?"
+            onDiscard={() => {
+              const href = state.recoveredCreateHref;
+              discardDraft();
+              setRecoveredDraftOpen(false);
+              if (href) window.location.assign(href);
+            }}
+          />
+        </ReferenceSurface>
+      ) : null}
+      <TryoutIdentityPanel
+        draft={viewDraft}
+        metadataSaving={viewMetadataSaving}
+        mode={mode}
+        onBannerChange={(bannerMediaId) =>
+          updateIdentityDraft((current) => ({ ...current, bannerMediaId }))
+        }
+        onBannerUploadStateChange={setBannerUploading}
+        onCreate={!id ? () => void save("draft") : undefined}
+        onDescriptionChange={(description) =>
+          updateIdentityDraft((current) => ({ ...current, description }))
+        }
+        onSaveMetadata={() => void saveMetadata()}
+        onTitleChange={(title) =>
+          updateIdentityDraft((current) => ({ ...current, title }))
+        }
+        presentation={isCreateDialog ? "dialog" : "page"}
+        saving={viewSaving || bannerUploading}
+      />
     </>
   );
 
@@ -3949,18 +4032,18 @@ function TryoutBuilderContent({
           dispatch({ search, type: "setSourceQuestionSearch" })
         }
         onRemoveQuestion={removeQuestion}
-        onSelectBank={(bankId) =>
-          dispatch({ bankId, type: "setBrowseBankId" })
-        }
+        onSelectBank={(bankId) => dispatch({ bankId, type: "setBrowseBankId" })}
         onUpdateQuestion={updateQuestion}
         onUpdateSection={(change) => update(activeSection.subtest, change)}
         questionEditorHref={
           id
-            ? returnHref(tryoutQuestionEditorHref(
-                id,
-                activeSection.subtest,
-                initialParent?.id,
-              ))
+            ? returnHref(
+                tryoutQuestionEditorHref(
+                  id,
+                  activeSection.subtest,
+                  initialParent?.id,
+                ),
+              )
             : undefined
         }
         saveDraft={() => save("draft")}
@@ -4038,7 +4121,12 @@ function TryoutBuilderContent({
         }
       }}
       onWorkspaceChange={(workspace) => {
-        if (id) window.history.pushState(null, "", buildTryoutWorkspaceHref(id, workspace, workspaceQuery));
+        if (id)
+          window.history.pushState(
+            null,
+            "",
+            buildTryoutWorkspaceHref(id, workspace, workspaceQuery),
+          );
       }}
       operationsInitial={operationsInitial}
       renderSubtestEditor={renderSubtestEditor}

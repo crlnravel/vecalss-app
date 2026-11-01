@@ -46,7 +46,7 @@ export function TryoutResultPublication({ initial, tryoutTitle, available = fals
   }
   // Freshness gates new writes, never access to a retained intent or receipt.
   if (initial.effectivePolicy !== "manual" && !receipt && !retained) return null;
-  return <section aria-label="Rilis hasil sesi" className={compact ? "grid min-w-0 gap-3" : "grid min-w-0 gap-4 border-t border-primary-100 pt-5"}>
+  return <section aria-label="Penerbitan hasil sesi" className={compact ? "grid min-w-0 gap-3" : "grid min-w-0 gap-4 border-t border-primary-100 pt-5"}>
     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     {!compact ? receipt ? <dl className="grid min-w-0 gap-2 text-sm leading-6"><div><dt className="font-semibold text-secondary-900">Catatan rilis</dt><dd className="break-words text-secondary-700">{receipt.participantCount} peserta · {receipt.actorName ?? "Kapten"} · {formatTryoutDateTime(receipt.releasedAt)} WIB</dd></div><div><dt className="text-secondary-600">Alasan rilis</dt><dd className="break-words text-secondary-700">{receipt.reason}</dd></div></dl> : <h3 className="min-w-0 text-base font-semibold text-secondary-900">Rilis hasil sesi</h3> : null}
     <AlertDialog open={open} onOpenChange={changeOpen}>

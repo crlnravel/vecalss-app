@@ -1,0 +1,1081 @@
+{
+  "title": "MATERI 15 — Simpulan & Inferensi Teks",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/15 - Simpulan dan Inferensi Teks.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "material-15-page-01",
+      "title": "MATERI 15 — Simpulan & Inferensi Teks",
+      "continuation": false,
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
+        },
+        {
+          "type": "heading",
+          "text": "A. Menarik Simpulan Teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "Simpulan adalah pernyataan yang merangkum hasil pemahaman terhadap keseluruhan"
+        },
+        {
+          "type": "paragraph",
+          "text": "atau bagian tertentu dari bacaan. Simpulan dibentuk dengan menghubungkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "gagasan-gagasan penting yang tersedia dalam teks, bukan sekadar menyalin satu"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat. Dalam soal UTBK, peserta harus memilih pernyataan yang paling mewakili isi"
+        },
+        {
+          "type": "paragraph",
+          "text": "bacaan, tetap sesuai dengan cakupan teks, dan tidak menambahkan informasi baru."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri simpulan yang tepat:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Mewakili inti pembahasan, bukan hanya satu contoh, angka, atau rincian."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Didukung oleh lebih dari satu informasi penting dalam bacaan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Cakupannya sebanding dengan teks: tidak terlalu sempit dan tidak terlalu"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "luas."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Tidak memasukkan fakta, penilaian, sebab, atau akibat baru yang tidak dapat"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "dibuktikan dari teks."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Dapat ditulis dengan redaksi berbeda selama makna pokok bacaan tetap"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "sama."
+        },
+        {
+          "type": "paragraph",
+          "text": "Cara mengerjakan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Tentukan topik: bacaan sedang membahas apa?"
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Temukan gagasan utama atau informasi penting pada tiap bagian."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Cari hubungan antargagasan, misalnya sebab–akibat, masalah–solusi,"
+        },
+        {
+          "type": "paragraph",
+          "text": "perbandingan, proses, atau pendapat–alasan."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Satukan gagasan penting tersebut menjadi satu pernyataan yang paling"
+        },
+        {
+          "type": "paragraph",
+          "text": "menaungi isi bacaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Uji opsi: coret jawaban yang hanya mengambil detail, terlalu luas, terlalu mutlak,"
+        },
+        {
+          "type": "paragraph",
+          "text": "atau menambahkan informasi baru."
+        },
+        {
+          "type": "paragraph",
+          "text": "Bedakan tiga konsep berikut:"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "Konsep",
+            "Pertanyaan Kunci",
+            "Contoh"
+          ],
+          "rows": [
+            [
+              "Topik",
+              "Teks membahas apa?",
+              "Penggunaan transportasi umum"
+            ],
+            [
+              "Gagasan utama",
+              "Apa yang dikatakan tentang topik?",
+              "Transportasi umum dapat mengurangi masalah perkotaan."
+            ],
+            [
+              "Simpulan",
+              "Apa hasil pemahaman keseluruhan?",
+              "Peningkatan penggunaan transportasi umum dapat menjadi salah satu upaya mengatasi masalah perkotaan."
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "B. Menarik Inferensi dari Teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "Inferensi adalah informasi yang tidak dinyatakan secara langsung, tetapi dapat ditarik"
+        },
+        {
+          "type": "paragraph",
+          "text": "secara logis dari satu atau beberapa bukti dalam bacaan. Jika simpulan merangkum"
+        },
+        {
+          "type": "paragraph",
+          "text": "pembahasan, inferensi membaca apa yang tersirat di balik informasi tersurat. Inferensi"
+        },
+        {
+          "type": "paragraph",
+          "text": "tetap harus mempunyai dasar tekstual; pembaca tidak boleh mengisi kekosongan"
+        },
+        {
+          "type": "paragraph",
+          "text": "informasi dengan pengetahuan, dugaan, atau pengalaman pribadi."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jenis informasi yang perlu dibedakan:"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "Jenis",
+            "Pengertian",
+            "Contoh"
+          ],
+          "rows": [
+            [
+              "Tersurat",
+              "Dinyatakan langsung dalam teks.",
+              "Penjualan meningkat 20%."
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Tersirat / inferensi",
+            "Tidak ditulis langsung, tetapi dapat diturunkan dari bukti teks.",
+            "Penjualan menunjukkan tren peningkatan."
+          ],
+          "rows": [
+            [
+              "Asumsi pembaca",
+              "Muncul karena tambahan dugaan atau pengetahuan di luar teks.",
+              "Produk itu pasti akan sukses tahun depan."
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri inferensi yang tepat:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Memiliki satu atau beberapa bukti yang jelas dalam bacaan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Merupakan konsekuensi logis dari informasi tersurat."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Tidak melampaui batas waktu, tempat, kelompok, metode, atau kondisi yang"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "disebutkan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Tidak mengubah dapat, mungkin, sebagian, atau cenderung menjadi"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "kepastian mutlak."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Tidak membutuhkan asumsi tambahan agar pernyataannya tampak benar."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Cara mengerjakan:"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "1. Tentukan informasi tersurat yang menjadi premis atau bukti."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Hubungkan bukti: apakah menunjukkan sebab–akibat, perbandingan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "kecenderungan, syarat, urutan, atau konsekuensi?"
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Tanyakan: jika informasi ini benar, apa yang secara logis dapat diketahui"
+        },
+        {
+          "type": "paragraph",
+          "text": "meskipun tidak ditulis langsung?"
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Periksa batas inferensi. Jangan memperluas kelompok, waktu, tempat, atau"
+        },
+        {
+          "type": "paragraph",
+          "text": "tingkat kepastian."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Pilih inferensi yang membutuhkan asumsi paling sedikit dan mempunyai bukti"
+        },
+        {
+          "type": "paragraph",
+          "text": "paling kuat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Contoh singkat:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: “Harga bahan baku naik. Beberapa produsen kemudian menaikkan harga jual"
+        },
+        {
+          "type": "paragraph",
+          "text": "produknya.”"
+        },
+        {
+          "type": "paragraph",
+          "text": "Inferensi tepat: “Kenaikan harga bahan baku dapat mendorong kenaikan harga produk.”"
+        },
+        {
+          "type": "paragraph",
+          "text": "Inferensi terlalu jauh: “Semua produsen pasti menaikkan harga produknya.”"
+        },
+        {
+          "type": "heading",
+          "text": "C. Membuktikan Jawaban dan Mengeliminasi DIstraktor"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pada soal simpulan dan inferensi, jawaban yang benar harus dapat ditelusuri kembali"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "ke bacaan. Distraktor biasanya tidak sepenuhnya salah: sebagian mengambil informasi"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang memang ada, tetapi mengubah cakupan, hubungan logis, fokus, atau tingkat"
+        },
+        {
+          "type": "paragraph",
+          "text": "kepastiannya. Karena itu, kemampuan membuktikan jawaban sama pentingnya dengan"
+        },
+        {
+          "type": "paragraph",
+          "text": "memahami teks."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pola distraktor yang sering muncul:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Terlalu sempit — hanya mewakili satu detail atau contoh."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Terlalu luas — memperluas isi bacaan ke semua orang, tempat, waktu, atau"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "keadaan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Terlalu mutlak — memakai selalu, pasti, seluruh, tidak pernah, satu-satunya"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "tanpa dukungan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Benar secara umum, tetapi tidak didukung bacaan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Membalik hubungan logis — sebab menjadi akibat, tujuan menjadi hasil, atau"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "korelasi dianggap sebab-akibat."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Mengubah modalitas — dapat/mungkin/cenderung berubah menjadi"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "pasti/selalu."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Mengabaikan batas penelitian atau sudut pandang teks."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Cara mengerjakan:"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "1. Baca tuntutan soal: simpulan, inferensi, pernyataan yang pasti benar, atau yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "paling mungkin."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Untuk setiap opsi, tunjuk bagian teks yang menjadi bukti."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Bandingkan kata pembatas dalam teks dan opsi, misalnya sebagian, beberapa,"
+        },
+        {
+          "type": "paragraph",
+          "text": "dapat, terutama, hanya, selalu, dan seluruh."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Coret opsi yang memerlukan informasi dari luar bacaan atau mengubah"
+        },
+        {
+          "type": "paragraph",
+          "text": "hubungan logis."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Jika tersisa dua opsi, pilih yang cakupannya paling pas dan paling sedikit"
+        },
+        {
+          "type": "paragraph",
+          "text": "membutuhkan asumsi."
+        },
+        {
+          "type": "paragraph",
+          "text": "Uji Bukti 3 Langkah:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Buktinya mana? → Tunjuk kalimat atau hubungan gagasan yang mendukung."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Seberapa jauh buktinya? → Pastikan jawaban tidak melampaui cakupan data."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Ada asumsi tambahan? → Jika jawaban baru benar setelah menambahkan"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "pengetahuan sendiri, opsi itu patut dicurigai."
+        },
+        {
+          "type": "heading",
+          "text": "D. Strategi Mengerjakan Soal Simpulan & Inferensi UTBK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 1 — Baca pertanyaan sebelum opsi"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Kenali targetnya. 'Simpulan' menuntut rangkuman isi, sedangkan 'dapat diinferensikan'"
+        },
+        {
+          "type": "paragraph",
+          "text": "dapat menuntut informasi tersirat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 2 — Cari informasi penentu"
+        },
+        {
+          "type": "paragraph",
+          "text": "Tandai klaim utama, fakta pendukung, kata rujukan, konjungsi, serta penanda pembatas"
+        },
+        {
+          "type": "paragraph",
+          "text": "seperti sebagian, dapat, cenderung, jika, dan hanya."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 3 — Petakan hubungan gagasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Tentukan apakah teks bergerak melalui sebab–akibat, masalah–solusi, perbandingan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "proses, syarat, atau argumentasi."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 4 — Rumuskan jawaban sementara"
+        },
+        {
+          "type": "paragraph",
+          "text": "Sebelum terpancing pilihan, coba ucapkan sendiri inti atau inferensi yang paling logis"
+        },
+        {
+          "type": "paragraph",
+          "text": "dalam satu kalimat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 5 — Cocokkan dengan opsi"
+        },
+        {
+          "type": "paragraph",
+          "text": "Cari opsi yang paling dekat dengan rumusanmu, lalu tetap buktikan dari teks."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 6 — Eliminasi distraktor"
+        },
+        {
+          "type": "paragraph",
+          "text": "Coret pilihan yang terlalu sempit, terlalu luas, terlalu mutlak, salah hubungan, atau tidak"
+        },
+        {
+          "type": "paragraph",
+          "text": "memiliki bukti."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Langkah 7 — Final check"
+        },
+        {
+          "type": "paragraph",
+          "text": "Tanyakan: apakah jawaban ini benar karena teks, atau karena aku tahu hal ini dari luar"
+        },
+        {
+          "type": "paragraph",
+          "text": "teks?"
+        },
+        {
+          "type": "heading",
+          "text": "E. Contoh Soal Beserta Pembahasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Bacalah teks berikut untuk menjawab soal nomor 1–3!"
+        },
+        {
+          "type": "paragraph",
+          "text": "(1) Sejumlah kota mulai memperluas ruang terbuka hijau untuk merespons peningkatan"
+        },
+        {
+          "type": "paragraph",
+          "text": "suhu di kawasan perkotaan. (2) Pepohonan dan vegetasi dapat memberikan keteduhan"
+        },
+        {
+          "type": "paragraph",
+          "text": "serta membantu menurunkan suhu permukaan melalui proses evapotranspirasi. (3)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Sebuah kajian pada beberapa kawasan padat menunjukkan bahwa area dengan"
+        },
+        {
+          "type": "paragraph",
+          "text": "tutupan pohon yang lebih tinggi memiliki suhu permukaan lebih rendah dibandingkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "area yang minim vegetasi. (4) Meskipun demikian, penambahan ruang hijau tidak dapat"
+        },
+        {
+          "type": "paragraph",
+          "text": "dilakukan secara seragam karena setiap wilayah memiliki kepadatan bangunan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "ketersediaan lahan, dan kebutuhan masyarakat yang berbeda. (5) Oleh karena itu,"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengembangan ruang terbuka hijau perlu disesuaikan dengan karakteristik wilayah agar"
+        },
+        {
+          "type": "paragraph",
+          "text": "manfaat lingkungan yang diperoleh dapat optimal."
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Simpulan yang paling tepat berdasarkan teks tersebut adalah .... (kategori soal"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "MUDAH)"
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Seluruh kawasan perkotaan harus memiliki jumlah pohon yang sama agar"
+        },
+        {
+          "type": "paragraph",
+          "text": "suhu permukaan menurun."
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Ruang terbuka hijau dapat membantu menurunkan suhu perkotaan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "tetapi pengembangannya perlu disesuaikan dengan karakteristik tiap"
+        },
+        {
+          "type": "paragraph",
+          "text": "wilayah."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Ketersediaan lahan merupakan satu-satunya faktor yang menentukan"
+        },
+        {
+          "type": "paragraph",
+          "text": "keberhasilan ruang terbuka hijau."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Kota yang tidak memiliki ruang terbuka hijau pasti mengalami peningkatan"
+        },
+        {
+          "type": "paragraph",
+          "text": "suhu permukaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Evapotranspirasi merupakan penyebab utama seluruh perubahan suhu di"
+        },
+        {
+          "type": "paragraph",
+          "text": "kawasan perkotaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban: B"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pilihan B merangkum dua gagasan utama teks: ruang hijau membantu menurunkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "suhu dan penerapannya perlu menyesuaikan karakteristik wilayah. A terlalu mutlak"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-11",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "dan bertentangan dengan kalimat (4); C mempersempit faktor hanya pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "ketersediaan lahan; D menyatakan kepastian yang tidak diberikan teks; E"
+        },
+        {
+          "type": "paragraph",
+          "text": "menggeneralisasi fungsi evapotranspirasi secara berlebihan."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Berdasarkan teks tersebut, pernyataan yang paling mungkin diinferensikan adalah ...."
+        },
+        {
+          "type": "paragraph",
+          "text": "(kategori soal SEDANG)"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Penambahan vegetasi selalu lebih efektif daripada kebijakan lingkungan"
+        },
+        {
+          "type": "paragraph",
+          "text": "perkotaan lainnya."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Wilayah dengan keterbatasan lahan tidak dapat memperoleh manfaat dari"
+        },
+        {
+          "type": "paragraph",
+          "text": "penambahan ruang hijau."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Strategi ruang hijau yang efektif pada satu kawasan belum tentu dapat"
+        },
+        {
+          "type": "paragraph",
+          "text": "diterapkan dengan cara yang sama pada kawasan lain."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Semua kawasan padat memiliki suhu permukaan yang lebih tinggi daripada"
+        },
+        {
+          "type": "paragraph",
+          "text": "kawasan tidak padat."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Pemerintah kota sebaiknya menghentikan pembangunan gedung untuk"
+        },
+        {
+          "type": "paragraph",
+          "text": "memperluas ruang hijau."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban: C"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-12",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat (4) menyatakan bahwa setiap wilayah memiliki kondisi berbeda dan"
+        },
+        {
+          "type": "paragraph",
+          "text": "penambahan ruang hijau tidak dapat dilakukan secara seragam. Dari bukti itu dapat"
+        },
+        {
+          "type": "paragraph",
+          "text": "diinferensikan bahwa strategi yang efektif di satu kawasan belum tentu cocok"
+        },
+        {
+          "type": "paragraph",
+          "text": "diterapkan dengan cara yang sama di kawasan lain. A, B, D, dan E memerlukan"
+        },
+        {
+          "type": "paragraph",
+          "text": "generalisasi atau rekomendasi tambahan yang tidak didukung bacaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Manakah pernyataan berikut yang PALING TIDAK DAPAT disimpulkan dari teks?"
+        },
+        {
+          "type": "paragraph",
+          "text": "(kategori soal SULIT)"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Tutupan vegetasi berpotensi berkontribusi terhadap penurunan suhu permukaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Kondisi fisik dan kebutuhan masyarakat perlu dipertimbangkan dalam"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengembangan ruang hijau."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Hubungan antara tutupan pohon dan suhu permukaan pada kajian tersebut"
+        },
+        {
+          "type": "paragraph",
+          "text": "berlaku pasti untuk seluruh kota."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Ruang terbuka hijau dapat menjadi salah satu respons terhadap peningkatan"
+        },
+        {
+          "type": "paragraph",
+          "text": "suhu perkotaan."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Perencanaan ruang hijau perlu mempertimbangkan perbedaan karakteristik"
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-13",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "antarwilayah."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban: C"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pilihan C tidak dapat dibenarkan karena teks hanya menyebut 'sebuah kajian pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "beberapa kawasan padat'. Hasil pada beberapa kawasan tidak cukup untuk"
+        },
+        {
+          "type": "paragraph",
+          "text": "menyatakan bahwa hubungan tersebut pasti berlaku pada seluruh kota. A didukung"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat (2)–(3), B dan E didukung kalimat (4)–(5), sedangkan D sesuai dengan kalimat"
+        },
+        {
+          "type": "paragraph",
+          "text": "(1)–(2)."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-14",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
+        },
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Cari “Payung Besar”",
+          "text": "Untuk simpulan, jangan terpaku pada kalimat paling menarik atau paling banyak\ndatanya. Cari pilihan yang menaungi beberapa gagasan penting sekaligus tanpa\nmenjadi lebih luas daripada teks."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-15",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Pakai Tes “Buktinya Mana?”",
+          "text": "Setiap melihat opsi, langsung tanya: “Bagian teks mana yang membuktikan ini?” Kalau\ntidak bisa menunjuk buktinya, pilihan itu patut dicoret meskipun terdengar masuk akal."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-16",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 3: Jaga Kekuatan Kata",
+          "text": "Perhatikan perubahan kecil seperti beberapa → semua, dapat → pasti, cenderung → selalu.\nSatu kata yang terlalu kuat bisa membuat seluruh pilihan salah."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-17",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 4: Simpulan ≠ Inferensi",
+          "text": "Simpulan merangkum apa yang dibahas; inferensi menemukan apa yang tersirat dari\nbukti. Kalau opsi hanya mengulang satu detail, biasanya bukan simpulan. Kalau opsi\nbutuh pengetahuan luar, biasanya bukan inferensi yang sah."
+        }
+      ]
+    },
+    {
+      "id": "material-15-page-18",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
+          "marker": "●",
+          "items": [
+            "Mengambil satu rincian, data, atau contoh sebagai simpulan seluruh teks.",
+            "Memilih jawaban karena benar secara umum, bukan karena didukung bacaan.",
+            "Mengabaikan kata pembatas seperti beberapa, sebagian, dapat, mungkin, dan pada kelompok tertentu.",
+            "Mengubah hubungan logis, misalnya menganggap korelasi sebagai sebab-akibat.",
+            "Memperluas hasil penelitian dari sampel atau konteks tertentu menjadi berlaku universal.",
+            "Mencampurkan pengetahuan pribadi dengan informasi teks.",
+            "Terjebak soal negatif seperti 'tidak dapat disimpulkan' karena lupa memperhatikan kata tidak"
+          ],
+          "tone": "warning"
+        }
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 import { CalendarDays } from "@/lib/icons";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { TryoutOperationsNavigation } from "@/modules/mentor/TryoutOperationsNavigation";
+import { TryoutOperationsLayout } from "@/modules/mentor/TryoutOperationsNavigation";
 
 import {
   Empty,
@@ -12,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutSessionDetailPageModule } from "@/modules/mentor/KaptenTryoutSessionDetailPageModule";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
@@ -30,8 +31,7 @@ function KaptenTryoutOperationsModule({
   const accessView = query.get("delivery") === "policy";
 
   return (
-    <div className="min-w-0">
-      <TryoutOperationsNavigation initial={initial} active={accessView ? "policy" : "sessions"} parentId={query.get("parent") ?? undefined} />
+    <TryoutOperationsLayout initial={initial} active={accessView ? "policy" : "sessions"} parentId={query.get("parent") ?? undefined}>
       {embedded ? null : (
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -42,7 +42,7 @@ function KaptenTryoutOperationsModule({
         </header>
       )}
 
-      {accessView ? draftAdmission : <section className="mt-8" aria-labelledby="operational-calendar-title">
+      {accessView ? <ReferenceSurface className="p-5 sm:p-6">{draftAdmission}</ReferenceSurface> : <section aria-labelledby="operational-calendar-title">
         {mainSession ? (
           <>
             <KaptenTryoutSessionDetailPageModule
@@ -64,7 +64,7 @@ function KaptenTryoutOperationsModule({
           </Empty>
         )}
       </section>}
-    </div>
+    </TryoutOperationsLayout>
   );
 }
 

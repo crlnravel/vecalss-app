@@ -14,7 +14,7 @@ import { questionBankNavigationLabel } from "@/lib/question-bank/purpose";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Buat Bank Soal Kapten | Vecalss LMS",
+  title: "Buat Bank Soal Kapten | PTN Pro LMS",
 };
 
 const QUESTION_BANK_FOLDER_UUID_PATTERN =

@@ -8,7 +8,7 @@ import {
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 
-export const metadata: Metadata = { title: "Peserta Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Peserta Tryout | PTN Pro LMS" };
 
 export default async function TryoutParticipantsPage({
   params,

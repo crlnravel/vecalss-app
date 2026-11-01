@@ -327,6 +327,7 @@ async function getSessionContext() {
     expiresAt: session.expiresAt,
     sessionId: session.id,
     user: {
+      avatarUrl: session.user.avatarUrl,
       email: session.user.email,
       fullName: session.user.fullName,
       id: session.user.id,
@@ -441,6 +442,7 @@ async function getReadOnlySessionContextForToken(sessionToken: string) {
     expiresAt: session.expiresAt,
     sessionId: session.id,
     user: {
+      avatarUrl: session.user.avatarUrl,
       email: session.user.email,
       fullName: session.user.fullName,
       id: session.user.id,

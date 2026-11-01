@@ -1,4 +1,5 @@
-type ParticipantTryoutResultAvailability = "processing" | "unreleased" | "released" | null;
+/** "review": released, but the stored result failed its integrity check and cannot be opened yet. */
+type ParticipantTryoutResultAvailability = "processing" | "unreleased" | "released" | "review" | null;
 
 function projectParticipantTryoutResultAvailability(input: {
   attemptReleaseState?: string | null;

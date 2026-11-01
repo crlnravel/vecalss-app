@@ -1,7 +1,7 @@
-# Glosarium Vecalss
+# Glosarium PTN Pro
 
 Dokumen ini mencatat arti istilah produk agar copy di seluruh pengalaman
-Vecalss tetap konsisten.
+PTN Pro tetap konsisten.
 
 | Istilah | Arti dan penggunaan |
 | --- | --- |

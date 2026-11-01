@@ -125,7 +125,7 @@ function VideoCard({ video }: { video: VideoGalleryItem }) {
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-primary-100 pt-4 text-xs font-semibold text-secondary-500">
           <span className="inline-flex items-center gap-1.5">
             <UserRound aria-hidden="true" className="size-3.5 text-primary-700" />
-            Kapten Vecalss
+            Kapten PTN Pro
           </span>
           {video.duration ? (
             <>

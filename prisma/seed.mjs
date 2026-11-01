@@ -20,7 +20,7 @@ function normalizeSeedReferralCode(value) {
 
 const DEFAULT_ADMIN = {
   email: process.env.SEED_ADMIN_EMAIL?.trim() || "admin@vecalss.local",
-  fullName: "Vecalss Admin",
+  fullName: "PTN Pro Admin",
   get password() {
     return seedPassword("SEED_ADMIN_PASSWORD", "Admin12345!");
   },
@@ -28,7 +28,7 @@ const DEFAULT_ADMIN = {
 
 const DEFAULT_DEVELOPER = {
   email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
-  fullName: "Vecalss Developer",
+  fullName: "PTN Pro Developer",
   get password() {
     return seedPassword("SEED_DEVELOPER_PASSWORD", "Developer12345!");
   },
@@ -1418,7 +1418,7 @@ async function main() {
 
     await client.query("COMMIT");
 
-    console.log("Vecalss seed completed.\n");
+    console.log("PTN Pro seed completed.\n");
     console.log(`Demonstration content: ${assessmentSummary.questionCount} questions, ${assessmentSummary.quizCount} quizzes, ${assessmentSummary.versionCount} reusable packages, 2 delivery sessions, and 6 participant states.\n`);
     console.log(`Student accounts: ${2 + SEEDED_STUDENTS.length} seeded students, including ${ADDITIONAL_STUDENTS.length} additional enrolled demo students.\n`);
     console.table([
@@ -1474,7 +1474,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Failed to seed Vecalss demo data.");
+  console.error("Failed to seed PTN Pro demo data.");
   console.error(error);
   process.exitCode = 1;
 });

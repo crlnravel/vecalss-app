@@ -59,7 +59,7 @@ application-executed function call:
 `retrieve_released_learning_context(query, kinds, maxSources)`
 
 The server derives the authenticated learner, feature, and authority. The
-closed registry deterministically searches only released Vecalss evidence:
+closed registry deterministically searches only released PTN Pro evidence:
 published Materi, the learner's released/scored/reviewable Kuis results, and
 the learner's released/scored/ready Tryout results with a valid release
 binding. Raw database IDs, arbitrary filters, URLs, uploads, external web

@@ -31,7 +31,14 @@ type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
 type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "session" | "status">;
 type TryoutDeliverySessionRecord = TryoutOperationsRecord["deliverySessions"][number];
 type TryoutAttemptRecord = TryoutDeliverySessionRecord["attempts"][number];
-type ReleaseIntegrity = { ready: boolean; reason?: string };
+type ReleaseIntegrity = { ready: boolean; reason?: string; reviewAttemptIds?: readonly string[] };
+
+/** A session-level problem affects everyone; an attempt-level one only the listed attempts. */
+function releaseIntegrityFor(integrity: ReleaseIntegrity | undefined, attemptId: string): ReleaseIntegrity | null {
+  if (!integrity || integrity.ready !== false) return null;
+  if (integrity.reviewAttemptIds?.length) return integrity.reviewAttemptIds.includes(attemptId) ? integrity : null;
+  return integrity;
+}
 
 function snapshotFor(run: { contentSnapshot: unknown }) {
   return run.contentSnapshot as {
@@ -235,7 +242,7 @@ function serializeTryoutOperations(
       releaseAt: toIso(attempt.releaseAt),
       releaseState: attempt.releaseState,
       releaseIntegrityReason: deliverySession.releaseState === "released"
-        ? releaseIntegrityBySession.get(deliverySession.id)?.reason ?? null
+        ? releaseIntegrityFor(releaseIntegrityBySession.get(deliverySession.id), attempt.id)?.reason ?? null
         : null,
       runs: attempt.runs.map((run) => serializeRun(run, now)),
       score: attempt.score?.toString() ?? null,
@@ -250,7 +257,7 @@ function serializeTryoutOperations(
       totalDisconnectSeconds: attempt.totalDisconnectSeconds,
       unansweredCount: attempt.unansweredCount,
       wrongCount: attempt.wrongCount,
-      releaseReady: !(deliverySession.releaseState === "released" && releaseIntegrityBySession.get(deliverySession.id)?.ready === false)
+      releaseReady: !(deliverySession.releaseState === "released" && releaseIntegrityFor(releaseIntegrityBySession.get(deliverySession.id), attempt.id))
         && resultReleaseReady(operations, deliverySession, attempt),
     })),
     availableFrom: deliverySession.availableFrom.toISOString(),
@@ -410,6 +417,7 @@ function serializeTryoutOperations(
     admissionMode: operations.admissionMode,
     admissionConfigurationLocked: operations._count.attempts > 0,
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
+    bannerMediaId: operations.bannerMediaId,
     description: operations.description,
     id: operations.id,
     participants: participantsWithAttention,

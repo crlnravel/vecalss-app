@@ -143,7 +143,7 @@ function PortalShell({
               <div className="h-px w-full bg-primary-100 md:h-12 md:w-px" />
               <div>
                 <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">
-                  Vecalss Workspace
+                  PTN Pro Workspace
                 </p>
                 <h1 className="mt-1 text-xl font-medium md:text-2xl">{title}</h1>
               </div>

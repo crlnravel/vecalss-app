@@ -17,7 +17,7 @@ import { KaptenTryoutAttemptDetailPageModule } from "@/modules/mentor/KaptenTryo
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Detail Pengerjaan Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Detail Pengerjaan Tryout | PTN Pro LMS" };
 
 export default async function TryoutAttemptDetailPage({
   params,
@@ -73,7 +73,7 @@ export default async function TryoutAttemptDetailPage({
   if (operations.status === "archived") {
     return (
       <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={attempt.student} breadcrumbAncestors={[{ href: buildMentorTryoutHref(tryoutId, { parent: parsedQuery.parent, returnTo: parsedQuery.returnTo }), label: operations.title }]} breadcrumbParent={{ href: backHref, label: "Riwayat pengerjaan" }} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
-        <KaptenTryoutArchivedHistoryFrame initial={operations}>
+        <KaptenTryoutArchivedHistoryFrame initial={operations} parentId={parsedQuery.parent}>
           <KaptenTryoutAttemptDetailPageModule attemptId={attemptId} embedded initial={operations} readOnly resultRecovery={resultRecovery} />
         </KaptenTryoutArchivedHistoryFrame>
       </MentorWorkspaceShell>

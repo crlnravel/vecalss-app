@@ -1,4 +1,4 @@
-# Vecalss database workflows.
+# PTN Pro database workflows.
 #
 # `just setup` provisions local Docker services, creates a disposable
 # `.env.local` when missing, and resets/migrates/seeds PostgreSQL.

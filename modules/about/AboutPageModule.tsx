@@ -87,11 +87,11 @@ export default function AboutPageModule() {
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.72fr)] md:items-center md:gap-14 md:py-[72px]">
               <div>
                 <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
-                  Tentang Vecalss
+                  Tentang PTN Pro
                 </p>
 
                 <h1 className="mt-7 max-w-[850px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
-                  Persiapan masuk PTN terasa lebih terarah bersama Vecalss.
+                  Persiapan masuk PTN terasa lebih terarah bersama PTN Pro.
                 </h1>
 
                 <p className="mt-6 max-w-[670px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
@@ -122,7 +122,7 @@ export default function AboutPageModule() {
 
                   <div className="relative hidden h-[118px] w-[118px] shrink-0 rounded-5xl border border-white/12 bg-[var(--warning-50)] shadow-[0_22px_58px_-38px_color-mix(in_oklab,var(--secondary-900)_48%,transparent)] md:block">
                     <Image
-                      alt="Ilustrasi pendamping belajar Vecalss"
+                      alt="Ilustrasi pendamping belajar PTN Pro"
                       fill
                       className="object-contain p-4"
                       sizes="118px"
@@ -163,13 +163,13 @@ export default function AboutPageModule() {
           <div className="grid gap-10 md:grid-cols-[0.36fr_0.64fr] md:items-start md:gap-14">
             <div className="md:sticky md:top-8">
               <p className="text-sm font-semibold tracking-[0.16em] text-primary-700 uppercase">
-                Kenapa Vecalss?
+                Kenapa PTN Pro?
               </p>
               <h2 className="mt-6 max-w-[390px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Persiapan ujian terasa lebih terarah.
               </h2>
               <p className="mt-5 max-w-[420px] text-lg leading-7 text-secondary-900/72">
-                Vecalss menyediakan Materi, Kuis, Tryout, dan Vera AI untuk
+                PTN Pro menyediakan Materi, Kuis, Tryout, dan Vera AI untuk
                 mendukung proses belajarmu.
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function AboutPageModule() {
                 Siap belajar lebih terarah?
               </h2>
               <p className="mt-5 max-w-[610px] text-lg leading-7 text-secondary-900/74 md:text-lg">
-                Lihat pilihan kontak Vecalss jika kamu ingin bertanya tentang
+                Lihat pilihan kontak PTN Pro jika kamu ingin bertanya tentang
                 program atau cara mulai belajar.
               </p>
               <div className="mt-8">

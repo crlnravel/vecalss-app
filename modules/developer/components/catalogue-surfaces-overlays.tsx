@@ -350,7 +350,7 @@ export function PopoversTooltipsPreview() {
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <UserCardPopover name="Nadia Prameswari" subject="Penalaran Umum" />
         <UserCardPopover name="Aditya Pratama" subject="Pengetahuan dan Pemahaman Umum" />
-        <UserCardPopover name="Kapten Vecalss" />
+        <UserCardPopover name="Kapten PTN Pro" />
         <Popover>
           <PopoverTrigger render={<Button type="button" variant="outline" />}>
             Periode: {period}

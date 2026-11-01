@@ -1,0 +1,739 @@
+{
+  "title": "MATERI 02 — Makna Kata & Frasa",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/02 - Makna Kata & Frasa.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "pbm02-reviewed-01",
+      "title": "MATERI 02 — Makna Kata & Frasa",
+      "continuation": false,
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "*Subtes:* *PBM* *·* *Pemahaman* *Bacaan* *&* *Menulis*",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "**A.** **Konsep** **Dasar:** **Apa** **Itu** **Frasa?**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Frasa** adalah gabungan dua kata atau lebih yang bersifat **nonpredikatif** — hanya mengisi **satu** **fungsi** **sintaksis** (S, P, O, Pel, atau K) dalam kalimat, tidak melebihi batas fungsi itu. Ciri utama frasa: (1) terdiri atas ≥2 kata, (2) memiliki satu makna gramatikal yang menyatu, (3) nonpredikatif — tidak punya hubungan subjek–predikat di dalam dirinya sendiri sehingga tidak bisa berdiri sebagai kalimat, dan (4) biasanya punya **unsur** **pusat** **(UP)** yang menjadi inti serta atribut yang menerangkan."
+        },
+        {
+          "type": "heading",
+          "text": "**Membedakan** **Frasa,** **Kata** **Majemuk,** **dan** **Klausa**"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Aspek**",
+            "**Frasa**",
+            "**Kata** **Majemuk**",
+            "**Klausa**"
+          ],
+          "rows": [
+            [
+              "Makna",
+              "transparan, = jumlah makna unsurnya",
+              "menyatu jadi satu konsep baru/idiomatis",
+              "(punya makna kalimat)"
+            ],
+            [
+              "Bisa disisipi?",
+              "**Bisa**: \"rumah **yang** besar\"",
+              "**Tidak** **bisa** tanpa merusak makna",
+              "—"
+            ],
+            [
+              "Struktur",
+              "tanpa S-P",
+              "tanpa S-P, makna beku",
+              "**ada** **S** **+** **P**, belum final"
+            ],
+            [
+              "Contoh",
+              "rumah besar, buku baru",
+              "rumah sakit, kereta api, meja hijau",
+              "Ibu sedang memasak"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Kunci pembeda tercepat: cek ada/tidaknya hubungan **subjek–predikat** di dalam gabungan kata itu sendiri. Ada P internal → **klausa**. Tidak ada P internal tapi bisa disisipi → **frasa**. Tidak bisa disisipi & maknanya menyatu/khusus → **kata** **majemuk**."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**B.** **Klasifikasi** **Berdasarkan** **Kesetaraan** **Unsur**"
+        },
+        {
+          "type": "heading",
+          "text": "**B1.** **Frasa** **Endosentrik**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Frasa endosentrik adalah frasa yang **perilaku** **sintaksisnya** **sama** dengan salah satu unsurnya — unsur itu (unsur pusat/UP) bisa **menggantikan** keseluruhan frasa tanpa merusak struktur kalimat. Contoh pembuktian: *dua* *orang* *siswa* → bisa disederhanakan jadi *siswa* saja tanpa merusak struktur kalimat."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Subtipe**",
+            "**Ciri**",
+            "**Contoh**"
+          ],
+          "rows": [
+            [
+              "**Atributif**",
+              "punya unsur pusat (inti) + atribut yang tidak setara",
+              "*buku* *baru* (UP: buku), *drama* *televisi*"
+            ],
+            [
+              "**Koordinatif**",
+              "unsur-unsurnya **setara**, bisa dihubungkan \"dan/atau\"",
+              "*pembangunan* *dan* *pembaharuan*, *suami* *istri*"
+            ],
+            [
+              "**Apositif**",
+              "unsur-unsurnya menunjuk pada **hal/rujukan** **yang** **sama**",
+              "*Ibu* *Susi,* *Menteri* *Kelautan*; *Jakarta,* *ibu* *kota* *Indonesia*"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**B2.** **Frasa** **Eksosentrik**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Frasa eksosentrik adalah frasa yang **tidak** **ada** **unsurnya** yang berperilaku sintaksis sama dengan keseluruhan frasa — tidak bisa digantikan salah satu unsurnya saja tanpa merusak struktur. Contoh: *di* *aula* *sekolah*, *ke* *kantor*, *dari* *Malang*, *bagi* *negara*."
+        },
+        {
+          "type": "bullets",
+          "marker": "•",
+          "items": [
+            "**Direktif** **(preposisional)** — diawali preposisi + unsur sumbu: *di* *sepanjang* *jalan*, *kepada* *adiknya*.",
+            "**Konektif** — dihubungkan kopula seperti *adalah,* *ialah,* *yaitu*: \"ayah **adalah** **tulang** **punggung** **keluarga**\"."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "**Uji** **cepat** **endosentrik** **vs** **eksosentrik**: hilangkan unsurnya satu per satu. Kalau sisanya masih gramatikal dan berfungsi sama → endosentrik. Kalau harus lengkap (preposisi + objeknya) baru gramatikal → eksosentrik."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**C.** **Klasifikasi** **Berdasarkan** **Kategori** **Kata** **Inti**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Jenis frasa juga bisa ditentukan dari kelas kata unsur pusatnya (UP)."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Jenis** **Frasa**",
+            "**Inti** **(UP)**",
+            "**Contoh**",
+            "**Fungsi** **Umum**"
+          ],
+          "rows": [
+            [
+              "**Nominal** **(FN)**",
+              "nomina",
+              "rumah baru, mobil mewah",
+              "S / O / Pel"
+            ],
+            [
+              "**Verbal** **(FV)**",
+              "verba",
+              "sedang belajar, akan tiba",
+              "P"
+            ],
+            [
+              "**Adjektival** **(FA)**",
+              "adjektiva",
+              "sangat indah, paling pintar",
+              "P / atribut nomina"
+            ],
+            [
+              "**Numeralia**",
+              "numeralia",
+              "tiga orang, lima ikat",
+              "atribut nomina / K"
+            ],
+            [
+              "**Preposisional**",
+              "preposisi + nomina",
+              "di sekolah, dari sana",
+              "K (keterangan)"
+            ],
+            [
+              "**Adverbial**",
+              "adverbia",
+              "tidak pernah, kemarin sore",
+              "K (keterangan)"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Frasa nominal umumnya diperluas dengan adjektiva/numeralia sebagai atribut; frasa verbal biasanya diawali/diikuti kata bantu aspek atau modalitas (*sedang,* *akan,* *sudah,* *harus,* *boleh*); frasa adjektival sering diperluas kata keterangan derajat (*sangat,* *paling,* *agak*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**D.** **Frasa** **Bermakna** **Ganda** **(Ambigu)**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Ambiguitas frasa yang paling penting untuk UTBK adalah **ambiguitas** **struktural**: sebuah frasa punya lebih dari satu kemungkinan struktur atributif/hierarki, sehingga atribut (penjelas) bisa \"melekat\" ke unsur yang berbeda."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Frasa** **Ambigu**",
+            "**Tafsiran** **1**",
+            "**Tafsiran** **2**"
+          ],
+          "rows": [
+            [
+              "*istri* *pegawai* *gemuk*",
+              "istri dari pegawai yang **gemuk**",
+              "istri yang **gemuk**, dari seorang pegawai"
+            ],
+            [
+              "*teman* *Ita* *yang* *cantik*",
+              "temannya Ita, dan **Ita**-lah yang cantik",
+              "teman Ita, dan **temannya** **itu** yang cantik"
+            ],
+            [
+              "*perancang* *busana* *wanita*",
+              "perancang busana yang berjenis kelamin **wanita**",
+              "perancang busana **khusus** **untuk** **wanita**"
+            ],
+            [
+              "*istri* *lurah* *yang* *baru*",
+              "istri, dari [lurah yang **baru** **dilantik**]",
+              "[istri lurah] yang **baru** (menikah dengannya)"
+            ]
+          ],
+          "widths": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Cara** **membedah/memperbaiki** **frasa** **ambigu:**"
+        },
+        {
+          "type": "bullets",
+          "marker": "•",
+          "items": [
+            "Identifikasi unsur pusat (UP) dan semua kemungkinan atributnya.",
+            "Gambarkan/uraikan struktur hierarki (kurung bertingkat) untuk tiap kemungkinan makna.",
+            "Perjelas dengan tanda baca (koma), kata penghubung eksplisit (*yang,* *dari*), atau menyusun ulang urutan kata."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**E.** **Perluasan** **Frasa** **dan** **Menentukan** **Unsur** **Pusat** **(UP)**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**Frasa** **sederhana** adalah gabungan kata tanpa penyisipan frasa/klausa lain, misalnya *kakek* *dan* *nenek*. **Frasa** **kompleks/bertingkat** adalah frasa yang salah satu unsurnya berupa frasa lain atau klausa relatif, sehingga terbentuk struktur berlapis. Contoh: *rumah* *mewah* *yang* *dibeli* *Roni* → UP: *rumah*; atribut 1: *mewah*; atribut 2: *yang* *dibeli* *Roni* (klausa relatif, menjelaskan *rumah*)."
+        },
+        {
+          "type": "heading",
+          "text": "**Cara** **menentukan** **Unsur** **Pusat** **(UP)/inti** **frasa:**"
+        },
+        {
+          "type": "bullets",
+          "marker": "•",
+          "items": [
+            "**Tes** **ganti/substitusi** — unsur yang bisa **menggantikan** keseluruhan frasa tanpa merusak struktur kalimat adalah UP. Contoh: *dua* *orang* *siswa* → bisa disederhanakan jadi *siswa* saja → UP = *siswa*.",
+            "**Tes** **kelas** **kata** — kelas kata UP menentukan nama jenis frasa (frasa nominal jika UP nomina, dst).",
+            "**Untuk** **frasa** **berlapis**, kupas dari luar ke dalam. Contoh: *\"Pengendalian* *harga* *kedelai* *dan* *kacang* *hijau* *dilakukan* *oleh* *pemerintah.\"* → UP frasa subjek = **pengendalian** (bukan \"harga kedelai dan kacang hijau\", karena itu hanyalah atribut)."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**F.** **Hukum** **D-M:** **Struktur** **Baku** **Frasa** **Bahasa** **Indonesia**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kaidah baku bahasa Indonesia mengharuskan unsur **Diterangkan** **(D)** mendahului unsur **Menerangkan** **(M)** — berpola **D-M**, bukan **M-D** seperti pengaruh bahasa Inggris/asing. Contoh benar: *bangunan* *sekolah* (bukan \"sekolah bangunan\"); *handphone* *dengan* *baterai* *tahan* *lama* (bukan \"handphone baterai tahan lama\" yang meniru pola M-D bahasa Inggris \"long-lasting battery phone\")."
+        },
+        {
+          "type": "paragraph",
+          "text": "**Pengecualian** **pola** **D-M** yang tetap baku meski tampak M-D: kata bilangan (*seekor,* *setiap*), preposisi, kata keterangan aspek (*sudah,* *akan,* *telah*), dan sejumlah kata serapan asing yang sudah baku (*perdana* *menteri,* *purnawirawan*)."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**G.** **Ringkasan** **Kilat** **—** **Jebakan** **Frasa** **yang** **Paling** **Sering** **Muncul**"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "**Jebakan**",
+            "**Penjelasan** **Singkat**"
+          ],
+          "rows": [
+            [
+              "Mengira seluruh atribut adalah \"inti\"",
+              "Inti (UP) hanya unsur yang bisa menggantikan keseluruhan frasa, bukan atributnya."
+            ],
+            [
+              "Tertukar atributif vs koordinatif",
+              "*\"pendidikan* *dan* *pelatihan\"* itu koordinatif (setara + \"dan\"), bukan atributif."
+            ],
+            [
+              "Tidak bisa bedakan frasa dari kata majemuk",
+              "*\"rumah* *sakit\"* adalah kata majemuk (tak bisa disisipi \"yang sakit\")."
+            ],
+            [
+              "Tidak bisa bedakan frasa dari klausa",
+              "Klausa punya predikat internal (S-P), frasa tidak."
+            ],
+            [
+              "Salah scope pada frasa ambigu bertingkat",
+              "Atribut di akhir frasa bisa melekat ke unsur mana pun — cek dari konteks kalimat penuh."
+            ],
+            [
+              "Melanggar Hukum D-M tanpa sadar",
+              "Menyusun frasa dengan pola M-D akibat pengaruh bahasa asing/gaul."
+            ],
+            [
+              "Menyamakan idiom dengan frasa ambigu",
+              "Idiom sudah punya makna baku/fixed (tidak ambigu di kalangan penutur)."
+            ],
+            [
+              "Salah hitung jumlah kata minimal",
+              "Kata berimbuhan kompleks (*\"keberhasilannya\"*) tetap satu kata, bukan frasa."
+            ]
+          ],
+          "widths": [
+            1,
+            1
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**H.** **Strategi** **Mengerjakan** **Soal** **Frasa** **UTBK**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Materi frasa di UTBK-SNBT PBM jarang berdiri sendiri sebagai kategori soal — ia biasanya \"menumpang\" pada soal kalimat efektif, kalimat taksa/ambigu, atau makna kata. Karena itu, kuasai langkah berikut:"
+        },
+        {
+          "type": "bullets",
+          "marker": "1.",
+          "items": [
+            "**Untuk** **soal** **\"tentukan** **inti/UP** **frasa\"**: gunakan tes substitusi — coba persingkat frasa dengan menyisakan satu kata, cek apakah kalimat masih gramatikal & maknanya utuh."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "2.",
+          "items": [
+            "**Untuk** **soal** **frasa** **ambigu**: gambar cepat struktur kurung bertingkat di kertas buram, cek ke mana atribut terakhir bisa \"melekat\"."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "3.",
+          "items": [
+            "**Untuk** **soal** **jenis** **frasa** (nominal/verbal/dst): cukup identifikasi kelas kata unsur pusatnya, abaikan kelas kata atributnya."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "4.",
+          "items": [
+            "**Untuk** **soal** **Hukum** **D-M/kebakuan**: hafal pola dasar \"yang diterangkan dulu, baru yang menerangkan\" dan ingat pengecualiannya."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "5.",
+          "items": [
+            "**Kelola** **waktu**: subtes PBM sekitar 1–1,5 menit per soal — jika butuh menguraikan struktur frasa yang rumit, tandai dulu dan lanjutkan ke soal lain jika ragu."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**I.** **Contoh** **Soal** **Beserta** **Pembahasan**"
+        },
+        {
+          "type": "paragraph",
+          "text": "**1.** Pengendalian harga kedelai dan kacang hijau dilakukan oleh pemerintah. Inti frasa yang menduduki fungsi subjek pada kalimat tersebut adalah ... **(kategori** **soal** **MUDAH)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "**a.**",
+          "items": [
+            "**pengendalian**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "b.",
+          "items": [
+            "harga"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "harga kedelai"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "kacang hijau"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "harga kedelai dan kacang hijau"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Subjek kalimat adalah \"Pengendalian harga kedelai dan kacang hijau\" — frasa nominal bertingkat di mana \"harga kedelai dan kacang hijau\" hanyalah atribut yang menerangkan \"pengendalian\"."
+        },
+        {
+          "type": "paragraph",
+          "text": "Uji substitusi: \"**Pengendalian** dilakukan oleh pemerintah\" tetap gramatikal dan maknanya utuh, sehingga UP-nya adalah *pengendalian*."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **A**."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "**2.** Kelompok kata yang tergolong kata majemuk (bukan frasa) adalah ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "mobil mewah"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**b.**",
+          "items": [
+            "**rumah** **sakit**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "baju baru"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "sangat rajin"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "dua orang guru"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "\"rumah sakit\" tidak bisa disisipi kata lain tanpa mengubah/merusak makna (*\"rumah* *yang* *sakit\"* mengubah makna total, bukan lagi merujuk fasilitas kesehatan) — ciri kata majemuk yang maknanya sudah menyatu."
+        },
+        {
+          "type": "paragraph",
+          "text": "Opsi lain masih bisa disisipi (\"mobil **yang** mewah\", \"baju **yang** baru\") tanpa mengubah makna dasar, sehingga tetap frasa."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **B**."
+        },
+        {
+          "type": "paragraph",
+          "text": "**3.** Frasa \"istri pegawai gemuk\" bersifat ambigu karena dapat ditafsirkan sebagai ... **(kategori** **soal** **SEDANG)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "istri seorang pegawai, tanpa keterangan fisik apa pun"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**b.**",
+          "items": [
+            "**istri** **dari** **pegawai** **yang** **gemuk,** **ATAU** **istri** **yang** **gemuk** **dari** **seorang** **pegawai**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "pegawai yang beristri gemuk, ATAU istri yang bekerja sebagai pegawai"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "d.",
+          "items": [
+            "gemuk merujuk pada jabatan pegawai tersebut"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "tidak ambigu, karena maknanya sudah jelas merujuk pada istri yang gemuk"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Ambiguitas terletak pada ke mana atribut \"gemuk\" melekat secara struktural: bisa menerangkan \"pegawai\" (istri dari pegawai yang gemuk), atau menerangkan keseluruhan \"istri pegawai\" (istri, dari pegawai itu, yang gemuk)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Untuk memperjelas, perlu ditambahkan kata penghubung eksplisit: \"istri **dari** pegawai yang gemuk\" vs \"istri **yang** gemuk dari pegawai itu\"."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **B**."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "**4.** Kalimat berikut yang melanggar kaidah struktur frasa baku bahasa Indonesia (Hukum D-M) adalah ... **(kategori** **soal** **SULIT)**"
+        },
+        {
+          "type": "bullets",
+          "marker": "a.",
+          "items": [
+            "Panitia menyediakan tempat parkir khusus bagi tamu undangan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "b.",
+          "items": [
+            "Sekolah itu memiliki fasilitas olahraga yang lengkap."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "c.",
+          "items": [
+            "Pemerintah meresmikan gedung sekolah baru di kecamatan itu."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "**d.**",
+          "items": [
+            "**Ia** **baru** **saja** **membeli** **sebuah** **handphone** **baterai** **tahan** **lama.**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "e.",
+          "items": [
+            "Perusahaan itu meluncurkan program pelatihan karyawan tahun ini."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**Pembahasan:**"
+        },
+        {
+          "type": "paragraph",
+          "text": "Frasa \"handphone baterai tahan lama\" tersusun tidak baku karena hubungan antarunsurnya tidak jelas mengikuti pola D-M bahasa Indonesia — strukturnya meniru pola bahasa Inggris \"long-lasting battery phone\" (M-D)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Bentuk baku: \"*handphone* *dengan* *baterai* *tahan* *lama*\" atau \"*handphone* *berbaterai* *tahan* *lama*\" — unsur yang diterangkan (handphone) harus jelas didahulukan dan dihubungkan eksplisit ke penjelasnya."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban yang tepat adalah **D**."
+        }
+      ]
+    },
+    {
+      "id": "pbm02-reviewed-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8,
+        9
+      ],
+      "blocks": [
+        {
+          "type": "title",
+          "text": "🦆 **VECO** **TIPS** **—** **Cara** **Cepat** **&** **Trik** **Khusus**"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips** **1:** **Tes** **Persingkat**",
+          "text": "*Bingung* *cari* *inti* *(UP)* *sebuah* *frasa?* *Coba* *persingkat* *frasa* *itu* *sampai* *tinggal* *satu* *kata* *—* *kalau* *kalimatnya* *masih* *gramatikal* *dan* *maknanya* *tetap* *utuh,* *kata* *itulah* *inti* *frasanya!*"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips** **2:** **Gambar** **Kurung** **Bertingkat**",
+          "text": "*Ketemu* *frasa* *yang* *kedengarannya* *ambigu?* *Coba* *coret-coret* *kurung* *bertingkat* *di* *kertas* *buram:* *[(kata* *A)* *(kata* *B)]* *(kata* *C)* *—* *lihat* *ke* *mana* *atribut* *terakhir* *\"nempel\".* *Dijamin* *lebih* *kelihatan* *mana* *yang* *ambigu!*"
+        },
+        {
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "tone": "warning",
+          "marker": "●",
+          "items": [
+            "Mengira seluruh frasa (termasuk atributnya) adalah \"inti\", padahal inti hanya unsur yang bisa menggantikan keseluruhan frasa.",
+            "Tidak bisa membedakan frasa dari kata majemuk — mengira \"rumah sakit\" atau \"kereta api\" adalah frasa biasa, padahal maknanya sudah menyatu/idiomatis.",
+            "Tidak bisa membedakan frasa dari klausa — menganggap gabungan kata yang sudah punya predikat sebagai frasa.",
+            "Tidak menyadari atribut pada frasa bertingkat bisa melekat ke unsur yang berbeda, sehingga salah membaca frasa ambigu.",
+            "Menyusun frasa dengan pola M-D akibat pengaruh bahasa asing atau bahasa gaul, melanggar Hukum D-M bahasa Indonesia baku.",
+            "Menganggap semua idiom adalah \"frasa ambigu\", padahal idiom sudah punya makna baku/fixed dan tidak lagi ambigu bagi penutur bahasa."
+          ]
+        }
+      ]
+    }
+  ]
+}

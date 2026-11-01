@@ -13,7 +13,7 @@ type MentorQuestionBankEditorPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Editor Bank Soal Kapten | Vecalss LMS",
+  title: "Editor Bank Soal Kapten | PTN Pro LMS",
 };
 
 export default async function MentorQuestionBankEditorPage({

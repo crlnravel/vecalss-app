@@ -20,7 +20,7 @@ function AuthShell({
           <Link
             href="/"
             className="relative z-10 inline-flex w-fit items-center gap-3"
-            aria-label="Vecalss"
+            aria-label="PTN Pro"
             prefetch={false}
           >
             <Image
@@ -29,14 +29,14 @@ function AuthShell({
               className="h-12 w-12 object-contain"
               height={64}
               priority
-              src="/brand/logo-mark-cropped.png"
+              src="/brand/mascot-vecalss-2.png"
               width={64}
             />
             <span
               className="text-3xl leading-none tracking-[0.02em] text-white"
               style={{ fontFamily: "var(--font-sports-world)" }}
             >
-              VECALSS
+              PTN PRO
             </span>
           </Link>
 
@@ -49,12 +49,12 @@ function AuthShell({
           <div className="pointer-events-none absolute bottom-[-125px] left-1/2 z-[5] flex w-[min(104vw,650px)] -translate-x-1/2 justify-center md:bottom-[-210px] lg:bottom-[-210px] lg:w-[min(48vw,680px)]">
             <div className="absolute bottom-24 left-1/2 h-9 w-[64%] -translate-x-1/2 rounded-full bg-secondary-900/22 blur-xl" />
             <Image
-              alt="Vecalss mascot"
+              alt="PTN Pro mascot"
               className="relative z-10 h-auto w-full object-contain drop-shadow-[0_30px_34px_color-mix(in_oklab,var(--voyage-deep)_30%,transparent)]"
               height={620}
               priority
               sizes="(min-width: 1024px) 39vw, 76vw"
-              src="/brand/mascot-vecalss.png"
+              src="/brand/mascot-vecalss-2.png"
               width={620}
             />
           </div>

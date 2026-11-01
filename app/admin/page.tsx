@@ -8,7 +8,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Dashboard Admin | Vecalss LMS",
+  title: "Dashboard Admin | PTN Pro LMS",
 };
 
 export default async function AdminHomePage() {

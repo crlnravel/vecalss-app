@@ -20,6 +20,7 @@ import {
   isTryoutSessionExpired,
 } from "@/lib/tryout/registration-availability";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
+import { studentResultActionLabel, studentResultBadge } from "@/lib/tryout/participant-result-copy";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { ParticipantTryoutEnrollmentPanel, type MajorOption, type UniversityOption } from "@/modules/tryout/ParticipantTryoutEnrollmentPanel";
 
@@ -266,7 +267,7 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref
     actionLabel = "Lanjutkan Tryout";
   } else if (attempt) {
     actionHref = buildStudentAttemptHref(attempt.id, { ...context, result: true });
-    actionLabel = attempt.resultAvailability === "released" ? "Lihat hasil" : "Periksa status hasil";
+    actionLabel = studentResultActionLabel(attempt.resultAvailability);
   } else if (tryout.admissionStatus === "active" && assignedSession && assignedSession.status === "active" && !assignedSession.isExpired) {
     actionHref = buildStudentTryoutSubrouteHref(tryout.id, "waiting", context);
     actionLabel = "Buka ruang tunggu";
@@ -322,11 +323,7 @@ function getParticipantTryoutDetailModel(tryout: ParticipantTryout, returnToHref
   const availability = attempt?.status === "in_progress"
     ? { label: "Sedang dikerjakan", tone: "success" as const }
     : attempt
-      ? attempt.resultAvailability === "released"
-        ? { label: "Hasil tersedia", tone: "neutral" as const }
-        : attempt.resultAvailability === "processing"
-          ? { label: "Hasil sedang disiapkan", tone: "attention" as const }
-          : { label: "Hasil belum dibuka", tone: "attention" as const }
+      ? studentResultBadge(attempt.resultAvailability ?? "unreleased")
       : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
         ? { label: "Tidak tersedia", tone: "danger" as const }
         : tryout.admissionStatus === "pending"

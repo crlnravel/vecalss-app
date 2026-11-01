@@ -1,0 +1,376 @@
+{
+  "title": "MATERI 07 — Specific Details & Facts",
+  "code": "LBE",
+  "subject": "Literasi Bahasa Inggris",
+  "source": "materi/downloaded-from-google-doc/LBE/vecalss_materi_lbe.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "source-page-36",
+      "title": "MATERI 07 — Specific Details & Facts",
+      "continuation": false,
+      "source_pages": [
+        36
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "A. PENGERTIAN & DEFINISI"
+        },
+        {
+          "type": "paragraph",
+          "text": "Jika soal Main Idea menguji kemampuanmu melihat \"hutan\" secara keseluruhan, maka\nsoal Specific Details & Facts menguji kemampuanmu mencari \"pohon\" tertentu di\ndalam hutan tersebut. Dalam subtes Literasi Bahasa Inggris SNBT, tipe soal ini\nmengharuskan kamu untuk menemukan informasi, fakta, data, atau pernyataan yang\ntertulis secara eksplisit (jelas dan tersurat) di dalam bacaan. Berbeda dengan soal\nmenyimpulkan (inference), jawaban untuk soal tipe ini 100% ada di dalam teks.\nTantangannya bukanlah menebak maksud penulis, melainkan seberapa cepat dan\nakurat kamu bisa melacak posisi informasi tersebut di lautan kata-kata tanpa harus\nmembaca ulang seluruh paragraf dari awal.",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "B. CIRI-CIRI & KARAKTERISTIK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal yang menguji Specific Details sangat mudah dikenali dari gaya pertanyaannya.\nBerikut adalah karakteristik utamanya:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Bentuk Pertanyaan 5W1H: Biasanya menggunakan kata tanya penunjuk fakta\nseperti \"According to the passage, what/who/where/when/how/why...?\" atau \"It is\nstated in the text that...\".\n● Pertanyaan Mengecualikan (The \"NOT\" / \"EXCEPT\" Traps): Ini adalah variasi\ntersulit dari tipe soal ini. Pembuat soal akan memintamu mencari mana opsi yang\nsalah atau tidak disebutkan. Ciri pertanyaannya: \"All of the following are\nmentioned in the passage EXCEPT...\" atau \"Which of the following is NOT true\naccording to paragraph 2?\".\n● Permainan Parafrase (Paraphrasing): Jawaban yang benar di pilihan ganda\nhampir tidak pernah menggunakan kata-kata yang sama persis (100%\ncopy-paste) dari dalam teks. Pembuat soal akan mem-parafrase atau menulis\nulang kalimat tersebut menggunakan susunan tata bahasa yang berbeda atau\nkata bersinonim, namun dengan makna faktual yang sama.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C. CARA MENGERJAKAN / STRATEGI (Metode S.C.A.N)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Karena jawabannya pasti ada di dalam teks, hal terburuk yang bisa kamu lakukan\nadalah membaca teks secara utuh. Gunakan teknik memindai (Scanning) dengan\nmetode S.C.A.N berikut:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "1. S - Select the Keywords (Pilih Kata Kunci dari Soal): Jangan baca teksnya\ndulu! Baca pertanyaannya, lalu garis bawahi 1-2 kata kunci yang paling spesifik.",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-37",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        37
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Prioritaskan mencari angka (tahun, persentase), nama orang (huruf kapital),\nnama tempat, atau istilah teknis yang sulit diganti dengan sinonim.\n2. C - Cruise the Text (Meluncur di Atas Teks): Jangan membaca, tapi larihkan\nmatamu (seperti melihat gambar) ke seluruh teks hanya untuk mencari posisi\nletak kata kunci yang kamu pilih di langkah pertama.\n3. A - Analyze the Sentence (Analisis Kalimat Tersebut): Setelah menemukan\nkata kuncinya, berhentilah. Baca dengan teliti satu kalimat utuh di mana kata\nkunci itu berada. Jika belum jelas, baca satu kalimat sebelumnya dan\nsesudahnya.\n4. N - Notice Paraphrases (Perhatikan Parafrase di Opsi): Cocokkan makna dari\nkalimat yang baru kamu baca dengan pilihan ganda (A-E). Pilih opsi yang\nmaknanya paling sama persis, meskipun kata-katanya berbeda.",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "D. CONTOH SOAL BESERTA PEMBAHASAN"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 1: Tingkat Mudah (Mencari Fakta Langsung dengan Parafrase)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks (Paragraf 2): \"To combat the rising pollution levels, the mayor implemented a strict\nregulation last month. The new policy completely prohibits the use of single-use plastic\nbags in all major supermarkets and retail chains across the city. However, small local\nmarkets are granted a six-month grace period before they must fully comply with the\nban.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: According to the passage, what is the new policy implemented by the mayor?\nA) Supermarkets must charge customers for using plastic bags.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) Single-use plastic bags are banned in large retail stores.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) All traditional markets must immediately stop using plastics.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) The city will recycle all single-use plastics collected.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) Small local markets are permanently exempt from the new rule.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: B",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Kata Kunci Soal: new policy, mayor. Kita scan teks dan menemukannya di\nkalimat kedua.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Teks Asli: \"...completely prohibits the use of single-use plastic bags in all major\nsupermarkets and retail chains...\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) charge customers: Salah. Teks mengatakan melarang total (prohibits),\nbukan mengenakan biaya (charge).",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-38",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        38
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "● B) banned in large retail stores: Benar. Kata \"prohibits\" diparafrase menjadi\n\"banned\", dan \"major supermarkets\" diparafrase menjadi \"large retail stores\".\nMaknanya 100% sama.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) immediately stop: Salah. Pasar lokal punya masa tenggang enam bulan\n(six-month grace period), jadi tidak langsung berhenti (immediately).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) recycle: Salah. Tidak ada informasi tentang daur ulang di teks ini.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) permanently exempt: Salah. Mereka hanya diberi waktu 6 bulan, bukan\ndibebaskan selamanya (permanently).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 2: Tingkat Menengah (Pertanyaan Pengecualian / EXCEPT)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks (Paragraf 3): \"The rapid decline of the honeybee population is primarily driven by\nthree distinct factors. First, the widespread application of toxic agricultural pesticides\ndamages their nervous systems. Second, the loss of natural habitats due to continuous\nurban expansion limits their food sources. Lastly, invasive parasitic mites carry viruses\nthat wipe out entire colonies in a matter of weeks.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: All of the following are mentioned in the passage as causes of the honeybee\npopulation decline EXCEPT...",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) The spread of viruses by parasitic mites.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) The destruction of their natural living spaces.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) The use of harmful chemicals in farming.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) The extreme changes in global weather patterns.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) The expansion of urban areas reducing their food supply.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: D",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Karena ada kata EXCEPT (Kecuali), kita mencari opsi yang TIDAK ADA di teks. Teks\nmenyebutkan 3 penyebab. Mari kita cocokkan (eliminasi yang ada di teks):",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) spread of viruses by mites: Ada di teks (\"parasitic mites carry viruses...\").\nEliminasi.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) destruction of living spaces: Ada di teks (\"loss of natural habitats...\").\nEliminasi.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) harmful chemicals in farming: Ada di teks. Diparafrase dari \"toxic\nagricultural pesticides\". Eliminasi.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) extreme changes in global weather: Benar. (Perubahan cuaca ekstrem).\nOpsi ini TIDAK PERNAH disebutkan di dalam paragraf tersebut. Ini adalah\njawaban yang dicari!",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-39",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        39
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "● E) expansion of urban areas: Ada di teks (\"continuous urban expansion...\").\nEliminasi.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 3: Tingkat Sulit (Menyaring Data Angka & Fakta Bertumpuk)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: \"In 2021, the company launched its flagship electric vehicle, the 'Aero-X'. Despite\na heavy marketing campaign, initial sales were sluggish, with only 5,000 units sold in\nthe first quarter. However, following a major software update in mid-2022 that\nsignificantly improved battery efficiency, consumer interest surged. By the end of 2023,\nthe Aero-X had sold over 150,000 units globally, dominating the European market,\nalthough it still lagged behind competitors in Asia.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: According to the text, what triggered the surge in consumer interest for the\nAero-X?",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) A massive global marketing campaign in 2021.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) The low initial sales numbers of 5,000 units.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) Its dominance over the European and Asian markets.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) An upgrade that enhanced the vehicle's battery performance.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) The launch of a new flagship model in mid-2022.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: D",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Kata Kunci Soal: triggered (memicu), surge in consumer interest (lonjakan\nminat konsumen).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Teks Asli: \"...following a major software update in mid-2022 that significantly\nimproved battery efficiency, consumer interest surged.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) marketing campaign: Salah. Teks bilang meskipun ada kampanye\nmarketing, penjualannya awalnya lesu.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) low initial sales: Salah. Penjualan rendah bukan pemicu minat konsumen.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) dominance: Salah. Aero-X masih tertinggal (lagged behind) di Asia, tidak\nmendominasi keduanya.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) an upgrade that enhanced...: Benar. Ini adalah parafrase langsung dari\n\"major software update... that improved battery efficiency\".",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) launch of new model: Salah. Yang terjadi di pertengahan 2022 adalah\nupdate software, bukan meluncurkan mobil tipe baru",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-40",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        40
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "💡 Veco Tips: Trik \"Radar Huruf Besar\" (Scanning Technique)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Kwek! Daripada baca seluruh paragraf yang bikin mata juling, jadikan matamu mesin\nscanner! Waktu cari informasi spesifik, cari kata di soal yang huruf awalnya KAPITAL\n(Nama orang, nama kota, atau nama perusahaan) atau ANGKA (Tahun, jumlah\npersentase). Otak kita jauh lebih cepat nangkep bentuk angka dan huruf besar di\ntengah tumpukan huruf kecil. Begitu ketemu angka atau nama itu di teks, langsung rem\nmendadak dan baca kalimat itu baik-baik!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "💡 Veco Tips: Hati-Hati Jebakan \"Copy-Paste\"! (Parafrase Trick)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Bebek pinter gak gampang ketipu! Kalau di pilihan ganda kamu nemu satu opsi yang\nkalimatnya persis 100% copy-paste dari teks tanpa diubah sedikit pun, kamu wajib\ncuriga! Biasanya, pembuat soal SNBT yang usil ngubah satu kata kecil di tengah\nkalimat itu pakai kata negatif kayak 'not', 'never', atau 'rarely' biar artinya jadi kebalik\ntotal. Jawaban yang paling benar justru biasanya opsi yang bahasanya udah\ndiacak-acak (diparafrase), tapi inti maknanya sama!\n⚠ Kesalahan Umum yang Sering Terjadi",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Berikut adalah hal-hal yang sering membuat peserta ujian terjebak pada soal informasi\nspesifik:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Over-Reading (Membaca Berlebihan): Kesalahan fatal nomor satu. Siswa\nmembaca seluruh teks untuk menjawab soal \"Where does the author state...\". Ini\nmembuang waktu. Percayalah pada teknik Scanning. Kamu tidak perlu paham\narti seluruh teks untuk bisa menemukan data persentase yang diminta.\n2. Terburu-buru pada Soal \"EXCEPT / NOT\": Otak manusia secara alami disetel\nuntuk mencari \"yang benar\". Saat dihadapkan pada soal berjenis Except\n(kecuali), seringkali siswa membaca teks, menemukan opsi A di dalam teks, dan\nlangsung menyilangnya sebagai jawaban, lupa bahwa mereka ditugaskan\nmencari opsi yang salah. (Biasakan melingkari kata NOT atau EXCEPT di kertas\nsoalmu sebesar-besarnya!).\n3. Terjebak Fakta yang Memang Benar di Kehidupan Nyata (tapi tidak ada di\nteks): Kadang pembuat soal memasukkan opsi jawaban berupa fakta umum\nyang kamu ketahui dari pelajaran di sekolah (misal: \"Tanaman butuh matahari\nuntuk fotosintesis\"). Meski secara ilmu sains itu 100% benar, jika tidak tertulis di\ndalam paragraf yang sedang diuji, maka opsi itu SALAH. Segala jawaban mutlak\nharus bersumber dari teks!",
+          "small": true
+        }
+      ]
+    }
+  ]
+}

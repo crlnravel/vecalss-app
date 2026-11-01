@@ -160,10 +160,16 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
         REFERENCE_SURFACE_CLASS_NAMES.raisedStableInteractive,
-        "group flex min-w-0 flex-col p-4",
+        "group relative flex min-w-0 flex-col overflow-hidden p-4",
       )}
       href={buildMateriSubjectHref(subject.slug)}
     >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-3 -top-4 select-none font-display text-8xl font-extrabold leading-none tracking-[-0.04em] text-[var(--voyage-forest)] opacity-[0.07]"
+      >
+        {subject.code}
+      </span>
       <div className="flex items-start gap-4">
         <Badge
           className="bg-[linear-gradient(135deg,var(--voyage-sea-glass)_0%,var(--voyage-sea-glass-wash)_100%)] !font-normal text-[var(--voyage-forest)]"

@@ -8,7 +8,7 @@ import { SidebarVariantPreview } from "@/modules/developer/components/catalogue-
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Komponen | Vecalss LMS",
+  title: "Komponen | PTN Pro LMS",
 };
 
 export default async function DeveloperComponentsPage({ searchParams }: {

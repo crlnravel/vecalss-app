@@ -5,7 +5,7 @@ import { getKaptenSettings } from "@/modules/mentor/settings-actions";
 import { KaptenSettingsPageModule } from "@/modules/mentor/KaptenSettingsPageModule";
 
 export const metadata: Metadata = {
-  title: "Pengaturan Kapten | Vecalss LMS",
+  title: "Pengaturan Kapten | PTN Pro LMS",
 };
 
 export default async function MentorSettingsPage() {

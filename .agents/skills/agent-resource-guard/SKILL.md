@@ -39,7 +39,7 @@ When enabled, ask for these values and record them in the generated policy:
 | Launches per turn | `3` | Instruction-level budget for one agent turn |
 | Launches per session | `6` | Instruction-level budget for one task/session |
 
-The defaults reproduce the extracted Vecalss policy. Use the setup helper to
+The defaults reproduce the extracted PTN Pro policy. Use the setup helper to
 render a project-local guard and policy rather than editing generated shell by
 hand:
 

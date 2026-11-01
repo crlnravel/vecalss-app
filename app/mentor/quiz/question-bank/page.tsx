@@ -19,7 +19,7 @@ import { KaptenQuestionBankPageModule } from "@/modules/mentor/KaptenQuestionBan
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Bank Soal Kapten | Vecalss LMS",
+  title: "Bank Soal Kapten | PTN Pro LMS",
 };
 
 function isCreateDialogRequested(params: Record<string, NavigationQueryValue>) {

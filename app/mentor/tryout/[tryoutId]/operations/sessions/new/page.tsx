@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireTutorSession } from "@/lib/auth/access";
 import { buildMentorTryoutHref, parseMentorTryoutContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 
-export const metadata: Metadata = { title: "Buat Sesi Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Buat Sesi Tryout | PTN Pro LMS" };
 
 export default async function NewTryoutSessionPage({
   params,

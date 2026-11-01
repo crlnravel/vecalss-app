@@ -43,6 +43,20 @@ export type Pathway = {
   tone: PathwayTone;
 };
 
+export type ProgramFeatureId =
+  | "materi"
+  | "kuis"
+  | "tryout"
+  | "video-belajar"
+  | "target-belajar"
+  | "misi-harian";
+
+export type ProgramFeature = {
+  id: ProgramFeatureId;
+  summary: string;
+  title: string;
+};
+
 export type SupportPillar = {
   body: string;
   title: string;
@@ -110,8 +124,8 @@ export type CampusCrewMark = {
 };
 
 export const marketingNavItems: NavItem[] = [
-  { label: "Tentang Vecalss", href: "/#about" },
-  { label: "Program", href: "/#program" },
+  { label: "Tentang PTN Pro", href: "/#about" },
+  { label: "Fitur", href: "/#program" },
   { label: "Masuk", href: "/login" },
 ];
 
@@ -242,6 +256,39 @@ export const pathways: Pathway[] = [
   },
 ];
 
+export const programFeatures: ProgramFeature[] = [
+  {
+    id: "materi",
+    title: "Materi",
+    summary: "Belajar konsep dari dasar, tersusun per subtes dan bab.",
+  },
+  {
+    id: "kuis",
+    title: "Kuis",
+    summary: "Latihan singkat setelah materi untuk mengecek pemahamanmu.",
+  },
+  {
+    id: "tryout",
+    title: "Try Out",
+    summary: "Simulasi ujian dengan waktu berjalan, lengkap dengan hasilnya.",
+  },
+  {
+    id: "video-belajar",
+    title: "Video Belajar",
+    summary: "Tonton pembahasan kapan saja, ulangi bagian yang belum paham.",
+  },
+  {
+    id: "target-belajar",
+    title: "Target Belajar",
+    summary: "Pilih jurusan dan kampus tujuan, lalu belajar sesuai arahnya.",
+  },
+  {
+    id: "misi-harian",
+    title: "Misi Harian",
+    summary: "Tugas kecil tiap hari supaya ritme belajarmu tetap jalan.",
+  },
+];
+
 export const crewMembers: CrewMember[] = [
   {
     id: "mufli",
@@ -257,7 +304,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.80",
     blurb: "Mahasiswa Arsitektur ITB yang aktif di bidang pendidikan, mentoring, organisasi kampus, dan pengembangan konten edukasi.",
     photoSrc: "/landing-assets/mentors/Mufli.png",
-    photoAlt: "Foto Kak Mufli, tutor Arsitektur Vecalss",
+    photoAlt: "Foto Kak Mufli, tutor Arsitektur PTN Pro",
     profileAchievements: [
       "Penerima Luar Biasa Scholarship, Batch 14",
       "Penerima IA Qatar ITB Scholarship",
@@ -278,7 +325,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.70",
     blurb: "Mahasiswa Kedokteran UPNVJ yang aktif sebagai tutor dan relawan, dengan minat pada pembelajaran, penelitian, dan pengabdian masyarakat.",
     photoSrc: "/landing-assets/mentors/Mira.png",
-    photoAlt: "Foto Kak Mira, tutor Kedokteran Vecalss",
+    photoAlt: "Foto Kak Mira, tutor Kedokteran PTN Pro",
     profileAchievements: [
       "National Submission PKM-RS (2024)",
       "National Submission PKM-VGK (2025)",
@@ -299,7 +346,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.82",
     blurb: "Mahasiswa Hubungan Internasional Unpad dengan minat pada global politics, partnership development, community engagement, dan riset berbasis advokasi.",
     photoSrc: "/landing-assets/mentors/Dhini.png",
-    photoAlt: "Foto Kak Dhini, tutor Vecalss",
+    photoAlt: "Foto Kak Dhini, tutor PTN Pro",
     profileAchievements: [
       "Top 5 Business Case Competition HIPMI Banyuwangi (2023)",
       "Semifinalist Scientific Paper Competition Festagama (2023)",
@@ -320,7 +367,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.71",
     blurb: "Mahasiswa Fisika UI yang berpengalaman dalam mengajar, business marketing, riset ilmiah, computational physics, dan pengembangan teknologi terapan.",
     photoSrc: "/landing-assets/mentors/Nauval.png",
-    photoAlt: "Foto Kak Nauval, tutor Vecalss",
+    photoAlt: "Foto Kak Nauval, tutor PTN Pro",
     profileAchievements: [
       "Finalist UI Incubate 2025",
       "1st Winner FIRA Indonesia 2025 - Emergency Drone",
@@ -342,7 +389,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.60",
     blurb: "Mahasiswa Kedokteran UPNVJ yang aktif dalam organisasi kemahasiswaan dan kegiatan kepemimpinan, khususnya di bidang kebijakan kesehatan dan pengembangan akademik.",
     photoSrc: "/landing-assets/mentors/Kaori.png",
-    photoAlt: "Foto Kak Kaori, tutor Kedokteran Vecalss",
+    photoAlt: "Foto Kak Kaori, tutor Kedokteran PTN Pro",
     profileAchievements: [
       "National Submission PKM-VGK 2025",
       "International Submission Pre-Conference Competition AMSC 2025",
@@ -363,7 +410,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.05",
     blurb: "Mahasiswa Teknik Tenaga Listrik ITB dengan minat pada eksplorasi, olahraga, dan pendekatan belajar yang praktis serta terstruktur.",
     photoSrc: "/landing-assets/mentors/Abi.png",
-    photoAlt: "Foto Kak Abi, tutor Sistem Tenaga Listrik Vecalss",
+    photoAlt: "Foto Kak Abi, tutor Sistem Tenaga Listrik PTN Pro",
     profileAchievements: [
       "Learning Camp Perintis Scholarship 2024",
       "IEEE ITB Protech Sandbox Finalist 2025",
@@ -385,7 +432,7 @@ export const crewMembers: CrewMember[] = [
     gpa: "3.53",
     blurb: "Tutor, content creator, dan copywriter pendidikan dengan pengalaman lebih dari 3,5 tahun serta rekam jejak membangun media sosial edukasi.",
     photoSrc: "/landing-assets/mentors/Nadiv.png",
-    photoAlt: "Foto Kak Nadiv, tutor Vecalss",
+    photoAlt: "Foto Kak Nadiv, tutor PTN Pro",
     profileAchievements: [
       "Pengunggahan Nasional Proposal PKM-RSH",
     ],
@@ -403,9 +450,9 @@ export const crewMembers: CrewMember[] = [
     focus: "Teknik Nuklir",
     utbkScore: "736",
     gpa: "3.89",
-    blurb: "Tutor Vecalss dari Universitas Gadjah Mada.",
+    blurb: "Tutor PTN Pro dari Universitas Gadjah Mada.",
     photoSrc: "/landing-assets/mentors/Nicho.png",
-    photoAlt: "Foto Kak Nicho, tutor Vecalss",
+    photoAlt: "Foto Kak Nicho, tutor PTN Pro",
     profileAchievements: [
       "Participated in IAEA Uranium Mine Challenge",
     ],
@@ -417,7 +464,7 @@ export const testimonials: Testimonial[] = [
     name: "Ayesha",
     meta: "Kedokteran Universitas Padjadjaran",
     outcome: "Terbantu",
-    quote: "Selama aku di Vecalss, ngerasa terbantu karena bahan ajarnya lengkap dari recording zoomnya yang bisa diakses kalau berhalangan hadir. Tutornya juga so fun dan penjelasannya oke banget!",
+    quote: "Selama aku di PTN Pro, ngerasa terbantu karena bahan ajarnya lengkap dari recording zoomnya yang bisa diakses kalau berhalangan hadir. Tutornya juga so fun dan penjelasannya oke banget!",
     university: "Universitas Padjadjaran",
     universityMarkSrc: "/brand/campuses/unpad.png",
     universityMarkAlt: "Logo Universitas Padjadjaran",
@@ -428,7 +475,7 @@ export const testimonials: Testimonial[] = [
     name: "Tiara",
     meta: "Psikologi UNAND",
     outcome: "Terbantu",
-    quote: "Jujur TO Vecalss ngebantu banget, terutama di PU yang tipe soalnya mirip sama yang keluar di ujian.",
+    quote: "Jujur TO PTN Pro ngebantu banget, terutama di PU yang tipe soalnya mirip sama yang keluar di ujian.",
     university: "Universitas Andalas",
     avatarSrc: "/landing-assets/testimonials/Tiara.png",
     avatarAlt: "Foto Tiara, alumni Psikologi UNAND",
@@ -510,23 +557,23 @@ export const faqItems: Item[] = [
   {
     id: "1",
     number: "01",
-    question: "Belajar di Vecalss online atau ada kelas tatap muka?",
+    question: "Belajar di PTN Pro online atau ada kelas tatap muka?",
     answer:
-      "Semua program Vecalss berlangsung online, jadi kamu bisa belajar dari mana saja.",
+      "Semua program PTN Pro berlangsung online, jadi kamu bisa belajar dari mana saja.",
   },
   {
     id: "2",
     number: "02",
-    question: "Program apa saja yang tersedia di Vecalss?",
+    question: "Fitur apa saja yang tersedia di PTN Pro?",
     answer:
-      "Ada Summer Class, Supercharge TKA & SNBT, Tryout, Vera AI, dan Materi SNBT.",
+      "Fitur belajarnya meliputi Materi, Kuis, Try Out, Video Belajar, Target Belajar, dan Misi Harian.",
   },
   {
     id: "3",
     number: "03",
-    question: "Siapa saja tutor di Vecalss?",
+    question: "Siapa saja tutor di PTN Pro?",
     answer:
-      "Kapten Vecalss berasal dari UI, ITB, UGM, dan beberapa PTN lainnya.",
+      "Kapten PTN Pro berasal dari UI, ITB, UGM, dan beberapa PTN lainnya.",
   },
   {
     id: "4",
@@ -547,7 +594,7 @@ export const faqItems: Item[] = [
     number: "06",
     question: "Apakah ada komunitas setelah bergabung?",
     answer:
-      "Ya. Setelah bergabung, kamu bisa ikut komunitas Vecalss untuk berbagi strategi dan saling mendukung.",
+      "Ya. Setelah bergabung, kamu bisa ikut komunitas PTN Pro untuk berbagi strategi dan saling mendukung.",
   },
   {
     id: "7",

@@ -7,7 +7,7 @@ import { AffiliatorPurchaseLogPageModule } from "@/modules/affiliator/Affiliator
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Riwayat pembelian | Vecalss LMS",
+  title: "Riwayat pembelian | PTN Pro LMS",
 };
 
 export default async function AffiliatorPurchaseLogPage({

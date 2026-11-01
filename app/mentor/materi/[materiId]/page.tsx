@@ -22,7 +22,7 @@ type MentorMateriBuilderPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Edit Materi Kapten | Vecalss LMS",
+  title: "Edit Materi Kapten | PTN Pro LMS",
 };
 
 export default async function MentorMateriBuilderPage({

@@ -7,7 +7,7 @@ import { DeveloperReportsPageModule } from "@/modules/developer/DeveloperReports
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Laporan | Vecalss LMS",
+  title: "Laporan | PTN Pro LMS",
 };
 
 export default async function DeveloperReportsPage() {

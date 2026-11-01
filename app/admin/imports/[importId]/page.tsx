@@ -10,7 +10,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Tinjau impor | Vecalss LMS",
+  title: "Tinjau impor | PTN Pro LMS",
 };
 
 export default async function AdminImportDetailPage({

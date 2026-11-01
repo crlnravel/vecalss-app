@@ -30,52 +30,6 @@ export function LoadingPageModule() {
           strokeOpacity="0.34"
           strokeWidth="3"
         />
-        <circle className="route-current" fill="var(--voyage-warm-sun)" r="7">
-          <animateMotion
-            dur="7s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle
-          className="route-current"
-          fill="var(--voyage-forest)"
-          opacity="0.86"
-          r="4"
-        >
-          <animateMotion
-            begin="-2.1s"
-            dur="5.2s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle
-          className="route-current"
-          fill="var(--voyage-warm-sun)"
-          opacity="0.82"
-          r="3"
-        >
-          <animateMotion
-            begin="-5.4s"
-            dur="11s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle
-          className="route-current"
-          fill="var(--voyage-forest)"
-          opacity="0.6"
-          r="9"
-        >
-          <animateMotion
-            begin="-7s"
-            dur="13s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
         <circle cx="190" cy="565" fill="var(--voyage-warm-sun)" r="8" />
         <circle
           cx="356"
@@ -145,11 +99,11 @@ export function LoadingPageModule() {
                 fill
                 className="object-contain"
                 sizes="44px"
-                src="/brand/logo-mark-cropped.png"
+                src="/brand/mascot-vecalss-2.png"
               />
             </span>
             <span className="font-logo text-lg tracking-[0.1em] text-[var(--voyage-deep)] sm:text-xl">
-              VECALSS
+              PTN PRO
             </span>
           </div>
         </div>
@@ -172,6 +126,9 @@ export function LoadingPageModule() {
               <h1 className="max-w-[9ch] font-display text-[clamp(3.25rem,6vw,5.75rem)] leading-[0.88] font-extrabold text-[var(--voyage-deep)]">
                 Memuat halaman…
               </h1>
+              <p className="route-shimmer mt-6 max-w-[42ch] text-base leading-7 font-semibold">
+                Kapal sedang menyiapkan halaman yang kamu tuju. Tunggu sebentar, ya.
+              </p>
             </div>
           </div>
         </div>

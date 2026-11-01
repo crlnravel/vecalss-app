@@ -61,13 +61,19 @@ assert.match(participantRepository, /attempts:\s*\{\s*select:\s*\{[^}]*releaseSt
 assert.match(participantRepository, /releaseState:\s*true/);
 assert.match(participantRepository, /resultReleasePolicy:\s*true/);
 assert.match(participantRepository, /effectiveResultReleasePolicy:\s*deliverySession\.resultReleasePolicy === "inherit"/);
-assert.match(detail, /attempt\.resultAvailability === "released" \? "Lihat hasil" : "Periksa status hasil"/);
-assert.match(detail, /label: "Hasil belum dibuka"/);
-assert.match(catalogue, /attempt\.resultAvailability === "released"\s*\?\s*"Lihat hasil"\s*:\s*"Periksa status hasil"/);
+// Student result-state wording lives in one module; each surface must use it instead of local strings.
+const copy = await readFile(new URL("../lib/tryout/participant-result-copy.ts", import.meta.url), "utf8");
+assert.match(copy, /availability === "released" \? "Lihat hasil" : "Periksa status hasil"/);
+assert.match(copy, /label: "Hasil belum dibuka"/);
+assert.match(copy, /Hasil belum dibuka\./);
+assert.match(detail, /studentResultActionLabel\(attempt\.resultAvailability\)/);
+assert.match(detail, /studentResultBadge\(/);
+assert.match(catalogue, /studentResultActionLabel\(attempt\.resultAvailability\)/);
 assert.match(waiting, /Tryout sudah selesai/);
-assert.match(waiting, /resultReleased \? "Lihat hasil" : "Periksa status hasil"/);
-assert.match(waiting, /effectiveResultReleasePolicy === "manual"/);
-assert.match(waiting, /Hasil belum dibuka/);
+assert.match(waiting, /studentResultActionLabel\(attempt\.resultAvailability\)/);
+assert.match(waiting, /effectiveResultReleasePolicy/);
+assert.match(waiting, /studentResultMessage\(/);
 assert.match(result, /Hasil belum dibuka/);
+assert.doesNotMatch(`${detail}${catalogue}${waiting}`, /Hasil tersedia|Hasilmu sudah tersedia|Menunggu rilis operator/);
 
 console.log("Tryout participant result-release projection passed.");

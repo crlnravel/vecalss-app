@@ -35,6 +35,7 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldInput,
@@ -86,6 +87,7 @@ type SettingsForm = {
   description: string;
   durationMinutes: number | null;
   formBehavior: NonNullable<KaptenQuiz["formBehavior"]>;
+  isOpenEnded: boolean;
   opensAt: string;
   retryDelaySeconds: number | null;
   reviewTiming: NonNullable<KaptenQuiz["reviewTiming"]>;
@@ -112,6 +114,7 @@ function settingsFromQuiz(quiz: KaptenQuiz): SettingsForm {
         ? Math.ceil(quiz.durationSeconds / 60)
         : null,
     formBehavior: quiz.formBehavior ?? "same",
+    isOpenEnded: !quiz.closesAt,
     opensAt: quiz.opensAt ?? "",
     retryDelaySeconds: quiz.retryDelaySeconds ?? null,
     reviewTiming: quiz.reviewTiming ?? "immediate",
@@ -699,16 +702,27 @@ function QuizSettings({
             </FieldLabel>
             <FieldInput
               className={REFERENCE_CONTROL_CLASS_NAMES.input}
-              disabled={disabled}
+              disabled={disabled || form.isOpenEnded}
               id="quiz-settings-closes"
               onChange={(event) => onChange({ closesAt: event.target.value })}
               type="datetime-local"
               value={form.closesAt}
             />
           </Field>
-          <p className="text-sm leading-6 text-secondary-600 sm:col-span-2">
-            Jika dikosongkan, maka kuis terbuka seterusnya
-          </p>
+          <label
+            className={`flex min-h-11 w-fit items-center gap-3 text-sm text-secondary-900 sm:col-span-2 ${
+              disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"
+            }`}
+            htmlFor="quiz-settings-open-ended"
+          >
+            <Checkbox
+              checked={form.isOpenEnded}
+              disabled={disabled}
+              id="quiz-settings-open-ended"
+              onCheckedChange={(checked) => onChange({ isOpenEnded: checked })}
+            />
+            <span className="min-w-0">Buka seterusnya</span>
+          </label>
           <Field>
             <FieldLabel
               className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -803,10 +817,11 @@ function QuizSettings({
 }
 
 function getQuizSettingsErrors(form: SettingsForm) {
+  const closesAt = form.isOpenEnded ? "" : form.closesAt;
   const scheduleError =
     form.opensAt &&
-    form.closesAt &&
-    new Date(form.closesAt) <= new Date(form.opensAt)
+    closesAt &&
+    new Date(closesAt) <= new Date(form.opensAt)
       ? "Waktu tutup harus setelah waktu buka."
       : null;
   const durationError =
@@ -1040,7 +1055,7 @@ function KaptenQuizDetailPageContent({
     try {
       const result = await saveStandaloneQuizAction({
         attemptsAllowed: settings.attemptsAllowed,
-        closesAt: settings.closesAt,
+        closesAt: settings.isOpenEnded ? "" : settings.closesAt,
         correctAnswerVisibility: settings.correctAnswerVisibility,
         description: settings.description,
         durationSeconds:

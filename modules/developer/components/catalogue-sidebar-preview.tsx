@@ -113,7 +113,7 @@ export function SidebarVariantPreview() {
           <SidebarHeader className="gap-3 p-4">
             <div className="flex min-h-10 items-center gap-2 px-2 font-heading text-sm font-semibold text-sidebar-foreground">
               <LayoutGrid aria-hidden="true" className="size-5 shrink-0" />
-              <span className="group-data-[collapsible=icon]:hidden">Vecalss · Contoh</span>
+              <span className="group-data-[collapsible=icon]:hidden">PTN Pro · Contoh</span>
             </div>
             <SidebarInput aria-label="Cari menu contoh" className="min-h-[44px]" placeholder="Cari menu…" />
           </SidebarHeader>

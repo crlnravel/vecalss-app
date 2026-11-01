@@ -119,7 +119,7 @@ function QuizCataloguePageModule({
                   height={464}
                   priority
                   sizes="(min-width: 1280px) 480px, (min-width: 768px) 432px, 352px"
-                  src="/brand/mascot-vecalss.png"
+                  src="/brand/mascot-vecalss-2.png"
                   width={464}
                 />
               </div>

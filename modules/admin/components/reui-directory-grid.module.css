@@ -5,7 +5,7 @@
   font-display: swap;
 }
 
-/* Preserve the ReUI table structure with the requested Vecalss surface styling. */
+/* Preserve the ReUI table structure with the requested PTN Pro surface styling. */
 .root, .popup {
   --directory-ink: var(--voyage-ink);
   --directory-muted: var(--voyage-muted-ink);

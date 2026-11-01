@@ -5,7 +5,7 @@
 
 ## Runtime shape
 
-Vecalss is a strict TypeScript Next.js App Router application. Pages and route
+PTN Pro is a strict TypeScript Next.js App Router application. Pages and route
 handlers live under `app/`; feature projections, forms, and workspace modules
 live under `modules/`; reusable UI primitives live under `components/`; and
 server-side domain services, repositories, authorization, and infrastructure

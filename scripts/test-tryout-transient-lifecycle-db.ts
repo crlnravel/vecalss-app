@@ -50,7 +50,7 @@ async function grants(id: string) {
     assignments: await prisma.tryoutDeliveryAssignment.count({ where: { admission: { tryoutId: id } } }),
   };
 }
-const grant = (fixture: Fixture) => inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, "Isolated lifecycle regression", fixture.sessionId);
+const grant = (fixture: Fixture) => inviteTryoutParticipant(fixture.tryoutId, fixture.studentId, fixture.ownerId, "Isolated lifecycle regression");
 async function expectLeaseError(command: () => Promise<unknown>, code: EditLeaseServiceError["code"]) {
   await assert.rejects(command, (error: unknown) => error instanceof EditLeaseServiceError && error.code === code);
 }
@@ -127,7 +127,8 @@ try {
     assert.deepEqual(await lease(fixture.tryoutId), held, "catalogue commands cannot steal a live editor's claim");
     await setTryoutHidden(fixture.tryoutId, true, fixture.ownerId, proof);
     await setTryoutHidden(fixture.tryoutId, false, fixture.ownerId, proof);
-    await expectLeaseError(() => setTryoutHidden(fixture.tryoutId, true, fixture.ownerId, { ...proof, generation: proof.generation + 1 }), "lease_superseded");
+    // A newer generation from the same live holder reads as another tab having taken the lease over.
+    await expectLeaseError(() => setTryoutHidden(fixture.tryoutId, true, fixture.ownerId, { ...proof, generation: proof.generation + 1 }), "lease_taken_over");
   });
   await expectLeaseError(() => setTryoutHidden(fixture.tryoutId, true, fixture.ownerId, { generation: 1, token: "invalid" }), "invalid_proof");
   assert.equal(await history(fixture.tryoutId), before);
@@ -273,7 +274,7 @@ try {
   const activeHistory = await history(historyFixture.tryoutId);
   await assert.rejects(unpublishTryoutTransient(historyFixture.tryoutId, historyFixture.ownerId), /terkunci/);
   await archiveTryoutTransient(historyFixture.tryoutId, historyFixture.ownerId);
-  await assert.rejects(deleteTryoutTransient(historyFixture.tryoutId, historyFixture.ownerId), /Hanya Tryout draf/);
+  await assert.rejects(deleteTryoutTransient(historyFixture.tryoutId, historyFixture.ownerId), /tidak dapat dihapus/);
   assert.equal(await history(historyFixture.tryoutId), activeHistory, "archive/refused delete preserves active run, saved answer and release pins");
   assert(await getOwnedTryoutOperationsView(historyFixture.tryoutId, historyFixture.ownerId));
   await remember("archivedAttemptWithAnswer", historyFixture);

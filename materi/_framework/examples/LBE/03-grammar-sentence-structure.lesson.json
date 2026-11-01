@@ -1,0 +1,541 @@
+{
+  "title": "MATERI 03 — Grammar & Sentence Structure",
+  "code": "LBE",
+  "subject": "Literasi Bahasa Inggris",
+  "source": "materi/downloaded-from-google-doc/LBE/vecalss_materi_lbe.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "source-page-12",
+      "title": "MATERI 03 — Grammar & Sentence Structure",
+      "continuation": false,
+      "source_pages": [
+        12
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "A. PENGERTIAN & DEFINISI"
+        },
+        {
+          "type": "paragraph",
+          "text": "Dalam ujian Literasi Bahasa Inggris SNBT, tata bahasa (grammar) dan struktur kalimat\n(sentence structure) tidak lagi diuji dalam bentuk pertanyaan hafalan rumus yang kaku\nseperti saat kamu di SMP. Sebaliknya, Grammar & Sentence Structure menguji\nkemampuanmu dalam memahami bagaimana kata-kata dirangkai menjadi kalimat yang\nlogis dan bermakna utuh. Materi ini berfokus pada empat pilar utama: Tenses (penanda\nwaktu kejadian), Subject-Verb Agreement (kesesuaian antara subjek dan kata kerja),\nArticles (penggunaan a, an, the untuk menentukan kejelasan benda), dan\nPrepositions (kata depan yang merangkai letak, waktu, atau hubungan antar kata).\nPada level UTBK/SNBT, kamu akan dituntut untuk membedah kalimat yang sangat\npanjang (seringkali mencapai 3-4 baris) dan menemukan inti dari kalimat tersebut tanpa\ntersesat dalam detail tambahan. Dengan memahami struktur tata bahasa yang benar,\nkamu bisa membaca teks panjang dengan lebih cepat, lebih akurat, dan tidak salah\nmengartikan maksud penulisnya.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B. 4 PILAR UTAMA GRAMMAR SNBT",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Untuk bisa menaklukkan struktur kalimat yang rumit, kamu wajib menguasai empat\npilar utama tata bahasa ini. Pembuat soal SNBT paling sering menyisipkan jebakan di\narea berikut:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Subject-Verb Agreement (Kesesuaian Subjek & Kata Kerja)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Ini adalah aturan paling absolut dalam bahasa Inggris: Subjek Tunggal (Singular)\nharus dipasangkan dengan Kata Kerja Tunggal, dan Subjek Jamak (Plural)\ndipasangkan dengan Kata Kerja Jamak.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Singular Subject: He, She, It, The student, The government, Water\n(Uncountable Nouns selalu dihitung tunggal). Pasangannya: is, was, has, does,\natau Verb 1 + s/es (contoh: reads, analyzes).\n● Plural Subject: They, We, The students, The governments. Pasangannya: are,\nwere, have, do, atau Verb 1 tanpa s/es (contoh: read, analyze).\n● Jebakan SNBT: Subjek dan Kata Kerja sering dipisahkan oleh frasa preposisi\n(contoh: The list of available items is on the desk). Kata items (jamak) hanyalah\npengecoh, subjek aslinya adalah list (tunggal).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Tenses (Penanda Waktu Kejadian)",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-13",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        13
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Kamu tidak perlu menghafal 16 tenses. Di soal literasi membaca, cukup kuasai 4\nkelompok besar ini beserta rumusnya untuk membaca sinyal waktu (time signals):",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Simple Present: Digunakan untuk fakta ilmiah atau kebiasaan umum.\n○ Rumus: Subjek + Verb 1 (-s/-es) ATAU Subjek + is/am/are\n○ Sinyal: usually, generally, nowadays, currently.\n○ Contoh: The human brain consumes a large amount of energy. (Otak\nmanusia mengonsumsi energi dalam jumlah besar).\n● Simple Past: Digunakan untuk kejadian atau sejarah yang sudah 100% selesai\ndi masa lalu.\n○ Rumus: Subjek + Verb 2 ATAU Subjek + was/were\n○ Sinyal: in 1990, during the 19th century, ago, yesterday, last...\n○ Contoh: The researchers discovered the vaccine in 1950. (Para peneliti\nmenemukan vaksin tersebut pada tahun 1950).\n● Present Perfect: Sangat sering muncul di teks SNBT! Digunakan untuk kejadian\nyang dimulai di masa lalu dan efeknya masih berlanjut sampai sekarang atau\nbaru saja selesai.\n○ Rumus: Subjek + has/have + Verb 3\n○ Sinyal: since 2010, for the past decade, over the last few years.\n○ Contoh: Scientists have studied climate change for decades. (Para\nilmuwan telah mempelajari perubahan iklim selama puluhan tahun).\n● Future Perfect: Menunjukkan sesuatu yang akan sudah selesai pada titik waktu\ntertentu di masa depan.\n○ Rumus: Subjek + will + have + Verb 3\n○ Sinyal: by the year 2050, by next month, by the end of this century.\n○ Contoh: By 2050, a large percentage of the polar ice caps will have\nmelted completely. (Menjelang tahun 2050, persentase besar es kutub\nakan sudah mencair sepenuhnya",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Articles (Penggunaan A, An, dan The)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Articles berfungsi memberi kejelasan pada kata benda (noun).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A / An (Indefinite): Digunakan untuk benda tunggal yang belum spesifik atau\nbaru pertama kali disebutkan. 'A' untuk bunyi konsonan (a university, a book),\n'An' untuk bunyi vokal (an hour, an apple).\n● The (Definite): Digunakan untuk benda yang sudah spesifik, sudah disebutkan\nsebelumnya, atau hanya ada satu di dunia (the sun, the government).\n● Zero Article (Tanpa Artikel): Benda jamak umum (Dogs are cute) atau kata\nbenda tak bisa dihitung secara umum (Water is essential).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Prepositions (Kata Depan)",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-14",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        14
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Preposisi (in, on, at, of, with, about) menunjukkan hubungan waktu, tempat, atau logika\nantar kata. Di level SNBT, preposisi sering diuji dalam bentuk Collocation (pasangan\nkata yang sudah paten dan tidak bisa diterjemahkan harfiah dari bahasa Indonesia).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Contoh Collocation paten: depend on (bukan depend to), interested in (bukan\ninterested with), responsible for (bukan responsible to), aware of (bukan aware\nabout)",
+          "small": true
+        },
+        {
+          "type": "heading",
+          "text": "C. CIRI-CIRI & KARAKTERISTIK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal-soal yang menguji Grammar dalam literasi UTBK/SNBT memiliki ciri khas yang\ndirancang untuk mengecoh:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Kalimat Super Panjang (Complex Sentences): Penulis teks akademis suka\nmenggabungkan banyak ide dalam satu kalimat menggunakan anak kalimat\n(who, which, that) atau frasa penjelas.\n● Jebakan Kedekatan Kata (Proximity Traps): Pembuat soal sengaja menaruh\nkata benda jamak tepat sebelum kata kerja, padahal subjek aslinya di awal\nkalimat adalah tunggal (materi Subject-Verb Agreement).\n● Keterikatan Waktu yang Tersirat: Tenses kadang diuji lewat konteks kalimat\ntanpa time signal yang jelas, mengharuskan kamu membaca kalimat\nsebelum/sesudahnya untuk tahu apakah ini sedang membahas sejarah (Past)\natau isu terkini (Present)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D. CARA MENGERJAKAN / STRATEGI (Metode S.C.A.N)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Gunakan metode S.C.A.N berikut untuk membedah keempat pilar grammar dengan\ncepat:",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "1. S - Subject and Verb Core (Cari Inti Subjek & Kata Kerja): Setiap kalimat\nwajib punya satu Subjek utama dan satu Kata Kerja utama. Abaikan sementara\nfrasa preposisi (kata yang diawali of, in, with) dan teks di dalam dua koma ( ,..., ).\n2. C - Cross-check Agreement (Cek Kesesuaian): Tarik garis maya dari Subjek\nutama ke Verb utama. Jika Subjek tunggal, pastikan Verb pakai akhiran -s/-es\natau is/has. Jika jamak, pastikan tanpa akhiran -s atau pakai are/have.\n3. A - Articles and Prepositions (Amati Artikel dan Preposisi): Cek kata benda\nsetelah celah kosong (kalau itu soal fill in the blank). Apakah butuh The atau\nA/An? Perhatikan juga kata sebelum celah, apakah itu kata kerja yang butuh\npreposisi paten (collocation).\n4. N - Notice the Time Frame (Perhatikan Rentang Waktu): Jadilah detektif\nwaktu. Pindai kalimat untuk mencari sinyal waktu seperti since, in 20th century,\natau nowadays untuk langsung mengeliminasi opsi tenses yang salah arah.",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-15",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        15
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "E. CONTOH SOAL BESERTA PEMBAHASAN"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 1: Subject-Verb Agreement",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: \"The extensive collection of ancient artifacts, including gold coins, rare\nmanuscripts, and ceremonial weapons, _____ carefully preserved in the national\nmuseum.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: Choose the correct verb to complete the sentence!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) are",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) were",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) is",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) have been",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) be",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: C",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "●  Inti kalimat: Subjek utamanya adalah \"The extensive collection\" (tunggal). Frasa\n\"of ancient artifacts\" adalah preposisi pengecoh, dan \"including... weapons\"\nadalah informasi tambahan yang diapit koma. Karena subjeknya tunggal\n(collection), kita butuh verb tunggal.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) are: Salah. Pengecoh untuk siswa yang melihat kata terdekat \"weapons\".",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) were: Salah. Ini untuk subjek jamak di masa lalu.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) is: Benar. Kata kerja tunggal yang tepat.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) have been: Salah. Kata bantu \"have\" untuk jamak, seharusnya \"has been\".",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) be: Salah. Tidak sesuai kaidah struktur dasar kalimat.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 2: Tenses",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: \"Climate scientists warn that if the global temperature continues to rise at the\ncurrent rate, a large percentage of the polar ice caps _____ completely by the year\n2050.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: Which option best completes the sentence?",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) will melt",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) is melting",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) melted",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) will have melted",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) has melted",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-16",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        16
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: D",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Petunjuk Waktu: Terdapat frasa \"by the year 2050\" (menjelang tahun 2050).\nKata \"by\" ditambah waktu masa depan mutlak meminta Future Perfect Tense\n(akan sudah selesai).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) will melt: Salah. Hanya kejadian masa depan umum, tidak merujuk pada\n\"keselesaian\" batas waktu.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) is melting: Salah. Kejadian yang sedang berlangsung saat ini.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) melted: Salah. Masa lalu (Past Tense).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) will have melted: Benar. Sesuai rumus Future Perfect (will + have + V3). Es\ntersebut akan sudah mencair pada saat kita tiba di tahun 2050.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) has melted: Salah. Ini Present Perfect, artinya sudah selesai di masa\nsekarang, bukan 2050.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 3: Articles",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: \"To understand how memory works, Dr. Aris is currently conducting a study on\n_____ human brain using _____ advanced MRI scanner.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: Choose the correct articles to fill in the blanks!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) a / the",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) the / an",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) - (no article) / a",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) the / the",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) a / an",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: B",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Celah pertama: \"human brain\". Karena organ tubuh manusia dalam konteks\nkeilmuan merujuk pada satu spesies spesifik secara keseluruhan, kita wajib\nmenggunakan Definite Article (the).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● Celah kedua: \"advanced MRI scanner\". Scanner ini baru disebutkan secara\numum (sebuah alat scanner). Kata \"advanced\" diawali bunyi vokal /a/, jadi kita\nharus menggunakan an.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) a / the: Salah terbalik konteks kejelasannya.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) the / an: Benar. The human brain (spesifik organ) dan an advanced scanner\n(bunyi vokal, benda belum spesifik).",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) - / a: Salah ganda, butuh the dan bunyi awalnya vokal.",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-17",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        17
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "● D) the / the: Salah. Kita belum membahas MRI scanner yang mana, jadi tidak\nbisa pakai the di celah kedua.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) a / an: Salah di celah pertama.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal 4: Prepositions (Collocations)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks: \"Despite the initial challenges, the startup became highly successful because its\nyoung CEO was incredibly dedicated _____ improving customer satisfaction.\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Question: Fill in the blank with the appropriate preposition!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "A) for",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "B) on",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "C) to",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "D) in",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "E) with",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan Opsi Soal 4: Jawaban Benar: C",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "●  Ini adalah soal Collocation mutlak. Kata sifat \"dedicated\" (berdedikasi) selalu\nberpasangan dengan preposisi \"to\".",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● A) for: Salah. Terjemahan harfiah dari \"berdedikasi untuk\". Ini jebakan translasi\nbahasa Indonesia!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● B) on: Salah.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● C) to: Benar. Dedicated to, committed to, addicted to adalah pasangan paten\nbahasa Inggris.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● D) in: Salah.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "● E) with: Salah\n🦆 VECO TIPS — Cara Cepat & Trik Khusus",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "💡 Veco Tips: Detektor Subjek Palsu (Jurus Coret Preposisi!)",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Kwek! Pembuat soal UTBK hobi banget nyelipin kata jamak buat nutupin subjek\ntunggal. Kalau kamu lihat preposisi (in, of, on, at, with, between) setelah subjek\npertama, langsung coret secara mental semua kata di belakang preposisi itu sampai\nketemu Verb! Misalnya: \"The box (of chocolates) is on the table.\" Coret (of\nchocolates)-nya, otomatis mata kamu akan melihat subjek aslinya cuma \"The box\"\n(Tunggal = is). Bebas jebakan deh!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "💡 Veco Tips: Mesin Waktu \"Since\" & \"For\"",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "Gak punya waktu baca teks utuh cuma buat nebak Tenses? Kwek! Jadilah detektif\nsinyal. Kalau matamu nangkap kata \"since\" (sejak) atau \"for\" (selama) yang diikuti",
+          "small": true
+        }
+      ]
+    },
+    {
+      "id": "source-page-18",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        18
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "rentang waktu, 95% kalimat itu minta Present Perfect (polanya: has/have + Verb 3).\nGak usah ragu, kalau lihat sinyal ini, langsung cari opsi yang ada have/has-nya di\njawaban!\n⚠ Kesalahan Umum yang Sering Terjadi",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "•  Menerjemahkan Preposisi Mentah-mentah dari Bahasa Indonesia: Ini\nkesalahan fatal! Jangan pakai logika bahasa Indonesia. Contoh: \"Bergantung\npada\" sering diterjemahkan \"depend to\" (salah, harusnya \"depend on\"). Atau\n\"Takut akan\" jadi \"afraid for\" (salah, harusnya \"afraid of\"). Biasakan membaca\ndan menghafal collocation bahasa Inggris yang baku.",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "•  Mengabaikan Kelas Kata pada Penggunaan Artikel: Siswa sering lupa bahwa\nkata benda tunggal yang bisa dihitung (Countable Nouns seperti student, car,\nteam) tidak boleh berdiri sendiri tanpa pendamping. Kata tersebut wajib\ndiawali Article (a, an, the). Jika di opsi jawaban ada benda tunggal yang\ndibiarkan \"telanjang\" tanpa artikel, bisa dipastikan opsi itu salah secara tata\nbahasa!",
+          "small": true
+        },
+        {
+          "type": "paragraph",
+          "text": "•  Sindrom Terkecoh Kata Terdekat (Proximity Error): Saat menentukan apakah\nharus pakai is/are, mata siswa sering hanya melihat satu kata persis di sebelah\nkiri titik-titik soal. Padahal, pada kalimat panjang level SNBT, kata di sebelah kiri\nitu hanyalah pelengkap atau anak kalimat. Wajib baca mundur ke awal kalimat\nuntuk mencari pelaku utamanya",
+          "small": true
+        }
+      ]
+    }
+  ]
+}

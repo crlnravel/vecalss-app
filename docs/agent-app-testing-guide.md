@@ -1,6 +1,6 @@
 # Agent Application Testing Guide
 
-This guide defines how AI agents and automated workflows should test the Vecalss application. It covers seeded credentials, role portals, and the disposable development database policy.
+This guide defines how AI agents and automated workflows should test the PTN Pro application. It covers seeded credentials, role portals, and the disposable development database policy.
 
 ---
 

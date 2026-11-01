@@ -136,13 +136,13 @@ function AuditLogsPageModule({ entries, now, page, pageCount, pageSize, query, r
   }
 
   return (
-    <PortalShell activeAdminSection="audit-logs" audience="admin" description="Periksa aktivitas yang tercatat di Vecalss." session={session} title="Riwayat audit">
+    <PortalShell activeAdminSection="audit-logs" audience="admin" description="Periksa aktivitas yang tercatat di PTN Pro." session={session} title="Riwayat audit">
       <section aria-labelledby="audit-log-title" className="mx-auto w-full max-w-2xl">
         <div className="mb-6 flex flex-col gap-4">
           <header className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h1 className="font-heading text-xl font-semibold tracking-tight text-secondary-900" id="audit-log-title">Riwayat audit</h1>
-              <p className="text-sm leading-5 text-secondary-600">{total.toLocaleString("id-ID")} aktivitas tercatat di Vecalss</p>
+              <p className="text-sm leading-5 text-secondary-600">{total.toLocaleString("id-ID")} aktivitas tercatat di PTN Pro</p>
             </div>
             <div className="flex max-w-full flex-wrap items-center gap-2">
               <DropdownMenu>

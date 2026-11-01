@@ -6,7 +6,7 @@ import { getStudentVideoGalleryItems } from "@/lib/video/repository";
 import { VideoGalleryPageModule } from "@/modules/student/VideoGalleryPageModule";
 
 export const metadata: Metadata = {
-  title: "Galeri Video | Vecalss LMS",
+  title: "Galeri Video | PTN Pro LMS",
   description: "Video pembelajaran pilihan Kapten untuk menemani perjalanan belajarmu.",
 };
 

@@ -31,9 +31,9 @@ const sportsWorld = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Vecalss Learning Academy | Misi Belajar Konsisten Menuju PTN",
+  title: "PTN Pro | Misi Belajar Konsisten Menuju PTN",
   description:
-    "Vecalss mendampingi siswa Indonesia menyiapkan perjalanan menuju PTN melalui struktur belajar, konsistensi, dan mentoring yang terarah.",
+    "PTN Pro mendampingi siswa Indonesia menyiapkan perjalanan menuju PTN melalui struktur belajar, konsistensi, dan mentoring yang terarah.",
 };
 
 export default function RootLayout({

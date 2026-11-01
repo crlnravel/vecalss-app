@@ -11,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Affiliator | Admin Vecalss",
+  title: "Affiliator | Admin PTN Pro",
 };
 
 const affiliatorSelect = {

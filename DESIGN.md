@@ -220,6 +220,7 @@ focused file that matches the work:
 | Validation hierarchy and transient notifications | [Feedback](docs/design-guidelines/feedback.md) |
 | Dropdowns, approved tables, responsive overflow, and TanStack boundaries | [Operations](docs/design-guidelines/operations.md) |
 | Parent navigation and the learning-journey node | [Navigation](docs/design-guidelines/navigation.md) |
+| Task clarity, choice, cognitive load, grouping, progress, and recovery | [UX guidelines](docs/design-guidelines/ux.md) |
 | Cross-cutting product rules and anti-patterns | [Principles](docs/design-guidelines/principles.md) |
 
 Use the narrowest relevant file during implementation, and read the neighboring

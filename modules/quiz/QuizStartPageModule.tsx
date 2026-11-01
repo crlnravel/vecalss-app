@@ -47,7 +47,7 @@ function QuizStartPageModule({
   const retryAvailableAtLabel = startAvailability.kind === "retry-wait"
     ? RETRY_AVAILABLE_AT_FORMATTER.format(new Date(startAvailability.retryAvailableAt))
     : null;
-  const stats = getPolicyStats(quiz.questionCount, quiz.duration, policy);
+  const stats = getQuizStats(quiz.questionCount, quiz.duration);
 
   async function start() {
     if (isStarting) return;
@@ -88,7 +88,7 @@ function QuizStartPageModule({
           sudah siap!
         </p>
         <dl className="mt-7 space-y-3 text-sm text-secondary-700">
-          {stats.map((stat) => <PolicyStat key={stat.label} {...stat} />)}
+          {stats.map((stat) => <QuizStat key={stat.label} {...stat} />)}
         </dl>
         <QuizAvailabilityStatus policy={policy} retryAvailableAtLabel={retryAvailableAtLabel} startAvailability={startAvailability} />
         <QuizStartActions
@@ -104,26 +104,10 @@ function QuizStartPageModule({
   );
 }
 
-function getPolicyStats(questionCount: number, duration: string, policy: QuizStartPolicy) {
-  const scorePolicyLabels: Record<QuizStartPolicy["scorePolicy"], string> = {
-    highest: "Tertinggi",
-    latest: "Terbaru",
-    first: "Pertama",
-    average: "Rata-rata",
-  };
-  const reviewTimingLabels: Record<QuizStartPolicy["reviewTiming"], string> = {
-    immediate: "Langsung",
-    after_close: "Setelah ditutup",
-    never: "Tidak tersedia",
-  };
+function getQuizStats(questionCount: number, duration: string) {
   return [
     { label: "Jumlah soal", value: `${questionCount} soal` },
     { label: "Waktu", value: duration || "Tanpa batas waktu" },
-    { label: "Kesempatan", value: policy.attemptsAllowed === null ? "Tanpa batas" : `${policy.attemptsAllowed} kali` },
-    { label: "Skor kamu", value: scorePolicyLabels[policy.scorePolicy] },
-    { label: "Urutan soal", value: policy.formBehavior === "fresh_randomized" ? "Acak" : "Tetap" },
-    { label: "Cek jawaban", value: reviewTimingLabels[policy.reviewTiming] },
-    { label: "Kunci jawaban", value: policy.correctAnswerVisibility === "hide" ? "Disembunyikan" : "Ditampilkan" },
   ];
 }
 
@@ -188,7 +172,7 @@ function getQuizStartLabel(availability: QuizStartAvailability, isStarting: bool
   return availability.kind === "resume" ? "Lanjutkan kuis" : "Mulai kuis";
 }
 
-function PolicyStat({ label, value }: { label: string; value: string }) {
+function QuizStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap gap-x-1">
       <dt>{label}:</dt>

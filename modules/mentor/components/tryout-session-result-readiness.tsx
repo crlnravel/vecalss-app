@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, RefreshCw } from "@/lib/icons";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { AlertTriangle, ArrowRight } from "@/lib/icons";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { groupReadinessBlockers, formatBlockerSections } from "@/lib/tryout/readiness-blocker-groups";
 import { buildMentorTryoutAttemptHref, type MentorTryoutContext } from "@/lib/navigation/canonical-context";
 import { readTryoutSessionReadiness, type TryoutResultReadinessScope, type TryoutSessionReadiness } from "@/lib/tryout/result-readiness";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
+import { TryoutPublishBlockedHelp } from "@/modules/mentor/components/tryout-publish-blocked-help";
+import { describePublishBlockedReason } from "@/lib/tryout/result-release-status";
 import { TryoutResultPolicyForm } from "@/modules/mentor/components/tryout-result-policy-form";
 import { TryoutResultPublication } from "@/modules/mentor/components/tryout-result-publication";
 
@@ -24,7 +26,7 @@ async function inspect(scope: TryoutResultReadinessScope) {
 }
 
 /** Full selected session; table search/filter/page never enter this request. */
-export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tryout", allowPublication = false, compact = false, sessionPicker, manageHref }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext; tryoutTitle?: string; allowPublication?: boolean; compact?: boolean; sessionPicker?: ReactNode; manageHref?: string }) {
+export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tryout", allowPublication = false, compact = false }: { scope: TryoutResultReadinessScope; context: MentorTryoutContext; tryoutTitle?: string; allowPublication?: boolean; compact?: boolean }) {
   const [snapshot, setSnapshot] = useState<TryoutSessionReadiness | null>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,9 +48,10 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
   }
   const allGroups = snapshot ? groupReadinessBlockers(snapshot.blockers) : [];
   const blockerGroups = allGroups.filter((group) => group.attemptId);
-  const sessionNotes = allGroups.filter((group) => !group.attemptId).flatMap((group) => group.lines.map((line) => line.message));
-  const excluded = snapshot ? [[snapshot.counts.void, "dibatalkan"], [snapshot.counts.abandoned, "ditinggalkan"], [snapshot.counts.noAttempt, "belum mengerjakan"]].filter(([count]) => Number(count) > 0).map(([count, label]) => `${count} ${label}`) : [];
+  // Nothing to act on or read yet (e.g. a draft Tryout whose rule cannot be changed): skip the card.
+  const hasContent = Boolean(snapshot && (snapshot.policy.editable || snapshot.publication || blockerGroups.length || snapshot.effectivePolicy === "manual"));
   const visibleGroups = showAllBlockers ? blockerGroups : blockerGroups.slice(0, BLOCKER_PREVIEW);
+  const blockedReason = snapshot ? describePublishBlockedReason(snapshot, !loading) : null;
   if (compact) {
     if (!allowPublication) return null;
     return <div className="mb-5 flex min-w-0 flex-wrap items-center justify-end gap-3">
@@ -57,42 +60,19 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
         <Button variant="outline" disabled={loading} onClick={() => void refresh().catch(() => {})}>{loading ? "Memuat…" : "Muat ulang"}</Button>
       </div> : null}
       {snapshot ? <TryoutResultPublication compact initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : <Button disabled>Rilis hasil</Button>}
+      {snapshot && !failed && blockedReason ? <TryoutPublishBlockedHelp reason={blockedReason} /> : null}
     </div>;
   }
+  if (!failed && !hasContent) return null;
   return (
-    <ReferenceSurface as="section" className="mt-4 grid min-w-0 grid-cols-1 gap-5 p-4 sm:p-5" aria-labelledby="session-readiness-title">
+    <ReferenceSurface as="section" className="mb-5 grid min-w-0 grid-cols-1 gap-5 p-4 sm:p-5" aria-labelledby="session-readiness-title">
       <h2 id="session-readiness-title" className="sr-only">Kesiapan hasil sesi</h2>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1 sm:flex-none">{sessionPicker}</div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button variant="quiet" size="icon" aria-label="Perbarui kesiapan" title="Perbarui kesiapan" disabled={loading} onClick={() => void refresh().catch(() => {})}>
-            <RefreshCw className={loading ? "animate-spin motion-reduce:animate-none" : undefined} aria-hidden="true" />
-          </Button>
-          {manageHref ? <Button variant="outline" aria-label="Kelola peserta" render={<Link href={manageHref} />}><span>Kelola<span className="hidden sm:inline"> peserta</span></span></Button> : null}
-        </div>
-      </div>
-      {failed ? <p className="text-sm leading-6 text-secondary-700">Kesiapan terbaru belum dapat dimuat. Perbarui kesiapan sebelum melanjutkan.</p> : null}
+      {failed ? <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm leading-6 text-secondary-700">Kesiapan terbaru belum dapat dimuat. Muat ulang sebelum melanjutkan.</p>
+        <Button variant="outline" disabled={loading} onClick={() => void refresh().catch(() => {})}>{loading ? "Memuat…" : "Muat ulang"}</Button>
+      </div> : null}
       {snapshot ? (
         <>
-          <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-t border-primary-100 pt-4 text-sm leading-6">
-            {snapshot.counts.candidates > 0 ? (
-              <div className="min-w-0">
-                <dt className="text-xs text-secondary-600">Pengerjaan</dt>
-                <dd className="font-medium tabular-nums text-secondary-900">{snapshot.counts.ready} dari {snapshot.counts.candidates} siap</dd>
-              </div>
-            ) : null}
-            <div className="min-w-0">
-              <dt className="text-xs text-secondary-600">Selesai</dt>
-              <dd className="break-words font-medium text-secondary-900">{formatTryoutDateTime(snapshot.availableUntil)} WIB</dd>
-            </div>
-            {excluded.length ? (
-              <div className="col-span-2 min-w-0">
-                <dt className="text-xs text-secondary-600">Tidak disertakan</dt>
-                <dd className="text-secondary-700">{excluded.join(" · ")}</dd>
-              </div>
-            ) : null}
-          </dl>
-          {sessionNotes.map((note) => <p key={note} className="-mt-2 text-sm leading-6 text-secondary-600">{note}</p>)}
           {snapshot.publication && (!allowPublication || !snapshot.publication.receipt) ? (
             <p className="break-words text-sm leading-6 text-secondary-700">Hasil dirilis {formatTryoutDateTime(snapshot.publication.releasedAt)} WIB. Alasan: {snapshot.publication.reason ?? "Tercatat pada riwayat sesi."}</p>
           ) : null}
@@ -130,7 +110,7 @@ export function TryoutSessionResultReadiness({ scope, context, tryoutTitle = "Tr
           {allowPublication ? <TryoutResultPublication initial={snapshot} tryoutTitle={tryoutTitle} available={!loading && !failed} refresh={refresh} /> : null}
           <TryoutResultPolicyForm initial={snapshot} refresh={refresh} />
         </>
-      ) : !loading && !failed ? <p className="text-sm text-secondary-700">Ringkasan hasil belum tersedia.</p> : null}
+      ) : null}
     </ReferenceSurface>
   );
 }

@@ -9,7 +9,7 @@ import { SettingsPageModule } from "@/modules/student/SettingsPageModule";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Profil | Vecalss LMS",
+  title: "Profil | PTN Pro LMS",
 };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {

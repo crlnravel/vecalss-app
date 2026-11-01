@@ -11,7 +11,7 @@ import {
 } from "@/lib/navigation/canonical-context";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Buat Tryout Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Buat Tryout Kapten | PTN Pro LMS" };
 
 export default async function CreateTryoutPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
   const [query, session] = await Promise.all([

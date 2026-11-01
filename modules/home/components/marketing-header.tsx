@@ -12,9 +12,10 @@ type MarketingHeaderProps = {
 
 const landingNavItems = [
   { href: "/#about", label: "Tentang" },
-  { href: "/#program", label: "Program" },
+  { href: "/#program", label: "Fitur" },
   { href: "/#learning-loop", label: "Cara belajar" },
   { href: "/#alumni", label: "Alumni" },
+  { href: "/pricing", label: "Harga" },
 ];
 
 function LandingHeader() {
@@ -22,7 +23,7 @@ function LandingHeader() {
     <header className="home-landing-header fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-[1040px] -translate-x-1/2 rounded-[16px] border border-[var(--voyage-deep)]/10 bg-white/96 shadow-[0_16px_44px_-30px_rgba(1,76,56,0.5)]">
       <div className="flex h-16 items-center justify-between gap-3 px-2.5 pl-4">
         <Link
-          aria-label="Beranda Vecalss"
+          aria-label="Beranda PTN Pro"
           className="inline-flex min-h-11 shrink-0 items-center gap-2.5"
           href="/"
         >
@@ -33,14 +34,14 @@ function LandingHeader() {
               loading="eager"
               className="object-contain"
               sizes="28px"
-              src="/brand/logo-mark-cropped.png"
+              src="/brand/mascot-vecalss-2.png"
             />
           </span>
           <span
             className="text-base font-normal uppercase leading-none tracking-[0.08em] text-[var(--voyage-deep)]"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
-            Vecalss
+            PTN Pro
           </span>
         </Link>
 
@@ -118,7 +119,7 @@ function MarketingHeader({
         className={`mx-auto flex w-full max-w-[1440px] items-center justify-between border-b px-4 py-4 md:px-8 lg:px-10 lg:py-4 ${isDark ? "border-white/12" : "border-[var(--voyage-deep)]/10"}`}
       >
         <Link
-          aria-label="Beranda Vecalss"
+          aria-label="Beranda PTN Pro"
           className={`group inline-flex min-h-12 items-center gap-3 rounded-[10px] pr-3 transition-opacity hover:opacity-80 ${isDark ? "text-white" : "text-[var(--voyage-deep)]"}`}
           href="/"
         >
@@ -129,14 +130,14 @@ function MarketingHeader({
               priority
               className="object-contain"
               sizes="44px"
-              src="/brand/logo-mark-cropped.png"
+              src="/brand/mascot-vecalss-2.png"
             />
           </span>
           <span
             className={`text-xl font-normal leading-none tracking-[0.08em] uppercase md:text-3xl ${isDark ? "text-white" : "text-[var(--voyage-deep)]"}`}
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
-            VECALSS
+            PTN PRO
           </span>
         </Link>
 

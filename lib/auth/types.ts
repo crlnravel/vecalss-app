@@ -3,6 +3,7 @@ import type { OnboardingStatus, RoleName, UserStatus } from "@/generated/prisma/
 type LoginAudience = "student" | "tutor" | "admin" | "affiliator" | "developer";
 
 type AuthenticatedUser = {
+  avatarUrl?: string | null;
   email: string;
   fullName: string;
   id: string;

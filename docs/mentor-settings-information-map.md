@@ -4,7 +4,7 @@
 
 ## Purpose and scope
 
-Kapten can edit their profile name, inspect account information, and choose the teaching subject used as the initial quiz-table filter. The page borrows the profile summary, slim left navigation, and divided label/value rows from [ReUI solution-users-2](https://reui.io/preview/base/solution-users-2), using Vecalss components and design tokens.
+Kapten can edit their profile name, inspect account information, and choose the teaching subject used as the initial quiz-table filter. The page borrows the profile summary, slim left navigation, and divided label/value rows from [ReUI solution-users-2](https://reui.io/preview/base/solution-users-2), using PTN Pro components and design tokens.
 
 The login email is account information. It is not editable here because it is the credential used by the authentication service. The teaching subject now affects the quiz table; content language remains omitted because it has no runtime consumer.
 

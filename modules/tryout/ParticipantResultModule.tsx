@@ -164,7 +164,7 @@ function getParticipantResultModel(result: ReleasedResult, currentQuestion: numb
 
 function useParticipantResultLoader(attemptId: string) {
   const [result, setResult] = useState<Result | null>(null);
-  const [loadState, setLoadState] = useState<"error" | "loading" | "ready">("loading");
+  const [loadState, setLoadState] = useState<"error" | "loading" | "ready" | "review">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -173,7 +173,7 @@ function useParticipantResultLoader(attemptId: string) {
     try {
       const response = await participantTryoutResultAction(attemptId);
       if (!response.ok) {
-        setLoadState("error");
+        setLoadState(response.kind === "review" ? "review" : "error");
         setLoadError(response.message);
         return;
       }
@@ -203,9 +203,12 @@ function ParticipantResultLoadState({
 }: {
   load: () => Promise<void>;
   loadError: string | null;
-  loadState: "error" | "loading" | "ready";
+  loadState: "error" | "loading" | "ready" | "review";
   safeReturnHref: string;
 }) {
+  if (loadState === "review") {
+    return <TypedRouteState className="student-page-canvas" context="Jawabanmu tetap tersimpan. Kapten dapat melihat status ini di daftar peserta. Buka lagi nanti; memuat ulang sekarang tidak akan mengubah hasilnya." description="Hasil Tryout ini sudah dirilis, tetapi belum bisa ditampilkan karena Kapten perlu memeriksanya lebih dulu." kind="unavailable" returnHref={safeReturnHref} returnLabel="Kembali ke Tryout" title="Hasilmu sedang diperiksa Kapten" />;
+  }
   if (loadState === "error") {
     return <TypedRouteState className="student-page-canvas" context="Data pengerjaan tetap ada saat kamu mencoba lagi." description={loadError ?? "Hasil Tryout belum berhasil dimuat. Periksa koneksi lalu coba lagi."} kind="error" onRetry={() => void load()} returnHref={safeReturnHref} returnLabel="Kembali ke Tryout" title="Hasil Tryout belum dapat dimuat" />;
   }
@@ -297,7 +300,7 @@ function ParticipantResultReviewPanel({
 }
 
 function ParticipantResultPerformance({ runMetrics }: { runMetrics: ResultRunMetric[] }) {
-  return <section className="rounded-card border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-7"><div className="flex flex-wrap items-end justify-between gap-3 border-b border-primary-100 pb-4"><div><p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-primary-700 uppercase"><TrendUp className="size-4" />Performa subtes</p><h2 className="mt-2 text-xl font-semibold text-secondary-900">Peta hasil per bagian</h2></div><p className="text-xs text-secondary-500">Indeks dan akurasi untuk evaluasi Vecalss</p></div><div className="mt-5 grid gap-5">{runMetrics.map((run) => { const normalizedScore = run.calculation?.normalizedScore; return <article key={`${run.subtest}-${run.sectionTitle}`}><div className="flex items-end justify-between gap-4"><div className="min-w-0"><h3 className="font-semibold">{run.subtest}</h3><p className="mt-1 text-xs text-secondary-500">{run.subtestName} · {run.testType.toUpperCase()}</p></div><div className="shrink-0 text-right"><p className="font-mono text-lg font-semibold">{typeof normalizedScore === "number" ? normalizedScore.toFixed(2) : "—"}</p><p className="text-xs text-secondary-500">indeks · {run.accuracy}% akurasi</p></div></div><div aria-label={`Akurasi ${run.subtest} ${run.accuracy} persen`} className="mt-3 h-2 overflow-hidden rounded-full bg-secondary-100" role="img"><div className="h-full rounded-full bg-primary-700" style={{ width: `${run.accuracy}%` }} /></div><p className="mt-2 text-xs text-secondary-500">{run.correct} benar · {run.wrong} salah · {run.blank} kosong{run.timeSpentSeconds !== null ? ` · ${formatTime(run.timeSpentSeconds)}` : ""}</p></article>; })}</div></section>;
+  return <section className="rounded-card border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_color-mix(in_oklab,var(--voyage-deep)_55%,transparent)] sm:p-7"><div className="flex flex-wrap items-end justify-between gap-3 border-b border-primary-100 pb-4"><div><p className="flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-primary-700 uppercase"><TrendUp className="size-4" />Performa subtes</p><h2 className="mt-2 text-xl font-semibold text-secondary-900">Peta hasil per bagian</h2></div><p className="text-xs text-secondary-500">Indeks dan akurasi untuk evaluasi PTN Pro</p></div><div className="mt-5 grid gap-5">{runMetrics.map((run) => { const normalizedScore = run.calculation?.normalizedScore; return <article key={`${run.subtest}-${run.sectionTitle}`}><div className="flex items-end justify-between gap-4"><div className="min-w-0"><h3 className="font-semibold">{run.subtest}</h3><p className="mt-1 text-xs text-secondary-500">{run.subtestName} · {run.testType.toUpperCase()}</p></div><div className="shrink-0 text-right"><p className="font-mono text-lg font-semibold">{typeof normalizedScore === "number" ? normalizedScore.toFixed(2) : "—"}</p><p className="text-xs text-secondary-500">indeks · {run.accuracy}% akurasi</p></div></div><div aria-label={`Akurasi ${run.subtest} ${run.accuracy} persen`} className="mt-3 h-2 overflow-hidden rounded-full bg-secondary-100" role="img"><div className="h-full rounded-full bg-primary-700" style={{ width: `${run.accuracy}%` }} /></div><p className="mt-2 text-xs text-secondary-500">{run.correct} benar · {run.wrong} salah · {run.blank} kosong{run.timeSpentSeconds !== null ? ` · ${formatTime(run.timeSpentSeconds)}` : ""}</p></article>; })}</div></section>;
 }
 
 function ParticipantResultFocus({ weakRuns }: { weakRuns: ResultRunMetric[] }) {

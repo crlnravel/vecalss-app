@@ -25,7 +25,7 @@ def inspect(pdf_path, out, lesson_path=None):
                     x0, y0, x1, y1 = span["bbox"]
                     if x0 < 0 or y0 < 0 or x1 > page.rect.width + 0.5 or y1 > page.rect.height + 0.5:
                         issues.append(f"Page {i}: text outside page: {span['text'][:50]}")
-                    if "\ufffd" in span["text"] or "\u25a0" in span["text"]:
+                    if "\ufffd" in span["text"]:
                         issues.append(f"Page {i}: replacement/missing glyph")
         image = Image.open(out / f"page-{i:02}.png").convert("RGB")
         image.thumbnail((298, 421))

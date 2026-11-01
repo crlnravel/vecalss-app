@@ -9,7 +9,7 @@ import {
   getLoginPathForAudience,
   requireSession,
 } from "@/lib/auth/access";
-import { getSafeAdminReturnPath } from "@/lib/auth/paths";
+import { getSafeLoginReturnPath } from "@/lib/auth/paths";
 import {
   changePasswordForUser,
   completePasswordReset,
@@ -122,13 +122,13 @@ async function handleLoginAction(
   }
 
   const destination = !result.user.mustChangePassword
-    ? getSafeAdminReturnPath(formData.get("returnTo"))
+    ? getSafeLoginReturnPath(formData.get("returnTo"))
     : null;
   redirect(destination ?? getDefaultHomePath(result.user));
 }
 
 /**
- * The public login page accepts any active Vecalss role. The authenticated
+ * The public login page accepts any active PTN Pro role. The authenticated
  * user's role assignments determine the destination through getDefaultHomePath.
  */
 async function loginAction(previousState: FormState, formData: FormData): Promise<FormState> {
@@ -145,7 +145,7 @@ async function forgotPasswordAction(
   if (!email) {
     return withFieldError(
       { email },
-      "Masukkan email yang terhubung dengan akun Vecalss.",
+      "Masukkan email yang terhubung dengan akun PTN Pro.",
       { email: "Masukkan email akunmu." },
     );
   }
@@ -157,7 +157,7 @@ async function forgotPasswordAction(
       fields: { email: "" },
       message: result.deliveredResetUrl
         ? "Tautan pengaturan ulang kata sandi sudah siap. Buka tautan di bawah untuk melanjutkan."
-        : "Tautan pengaturan ulang belum tersedia di halaman ini. Hubungi admin Vecalss untuk meminta bantuan.",
+        : "Tautan pengaturan ulang belum tersedia di halaman ini. Hubungi admin PTN Pro untuk meminta bantuan.",
       resetUrl: result.deliveredResetUrl ?? undefined,
       status: "success",
     };

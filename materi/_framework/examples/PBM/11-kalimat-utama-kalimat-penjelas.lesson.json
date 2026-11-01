@@ -1,0 +1,817 @@
+{
+  "title": "MATERI 11 — Kalimat Utama & Kalimat Penjelas",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/11 - Kalimat Utama & Kalimat Pendukung.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "material-11-page-01",
+      "title": "MATERI 11 — Kalimat Utama & Kalimat Penjelas",
+      "continuation": false,
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
+        },
+        {
+          "type": "heading",
+          "text": "A. Kalimat Utama"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat utama adalah kalimat yang memuat gagasan utama dan menjadi dasar"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengembangan paragraf. Kalimat utama biasanya memiliki cakupan makna yang lebih"
+        },
+        {
+          "type": "paragraph",
+          "text": "umum daripada kalimat penjelas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri-Ciri Kalimat Utama:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Mengandung gagasan utama."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Bersifat relatif umum."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Dapat menjadi dasar pengembangan kalimat lainnya."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Dapat berada di awal, akhir, atau bagian tertentu dari paragraf."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            " Tidak bergantung pada rincian kalimat penjelas untuk mengetahui inti"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "pembahasan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kalimat utama dapat berdiri sendiri saat dibaca tanpa kalimat penjelas."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Posisi penempatan kalimat utama sama dengan posisi penempatan gagasan utama"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang sudah dibahasa sebelumnya: deduktif (di awal paragraf), induktif (di akhir"
+        },
+        {
+          "type": "paragraph",
+          "text": "paragraf), campuran (awal & akhir paragraf), serta ineratif (di tengah paragraf)."
+        },
+        {
+          "type": "heading",
+          "text": "B. Kalimat Penjelas"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat penjelas adalah kalimat yang berfungsi mengembangkan, menjelaskan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "merinci, membuktikan, atau memberikan contoh terhadap kalimat utama. Dalam teks,"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat penjelas dapat berupa fakta, data, contoh, alasan, penjelasan, akibat,"
+        },
+        {
+          "type": "paragraph",
+          "text": "perbandingan, maupun ilustrasi yang tujuannya menjelaskan/merinci gagasan utama"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang sedang dibahas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri-Ciri Kalimat Penjelas:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Mengandung gagasan penjelas."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Bersifat lebih khusus dan rinci."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            " Hubungannya dengan kalimat utama dapat ditunjukkan melalui konjungsi"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "atau kata rujukan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Fungsinya mendukung pembahasan utama."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kalimat penjelas tidak dapat berdiri sendiri, biasanya saat dibaca sendiri"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "menimbulkan kesan tidak nyambung karena terikat dengan gagasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "utamanya."
+        },
+        {
+          "type": "heading",
+          "text": "C. Perbedaan Gagasan & Kalimat dalam Paragraf"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat memuat Gagasan, baik dalam konteks Gagasan/Kalimat Utama maupun"
+        },
+        {
+          "type": "paragraph",
+          "text": "Gagasan/Kalimat Penjelas. Kedua konsep ini bukanlah bagian yang terpisah, melainkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "berkaitan erat satu sama lain."
+        },
+        {
+          "type": "paragraph",
+          "text": "- Gagasan = APA yang dibicarakan"
+        },
+        {
+          "type": "paragraph",
+          "text": "- Kalimat = BAGAIMANA gagasan itu dituliskan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Perhatikan contoh berikut!"
+        },
+        {
+          "type": "paragraph",
+          "text": "(1) Kondisi udara di sejumlah wilayah Kalimantan yang terdampak juga masih menjadi"
+        },
+        {
+          "type": "paragraph",
+          "text": "perhatian. (2) Laporan operasi menunjukkan bahwa kualitas udara di sejumlah titik"
+        },
+        {
+          "type": "paragraph",
+          "text": "pemantauan di Kalimantan Barat, Kalimantan Tengah, Kalimantan Selatan, Kalimantan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Timur, Riau, Jambi, dan Sumatera Selatan berada dalam kondisi bervariasi, mulai dari"
+        },
+        {
+          "type": "paragraph",
+          "text": "Sedang hingga Tidak Sehat, Sangat Tidak Sehat, bahkan Berbahaya. (3) Dampak asap"
+        },
+        {
+          "type": "paragraph",
+          "text": "juga terlihat pada jarak pandang di beberapa bandara. (4) Berdasarkan pemantauan"
+        },
+        {
+          "type": "paragraph",
+          "text": "BMKG pada Senin pagi, 31 Agustus 2026, Bandara Supadio, Pontianak, tercatat"
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "berasap dengan jarak pandang 1,3 kilometer pada pukul 08.00 WIB, sedangkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Bandara Tjilik Riwut, Palangka Raya, mengalami kondisi serupa dengan jarak pandang"
+        },
+        {
+          "type": "paragraph",
+          "text": "1,5 kilometer pada waktu yang sama."
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat utama: kalimat (1) — “Kondisi udara di sejumlah wilayah Kalimantan yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "terdampak juga masih menjadi perhatian.”"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat penjelas: kalimat (2), (3), dan (4) — karena memberikan data dan contoh"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang menjelaskan kondisi udara tersebut."
+        },
+        {
+          "type": "heading",
+          "text": "D. Strategi Mengerjakan Soal Kalimat Utama & Kalimat Penjelas UTBK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 1 — Cari kalimat yang paling umum dan dapat dijelaskan oleh kalimat lain →"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat utama"
+        },
+        {
+          "type": "paragraph",
+          "text": "Jika satu kalimat memiliki beberapa detail setelahnya, kalimat tersebut berpeluang"
+        },
+        {
+          "type": "paragraph",
+          "text": "menjadi kalimat utama."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 2 — Cari kalimat yang memberikan contoh, data, alasan, rincian, akibat, atau"
+        },
+        {
+          "type": "paragraph",
+          "text": "penjelasan terhadap kalimat utama → kalimat penjelas"
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "E. Contoh Soal Beserta Pembahasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Cermati bacaan di bawah ini!"
+        },
+        {
+          "type": "paragraph",
+          "text": "(1) Antisipasi dampak perubahan iklim terhadap kondisi kesehatan masyarakat dapat dilakukan"
+        },
+        {
+          "type": "paragraph",
+          "text": "dengan meningkatkan kemampuan unit pelayanan kesehatan yang lebih dekat dengan tempat"
+        },
+        {
+          "type": "paragraph",
+          "text": "tinggal masyarakat, misalnya posyandu. (2) Menurut WHO, perubahan iklim akan"
+        },
+        {
+          "type": "paragraph",
+          "text": "menyebabkan sekitar 250.000 kematian per tahun dari kasus malnutrisi, malaria, dan diare. (3)"
+        },
+        {
+          "type": "paragraph",
+          "text": "WHO juga mengungkapkan bahwa perubahan iklim secara tidak langsung dapat memengaruhi"
+        },
+        {
+          "type": "paragraph",
+          "text": "perubahan kondisi sosial dan ekonomi masyarakat. (4) Apabila tidak segera dilakukan mitigasi,"
+        },
+        {
+          "type": "paragraph",
+          "text": "dampak perubahan iklim ini dapat memperburuk kesehatan mental mereka. (5) Besarnya"
+        },
+        {
+          "type": "paragraph",
+          "text": "dampak pengaruh iklim terhadap kesehatan masyarakat harus menjadi perhatian serius para"
+        },
+        {
+          "type": "paragraph",
+          "text": "pemangku kebijakan di negeri ini. (6) Kesiapan sarana dan prasarana kesehatan dalam upaya"
+        },
+        {
+          "type": "paragraph",
+          "text": "memperkuat deteksi dini kesehatan dasar masyarakat harus menjadi prioritas. (7) Konsistensi"
+        },
+        {
+          "type": "paragraph",
+          "text": "usaha seluruh tenaga kesehatan dalam meraih prestasi juga patut menjadi perhatian bagi"
+        },
+        {
+          "type": "paragraph",
+          "text": "seluruh pihak. (8) Termasuk di dalamnya kesiapan tenaga kesehatan dan peralatan deteksi dini"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang memadai di satuan layanan kesehatan terkecil, seperti puskesmas."
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Apa judul yang paling tepat untuk teks tersebut? (soal kategori SULIT)"
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "1. Ancaman Kesehatan Akibat Perubahan Iklim dan Mitigasinya"
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Dampak Perubahan Iklim terhadap Kondisi Kesehatan Masyarakat"
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Sarana dan Prasarana Kesehatan untuk Mitigasi Perubahan Iklim"
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Peningkatan Peran Kesehatan dalam Mitigasi Perubahan Iklim"
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Mitigasi Perubahan Iklim melalui Fasilitas Kesehatan Masyarakat"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Jawaban A paling tepat karena mencakup dua gagasan besar yang dikembangkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "dalam teks, yaitu dampak/ancaman perubahan iklim terhadap kesehatan serta"
+        },
+        {
+          "type": "paragraph",
+          "text": "upaya mitigasinya melalui kesiapan pelayanan kesehatan."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            " A benar → mencakup isi teks secara menyeluruh: ancaman kesehatan + upaya"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "mitigasi."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            " B kurang tepat → hanya menyoroti dampak perubahan iklim terhadap kesehatan,"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "tetapi mengabaikan pembahasan mengenai mitigasi."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "C terlalu sempit → hanya berfokus pada sarana dan prasarana kesehatan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "D kurang tepat → terlalu umum dan tidak secara jelas mencakup ancaman kesehatan"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "akibat perubahan iklim."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "E terlalu sempit → hanya menekankan mitigasi melalui fasilitas kesehatan,"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "sedangkan teks juga membahas dampaknya."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Kalimat yang tidak berkaitan dengan gagasan di dalam kalimat utama bacaan di atas"
+        },
+        {
+          "type": "paragraph",
+          "text": "adalah kalimat …. (soal kategori MUDAH)"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. (3)"
+        },
+        {
+          "type": "paragraph",
+          "text": "2. (5)"
+        },
+        {
+          "type": "paragraph",
+          "text": "3. (7)"
+        },
+        {
+          "type": "paragraph",
+          "text": "4. (1)"
+        },
+        {
+          "type": "paragraph",
+          "text": "5. (8)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat utama teks membahas mengenai dampak perubahan iklim terhadap"
+        },
+        {
+          "type": "paragraph",
+          "text": "kesehatan masyarakat dan upaya mitigasinya melalui pelayanan kesehatan. Maka"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat yang tidak berkaitan dengan gagasan utama bacaan di atas adalah C. kalimat"
+        },
+        {
+          "type": "paragraph",
+          "text": "(7). Kalimat tersebut membahas prestasi tenaga kesehatan yang tidak memiliki"
+        },
+        {
+          "type": "paragraph",
+          "text": "hubungan langsung dengan dampak perubahan iklim, kesiapan fasilitas kesehatan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "maupun mitigasi kesehatan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Analisis setiap jawaban:"
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "(3) berkaitan → menjelaskan dampak sosial dan ekonomi perubahan iklim."
+        },
+        {
+          "type": "paragraph",
+          "text": "(5) berkaitan → menegaskan perlunya perhatian terhadap dampak perubahan iklim pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "kesehatan."
+        },
+        {
+          "type": "paragraph",
+          "text": "(1) berkaitan → menjelaskan salah satu bentuk mitigasi."
+        },
+        {
+          "type": "paragraph",
+          "text": "(8) berkaitan → memperjelas kesiapan tenaga kesehatan dan peralatan deteksi dini."
+        },
+        {
+          "type": "paragraph",
+          "text": "(7) tidak berkaitan → membahas prestasi tenaga kesehatan, bukan isu utama teks."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Prediksi ini diperoleh melalui survei terhadap penyakit dan analisis laporan dampak"
+        },
+        {
+          "type": "paragraph",
+          "text": "perubahan iklim selama lima tahun terakhir. Kalimat tersebut paling tepat ditempatkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "setelah kalimat …. (soal kategori SEDANG)"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. (1)"
+        },
+        {
+          "type": "paragraph",
+          "text": "2. (2)"
+        },
+        {
+          "type": "paragraph",
+          "text": "3. (3)"
+        },
+        {
+          "type": "paragraph",
+          "text": "4. (4)"
+        },
+        {
+          "type": "paragraph",
+          "text": "5. (5)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat tambahan: “Prediksi ini diperoleh melalui survei ...” Kata tunjuk “ini” dapat"
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "menjadi kata kunci bahwa kalimat tambahan yang diberikan tidak berdiri sendirian, tetapi"
+        },
+        {
+          "type": "paragraph",
+          "text": "merujuk pada gagasan sebelumnya. Dari semua pilihan, gagasan utama kalimat (2)"
+        },
+        {
+          "type": "paragraph",
+          "text": "paling relevan dengan kalimat yang hendak ditambahkan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat (2) menyatakan: Menurut WHO, perubahan iklim akan menyebabkan sekitar"
+        },
+        {
+          "type": "paragraph",
+          "text": "250.000 kematian per tahun dari kasus malnutrisi, malaria, dan diare.Makna kata “akan”"
+        },
+        {
+          "type": "paragraph",
+          "text": "pada kalimat ini secara langsung menyatakan “sesuatu yang akan terjadi di masa depan” →"
+        },
+        {
+          "type": "paragraph",
+          "text": "bersifat prediktif. Oleh sebab itu, kalimat tambahan tersebut paling tepat ditempatkan setelah"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat (2)."
+        },
+        {
+          "type": "paragraph",
+          "text": "Analisis setiap jawaban:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Setelah (2) → benar karena hubungan rujukan prediksi ini sangat jelas."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Setelah (1) → kurang tepat karena kalimat (1) membahas upaya antisipasi, bukan"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "prediksi."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Setelah (3) → kurang tepat karena (3) membahas dampak sosial-ekonomi, sedangkan"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "“prediksi ini” lebih langsung merujuk pada data di (2)."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Setelah (4) → tidak tepat karena (4) membahas dampak terhadap kesehatan mental."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Setelah (5) → tidak tepat karena (5) sudah beralih pada penegasan perlunya perhatian"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "pemangku kebijakan."
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
+        },
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Cari Kalimat yang “Diterangkan”",
+          "text": "Cari kalimat yang dijelaskan, dirinci, diberi contoh, atau diperkuat oleh kalimat-kalimat\nberikutnya."
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-11",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Identifikasi “Kalimat Payung”",
+          "text": "Baca setiap kalimat dan bayangkan kalimat mana yang paling cocok menjadi payung\nbagi kalimat lain. Kalau satu kalimat hanya membahas satu contoh atau data,\nkemungkinan besar itu kalimat bukan kalimat utama, melainkan kalimat penjelas."
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-12",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 3: Perhatikan Hubungan Antarkalimat",
+          "text": "“Ini, tersebut, selain itu, misalnya, karena, oleh sebab itu, dengan demikian” dapat\nmembantu melihat apakah sebuah kalimat sedang menjelaskan sesuatu atau hanya\nmelanjutkan kalimat sebelumnya."
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-13",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 4: Cek Kelengkapan dan Kemandirian",
+          "text": "Kalimat utama biasanya tetap jelas ketika dibaca sendiri. Kalimat penjelas sering terasa\nseperti bagian yang bergantung pada informasi sebelumnya."
+        }
+      ]
+    },
+    {
+      "id": "material-11-page-14",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
+          "marker": "•",
+          "items": [
+            "Menganggap kalimat pertama atau kalimat terakhir selalu menjadi kalimat utama",
+            "Menganggap kalimat yang paling panjang = kalimat utama",
+            "Terlalu terpaku dengan kata “adalah” atau “merupakan”, serta mengabaikan kata rujukan seperti “hal/kondisi tersebut”, “ini”, “selain itu”, dan lain-lain.",
+            "Menganggap semua kalimat yang berisi data dan fakta adalah kalimat penjelas."
+          ],
+          "tone": "warning"
+        }
+      ]
+    }
+  ]
+}

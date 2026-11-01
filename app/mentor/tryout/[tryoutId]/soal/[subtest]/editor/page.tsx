@@ -10,7 +10,7 @@ import { listQuestionBankSourcePage } from "@/lib/question-bank/repository";
 import { getTryoutForEdit } from "@/lib/tryout/repository";
 import { KaptenTryoutQuestionEditorPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 
-export const metadata: Metadata = { title: "Editor Soal Tryout Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Editor Soal Tryout Kapten | PTN Pro LMS" };
 
 const tryoutSubtests = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
 type TryoutSubtest = (typeof tryoutSubtests)[number];

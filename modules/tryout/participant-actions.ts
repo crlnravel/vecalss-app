@@ -17,14 +17,15 @@ import {
 import type { TryoutIntegrityEventType } from "@/generated/prisma/client";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
 import { registerForTryout, TryoutDeliveryValidationError } from "@/lib/tryout/delivery-repository";
-import { participantTryoutResult, TryoutResultValidationError } from "@/lib/tryout/result-repository";
+import { notifyTryoutResultReviewRequired } from "@/lib/notifications/tryout-result-review";
+import { participantTryoutResult, TryoutResultReviewRequiredError, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 
 function message(error: unknown) {
   const message = error instanceof TryoutAttemptValidationError || error instanceof TryoutDeliveryValidationError || error instanceof TryoutCapabilityError || error instanceof TryoutResultValidationError
     ? error.message
     : null;
   if (!message || /AssessmentRelease|Test run|\bbridge\b|\bsnapshot\b|\battempt\b|\bfixture\b|\bscope\b|admin preview/i.test(message)) {
-    return "Tryout belum bisa diproses. Muat ulang halaman. Jika masalah berlanjut, hubungi tim Vecalss.";
+    return "Tryout belum bisa diproses. Muat ulang halaman. Jika masalah berlanjut, hubungi tim PTN Pro.";
   }
   return message;
 }
@@ -141,7 +142,13 @@ async function participantTryoutResultAction(attemptId: string) {
   try {
     return { ok: true as const, result: await participantTryoutResult(attemptId, session.user.id) };
   } catch (error) {
-    return { ok: false as const, message: message(error) };
+    // Stored-result problems cannot be fixed by retrying; the Kapten has to review them.
+    if (error instanceof TryoutResultReviewRequiredError) {
+      // The Kapten learns about it here; a failed alert must never change what the student sees.
+      await notifyTryoutResultReviewRequired(attemptId).catch((notifyError) => console.error("Tryout result review alert failed", notifyError));
+      return { ok: false as const, kind: "review" as const, message: "Hasil ini sedang diperiksa Kapten." };
+    }
+    return { ok: false as const, kind: "error" as const, message: message(error) };
   }
 }
 

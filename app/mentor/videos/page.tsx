@@ -5,7 +5,7 @@ import { getKaptenVideoGalleryItems } from "@/lib/video/repository";
 import { KaptenVideoGalleryPageModule } from "@/modules/mentor/KaptenVideoGalleryPageModule";
 
 export const metadata: Metadata = {
-  title: "Video Kapten | Vecalss LMS",
+  title: "Video Kapten | PTN Pro LMS",
   description: "Kelola video YouTube untuk koleksi belajar siswa.",
 };
 

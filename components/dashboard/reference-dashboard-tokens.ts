@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /**
  * Semantic class contracts for the extracted reference dashboard language.
  *
- * These intentionally resolve to the existing Vecalss tokens instead of
+ * These intentionally resolve to the existing PTN Pro tokens instead of
  * copying the reference app's warm-gray palette. Keeping the contracts here
  * gives future mentor/Kapten/admin surfaces one place to adopt the geometry
  * without introducing route-local shadows, colors, or status treatments.

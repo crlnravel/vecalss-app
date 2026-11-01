@@ -58,11 +58,9 @@ import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field
 import { MATERI_DOCUMENT_MIME_TYPE } from "@/lib/materi/contract";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
-import {
-  MediaAssetPreview,
-  MediaPickerDialog,
-} from "@/modules/media/media-library";
+import { MediaAssetPreview } from "@/modules/media/media-library";
 import type { MediaAssetDto } from "@/lib/media/types";
+import { MateriPdfUploadDialog } from "@/modules/mentor/components/materi-pdf-upload-dialog";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { AdministrationActionRow } from "@/modules/mentor/components/administration-action-row";
 import { UnsavedChangesConfirmationDialog } from "@/modules/mentor/components/unsaved-changes-confirmation-dialog";
@@ -460,7 +458,7 @@ function MateriDocumentSection({
               </p>
               {!hasDocumentName ? (
                 <p className="mt-1 text-xs leading-5 text-secondary-500">
-                  Pilih PDF dari pustaka media untuk melanjutkan.
+                  Unggah PDF untuk melanjutkan.
                 </p>
               ) : null}
             </div>
@@ -480,7 +478,7 @@ function MateriDocumentSection({
             type="button"
             variant="outline"
           >
-            {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
+            {builderState.documentAssetId ? "Ganti PDF" : "Unggah PDF"}
           </Button>
         </div>
         <FieldError
@@ -1062,7 +1060,7 @@ function MateriBuilderContent({
     });
   }
 
-  function selectManagedDocument(asset: MediaAssetDto) {
+  function selectManagedDocument(asset: Pick<MediaAssetDto, "id" | "mimeType" | "name">) {
     if (saveInFlightRef.current || isSaving || isLifecycleSaving) return;
     if (asset.mimeType.trim().toLowerCase() !== MATERI_DOCUMENT_MIME_TYPE) {
       updateEditor({
@@ -1329,7 +1327,7 @@ function MateriBuilderBody({
   onReset: () => void;
   onRestore: () => void;
   onSave: () => void;
-  onSelectDocument: (asset: MediaAssetDto) => void;
+  onSelectDocument: (asset: Pick<MediaAssetDto, "id" | "mimeType" | "name">) => void;
   onRetryLock: () => void;
   onPickerOpenChange: (open: boolean) => void;
   onUnsavedSave: () => void;
@@ -1346,7 +1344,7 @@ function MateriBuilderBody({
         {mode === "edit" ? <ResourceAuthoringLockBanner hasLocalChanges={hasUnsavedChanges} onRetry={onRetryLock} resourceLabel="Materi" state={lockState} /> : null}
         <MateriBuilderEditor builderState={builderState} errors={errors} hasUnsavedChanges={hasUnsavedChanges} isArchived={isArchived} isPreviewOpen={isPreviewOpen} isSaving={isSaving || isLifecycleSaving} isEditLocked={isEditLocked} mode={mode} onFieldChange={onFieldChange} onArchive={onArchive} onDelete={onDelete} onOpenPicker={onOpenPicker} onPreviewChange={onPreviewChange} onPublish={onPublish} onRestore={onRestore} onSave={onSave} readiness={readiness} selectedDocumentName={selectedDocumentName} selectedSubjectName={selectedSubjectName} status={status} subjects={subjects} />
       </div>
-      <MediaPickerDialog allowedMimeTypes={["application/pdf"]} onOpenChange={onPickerOpenChange} onSelect={onSelectDocument} open={isPickerOpen && !isArchived && !isEditLocked && !isSaving && !isLifecycleSaving} selectedAssetId={builderState.documentAssetId || null} title="Pilih PDF Materi" />
+      <MateriPdfUploadDialog onOpenChange={onPickerOpenChange} onUploaded={onSelectDocument} open={isPickerOpen && !isArchived && !isEditLocked && !isSaving && !isLifecycleSaving} />
       {!isCreateDialog && (hasUnsavedChanges || isSaving) ? <MateriUnsavedChangesBar isArchived={isArchived || isEditLocked} isSaving={isSaving} onReset={onReset} onSave={onUnsavedSave} /> : null}
     </>
   );

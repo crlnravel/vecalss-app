@@ -110,7 +110,7 @@ export function QuestionContentEditor({
   return (
     <ReferenceSurface as="section" className="grid min-w-0 gap-6 p-5 md:p-6">
       <Field>
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
           <FieldLabel
             className={REFERENCE_FIELD_LABEL_CLASS_NAME}
             htmlFor={`${idPrefix}-question-${question.id}-prompt`}
@@ -242,7 +242,7 @@ export function QuestionContentEditor({
 
       <div className="grid min-w-0 gap-4 border-t border-primary-100 pt-5">
         <Field>
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
             <FieldLabel
               className={REFERENCE_FIELD_LABEL_CLASS_NAME}
               htmlFor={`${idPrefix}-question-${question.id}-explanation`}

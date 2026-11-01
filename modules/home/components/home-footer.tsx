@@ -3,8 +3,8 @@ import Link from "next/link";
 import { AtSign, BriefcaseBusiness, X } from "@/lib/icons";
 
 const quickLinks = [
-  { label: "Tentang Vecalss", href: "/#about" },
-  { label: "Program", href: "/#program" },
+  { label: "Tentang PTN Pro", href: "/#about" },
+  { label: "Fitur", href: "/#program" },
   { label: "Masuk", href: "/login" },
 ];
 
@@ -29,23 +29,23 @@ function HomeFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
           <div className="max-w-[28rem]">
             <Link
-              aria-label="Beranda Vecalss"
+              aria-label="Beranda PTN Pro"
               className="inline-flex items-center gap-4"
               href="/"
             >
               <Image
-                alt="Vecalss"
+                alt="PTN Pro"
                 className="h-auto w-15 md:w-20"
                 height={44}
                 sizes="100px"
-                src="/brand/logo-mark-cropped.png"
+                src="/brand/mascot-vecalss-2.png"
                 width={200}
               />
               <span
                 className="text-xl font-normal leading-none tracking-[0.08em] text-white uppercase md:text-4xl"
                 style={{ fontFamily: "var(--font-sports-world)" }}
               >
-                VECALSS
+                PTN PRO
               </span>
             </Link>
             <p className="mt-5 max-w-[30ch] text-sm leading-7 text-voyage-sea-glass md:text-base font-thin">
@@ -98,7 +98,7 @@ function HomeFooter() {
 
         <div className="flex flex-col gap-3 border-t border-white/12 pt-6 text-sm text-voyage-sea-glass md:flex-row md:items-center md:justify-between">
           <p>
-            &copy;&nbsp;2026 Vecalss Learning Academy. Seluruh hak cipta
+            &copy;&nbsp;2026 PTN Pro. Seluruh hak cipta
             dilindungi.
           </p>
         </div>

@@ -1,0 +1,1109 @@
+{
+  "title": "MATERI 07 — Kalimat Aktif & Kalimat Pasif",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/07 - Kalimat Aktif & Kalimat Pasif.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "material-07-page-01",
+      "title": "MATERI 07 — Kalimat Aktif & Kalimat Pasif",
+      "continuation": false,
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
+        },
+        {
+          "type": "heading",
+          "text": "A. Kalimat Aktif"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat aktif adalah kalimat yang subjeknya berperan sebagai pelaku atau pihak"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang melakukan tindakan yang dinyatakan oleh predikat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Rumus umum kalimat aktif : Pelaku → tindakan → sasaran"
+        },
+        {
+          "type": "paragraph",
+          "text": "Contoh : Budi menulis surat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Budi = subjek = pelaku tindakan menulis."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri-ciri kalimat aktif secara umum:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Subjek berperan sebagai pelaku tindakan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Predikat umumnya berupa kata kerja aktif."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kata kerja aktif sering ditandai awalan meN- atau ber-."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Pada kalimat aktif transitif, terdapat objek yang dikenai tindakan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Fokus informasi cenderung berada pada pelaku/tindakan."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Kalimat aktif terbagi menjadi dua jenis:"
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Kalimat Aktif Transitif"
+        },
+        {
+          "type": "paragraph",
+          "text": "Karakteristik:"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Harus memiliki subjek yang melakukan tindakan kepada objek agar bermakna"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Rumus kalimat: S + P + O atau S + P + O + K"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Menggunakan kata kerja berimbuhan seperti me-, me--kan, atau me--i."
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Dapat diubah menjadi bentuk kalimat pasif."
+        },
+        {
+          "type": "paragraph",
+          "text": "Contoh Kalimat:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Ibu (S) memasak (P) nasi (O)."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kakak (S) sedang membaca (P) buku (O)."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Ayah (S) membeli (P) buku (O) untuk kakak (K)."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Kalimat Aktif Intransitif"
+        },
+        {
+          "type": "paragraph",
+          "text": "Karakteristik:"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Tidak memerlukan objek agar maknanya utuh, yang penting ada pelaku dan tindakan"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Rumus kalimat: S + P atau S + P + K"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Menggunakan kata kerja berimbuhan seperti ber-, ter-, atau meng-."
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Tidak dapat diubah menjadi bentuk kalimat pasif."
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Contoh Kalimat:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Adik (S) sedang berenang (P)."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Lani (S) menangis (P)."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Paman (S) datang (P) besok pagi (K)."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "B. Kalimat Pasif"
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat pasif adalah kalimat yang subjeknya berperan sebagai pihak yang dikenai"
+        },
+        {
+          "type": "paragraph",
+          "text": "atau menerima tindakan yang dinyatakan oleh predikat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Rumus umum kalimat pasif: Sasaran → dikenai tindakan → pelaku"
+        },
+        {
+          "type": "paragraph",
+          "text": "Contoh : Nasi dimasak ibu."
+        },
+        {
+          "type": "paragraph",
+          "text": "Nasi = sasaran = dikenai tindakan dimasak."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ciri-ciri kalimat pasif secara umum:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Subjek berperan sebagai penerima/sasaran tindakan."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Predikat umumnya berupa kata kerja pasif."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Sering menggunakan awalan di-."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Dapat menggunakan bentuk pasif dengan kata ganti orang, misalnya:"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "○ kubaca"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "○ kaubaca"
+        },
+        {
+          "type": "paragraph",
+          "text": "○ dibacanya"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Pelaku dapat disebutkan dengan oleh, tetapi tidak selalu harus ada."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Fokus informasi cenderung berada pada pihak yang dikenai tindakan atau"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "hasil tindakan."
+        },
+        {
+          "type": "heading",
+          "text": "C. Strategi Mengerjakan Soal Kalimat Aktif & Pasif UTBK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 1 — Cari subjek"
+        },
+        {
+          "type": "paragraph",
+          "text": "Tanyakan: Siapa/apa yang menjadi pokok kalimat?"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 2 — Tentukan peran subjek"
+        },
+        {
+          "type": "paragraph",
+          "text": "Apakah subjek melakukan tindakan atau dikenai tindakan?"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Melakukan tindakan = aktif"
+        },
+        {
+          "type": "paragraph",
+          "text": "→ Dikenai tindakan = pasif"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 3 — Periksa predikat"
+        },
+        {
+          "type": "paragraph",
+          "text": "Cari penanda verba aktif/pasif seperti:"
+        },
+        {
+          "type": "paragraph",
+          "text": "meN- / ber-"
+        },
+        {
+          "type": "paragraph",
+          "text": "di- / bentuk pasif lainnya"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Jangan berhenti pada awalan. Tetap lihat hubungan subjek dan predikat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 4 — Jika diminta mengubah bentuk"
+        },
+        {
+          "type": "paragraph",
+          "text": "Ubah kalimat aktif transitif S + P + O menjadi O + P pasif + (oleh) S"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 5 — Pastikan makna tetap sama"
+        },
+        {
+          "type": "paragraph",
+          "text": "Baca ulang kalimat yang telah ditentukan/diubah/dibuat. Perubahan aktif → pasif"
+        },
+        {
+          "type": "paragraph",
+          "text": "seharusnya mengubah sudut penyajian/fokus, bukan mengubah peristiwa atau makna"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang dibicarakan."
+        },
+        {
+          "type": "heading",
+          "text": "D. Contoh Soal Beserta Pembahasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Perhatikan bacaan di bawah ini!"
+        },
+        {
+          "type": "paragraph",
+          "text": "(1) Para peneliti mengembangkan metode baru untuk mendeteksi pencemaran air. (2)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Metode tersebut kemudian diuji di beberapa sungai di Jawa Barat. (3) Tim peneliti"
+        },
+        {
+          "type": "paragraph",
+          "text": "melakukan pengujian terhadap sampel air sebelum penelitian dimulai. (4) Pengujian"
+        },
+        {
+          "type": "paragraph",
+          "text": "awal dilakukan untuk memastikan bahwa alat yang digunakan mampu mendeteksi"
+        },
+        {
+          "type": "paragraph",
+          "text": "berbagai tingkat pencemaran secara akurat. (5) Setelah tahap awal selesai, sampel air"
+        },
+        {
+          "type": "paragraph",
+          "text": "dari sejumlah lokasi dikumpulkan dan dianalisis menggunakan metode tersebut. (6)"
+        },
+        {
+          "type": "paragraph",
+          "text": "Hasil analisis menunjukkan bahwa metode baru itu dapat mengidentifikasi kandungan"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "zat pencemar dalam waktu yang relatif singkat. (7) Temuan tersebut menunjukkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "bahwa metode baru memiliki potensi untuk digunakan dalam pemantauan kualitas air"
+        },
+        {
+          "type": "paragraph",
+          "text": "secara lebih efisien. (8) Oleh karena itu, para peneliti merekomendasikan pengujian"
+        },
+        {
+          "type": "paragraph",
+          "text": "lebih lanjut sebelum metode tersebut diterapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Hubungan antara kalimat (1) dan kalimat (2) yang paling tepat berdasarkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "bentuk kalimatnya adalah ....(kategori soal MUDAH)"
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Kalimat (1) aktif karena subjeknya melakukan tindakan,"
+        },
+        {
+          "type": "paragraph",
+          "text": "sedangkan kalimat (2) pasif karena subjeknya menjadi sasaran"
+        },
+        {
+          "type": "paragraph",
+          "text": "tindakan."
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Kalimat (1) dan (2) sama-sama aktif karena keduanya memiliki"
+        },
+        {
+          "type": "paragraph",
+          "text": "predikat berupa kata kerja."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Kalimat (1) pasif karena memiliki objek, sedangkan kalimat (2) aktif"
+        },
+        {
+          "type": "paragraph",
+          "text": "karena tidak memiliki objek."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Kalimat (1) aktif karena menggunakan kata kerja berimbuhan meN-,"
+        },
+        {
+          "type": "paragraph",
+          "text": "sedangkan kalimat (2) aktif karena menggunakan kata kerja"
+        },
+        {
+          "type": "paragraph",
+          "text": "berimbuhan di-."
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "e. Kalimat (1) dan (2) sama-sama pasif karena keduanya membicarakan"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode penelitian."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal ini hanya membutuhkan satu langkah identifikasi utama pada kalimat yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "telah disebutkan untuk menentukan peran subjek."
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat (1): Para peneliti mengembangkan metode baru."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Subjek = para peneliti"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Predikat = mengembangkan"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Objek = metode baru"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Subjek para peneliti melakukan tindakan mengembangkan → Kalimat aktif."
+        },
+        {
+          "type": "paragraph",
+          "text": "Kalimat (2): Metode tersebut kemudian diuji di beberapa sungai."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Subjek = metode tersebut"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Predikat = diuji"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Keterangan = di beberapa sungai"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Subjek metode tersebut tidak melakukan tindakan menguji, tetapi dikenai"
+        },
+        {
+          "type": "paragraph",
+          "text": "tindakan pengujian → Kalimat pasif."
+        },
+        {
+          "type": "paragraph",
+          "text": "Jadi jawabannya adalah A. Sementara itu, opsi jawaban yang lain tidak memuat"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5,
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "penjelasan yang sesuai, di mana penentuan jenis kalimat aktif dan kalimat pasif"
+        },
+        {
+          "type": "paragraph",
+          "text": "sangat bergantung pada peran subjek–apakah sebagai yang melakukan"
+        },
+        {
+          "type": "paragraph",
+          "text": "tindakan atau dikenai tindakan."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Bentuk pasif yang paling efektif dari kalimat (8) adalah ….(kategori soal"
+        },
+        {
+          "type": "heading",
+          "text": "SEDANG)"
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Oleh karena itu, para peneliti direkomendasikan pengujian lebih lanjut"
+        },
+        {
+          "type": "paragraph",
+          "text": "sebelum metode tersebut diterapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Oleh karena itu, para peneliti merekomendasikan pengujian lebih lanjut"
+        },
+        {
+          "type": "paragraph",
+          "text": "sebelum metode tersebut menerapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Oleh karena itu, pengujian lebih lanjut sebelum metode tersebut"
+        },
+        {
+          "type": "paragraph",
+          "text": "diterapkan secara luas atas rekomendasi para peneliti."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Oleh karena itu, pengujian lebih lanjut direkomendasikan oleh"
+        },
+        {
+          "type": "paragraph",
+          "text": "para peneliti sebelum metode tersebut diterapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Oleh karena itu, para peneliti merekomendasikan pengujian lebih lanjut"
+        },
+        {
+          "type": "paragraph",
+          "text": "sebelum metode tersebut diterapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Oleh karena itu, para peneliti merekomendasikan pengujian lebih lanjut sebelum"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode tersebut diterapkan secara luas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Strukturnya:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "S = para peneliti"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "P = merekomendasikan"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "O = pengujian lebih lanjut"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "K = sebelum metode tersebut diterapkan secara luas"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Berdasarkan strukturnya, kalimat tersebut termasuk kalimat aktif transitif. Oleh"
+        },
+        {
+          "type": "paragraph",
+          "text": "karena itu, kalimat pasif dapat dibentuk dengan menentukan objek yang dikenai"
+        },
+        {
+          "type": "paragraph",
+          "text": "tindakan–yaitu “pengujian lebih lanjut” dan mengubah imbuhan dari predikat"
+        },
+        {
+          "type": "paragraph",
+          "text": "“merekomendasikan” menjadi “direkomendasikan”."
+        },
+        {
+          "type": "paragraph",
+          "text": "Makna pokok tetap dipertahankan, tetapi subjek berubah:"
+        },
+        {
+          "type": "paragraph",
+          "text": "para peneliti merekomendasikan pengujian lebih lanjut"
+        },
+        {
+          "type": "paragraph",
+          "text": "↓"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengujian lebih lanjut direkomendasikan oleh para peneliti"
+        },
+        {
+          "type": "paragraph",
+          "text": "Oleh sebab itu, jawaban yang tepat adalah B."
+        },
+        {
+          "type": "paragraph",
+          "text": "Mengapa pilihan lain salah?"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "a) Oleh karena itu, para peneliti direkomendasikan pengujian lebih"
+        },
+        {
+          "type": "paragraph",
+          "text": "lanjut ...."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Tidak tepat karena para peneliti tetap menjadi subjek, sedangkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "bentuk pasif seharusnya menjadikan objek pengujian lebih lanjut"
+        },
+        {
+          "type": "paragraph",
+          "text": "sebagai subjek."
+        },
+        {
+          "type": "paragraph",
+          "text": "b) Oleh karena itu, para peneliti merekomendasikan .... metode"
+        },
+        {
+          "type": "paragraph",
+          "text": "tersebut menerapkan ...."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Masih merupakan kalimat aktif dan terdapat kesalahan bentuk pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "menerapkan. Seharusnya “diterapkan”."
+        },
+        {
+          "type": "paragraph",
+          "text": "c) Oleh karena itu, pengujian lebih lanjut sebelum metode tersebut"
+        },
+        {
+          "type": "paragraph",
+          "text": "diterapkan secara luas atas rekomendasi para peneliti."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Tidak memiliki predikat utama yang jelas sehingga konstruksinya"
+        },
+        {
+          "type": "paragraph",
+          "text": "menjadi tidak lengkap."
+        },
+        {
+          "type": "paragraph",
+          "text": "e) Oleh karena itu, para peneliti merekomendasikan ...."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Masih sama dengan bentuk kalimat yang asli."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Apabila penulis ingin mempertahankan fokus pembahasan pada metode baru"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-11",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "dan proses pengujiannya, kalimat manakah yang paling tepat digunakan untuk"
+        },
+        {
+          "type": "paragraph",
+          "text": "menggantikan kalimat (3) tanpa mengubah informasi pokok paragraf? (kategori"
+        },
+        {
+          "type": "paragraph",
+          "text": "soal SULIT)"
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Sampel air kemudian diuji oleh tim peneliti sebelum penelitian dimulai."
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Sebelum penelitian dimulai, tim peneliti melakukan pengujian terhadap"
+        },
+        {
+          "type": "paragraph",
+          "text": "sampel air yang telah dikumpulkan."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Sebelum penelitian dimulai, sampel air dari beberapa lokasi diuji"
+        },
+        {
+          "type": "paragraph",
+          "text": "menggunakan metode baru tersebut."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Metode baru tersebut digunakan oleh tim peneliti untuk melakukan"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengujian terhadap sampel air sebelum penelitian dimulai."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Pengujian terhadap sampel air dilakukan oleh tim peneliti, sedangkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode baru dikembangkan untuk mendeteksi pencemaran air."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Soal ini tidak hanya menguji apakah kalimat tersebut aktif atau pasif, tetapi juga"
+        },
+        {
+          "type": "paragraph",
+          "text": "melihat bentuk kalimat, fokus informasi, dan kesinambungan antarkalimat."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pilihan C paling tepat karena menjadikan sampel air sebagai fokus kalimat dan"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-12",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "tetap menghubungkannya dengan metode baru yang telah dibahas pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "kalimat sebelumnya."
+        },
+        {
+          "type": "paragraph",
+          "text": "Alurnya menjadi:"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode baru dikembangkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "↓"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode tersebut diuji"
+        },
+        {
+          "type": "paragraph",
+          "text": "↓"
+        },
+        {
+          "type": "paragraph",
+          "text": "sampel air diuji menggunakan metode tersebut"
+        },
+        {
+          "type": "paragraph",
+          "text": "↓"
+        },
+        {
+          "type": "paragraph",
+          "text": "hasil pengujian dianalisis"
+        },
+        {
+          "type": "paragraph",
+          "text": "Mengapa pilihan lain salah?"
+        },
+        {
+          "type": "paragraph",
+          "text": "a) Sampel air kemudian diuji oleh tim peneliti sebelum penelitian dimulai."
+        },
+        {
+          "type": "paragraph",
+          "text": "⚠ Jawaban kurang tepat secara konteks. Kalimat ini hanya menekankan bahwa"
+        },
+        {
+          "type": "paragraph",
+          "text": "sampel diuji oleh tim peneliti dan tidak menyebut metode baru, padahal"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode tersebut merupakan fokus pembahasan."
+        },
+        {
+          "type": "paragraph",
+          "text": "b) Sebelum penelitian dimulai, tim peneliti melakukan pengujian terhadap sampel"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-13",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8,
+        9
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "air yang telah dikumpulkan."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Kalimat kembali menjadikan tim peneliti sebagai fokus. Selain itu, frasa yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "telah dikumpulkan menambahkan informasi yang tidak secara eksplisit terdapat"
+        },
+        {
+          "type": "paragraph",
+          "text": "dalam kalimat asal."
+        },
+        {
+          "type": "paragraph",
+          "text": "d) Metode baru tersebut digunakan oleh tim peneliti untuk melakukan pengujian"
+        },
+        {
+          "type": "paragraph",
+          "text": "terhadap sampel air sebelum penelitian dimulai."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Secara gramatikal dapat diterima, tetapi fokus bergeser kembali pada metode dan"
+        },
+        {
+          "type": "paragraph",
+          "text": "tim peneliti, sementara kalimat berikutnya membahas hasil analisis terhadap"
+        },
+        {
+          "type": "paragraph",
+          "text": "sampel."
+        },
+        {
+          "type": "paragraph",
+          "text": "e) Pengujian terhadap sampel air dilakukan oleh tim peneliti, sedangkan metode"
+        },
+        {
+          "type": "paragraph",
+          "text": "baru dikembangkan untuk mendeteksi pencemaran air."
+        },
+        {
+          "type": "paragraph",
+          "text": "❌ Informasi menjadi tidak efisien dan mengulang informasi pada kalimat (1). Konjungsi"
+        },
+        {
+          "type": "paragraph",
+          "text": "sedangkan juga menciptakan hubungan perbandingan/pertentangan yang tidak"
+        },
+        {
+          "type": "paragraph",
+          "text": "diperlukan."
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-14",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
+        },
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Gunakan pertanyaan “Siapa melakukan apa?”",
+          "text": "Dengan pertanyaan ini, kamu akan mengetahui siapa subjeknya dan apa objeknya\nsehingga tidak tertukar dengan unsur kalimat yang lain saat hendak mengubah kalimat."
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-15",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Jangan hanya menghafal imbuhan!",
+          "text": "Karena ada bentuk bahasa yang tidak dapat dipasifkan secara langsung, lebih aman\nmenggunakan urutan analisis seperti ini:\nPeran subjek → hubungan tindakan → bentuk predikat"
+        }
+      ]
+    },
+    {
+      "id": "material-07-page-16",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        9
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
+          "marker": "•",
+          "items": [
+            "Menganggap semua verba (kata kerja) berawalan meN- pasti aktif",
+            "Menganggap semua kalimat pasif harus memakai “oleh”",
+            "Salah menentukan objek dalam kalimat",
+            "Mengubah kalimat aktif intransitif menjadi pasif",
+            "Sembarangan mengubah bentuk kata sehingga makna kalimat ikut berubah"
+          ],
+          "tone": "warning"
+        }
+      ]
+    }
+  ]
+}

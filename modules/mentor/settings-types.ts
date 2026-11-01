@@ -1,4 +1,5 @@
 type KaptenSettings = {
+  avatarUrl: string | null;
   email: string;
   profileName: string;
   subjectCode: string | null;

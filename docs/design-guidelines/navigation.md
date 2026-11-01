@@ -4,6 +4,10 @@ Use this file for page hierarchy, shell navigation, and Materi progress surfaces
 
 [Back to the design-system index](../../DESIGN.md)
 
+For content organization, labels, search scope, direct-entry context, and
+findability review, read [Information architecture](ux.md#information-architecture-ia).
+The navigation contracts below continue to govern the existing interface.
+
 ## Navigation
 
 - **Style:** White sidebar with a collapsible icon mode and compact group labels.

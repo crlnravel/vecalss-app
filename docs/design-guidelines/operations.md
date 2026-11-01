@@ -9,7 +9,7 @@ Use this file for admin, Kapten, catalogue, and data-heavy interactions.
 Use the shared custom `DropdownMenu` family from
 `components/ui/dropdown-menu.tsx` for product menus, filters, sort choices,
 and action lists. Avoid raw browser-native `<select>` elements and one-off
-dropdown markup in ordinary product UI; they bypass the Vecalss geometry,
+dropdown markup in ordinary product UI; they bypass the PTN Pro geometry,
 colors, focus treatment, and interaction behavior. If a value-selection flow
 needs listbox or combobox semantics rather than menu semantics, extend the
 shared primitive or add a reusable shared wrapper instead of falling back to a
@@ -30,7 +30,7 @@ platform-specific requirement is documented.
 
 ## Tables / Data Grids
 
-The approved Vecalss operational table is the shared `DataTable` plus `Table`
+The approved PTN Pro operational table is the shared `DataTable` plus `Table`
 implementation from `components/ui/data-table.tsx` and
 `components/ui/table.tsx`. Treat these routes as the visual and interaction
 references before creating a new table shell:
@@ -153,7 +153,7 @@ reference:
 
 ## TanStack interaction patterns
 
-Vecalss uses TanStack selectively as a headless behavior layer, not as a visual
+PTN Pro uses TanStack selectively as a headless behavior layer, not as a visual
 system. The current stack includes `@tanstack/react-form` for forms that need
 typed values, field-level validation, touched state, or submission feedback.
 The admin audit-log table also uses `@tanstack/react-table` for current-page
@@ -165,7 +165,7 @@ client-side server-state synchronization to manage.
   interactive Client Component. Keep the surrounding page, copy, and static
   imagery as Server Components so the landing page does not ship unnecessary
   client JavaScript.
-- **Reuse Vecalss primitives:** Bind TanStack fields to the existing `Field`,
+- **Reuse PTN Pro primitives:** Bind TanStack fields to the existing `Field`,
   `FieldInput`, `FieldTextarea`, radio, and button primitives. TanStack owns
   values and validation; the design system still owns geometry, color, focus,
   motion, and copy.
@@ -182,7 +182,7 @@ client-side server-state synchronization to manage.
   handler and render the server result. Never present a local acknowledgement
   as if a lead, enrollment, or other record was stored.
 - **Keep table behavior headless:** TanStack Table owns row models and sorting
-  state; Vecalss table primitives still own markup, spacing, color, focus, and
+  state; PTN Pro table primitives still own markup, spacing, color, focus, and
   responsive overflow. Sort controls need an accessible label, a visible
   direction indicator, and `aria-sort` on the matching header.
 - **Respect the data boundary:** When pagination is server-owned, label local

@@ -51,7 +51,7 @@ function DeveloperNavigation({ activePage, isDetailPage }: { activePage: Develop
     >
       <SidebarHeader className="mb-2 gap-5 p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
         <Link
-          aria-label="Vecalss — ruang kerja Developer"
+          aria-label="PTN Pro — ruang kerja Developer"
           className="flex min-h-11 w-full items-center justify-center rounded-2xl px-1 py-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35 group-data-[collapsible=icon]:p-0"
           href="/developer/reports"
           onClick={() => setOpenMobile(false)}

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import {
   DropdownMenu,
@@ -25,7 +26,7 @@ export type EditorInventoryQuestion = {
 };
 
 export function QuestionEditorPageShell({ children, marker }: { children: ReactNode; marker: "quiz" | "tryout" }) {
-  return <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell={marker === "quiz" ? "full-page" : undefined} data-tryout-editor-shell={marker === "tryout" ? "full-page" : undefined}>{children}</div>;
+  return <div className="flex h-dvh flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell={marker === "quiz" ? "full-page" : undefined} data-tryout-editor-shell={marker === "tryout" ? "full-page" : undefined}>{children}</div>;
 }
 
 export function QuestionEditorHeader({ backControl, category, dirty, onSave, saveDisabled, saveId, saving, title }: {
@@ -44,7 +45,7 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
     variant: "info",
   });
 
-  return <header className="z-10 flex min-h-14 shrink-0 items-center gap-x-3 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-14 md:px-6 md:py-0">
+  return <header className="z-10 flex min-h-16 shrink-0 items-center gap-x-3 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_color-mix(in_oklab,var(--voyage-forest)_42%,transparent)] backdrop-blur-xl md:h-16 md:px-6 md:py-0">
     <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
       {backControl}
       <div className="flex min-w-0 items-center gap-2.5">
@@ -53,7 +54,7 @@ export function QuestionEditorHeader({ backControl, category, dirty, onSave, sav
       </div>
     </div>
     {onSave ? <div className="flex shrink-0 items-center justify-end gap-2">
-      <Button aria-busy={saving} aria-label="Simpan" disabled={saveDisabled} id={saveId} onClick={onSave} size="sm" title="Simpan perubahan" type="button" variant="default"><Save aria-hidden="true" />{saving ? "Menyimpan…" : "Simpan"}</Button>
+      <Button aria-busy={saving} disabled={saveDisabled} id={saveId} onClick={onSave} title="Simpan perubahan" type="button" variant="default"><Save aria-hidden="true" />{saving ? "Menyimpan…" : "Simpan"}</Button>
     </div> : null}
   </header>;
 }
@@ -113,12 +114,11 @@ export function EditorQuestionInventory(props: InventoryProps) {
               const issueCount = question.issueCount ?? 0;
               const isActive = activeQuestionId === question.id;
               return (
-                <li className={cn("group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors", isActive ? "border-primary-200 bg-primary-50" : issueCount > 0 ? "border-warning-300 bg-warning-50/70 hover:border-warning-400 hover:bg-warning-50" : "hover:border-primary-100 hover:bg-primary-50/60")} key={question.id}>
-                  <button aria-current={isActive ? "true" : undefined} aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`} className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200" id={`${idPrefix}-question-select-${question.id}`} onClick={() => onSelect(question.id)} type="button">
-                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900"><span className="min-w-0 flex-1 truncate">{index + 1}. {question.prompt || "Soal tanpa pertanyaan"}</span></span>
-                    {issueCount > 0 ? <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5"><Badge aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`} className="size-7 justify-center !px-0 !py-0" role="img" size="xs" title={`Soal ${index + 1} memiliki ${issueCount} masalah`} tone="attention"><AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" /></Badge></span> : null}
+                <li className={cn("group relative flex h-13 min-w-0 items-center rounded-xl border border-transparent px-2 transition-colors",isActive ? "border-primary-200 bg-primary-50" : issueCount > 0 ? "border-warning-300 bg-warning-50/70 hover:border-warning-400 hover:bg-warning-50" : "hover:border-primary-100 hover:bg-primary-50/60")} key={question.id}>
+                  <button aria-current={isActive ? "true" : undefined} aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`} className={cn("min-w-0 flex-1 rounded-lg py-1.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200", isActive ? "pr-34" : "group-hover:pr-34 group-focus-within:pr-34")} id={`${idPrefix}-question-select-${question.id}`} onClick={() => onSelect(question.id)} type="button">
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900">{issueCount > 0 ? <Badge aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`} className="size-7 shrink-0 justify-center !px-0 !py-0" role="img" size="xs" title={`Soal ${index + 1} memiliki ${issueCount} masalah`} tone="attention"><AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" /></Badge> : null}<span className="line-clamp-2 min-w-0 flex-1 break-words">{index + 1}. {question.prompt || "Soal tanpa pertanyaan"}</span></span>
                   </button>
-                  <div className={cn("shrink-0 items-center gap-0.5", isActive ? "flex" : "hidden group-focus-within:flex")}>
+                  <div className={cn("absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1", !isActive && "invisible group-hover:visible group-focus-within:visible")}>
                     <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="quiet"><ArrowUp className="size-3.5" /></Button>
                     <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="quiet"><ArrowDown className="size-3.5" /></Button>
                     <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="quiet"><Trash2 className="size-3.5" /></Button>
@@ -146,7 +146,7 @@ export function EditorMobileInventory(props: InventoryProps) {
             <span className="min-w-0 truncate">{activeQuestion ? `${activeIndex + 1}. ${activeQuestion.prompt || "Soal tanpa pertanyaan"}` : "Belum ada soal"}</span>
             <ChevronDown className="size-4 shrink-0 text-secondary-400" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-[60vh] w-[calc(100vw-4.5rem)] max-w-sm overflow-y-auto">
+          <DropdownMenuContent align="start" className="max-h-[60vh] min-w-72 max-w-[calc(100vw-2rem)] overflow-y-auto">
             <DropdownMenuLabel>Pilih soal</DropdownMenuLabel>
             <DropdownMenuRadioGroup onValueChange={onSelect} value={activeQuestionId ?? undefined}>
               {questions.map((question, index) => <QuestionMobileInventoryOption issueCount={question.issueCount ?? 0} key={question.id} prompt={question.prompt} questionNumber={index + 1} value={question.id} />)}
@@ -160,11 +160,20 @@ export function EditorMobileInventory(props: InventoryProps) {
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500"><span>{countLabel}</span>{incompleteCount > 0 ? <span className="font-semibold text-warning-900">{incompleteCount} perlu diperbaiki</span> : null}</div>
-        {activeQuestion ? <div className="flex shrink-0 items-center gap-1">
-          <Button aria-label={`Pindah soal ${activeIndex + 1} ke atas`} disabled={disabled || activeIndex <= 0} onClick={() => onMove(activeQuestion.id, "up")} size="icon" title="Pindah ke atas" type="button" variant="outline"><ArrowUp aria-hidden="true" /></Button>
-          <Button aria-label={`Pindah soal ${activeIndex + 1} ke bawah`} disabled={disabled || activeIndex >= questions.length - 1} onClick={() => onMove(activeQuestion.id, "down")} size="icon" title="Pindah ke bawah" type="button" variant="outline"><ArrowDown aria-hidden="true" /></Button>
-          <Button aria-label={`Hapus soal ${activeIndex + 1}`} disabled={disabled} onClick={() => onDelete(activeQuestion.id)} size="icon" title="Hapus soal" type="button" variant="outline"><Trash2 aria-hidden="true" /></Button>
-        </div> : null}
+        {activeQuestion ? <TooltipProvider><div className="flex shrink-0 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label={`Pindah soal ${activeIndex + 1} ke atas`} disabled={disabled || activeIndex <= 0} onClick={() => onMove(activeQuestion.id, "up")} size="icon" type="button" variant="outline" />}><ArrowUp aria-hidden="true" /></TooltipTrigger>
+            <TooltipContent>Pindah ke atas</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label={`Pindah soal ${activeIndex + 1} ke bawah`} disabled={disabled || activeIndex >= questions.length - 1} onClick={() => onMove(activeQuestion.id, "down")} size="icon" type="button" variant="outline" />}><ArrowDown aria-hidden="true" /></TooltipTrigger>
+            <TooltipContent>Pindah ke bawah</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label={`Hapus soal ${activeIndex + 1}`} disabled={disabled} onClick={() => onDelete(activeQuestion.id)} size="icon" type="button" variant="outline" />}><Trash2 aria-hidden="true" /></TooltipTrigger>
+            <TooltipContent>Hapus soal</TooltipContent>
+          </Tooltip>
+        </div></TooltipProvider> : null}
       </div>
     </div>
   );
@@ -174,7 +183,7 @@ export function QuestionEditorWorkspace({ children, inventory, mobileInventory, 
   return <>
     {mobileInventory}
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      <div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">{inventory}</div>
+      <div className="hidden w-80 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-96[&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">{inventory}</div>
       <main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8" id={mainId} tabIndex={-1}><div className="mx-auto max-w-4xl space-y-6">{children}</div></main>
     </div>
   </>;

@@ -180,7 +180,7 @@ function ContactForm() {
               className="rounded-2xl border border-[var(--voyage-deep)]/12 bg-white px-4 py-3 text-sm leading-6 text-[var(--voyage-deep)]/72"
             >
               Isianmu sudah lengkap, tetapi pesan belum dikirim. Formulir ini
-              belum bisa mengirim pesan. Hubungi Vecalss melalui media sosial
+              belum bisa mengirim pesan. Hubungi PTN Pro melalui media sosial
               resmi di bagian bawah halaman.
             </p>
           ) : null}

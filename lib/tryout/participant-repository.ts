@@ -15,6 +15,7 @@ import { projectParticipantTryoutResultAvailability, type ParticipantTryoutResul
 import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
 import { isTryoutSessionExpired } from "@/lib/tryout/registration-availability";
 import { prisma } from "@/lib/prisma";
+import { reviewRequiredReleasedAttemptIds } from "@/lib/tryout/result-repository";
 
 type ParticipantTryoutSection = {
   difficulty: "easy" | "medium" | "hard" | "adaptive";
@@ -355,16 +356,29 @@ async function queryParticipantTryouts(studentId: string, tryoutId?: string) {
   });
 }
 
+/** A released result that fails its integrity check must not be offered as "available". */
+async function withResultIntegrity(tryouts: ParticipantTryout[]): Promise<ParticipantTryout[]> {
+  const releasedIds = tryouts.flatMap((tryout) => tryout.assignment?.attempt?.resultAvailability === "released" ? [tryout.assignment.attempt.id] : []);
+  const reviewIds = await reviewRequiredReleasedAttemptIds(releasedIds);
+  if (!reviewIds.size) return tryouts;
+  return tryouts.map((tryout) => {
+    const assignment = tryout.assignment;
+    if (!assignment?.attempt || !reviewIds.has(assignment.attempt.id)) return tryout;
+    return { ...tryout, assignment: { ...assignment, attempt: { ...assignment.attempt, resultAvailability: "review" as const } } };
+  });
+}
+
 async function participantTryoutCatalogue(studentId: string): Promise<ParticipantTryout[]> {
   const tryouts = await queryParticipantTryouts(studentId);
   const bannerUrls = await Promise.all(tryouts.map((tryout) => resolveTryoutBannerUrl(tryout.bannerMedia)));
-  return tryouts.map((tryout, index) => serializeTryout(tryout, studentId, bannerUrls[index] ?? null));
+  return withResultIntegrity(tryouts.map((tryout, index) => serializeTryout(tryout, studentId, bannerUrls[index] ?? null)));
 }
 
 async function participantTryoutDetail(tryoutId: string, studentId: string) {
   const [tryout] = await queryParticipantTryouts(studentId, tryoutId);
   if (!tryout) return null;
-  return serializeTryout(tryout, studentId, await resolveTryoutBannerUrl(tryout.bannerMedia));
+  const [detail] = await withResultIntegrity([serializeTryout(tryout, studentId, await resolveTryoutBannerUrl(tryout.bannerMedia))]);
+  return detail;
 }
 
 async function participantTargetProfile(studentId: string): Promise<ParticipantTargetProfile> {

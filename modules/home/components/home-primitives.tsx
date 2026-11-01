@@ -47,7 +47,7 @@ function BrandLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={cn(sizeClass, "relative shrink-0")}>
       <Image
-        alt="Vecalss Learning Academy"
+        alt="PTN Pro"
         fill
         className="object-contain"
         sizes={compact ? "158px" : "214px"}
@@ -61,11 +61,11 @@ function BrandMark({ compact = false }: { compact?: boolean } = {}) {
   return (
     <div className={cn("relative shrink-0", compact ? "h-7 w-7" : "h-14 w-14")}>
       <Image
-        alt="Vecalss Learning Academy"
+        alt="PTN Pro"
         fill
         className="object-contain"
         sizes={compact ? "28px" : "56px"}
-        src="/brand/logo-mark-cropped.png"
+        src="/brand/mascot-vecalss-2.png"
       />
     </div>
   );
@@ -76,7 +76,7 @@ function BrandLockup() {
     <div className="flex min-w-0 items-center gap-2">
       <BrandMark />
       <span className="font-logo shrink-0 text-[1.55rem] leading-none tracking-[0.08em] text-primary-700 group-data-[collapsible=icon]:hidden">
-        VECALSS
+        PTN PRO
       </span>
     </div>
   );

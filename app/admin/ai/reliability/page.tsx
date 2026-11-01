@@ -5,7 +5,7 @@ import { AiReliabilityPageModule } from "@/modules/admin/ai/AiReliabilityPageMod
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Keandalan & Insiden Vera AI | Vecalss Admin",
+  title: "Keandalan & Insiden Vera AI | PTN Pro Admin",
 };
 
 export default async function AdminAiReliabilityPage() {

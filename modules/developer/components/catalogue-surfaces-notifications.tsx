@@ -29,28 +29,47 @@ function ActionToastPreview() {
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-semibold text-secondary-800">useActionToast · idle, sukses, error</p>
+        <p className="text-sm font-semibold text-secondary-800">
+          useActionToast · idle, sukses, error
+        </p>
         <p className="mt-1 text-xs leading-5 text-secondary-600">
-          Hook tidak mengirim toast saat idle. Kesalahan isian tetap ditampilkan dekat formulir.
+          Hook tidak mengirim toast saat idle. Kesalahan isian tetap ditampilkan
+          dekat formulir.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button
-          onClick={() => setState({ message: "Contoh perubahan berhasil disimpan.", status: "success" })}
+          onClick={() =>
+            setState({
+              message: "Contoh perubahan berhasil disimpan.",
+              status: "success",
+            })
+          }
           type="button"
           variant="default"
         >
           Simulasikan sukses
         </Button>
         <Button
-          onClick={() => setState({ message: "Contoh perubahan belum tersimpan. Coba lagi.", status: "error" })}
+          onClick={() =>
+            setState({
+              message: "Contoh perubahan belum tersimpan. Coba lagi.",
+              status: "error",
+            })
+          }
           type="button"
           variant="destructive"
         >
           Simulasikan gagal
         </Button>
         <Button
-          onClick={() => setState({ fieldErrors: { nama: "Nama perlu diisi." }, message: "Periksa isian nama.", status: "error" })}
+          onClick={() =>
+            setState({
+              fieldErrors: { nama: "Nama perlu diisi." },
+              message: "Periksa isian nama.",
+              status: "error",
+            })
+          }
           type="button"
           variant="outline"
         >
@@ -58,7 +77,11 @@ function ActionToastPreview() {
         </Button>
       </div>
       {keepMessageInline ? (
-        <p aria-live="polite" className="text-sm font-medium text-student-status-danger-fg" role="alert">
+        <p
+          aria-live="polite"
+          className="text-sm font-medium text-student-status-danger-fg"
+          role="alert"
+        >
           {state.fieldErrors?.nama ?? state.message}
         </p>
       ) : null}
@@ -80,25 +103,52 @@ function PageStatusToastPreview() {
     cancel: dirty
       ? saving
         ? { label: "Batalkan simpan", onClick: () => setSaving(false) }
-        : { label: "Buang perubahan", onClick: () => { setDirty(false); setSaving(false); } }
+        : {
+            label: "Buang perubahan",
+            onClick: () => {
+              setDirty(false);
+              setSaving(false);
+            },
+          }
       : undefined,
     message: saving ? "Menyimpan draf…" : "Ada perubahan yang belum disimpan.",
-    variant: saving ? "info" : "warning",
+    variant: saving ? "warning" : "warning",
   });
 
   return (
     <div className="space-y-3 border-t border-voyage-soft-border pt-5">
       <div>
-        <p className="text-sm font-semibold text-secondary-800">usePageStatusToast · status halaman persisten</p>
+        <p className="text-sm font-semibold text-secondary-800">
+          usePageStatusToast · status halaman persisten
+        </p>
         <p className="mt-1 text-xs leading-5 text-secondary-600">
-          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan atau batalkan simpanan. Pemberitahuan yang perlu tindakan tetap di bagian atas selama statusnya berlaku.
+          Contoh lokal: tandai perubahan, simpan dari Sonner, lalu selesaikan
+          atau batalkan simpanan. Pemberitahuan yang perlu tindakan tetap di
+          bagian atas selama statusnya berlaku.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={dirty} onClick={() => { setDirty(true); setSaving(false); }} type="button" variant="outline">
+        <Button
+          disabled={dirty}
+          onClick={() => {
+            setDirty(true);
+            setSaving(false);
+          }}
+          type="button"
+          variant="outline"
+        >
           Tandai perubahan
         </Button>
-        <Button disabled={!saving} onClick={() => { setDirty(false); setSaving(false); showToast("Contoh draf berhasil disimpan.", { variant: "success" }); }} type="button" variant="default">
+        <Button
+          disabled={!saving}
+          onClick={() => {
+            setDirty(false);
+            setSaving(false);
+            showToast("Contoh draf berhasil disimpan.", { variant: "success" });
+          }}
+          type="button"
+          variant="default"
+        >
           Selesaikan simpanan
         </Button>
       </div>
@@ -113,16 +163,24 @@ export function NotificationsPreview() {
     <div className="space-y-7">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-semibold text-secondary-800">Sonner · showToast · semua tone</p>
+          <p className="text-sm font-semibold text-secondary-800">
+            Sonner · showToast · semua tone
+          </p>
           <p className="mt-1 text-sm leading-6 text-secondary-600">
-            Toaster sudah terpasang sekali di layout aplikasi. Notifikasi muncul di bagian bawah dengan tombol tutup di kanan atas. Tombol berikut hanya menampilkan pesan simulasi.
+            Toaster sudah terpasang sekali di layout aplikasi. Notifikasi muncul
+            di bagian bawah dengan tombol tutup di kanan atas. Tombol berikut
+            hanya menampilkan pesan simulasi.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {toastVariants.map(({ value, label }) => (
             <Button
               key={value}
-              onClick={() => showToast(`Contoh notifikasi ${label.toLowerCase()}.`, { variant: value })}
+              onClick={() =>
+                showToast(`Contoh notifikasi ${label.toLowerCase()}.`, {
+                  variant: value,
+                })
+              }
               type="button"
               variant={value === "error" ? "destructive" : "outline"}
             >
@@ -144,12 +202,19 @@ export function NotificationsPreview() {
 
       <div className="space-y-3 border-t border-voyage-soft-border pt-5">
         <div>
-          <p className="text-sm font-semibold text-secondary-800">ToastOnMount · aman saat halaman dibuka</p>
+          <p className="text-sm font-semibold text-secondary-800">
+            ToastOnMount · aman saat halaman dibuka
+          </p>
           <p className="mt-1 text-xs leading-5 text-secondary-600">
-            Komponen baru dipasang setelah tombol dipilih, jadi galeri tidak menampilkan notifikasi sendiri ketika dibuka.
+            Komponen baru dipasang setelah tombol dipilih, jadi galeri tidak
+            menampilkan notifikasi sendiri ketika dibuka.
           </p>
         </div>
-        <Button onClick={() => setMountKey((current) => current + 1)} type="button" variant="outline">
+        <Button
+          onClick={() => setMountKey((current) => current + 1)}
+          type="button"
+          variant="outline"
+        >
           Pasang contoh notifikasi
         </Button>
         {mountKey > 0 ? (

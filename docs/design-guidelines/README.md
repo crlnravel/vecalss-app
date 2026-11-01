@@ -1,4 +1,4 @@
-# Vecalss design-guidelines
+# PTN Pro design-guidelines
 
 This folder decomposes the root [DESIGN.md](../../DESIGN.md) into searchable,
 task-sized guideline files. Start with the root for tokens and invariants, then

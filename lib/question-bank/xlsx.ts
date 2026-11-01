@@ -2291,10 +2291,10 @@ async function readQuestionBankXlsxThumbnail(
 
 function createQuestionBankXlsxTemplate() {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Vecalss";
+  workbook.creator = "PTN Pro";
   workbook.subject = "Templat pengisian Bank Soal";
   workbook.title = "Templat Bank Soal";
-  workbook.company = "Vecalss";
+  workbook.company = "PTN Pro";
   workbook.created = new Date();
   workbook.modified = new Date();
 

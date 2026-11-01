@@ -101,7 +101,7 @@ the configured project copy is `_harness/resource-guard.sh`.
 ### Copywriting and Indonesian content policy
 
 - **For any task involving copywriting, marketing copy, student/user-facing text, Indonesian prose, or UI microcopy:** Read and apply the `tutur-humanizer` skill (`.agents/skills-library/domain/tutur-humanizer/SKILL.md`) and `.agents/rules/copywriting.md`.
-- Student-facing and marketing copy in Vecalss must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
+- Student-facing and marketing copy in PTN Pro must sound natural, human, and context-appropriate. Avoid robotic AI phrasing, empty buzzwords, corporate padding, and awkward translation calques.
 - User-facing copy must be written for nontechnical readers. Do not expose implementation labels or version markers such as `v1`, `version`, `revision`, `UUID`, `UTF-8`, `API`, MIME types, raw field names, or backend error codes. Translate them into clear, actionable Indonesian; keep technical identifiers in code, tests, and internal contracts only.
 
 ### Browser usage and verification policy
@@ -215,3 +215,13 @@ This harness evolves with the project:
 - Core harness files can be updated through user-approved proposals
 - When harness is insufficient, propose changes and wait for approval
 - See `_harness/rules.md` for evolution rules and risk levels
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

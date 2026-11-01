@@ -62,10 +62,10 @@ Those editing rules never override a verbatim preservation request.
 | Role | Treatment |
 | --- | --- |
 | Paper and margins | A4 portrait; 48pt sides; content starts 82pt from top and stops 65pt from bottom |
-| Top band | Full-width Voyage Deep `#014C38`, 62pt high, borderless; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark (`LEARNING ACADEMY` subtitle) and subject code only, such as PBM |
+| Top band | Full-width Voyage Deep `#014C38`, 62pt high, borderless; mascot logo (`mascot-veco.png`), white `PTN PRO` wordmark and subject code only, such as PBM |
 | Bottom band | Full-width Voyage Deep, 47pt high, borderless; subject alone (no brand prefix) and plain current page number, with no badge, total-page suffix or progress bar |
-| Geometry | Borderless (`stroke=0`) shapes only: one green circular field and one angled ribbon in the header, one green circular field in the footer, plus soft light-yellowish (`#FFF7D6`) accents on the reading background (one top-right circle and one bottom-left diagonal band) |
-| Reading surface | White with a borderless (`stroke=0`) soft light-yellowish `#FFF7D6` top-right circle and bottom-left diagonal band behind the body frame; Ink `#173C2D` body text; no source-page background |
+| Geometry | Borderless (`stroke=0`) shapes only: one green circular field and one angled ribbon in the header, one green circular field in the footer, plus soft light-yellowish (`#FFF7D6`) accents on the reading background (one top-right circle and one bottom-left diagonal band), both fully outside the 48pt content frame with at least 12pt clearance |
+| Reading surface | White with a borderless (`stroke=0`) soft light-yellowish `#FFF7D6` top-right circle and bottom-left diagonal band behind the body frame; the circle stays beyond the right text edge and the band stays left of the left text edge with at least 12pt clearance; Ink `#173C2D` body text; no source-page background |
 | Wordmark | Existing Sports World face; reserved for the `PTN PRO` brand mark |
 | Main headings | Manrope 800, 26pt / 32pt; left aligned |
 | Subheadings | Plus Jakarta Sans 700, 14pt / 20pt; left aligned |
@@ -81,6 +81,21 @@ readable size. Split long material across pages rather than shrinking type.
 Use consistent column widths, comfortable leading and clear paragraph spacing.
 Justify body paragraphs, tip text, supporting text, bullet lists, numbered steps,
 and answer options while keeping headings and narrow table cells left-aligned.
+This is a mandatory visual completion gate, not just a `TA_JUSTIFY` setting.
+Join extraction-only line wraps into complete semantic paragraphs before rendering:
+retained newlines become `<br/>`, and splitting every extracted line into its own
+paragraph leaves every line behaving like a short final line. Preserve genuine
+paragraph/list boundaries, instructional emphasis and word boundaries. Keep only
+meaningful explicit line breaks, documenting exceptions such as verse or addresses.
+Full lines must meet both text edges with natural spacing on the final line;
+never force-stretch the final line or pad it with spaces. Inspect multiline prose,
+explanations, list items, options and callouts in both subjects at readable size.
+Reject ragged prose caused by forced source wraps and excessive word gaps caused
+by fragmented paragraphs. Text fidelity strips emphasis markup, so manually
+inspect bold/italic labels and body spans; the representative proof gate calls
+out both the label and body emphasis of PBM 05's bold `b.` answer choice. See
+the workflow guide's **Full
+justification and paragraph reconstruction** gate for the subagent handoff.
 In bullet lists, numbered steps, and answer options, place the text in front of
 its marker with a hanging indent so wrapped lines never tuck back under the dot,
 and keep tighter vertical spacing between items than between paragraphs.
@@ -97,6 +112,8 @@ header/footer geometry borderless (`stroke=0`) with soft light-yellowish fills
 
 ## Workflow and completion gates
 
+For multiple lessons, follow the **Delegated batch workflow and PBM 01 visual reference** in [`../../docs/materi-pdf-workflow-guide.md`](../../docs/materi-pdf-workflow-guide.md#delegated-batch-workflow-and-pbm-01-visual-reference). Assign one subagent the shared renderer and sequential batch runner. Match the saved PBM 01 reference, keep Learning Academy removed, group tips instead of giving every tip its own page, and check representative proofs before regenerating the complete manifest. Return fidelity results and visual-review status for every material; text fidelity alone does not establish design quality.
+
 | Stage | Work | Completion criterion |
 | --- | --- | --- |
 | Inspect | Extract and render every source page. | All pages accounted for; tables and emphasis checked visually. |
@@ -105,6 +122,88 @@ header/footer geometry borderless (`stroke=0`) with soft light-yellowish fills
 | Audit | Compare the source text with final PDF body; inspect bounds and glyphs. | No unexplained text differences or missing glyphs. |
 | Visual QA | Open every page PNG at readable size. | No clipping, overlaps, awkward wraps, orphan headings, broken tables or inconsistent bands. |
 | Deliver | Supply PDF, editable JSON and fidelity report. | State page count, checks passed, and any unresolved source concerns. |
+
+## Sequential batch conversion
+
+For repairing the previously generated set, use the
+[PDF repair playbook](../../docs/materi-pdf-repair-playbook.md). Its composition,
+proof and per-lesson acceptance steps are mandatory before promoting repaired
+outputs. Preserve the corrected PBM 02/03 compositions as references.
+
+`prepare_material_set.py` prepares the 15 LBE and 15 PBM editable lessons from
+the source manifest. `batch_material_set.py` is the durable sequential runner:
+it renders generated PDFs, audits all 30 source → lesson → rendered bodies,
+checks each PDF with `inspect_pdf.py`, writes per-file fidelity reports, and
+saves a machine manifest plus review sheets under `tmp/pdfs/material-final/`.
+The full run regenerates 28 PDFs and reuses the PBM 02/03 canonical PDFs while
+still inspecting and auditing all 30. Final PDFs stay in `output/pdf/LBE/` and
+`output/pdf/PBM/`; original sources and the PBM 01 reference are left in place.
+
+Run the representative proof first and visually compare it with
+`output/pdf/PBM/pbm1-vecalss.pdf`. The PDF skill's operation marker is run once,
+immediately before the first render:
+
+```bash
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- sh -c '
+  node /Users/ravel/.codex/plugins/cache/openai-primary-runtime/pdf/26.915.20218/skills/pdf/container_tools/mark_artifact_operation_started.mjs \
+    --operation-kind edit --expected-output-count 30 --output-format pdf &&
+  /tmp/vecalss-pdf-venv/bin/python materi/_framework/selfcheck.py &&
+  /tmp/vecalss-pdf-venv/bin/python materi/_framework/batch_material_set.py --proof
+'
+```
+
+After reviewing proofs for LBE 01 and PBM 02, 03, 04, 05, 06, 09, 13 and 15,
+run the complete sequential batch. Review every final rendered page before
+marking the manifest as visually reviewed:
+
+```bash
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
+  materi/_framework/batch_material_set.py
+
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
+  materi/_framework/batch_material_set.py --mark-visual-reviewed
+```
+
+The runner options are `--proof` (prepare and validate only LBE 01 and PBM 02,
+03, 04, 05, 06, 09, 13 and 15, then render representative PDFs), `--prepare-only` (prepare editable lesson
+JSON without rendering; only the proof selection when paired with `--proof`), and
+`--mark-visual-reviewed` (mark all final pages reviewed after a successful
+30-PDF fidelity run and manual page review). The aggregate manifest includes
+subject, title, source pages, output path, page count, fidelity state and visual
+review state. PBM tables are compared in exact row-major cell order after an
+explicit source-layout reconstruction; there is no token-multiset fallback.
+Every selected proof still passes exact source-to-editable and editable-to-
+rendered character-order checks. PBM 05 page 11 reconstructs the split
+comparison row as full cell 2 followed by full cell 3, preserving its bold and
+italic spans without relaxing the ordered-text comparison. Source-preview
+review confirmed table continuations at PBM 02 pages 3–4; PBM 03 pages 5–6 and
+6–7; PBM 04 pages 1–2, 3–4 and 4–5; PBM 05 pages 9–11; PBM 06 pages
+5–6; PBM 13 pages 7–8; and PBM 15 pages 2–3. The runner joins only these
+explicitly reviewed adjacent page pairs with the same column count, matching
+outer edges, and every internal divider within an absolute 2pt in PDF
+coordinates (about three pixels at the reviewed preview scale). PBM 04 pages
+3–4 and 4–5 and PBM 05 pages 9–10 and 10–11 use explicit
+column-label mappings for visible width reflows; those mapped pairs check the
+source labels and outer edges and bypass the general 2pt internal-divider
+comparison. PBM 04 pages 6–7 are not a
+continuation: page 6's three-column table ends before page 7 prose and a separate
+two-column table. Row-level source pages stay with their rows through
+pagination; repeated source headers are included as provenance on each output
+chunk. Single-row header
+fragments remain headers until joined to following data rows;
+PBM 05's final continuation row appends its cell fragments to the preceding
+row. PBM 09 page 2 has verified within-word line wraps in narrow cells
+(including "Konjung|si" and "penamba|han"); those cells are reconstructed from
+the source image and checked by exact ordered-text comparison. PBM 09's tables
+on pages 2, 4 and 5 are otherwise separate; no tables appear in PBM 07–08,
+10–12 or 14 in the reviewed previews. Unsupported tables outside the
+2–4-column schema, table rows that cannot paginate intact, and single list
+items that cannot retain hanging-list structure fail preparation instead of
+being flattened into plain paragraphs. The proof manifest remains pending
+until readable manual review; proof selection does not waive that gate.
 
 ## Editable format
 
@@ -116,17 +215,23 @@ and `continuation: true`. Do not invent a new instructional title to fill space.
 
 | Block | Fields |
 | --- | --- |
-| `paragraph`, `heading` | Exact `text`; optional `small: true` for supporting text |
-| `table` | Exact `headers`, `rows`, optional positive relative column `widths`; two to four columns |
+| `paragraph`, `heading`, `title` | Exact `text`; `title` is a prominent 26pt section title; optional `small: true` for supporting text |
+| `table` | Exact `headers`, `rows`, optional positive relative column `widths`; two to four columns. Output-page splits repeat the source header using `synthetic_header: true`; this visual copy is excluded from source-text fidelity. |
 | `bullets` | Exact `items`; original `marker` defaults to `•` |
-| `steps` | Exact `items`; optional `start` for original numbering |
-| `question` | Original `id`, `prompt`, five `options`, original `labels` such as `abcde` |
-| `tip` | Exact original `title` and either `text` (paragraph) or `items` (with optional `marker`), plus optional `tone: "warning"`; renders a mint callout with yellow icon (or thin yellow callout with dark green icon for warnings) |
+| `steps` | Exact `items`; optional `start` and source-styled `item_labels` for original numbering |
+| `question` | Original `id`, `prompt`, five `options`, original `labels` such as `abcde`; optional source-styled `question_label` and `option_labels` |
+| `tip` | Exact original `title` and either `text`, `items`, or ordered `content` parts (`paragraph` / `bullets`); optional `tone: "warning"`; renders a mint callout with yellow icon (or thin yellow callout with dark green icon for warnings) |
 
-`**bold**`, `*italic*` and line breaks are layout markup; other markup is escaped.
-Use an empty-string header row on a continued table only when no additional
-header wording should be inserted. Page headers and footers are navigation
-furniture, separate from the preserved lesson body.
+`**bold**` and `*italic*` are layout markup; other markup is escaped. Newlines
+join with spaces by default to remove extraction-only source wraps. Set
+`preserve_line_breaks: true` on a block (or individual tip content part) only
+for a meaningful source break such as verse, an address, or deliberately
+separate examples, and record the exception in the preparation notes.
+Use an empty-string header row on a source continuation only when no additional
+header wording is available from the source. Renderer-created continuation
+pages repeat the source header with `synthetic_header: true`, which keeps the
+display context while source text is counted once. Page headers and footers are
+navigation furniture, separate from the preserved lesson body.
 
 ## Tools
 
@@ -175,6 +280,12 @@ inspect the final page images. Source symbols use SIL Open Font License fonts;
 their license files are included beside them.
 
 The PBM 01 provenance and checks are documented in
-[`examples/pbm1-fidelity.md`](examples/pbm1-fidelity.md). PBM 02 has not yet been
-converted. Tool references: [ReportLab font families](https://docs.reportlab.com/reportlab/userguide/ch3_fonts/)
+[`examples/pbm1-fidelity.md`](examples/pbm1-fidelity.md). PBM 02 and PBM 03 are
+manually composed, visually reviewed masters: preparation loads their canonical
+lessons instead of reconstructing extraction fragments, and the full batch
+audits their existing PDFs without rewriting either canonical file. PBM 03's
+source header/data table spans the page 5–6 boundary and its summary table rows
+span pages 6–7; its direct composition is the reviewed source for those joins.
+Tool references:
+[ReportLab font families](https://docs.reportlab.com/reportlab/userguide/ch3_fonts/)
 and [tables](https://docs.reportlab.com/reportlab/userguide/ch7_tables/).

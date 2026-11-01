@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Archive } from "@/lib/icons";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
+import { KaptenTryoutArchivedAdministration } from "@/modules/mentor/KaptenTryoutArchivedAdministration";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { modeLabels, policyLabels, type DefaultPolicy } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutStatusBadge";
@@ -13,6 +14,7 @@ import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspa
 const LIVE_SESSION_STATUSES = new Set(["active", "in_progress"]);
 
 type ArchivedFrameInitial = Pick<TryoutOperationsView, "bannerMediaId" | "description" | "id" | "status" | "title">;
+type DeletionPlan = ComponentProps<typeof KaptenTryoutArchivedAdministration>["plan"];
 type ArchivedTryoutOutline = { sections: Array<{ durationMinutes: number; id: string; questionCount: number; title: string }> };
 
 function ArchivedSectionHeading({ children, id }: { children: ReactNode; id: string }) {
@@ -99,7 +101,7 @@ function ArchivedSessions({ initial }: { initial: TryoutOperationsView }) {
   );
 }
 
-function ArchivedSettings({ initial }: { initial: TryoutOperationsView }) {
+function ArchivedSettings({ deletionPlan, initial }: { deletionPlan: DeletionPlan; initial: TryoutOperationsView }) {
   return (
     <section aria-labelledby="archived-tryout-settings" className="grid gap-3">
       <ArchivedSectionHeading id="archived-tryout-settings">Pengaturan</ArchivedSectionHeading>
@@ -115,17 +117,20 @@ function ArchivedSettings({ initial }: { initial: TryoutOperationsView }) {
           </div>
         </dl>
       </ReferenceSurface>
+      <KaptenTryoutArchivedAdministration plan={deletionPlan} title={initial.title} tryoutId={initial.id} />
     </section>
   );
 }
 
 function KaptenTryoutArchivedHistoryPageModule({
   activeWorkspace,
+  deletionPlan,
   initial,
   outline,
   parentId,
 }: {
   activeWorkspace: TryoutWorkspaceTab;
+  deletionPlan: DeletionPlan;
   initial: TryoutOperationsView;
   outline: ArchivedTryoutOutline | null;
   parentId?: string;
@@ -140,7 +145,7 @@ function KaptenTryoutArchivedHistoryPageModule({
           <KaptenTryoutParticipantsPageModule embedded initial={initial} resultMaintenance={false} showReadiness={false} />
         </section>
       ) : null}
-      {activeWorkspace === "settings" ? <ArchivedSettings initial={initial} /> : null}
+      {activeWorkspace === "settings" ? <ArchivedSettings deletionPlan={deletionPlan} initial={initial} /> : null}
     </KaptenTryoutArchivedHistoryFrame>
   );
 }

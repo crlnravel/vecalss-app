@@ -16,7 +16,7 @@ function TopAlumniPageModule() {
             Contoh profil alumni
           </h1>
           <p className="mt-4 text-base leading-7 text-[var(--voyage-deep)]/68 md:text-lg">
-            Daftar ini memakai data contoh dan belum mencerminkan alumni Vecalss
+            Daftar ini memakai data contoh dan belum mencerminkan alumni PTN Pro
             yang sebenarnya.
           </p>
         </div>

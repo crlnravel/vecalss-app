@@ -12,7 +12,7 @@ function InvitePasswordSetupPageModule({
 }) {
   return (
     <AuthShell
-      description="Buat kata sandi untuk mengaktifkan akun Vecalss. Tautan ini berlaku 24 jam dan hanya bisa digunakan sekali."
+      description="Buat kata sandi untuk mengaktifkan akun PTN Pro. Tautan ini berlaku 24 jam dan hanya bisa digunakan sekali."
       eyebrow="Undangan akun"
       title="Atur kata sandi"
     >

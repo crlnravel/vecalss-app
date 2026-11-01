@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 type ToastVariant = "default" | "error" | "info" | "success" | "warning";
 type ToastPlacement = "action" | "notification";
 
-type VecalssToastOptions = Omit<ExternalToast, "className" | "position"> & {
+type PtnProToastOptions = Omit<ExternalToast, "className" | "position"> & {
   className?: string;
   variant?: ToastVariant;
   placement?: ToastPlacement;
@@ -20,7 +20,7 @@ const toastVariantClassNames: Record<ToastVariant, string> = {
   warning: "!border-student-status-attention-border !bg-student-status-attention-bg !text-student-status-attention-fg",
 };
 
-function showToast(message: ReactNode, { variant = "default", placement, ...options }: VecalssToastOptions = {}) {
+function showToast(message: ReactNode, { variant = "default", placement, ...options }: PtnProToastOptions = {}) {
   const resolvedPlacement = placement ?? (options.action || options.cancel ? "action" : "notification");
   const emit = variant === "success"
     ? sonnerToast.success
@@ -40,4 +40,4 @@ function showToast(message: ReactNode, { variant = "default", placement, ...opti
 }
 
 export { showToast, sonnerToast as toast, toastVariantClassNames };
-export type { ToastVariant, ToastPlacement, VecalssToastOptions };
+export type { ToastVariant, ToastPlacement, PtnProToastOptions };

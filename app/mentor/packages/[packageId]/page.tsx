@@ -6,7 +6,7 @@ import { getReusableQuestionPackageVersionHub } from "@/lib/tryout/repository";
 import { KaptenPackageVersionHubModule } from "@/modules/mentor/KaptenPackageVersionHubModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Paket Soal Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Paket Soal Kapten | PTN Pro LMS" };
 
 export default async function PackageVersionHubPage({ params, searchParams }: { params: Promise<{ packageId: string }>; searchParams: Promise<{ released?: string; saved?: string }> }) {
   const [{ packageId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);

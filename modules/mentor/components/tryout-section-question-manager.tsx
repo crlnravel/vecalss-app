@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ImagePlus,
+  LibraryBig,
   Plus,
   Search,
   Trash2,
@@ -1201,9 +1202,7 @@ function TryoutQuestionImportBankSelector({
 }) {
   return (
     <div className="grid shrink-0 gap-2">
-      <p className="text-xs font-bold tracking-[0.12em] text-secondary-500 uppercase">
-        Bank Soal Tryout
-      </p>
+      <p className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal Tryout</p>
       <Popover>
         <PopoverTrigger
           disabled={disabled || importing || sourceBankLoading}
@@ -1221,7 +1220,7 @@ function TryoutQuestionImportBankSelector({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(34rem,calc(100vw-2rem))] gap-3"
+          className="w-(--anchor-width) min-w-72 max-w-[calc(100vw-2rem)] gap-3"
         >
           <FieldInput
             aria-label="Cari Bank Soal Tryout"
@@ -1367,6 +1366,7 @@ function TryoutQuestionImportResults({
         ) : null}
         {!sourceQuestionLoading && !activeSourceQuestions.length ? (
           <ReferenceSurface className="px-4 py-10 text-center" variant="inset">
+            <LibraryBig aria-hidden="true" className="mx-auto mb-3 size-7 text-primary-300" />
             <p className="text-sm font-semibold text-secondary-900">
               {browseBankId
                 ? "Tidak ada soal siap yang cocok"

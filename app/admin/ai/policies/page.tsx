@@ -9,7 +9,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kebijakan Vera AI | Vecalss Admin",
+  title: "Kebijakan Vera AI | PTN Pro Admin",
 };
 
 export default async function AdminAiPoliciesPage() {

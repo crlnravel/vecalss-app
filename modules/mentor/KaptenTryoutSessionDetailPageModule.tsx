@@ -76,6 +76,7 @@ function SessionScheduleCard({
   onOpen,
   openBusy = false,
   title = "Detail sesi",
+  card = false,
 }: {
   onOpen?: () => void;
   onSave: () => void;
@@ -87,11 +88,12 @@ function SessionScheduleCard({
   scheduleLocked: boolean;
   validationMessage?: string | null;
   title?: string;
+  card?: boolean;
 }) {
   return (
     <section
       aria-labelledby="session-schedule-title"
-      className="mt-6 border-t border-primary-100 pt-6"
+      className={card ? undefined : "mt-6 border-t border-primary-100 pt-6"}
     >
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h2
@@ -247,7 +249,9 @@ function KaptenTryoutSessionDetailPageModule({
   if (embedded) {
     return (
       <>
+        <ReferenceSurface className="p-5 sm:p-6">
         <SessionScheduleCard
+          card
           onSave={() => void handleScheduleSave()}
           onScheduleChange={(next) => { setSchedule(next); setValidationNotice(null); }}
           schedule={schedule}
@@ -259,6 +263,7 @@ function KaptenTryoutSessionDetailPageModule({
           openBusy={busy}
           title="Waktu akses peserta"
         />
+        </ReferenceSurface>
         {showAttempts ? <SessionAttemptsTable delivery={delivery} tryoutId={initial.id} /> : null}
         <SessionOpenDialog
           busy={busy}

@@ -50,7 +50,7 @@ export function MentorGridMenu({
 
 export function MentorAssessmentGrid<T>({
   table, caption, label, columnLabels = {}, numericColumns = [], headerTitles = {},
-  emptyState, loadingState, onRowOpen, wrapRow,
+  emptyState, loadingState, onRowOpen, wrapRow, tallRows = false,
 }: {
   table: TanStackTable<T>;
   caption: string;
@@ -62,6 +62,8 @@ export function MentorAssessmentGrid<T>({
   loadingState?: ReactNode;
   onRowOpen?: (row: T) => void;
   wrapRow?: (row: T, element: ReactNode) => ReactNode;
+  /** Rows whose cells hold only text and badges: match the 45px rows of lists that carry avatars and row menus. */
+  tallRows?: boolean;
 }) {
   const cellClassName = (id: string) => id === "select" ? styles.selectionCell : id === "thumbnail" ? styles.thumbnailCell : id === "title" ? styles.titleCell : undefined;
   const rowProps = (original: T): ComponentProps<typeof TableRow> => onRowOpen ? {
@@ -75,8 +77,8 @@ export function MentorAssessmentGrid<T>({
       event.preventDefault();
       onRowOpen(original);
     },
-    className: "bg-voyage-surface cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
-  } : { className: "bg-voyage-surface" };
+    className: `bg-voyage-surface cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]${tallRows ? " [&>td]:h-[45px]" : ""}`,
+  } : { className: `bg-voyage-surface${tallRows ? " [&>td]:h-[45px]" : ""}` };
   return (
     <div className={styles.viewport} tabIndex={0} role="region" aria-label={label}>
       <Table className={styles.table} density="compact">
@@ -127,11 +129,13 @@ export function MentorAssessmentPagination({
   disabled?: boolean;
   label: string;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
+  /** Omit when the list has a fixed page size; the page-size menu is then hidden. */
+  onPageSizeChange?: (size: number) => void;
 }) {
   const pages = Array.from(new Set([1, ...Array.from({ length: 3 }, (_, index) => page - 1 + index).filter((number) => number > 0 && number <= pageCount), pageCount])).sort((a, b) => a - b);
   return (
         <div className={styles.footer}>
+          {onPageSizeChange ? (
           <div className={styles.pageSize}>
             <span>Baris per halaman</span>
             <MentorGridMenu
@@ -155,6 +159,7 @@ export function MentorAssessmentPagination({
               ))}
             </MentorGridMenu>
           </div>
+          ) : <span />}
           <div className={styles.pagination}>
             <span className={styles.range}>
               {total ? (page - 1) * pageSize + 1 : 0}–

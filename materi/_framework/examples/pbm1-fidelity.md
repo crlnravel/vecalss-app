@@ -35,7 +35,7 @@ page markers; they are not lesson text and do not appear in the designed PDF.
   answer options are justified (`TA_JUSTIFY`); headings and table cells remain
   left-aligned (`TA_LEFT`).
 - Full-width Voyage Deep top and bottom bands with no inner borders.
-- Mascot logo (`mascot-veco.png`) and `PTN PRO` (`LEARNING ACADEMY`) wordmark with
+- Mascot logo (`mascot-veco.png`) and `PTN PRO` wordmark with
   a borderless circular field and angled ribbon in the header, plus a borderless
   circular field in the footer.
 - Borderless (`stroke=0`) soft light-yellowish (`#FFF7D6`) accents on the white

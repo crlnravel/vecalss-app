@@ -29,7 +29,7 @@ async function main() {
 
     const title = await page.title();
     console.log(`[test:obscura-smoke] Page title: "${title}"`);
-    assert.ok(title.includes("Vecalss"), `Expected title to contain "Vecalss", got "${title}"`);
+    assert.ok(title.includes("PTN Pro"), `Expected title to contain "PTN Pro", got "${title}"`);
 
     const hasEmail = (await page.$('input[type="email"], input[name="email"]')) !== null;
     assert.ok(hasEmail, "Expected email input field to exist on login page");

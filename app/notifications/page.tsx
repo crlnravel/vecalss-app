@@ -8,7 +8,7 @@ import { NotificationsPageModule } from "@/modules/student/NotificationsPageModu
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Notifikasi | Vecalss LMS",
+  title: "Notifikasi | PTN Pro LMS",
 };
 
 const NOTIFICATION_PAGE_SIZE = 10;

@@ -7,7 +7,7 @@ import { buildMentorTryoutAttemptHref, parseMentorTryoutAttemptContext, parseMen
 
 
 const catalogue = "/mentor/tryout?q=Simulasi&status=published&page=2";
-const query = new URLSearchParams({ workspace: "operations", parent: "parent", returnTo: catalogue, q: "Nabila", status: "pending", access: "all", page: "2" });
+const query = new URLSearchParams({ workspace: "operations", parent: "parent", returnTo: catalogue, q: "Nabila", status: "pending", page: "2" });
 const source = readFileSync(new URL("../modules/mentor/KaptenTryoutSessionDetailPageModule.tsx", import.meta.url), "utf8");
 const body = source.slice(source.indexOf("function SessionAttemptsTable("), source.indexOf("function SessionOpenDialog("));
 const javascript = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None, jsx: ts.JsxEmit.React } }).outputText;

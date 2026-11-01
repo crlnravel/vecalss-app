@@ -342,7 +342,7 @@ async function upsertQuestions(client, { bankId, purpose, subtestIds, tutorId })
          explanation, status, source, revision, current_revision_id,
          created_by_user_id, updated_by_user_id
        )
-       VALUES ($1, $2, $3, $4, $5, 'single_choice', $6::difficulty_level, $7, 'published', 'Tim Akademik Vecalss', 1, gen_random_uuid(), $8, $8)
+       VALUES ($1, $2, $3, $4, $5, 'single_choice', $6::difficulty_level, $7, 'published', 'Tim Akademik PTN Pro', 1, gen_random_uuid(), $8, $8)
        ON CONFLICT (code) DO UPDATE
          SET question_bank_id = EXCLUDED.question_bank_id,
              subtest_id = EXCLUDED.subtest_id,
@@ -1795,6 +1795,35 @@ function assertSeedFrozenRunComplete(run, section, releasePayload, label) {
   }
 }
 
+/**
+ * Mirrors the live run path (attempt-repository.ts): a frozen run keeps its
+ * physical item/option ids and records the release identities beside them, so
+ * the participant result can prove the run against its pinned release.
+ */
+function bridgeSnapshotItemsToRelease(sectionSnapshot, releaseItems) {
+  if (!Array.isArray(sectionSnapshot.items)) return sectionSnapshot;
+  const items = sectionSnapshot.items.map((snapshotItem) => {
+    if (!isRecord(snapshotItem)) return snapshotItem;
+    const releaseItem = releaseItems.find((candidate) => candidate.physicalId === snapshotItem.id);
+    if (!releaseItem) return snapshotItem;
+    const releaseOptions = Array.isArray(releaseItem.options) ? releaseItem.options : [];
+    return {
+      ...snapshotItem,
+      releaseItemId: releaseItem.id,
+      questionType: releaseItem.questionType ?? snapshotItem.questionType ?? "single_choice",
+      ...(Array.isArray(snapshotItem.options)
+        ? {
+          options: snapshotItem.options.map((snapshotOption) => {
+            const releaseOption = isRecord(snapshotOption) ? releaseOptions.find((candidate) => candidate.physicalId === snapshotOption.id) : null;
+            return releaseOption ? { ...snapshotOption, releaseOptionId: releaseOption.id } : snapshotOption;
+          }),
+        }
+        : {}),
+    };
+  });
+  return { ...sectionSnapshot, items };
+}
+
 function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessmentRelease) {
   const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
   const sections = Array.isArray(releasePayload?.sections) ? releasePayload.sections : [];
@@ -1839,7 +1868,7 @@ function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessme
       };
     })
     : sectionSnapshot.items;
-  const nextSectionSnapshot = mergedItems ? { ...sectionSnapshot, items: mergedItems } : sectionSnapshot;
+  const nextSectionSnapshot = mergedItems ? bridgeSnapshotItemsToRelease({ ...sectionSnapshot, items: mergedItems }, releaseItems) : sectionSnapshot;
   const nextSnapshot = content
     ? { ...snapshot, content: nextSectionSnapshot }
     : nextSectionSnapshot;
@@ -2033,7 +2062,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         attemptId,
         section.id,
         section.sequence_no,
-        JSON.stringify({ ...section.content, assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease) }),
+        JSON.stringify({ ...bridgeSnapshotItemsToRelease(section.content, (releasePayload?.sections ?? []).find((candidate) => candidate.physicalId === section.content.sectionId)?.items ?? []), assessmentRelease: seedReleaseSnapshotMetadata(assessmentRelease) }),
         JSON.stringify(calculationInput),
         JSON.stringify(calculationResult),
         scoringVersion,

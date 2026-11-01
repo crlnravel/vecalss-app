@@ -57,7 +57,7 @@ export const fetchCache = "force-no-store";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Pratinjau tampilan siswa | Vecalss",
+  title: "Pratinjau tampilan siswa | PTN Pro",
   description: "Lihat tampilan siswa tanpa membuat atau mengubah data belajar.",
 };
 

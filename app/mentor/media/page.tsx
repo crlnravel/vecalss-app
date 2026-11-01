@@ -5,7 +5,7 @@ import { MediaLibrary } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Media Kapten | Vecalss LMS",
+  title: "Media Kapten | PTN Pro LMS",
 };
 
 export default async function MentorMediaPage() {

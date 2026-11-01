@@ -4,6 +4,10 @@ Use this file before introducing a new pattern or visual exception.
 
 [Back to the design-system index](../../DESIGN.md)
 
+For task clarity, decision-making, cognitive load, grouping, progress, and
+recovery, read [UX guidelines](ux.md). It adapts Laws of UX to Vecalss within
+the existing component, feedback, navigation, and accessibility contracts.
+
 ### Do:
 
 - **Do** use Voyage Deep for the primary action and the clearest progress cue.

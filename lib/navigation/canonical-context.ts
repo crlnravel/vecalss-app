@@ -14,7 +14,6 @@ export type NavigationQueryInput =
   | Readonly<Record<string, NavigationQueryValue>>;
 
 export type CanonicalContextField =
-  | "access"
   | "artifact"
   | "category"
   | "delivery"
@@ -74,6 +73,10 @@ export type TryoutWorkspace = (typeof TRYOUT_WORKSPACES)[number];
 export const TRYOUT_DELIVERIES = ["policy", "sessions", "participants"] as const;
 export type TryoutDelivery = (typeof TRYOUT_DELIVERIES)[number];
 export type TryoutResultFilter = "all" | "in_progress" | "submitted";
+/** Mirrors PARTICIPANT_STATUSES in lib/tryout/participant-status.ts; a test keeps them equal. */
+export const PARTICIPANT_STATUS_FILTERS: readonly string[] = [
+  "all", "pending", "no_access", "not_started", "in_progress", "finished", "scored", "expired", "abandoned", "void", "rejected", "revoked",
+];
 
 /** MVP query registry. Legacy values remain a type-only compatibility union. */
 export const VERA_TOOL_IDS = ["analysis", "route", "review"] as const;
@@ -84,6 +87,8 @@ export type VeraToolId = VeraMvpToolId | (typeof VERA_LEGACY_TOOL_IDS)[number];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9:_-]{1,180}$/u;
 const MAX_PAGE = 1_000;
+/** Rows per page offered on the Peserta list; the first is not special, 10 is the default. */
+export const PARTICIPANT_PAGE_SIZES = [6, 10, 20, 50] as const;
 const MAX_SEARCH_LENGTH = 160;
 
 function valuesFor(input: NavigationQueryInput, key: string): string[] {
@@ -586,21 +591,21 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   const returnIssue = returnToIssue(returnToParam.value, TRYOUT_RETURN_PREFIXES);
   if (returnIssue) issues.push(returnIssue);
 
-  const listFields = ["q", "status", "access", "page"] as const;
+  const listFields = ["q", "status", "page", "pageSize"] as const;
   const listParams = Object.fromEntries(listFields.map((key) => [key, singleValue(input, key)]));
   for (const key of listFields) {
     if (listParams[key].invalid) issues.push(issue(key, listParams[key].value, "Filter peserta hanya boleh dipilih satu kali."));
   }
   const q = listParams.q.value?.trim();
   const status = listParams.status.value;
-  const access = listParams.access.value;
   const pageValue = listParams.page.value;
+  const pageSizeValue = listParams.pageSize.value;
   if (q && q.length > MAX_SEARCH_LENGTH) issues.push(issue("q", q, "Pencarian peserta terlalu panjang."));
-  if (status !== undefined && !["all", "pending", "active", "rejected", "revoked"].includes(status)) issues.push(issue("status", status, "Status pendaftaran tidak tersedia."));
-  if (access !== undefined && !["all", "active", "revoked", "missing"].includes(access)) issues.push(issue("access", access, "Status akses sesi tidak tersedia."));
+  if (status !== undefined && !PARTICIPANT_STATUS_FILTERS.includes(status)) issues.push(issue("status", status, "Status peserta tidak tersedia."));
   if (pageValue !== undefined && (!/^[1-9]\d*$/u.test(pageValue) || Number(pageValue) > MAX_PAGE)) issues.push(issue("page", pageValue, "Halaman peserta tidak tersedia."));
+  if (pageSizeValue !== undefined && !(PARTICIPANT_PAGE_SIZES as readonly number[]).includes(Number(pageSizeValue))) issues.push(issue("pageSize", pageSizeValue, "Jumlah baris peserta tidak tersedia."));
 
-  // Hasil filters are separate from registration/admission status semantics.
+  // Hasil filters are separate from the Peserta status semantics above.
   const resultQParam = singleValue(input, "resultQ");
   const resultStatusParam = singleValue(input, "resultStatus");
   const resultQ = resultQParam.value?.trim();
@@ -609,7 +614,6 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
   if (resultStatusParam.invalid || (resultStatus !== undefined && !["all", "in_progress", "submitted"].includes(resultStatus))) issues.push(issue("resultStatus", resultStatus, "Status hasil tidak tersedia."));
 
   return {
-    access,
     delivery,
     issues,
     parent,
@@ -625,6 +629,7 @@ export function parseMentorTryoutContext(input: NavigationQueryInput) {
     q,
     status,
     page: pageValue === undefined ? undefined : Number(pageValue),
+    pageSize: pageSizeValue === undefined ? undefined : Number(pageSizeValue),
     workspace,
   };
 }
@@ -637,8 +642,8 @@ function tryoutQueryParams(context: Partial<MentorTryoutContext>) {
   if (context.delivery !== undefined && context.delivery !== null) params.set("delivery", context.delivery);
   if (context.q !== undefined) params.set("q", context.q);
   if (context.status !== undefined) params.set("status", context.status);
-  if (context.access !== undefined) params.set("access", context.access);
   if (context.page !== undefined) params.set("page", String(context.page));
+  if (context.pageSize !== undefined) params.set("pageSize", String(context.pageSize));
   if (context.parent) params.set("parent", context.parent);
   if (context.returnTo) params.set("returnTo", context.returnTo);
   if (context.resultQ !== undefined) params.set("resultQ", context.resultQ);

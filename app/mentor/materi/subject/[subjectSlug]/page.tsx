@@ -20,7 +20,7 @@ type MentorMateriSubjectPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Subtes Materi Kapten | Vecalss LMS",
+  title: "Subtes Materi Kapten | PTN Pro LMS",
 };
 
 export default async function MentorMateriSubjectPage({

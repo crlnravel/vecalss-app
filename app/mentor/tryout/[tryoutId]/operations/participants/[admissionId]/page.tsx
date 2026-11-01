@@ -8,7 +8,7 @@ import { KaptenTryoutParticipantDetailPageModule } from "@/modules/mentor/Kapten
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Detail Peserta Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Detail Peserta Tryout | PTN Pro LMS" };
 
 export default async function TryoutParticipantDetailPage({
   params,

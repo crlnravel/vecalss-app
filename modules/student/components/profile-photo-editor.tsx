@@ -45,7 +45,10 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorProps) {
+function ProfilePhotoEditor({
+  initials,
+  showLabel = true,
+}: ProfilePhotoEditorProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [draftPhotoSrc, setDraftPhotoSrc] = useState<string | null>(null);
@@ -94,8 +97,16 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
   }
 
   return (
-    <div className={showLabel ? "flex flex-col items-start gap-3 pt-2" : "flex flex-col items-start gap-3"}>
-      {showLabel ? <p className="text-base leading-7 text-primary-900">Foto profil</p> : null}
+    <div
+      className={
+        showLabel
+          ? "flex flex-col items-start gap-3 pt-2"
+          : "flex flex-col items-start gap-3"
+      }
+    >
+      {showLabel ? (
+        <p className="text-base leading-7 text-primary-900">Foto profil</p>
+      ) : null}
       <div className="group/photo relative">
         <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_color-mix(in_oklab,var(--voyage-deep)_32%,transparent)]">
           {committedPhotoSrc ? (
@@ -122,9 +133,7 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                 </button>
               }
             />
-            <TooltipContent side="top">
-              Ganti foto profil
-            </TooltipContent>
+            <TooltipContent side="top">Ganti foto profil</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -151,12 +160,17 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
         }}
         open={isUploadDialogOpen}
       >
-        <DialogContent className="max-w-[32rem] border border-primary-100 bg-[var(--voyage-canvas)] shadow-[0_24px_80px_-30px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]" variant="default">
+        <DialogContent
+          className="max-w-[32rem] border border-primary-100 bg-[var(--voyage-canvas)] shadow-[0_24px_80px_-30px_color-mix(in_oklab,var(--voyage-deep)_45%,transparent)]"
+          variant="default"
+        >
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-secondary-950">
               Unggah foto profil
             </DialogTitle>
-            <DialogDescription>Pilih gambar yang ingin digunakan sebagai foto profil.</DialogDescription>
+            <DialogDescription>
+              Pilih gambar yang ingin digunakan sebagai foto profil.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
@@ -164,7 +178,10 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
               <div className="flex items-center gap-4">
                 <Avatar className="size-20 shrink-0 border border-primary-100">
                   {draftPhotoSrc ? (
-                    <AvatarImage alt="Pratinjau foto profil" src={draftPhotoSrc} />
+                    <AvatarImage
+                      alt="Pratinjau foto profil"
+                      src={draftPhotoSrc}
+                    />
                   ) : null}
                   <AvatarFallback className="text-lg">
                     {initials}
@@ -174,9 +191,6 @@ function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorPr
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-secondary-900">
                     {draftFileName ?? "Belum ada file yang dipilih"}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-secondary-500">
-                    Resolusi yang tajam akan terlihat paling bagus di avatar.
                   </p>
                 </div>
               </div>

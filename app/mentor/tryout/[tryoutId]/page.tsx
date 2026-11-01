@@ -10,7 +10,7 @@ import {
   type NavigationQueryValue,
 } from "@/lib/navigation/canonical-context";
 import { getOwnedTryoutOperationsView, toTryoutWorkspaceView } from "@/lib/tryout/operations-view";
-import { getTryoutForEdit } from "@/lib/tryout/repository";
+import { getArchivedTryoutOutline, getTryoutDeletionPlan, getTryoutForEdit } from "@/lib/tryout/repository";
 import { KaptenTryoutArchivedHistoryPageModule } from "@/modules/mentor/KaptenTryoutArchivedHistoryPageModule";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -19,7 +19,7 @@ import { KaptenTryoutRegistrationListPageModule } from "@/modules/mentor/KaptenT
 import { KaptenTryoutWorkspaceFrame } from "@/modules/mentor/KaptenTryoutWorkspaceFrame";
 import { KaptenTryoutAccessPageModule } from "@/modules/mentor/KaptenTryoutAccessPageModule";
 
-export const metadata: Metadata = { title: "Tryout Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Tryout Kapten | PTN Pro LMS" };
 
 type ParsedTryoutContext = ReturnType<typeof parseMentorTryoutContext>;
 type TryoutDraft = NonNullable<Awaited<ReturnType<typeof getTryoutForEdit>>>;
@@ -126,8 +126,8 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
     resultQ: parsedQuery.resultQ,
     resultStatus: parsedQuery.resultStatus,
     status: parsedQuery.status,
-    access: parsedQuery.access,
     page: parsedQuery.page,
+    pageSize: parsedQuery.pageSize,
     delivery: parsedQuery.delivery ?? undefined,
     parent: parsedQuery.parent,
     returnTo: parsedQuery.returnTo,
@@ -153,7 +153,13 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   if (operationsInitial.status === "archived") {
     return (
       <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel={operationsInitial.title} breadcrumbIsRoot={false} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} showSearch={false} sidebarAppearance="reference">
-        <KaptenTryoutArchivedHistoryPageModule initial={operationsInitial} />
+        <KaptenTryoutArchivedHistoryPageModule
+          activeWorkspace={initialWorkspaceForContext(parsedQuery)}
+          deletionPlan={(await getTryoutDeletionPlan(tryoutId, session.user.id)) ?? { activeAttemptCount: 0, admissionCount: 0, attemptCount: 0, hasHistory: false }}
+          initial={operationsInitial}
+          outline={await getArchivedTryoutOutline(tryoutId, session.user.id)}
+          parentId={parsedQuery.parent}
+        />
       </MentorWorkspaceShell>
     );
   }

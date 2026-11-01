@@ -20,25 +20,53 @@ def authored_text(lesson):
         text.append(page["title"])
         for block in page["blocks"]:
             kind = block["type"]
-            if kind in ("paragraph", "heading"):
+            if kind in ("paragraph", "heading", "title"):
                 text.append(block["text"])
             elif kind == "tip":
                 text.append(block["title"])
-                if "text" in block:
-                    text.append(block["text"])
-                if "items" in block:
-                    marker = block.get("marker", "•")
-                    text.extend(marker + " " + i for i in block["items"])
+                if "content" in block:
+                    for part in block["content"]:
+                        if part["type"] == "paragraph":
+                            text.append(part["text"])
+                        elif part["type"] == "bullets":
+                            marker = part.get("marker", "•")
+                            text.extend(marker + " " + item for item in part["items"])
+                        else:
+                            raise ValueError(f"Unknown tip content block: {part['type']}")
+                else:
+                    if "text" in block:
+                        text.append(block["text"])
+                    if "items" in block:
+                        marker = block.get("marker", "•")
+                        text.extend(marker + " " + i for i in block["items"])
             elif kind == "table":
-                text.extend(block["headers"])
+                if not block.get("synthetic_header"):
+                    text.extend(block["headers"])
                 text.extend(v for row in block["rows"] for v in row)
             elif kind == "bullets":
                 text.extend(block.get("marker", "•") + " " + i for i in block["items"])
             elif kind == "steps":
-                text.extend(f"{n}. " + i for n, i in enumerate(block["items"], block.get("start", 1)))
+                labels = block.get("item_labels")
+                if labels is None:
+                    labels = [f"{n}." for n in range(
+                        block.get("start", 1), block.get("start", 1) + len(block["items"])
+                    )]
+                if len(labels) != len(block["items"]):
+                    raise ValueError("Numbered-step labels must match the number of items")
+                text.extend(label + " " + item for label, item in zip(labels, block["items"]))
             elif kind == "question":
-                text.append(block["id"] + ". " + block["prompt"])
-                text.extend(label + ". " + i for label, i in zip(block.get("labels", "ABCDE"), block["options"]))
+                id_separator = block.get("id_separator", ".")
+                label_separator = block.get("label_separator", ".")
+                question_label = block.get("question_label", block["id"] + id_separator)
+                text.append(question_label + " " + block["prompt"])
+                option_labels = block.get("option_labels")
+                if option_labels is None:
+                    option_labels = [label + label_separator
+                                     for label in block.get("labels", "ABCDE")]
+                if len(option_labels) != len(block["options"]):
+                    raise ValueError("Answer-option labels must match the number of options")
+                text.extend(label + " " + option
+                            for label, option in zip(option_labels, block["options"]))
             else:
                 raise ValueError(f"Verbatim fidelity needs an explicit text contract for {kind}")
     return re.sub(r"\*\*|\*", "", "\n".join(text))

@@ -8,9 +8,9 @@ import { participantTryoutCatalogue } from "@/lib/tryout/participant-repository"
 import { ParticipantTryoutWorkspace } from "@/modules/tryout/ParticipantTryoutWorkspace";
 
 export const metadata: Metadata = {
-  title: "Tryout | Vecalss LMS",
+  title: "Tryout | PTN Pro LMS",
   description:
-    "Browse Vecalss tryout packages for flexible, premium, and regular SNBT practice.",
+    "Browse PTN Pro tryout packages for flexible, premium, and regular SNBT practice.",
 };
 
 export default async function TryoutPage() {

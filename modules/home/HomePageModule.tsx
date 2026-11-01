@@ -5,6 +5,7 @@ import { ArrowRight, InstagramLogo, LinkedinLogo, XLogo } from "@/lib/icons";
 import { featuredTopAlumni } from "@/modules/alumni/data";
 
 import { FAQ } from "./components/FAQ";
+import { FeaturePreview } from "./components/feature-previews";
 import { ActionButtonLink } from "./components/home-primitives";
 import { LandingMotionController } from "./components/landing-motion-controller";
 import { MarketingHeader } from "./components/marketing-header";
@@ -13,7 +14,7 @@ import {
   campusCrewMarks,
   crewMembers,
   faqItems,
-  pathways,
+  programFeatures,
   testimonials,
 } from "./data";
 
@@ -21,9 +22,10 @@ const footerLinks = [
   {
     title: "Jelajahi",
     items: [
-      { href: "/#about", label: "Tentang Vecalss" },
-      { href: "/#program", label: "Program" },
+      { href: "/#about", label: "Tentang PTN Pro" },
+      { href: "/#program", label: "Fitur" },
       { href: "/#alumni", label: "Alumni" },
+      { href: "/pricing", label: "Harga" },
     ],
   },
   {
@@ -102,26 +104,35 @@ function Hero() {
           <p className="mt-6 max-w-[500px] text-pretty text-sm leading-6 text-[var(--voyage-deep)]/78 md:text-base md:leading-7">
             Ayo mulai perjalananmu dari sini!
           </p>
-          <ActionButtonLink
-            className="landing-elevated-button mt-7 h-12 min-w-36 px-5 text-sm"
-            href="https://linktr.ee/vecalss.academy"
-            target="_blank"
-            variant="default"
-          >
-            Mulai belajar
-            <ArrowRight className="ml-2 size-4" />
-          </ActionButtonLink>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <ActionButtonLink
+              className="landing-elevated-button h-12 min-w-36 px-5 text-sm"
+              href="https://linktr.ee/vecalss.academy"
+              target="_blank"
+              variant="default"
+            >
+              Mulai belajar
+              <ArrowRight className="ml-2 size-4" />
+            </ActionButtonLink>
+            <ActionButtonLink
+              className="landing-elevated-button landing-elevated-button-light h-12 min-w-36 px-5 text-sm"
+              href="/pricing"
+              variant="outline"
+            >
+              Lihat harga
+            </ActionButtonLink>
+          </div>
         </div>
 
         <div className="home-hero-media relative aspect-[4/3] w-full overflow-hidden lg:translate-x-40">
           <video
-            aria-label="Maskot Vecalss mengamati perjalanan belajar dengan kaca pembesar"
+            aria-label="Maskot PTN Pro mengamati perjalanan belajar dengan kaca pembesar"
             autoPlay
             className="size-full object-cover"
             loop
             muted
             playsInline
-            poster="/brand/mascot-vecalss.png"
+            poster="/brand/mascot-vecalss-2.png"
             preload="auto"
             src="/mascott.webm"
           />
@@ -255,36 +266,24 @@ function MentorsSection() {
 }
 
 function ProgramCard({ index }: { index: number }) {
-  const pathway = pathways[index];
-  const isWideCard = index > 2;
-  const imageClass = isWideCard
-    ? "right-1 top-1/2 size-44 -translate-y-1/2 md:right-8 md:size-56"
-    : "right-2 top-1 size-40 md:right-3 md:top-2 md:size-48";
+  const feature = programFeatures[index];
 
   return (
     <article
-      className={`program-reference-card motion-program-card relative min-h-[250px] overflow-hidden p-6 md:min-h-[320px] ${isWideCard ? "md:col-span-3" : "md:col-span-2"}`}
+      className="program-reference-card motion-program-card relative flex flex-col gap-5 overflow-hidden p-4 md:p-5"
       style={
         {
           "--motion-delay": `${index * 85}ms`,
         } as React.CSSProperties
       }
     >
-      <div className={`program-card-art absolute ${imageClass}`}>
-        <Image
-          alt=""
-          fill
-          className="object-contain"
-          sizes="208px"
-          src={pathway.art}
-        />
-      </div>
-      <div className="relative z-10 flex h-full max-w-[62%] flex-col justify-end md:max-w-[68%]">
+      <FeaturePreview id={feature.id} />
+      <div className="mt-auto px-2 pb-2">
         <h3 className="text-balance text-2xl font-semibold leading-[1.02] tracking-[-0.03em] text-[var(--voyage-deep)] md:text-3xl">
-          {pathway.title}
+          {feature.title}
         </h3>
         <p className="mt-3 text-sm leading-6 text-[var(--voyage-deep)]/78">
-          {pathway.summary}
+          {feature.summary}
         </p>
       </div>
     </article>
@@ -299,12 +298,12 @@ function ProgramsSection() {
       id="program"
     >
       <div className="motion-scene-stage">
-        <PanelHeading body="Didesain untuk membantu para voyager melewati perjalanan menuju PTN">
-          Program
+        <PanelHeading body="Semua yang kamu perlukan untuk belajar menuju PTN, ada di satu tempat.">
+          Fitur
         </PanelHeading>
-        <div className="program-reference-grid mx-auto mt-10 grid w-full max-w-[1160px] gap-4 md:grid-cols-6 md:gap-5">
-          {pathways.map((pathway, index) => (
-            <ProgramCard index={index} key={pathway.id} />
+        <div className="program-reference-grid mx-auto mt-10 grid w-full max-w-[1160px] gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-3">
+          {programFeatures.map((feature, index) => (
+            <ProgramCard index={index} key={feature.id} />
           ))}
         </div>
       </div>
@@ -619,11 +618,11 @@ function QuestionsSection() {
           <PanelHeading body="Jawaban singkat sebelum mulai.">FAQ</PanelHeading>
           <div className="relative mx-auto mt-8 aspect-square w-44 md:w-52 lg:mt-auto lg:w-64">
             <Image
-              alt="Maskot Vecalss menemani bagian pertanyaan"
+              alt="Maskot PTN Pro menemani bagian pertanyaan"
               fill
               className="object-contain"
               sizes="256px"
-              src="/brand/mascot-vecalss.png"
+              src="/brand/mascot-vecalss-2.png"
             />
           </div>
         </div>
@@ -646,7 +645,7 @@ function LandingFooter() {
       <div className="motion-footer-content mx-auto grid w-full max-w-[1040px] gap-10 md:grid-cols-[1.35fr_0.7fr_0.7fr_0.8fr]">
         <div>
           <Link
-            aria-label="Beranda Vecalss"
+            aria-label="Beranda PTN Pro"
             className="inline-flex items-center gap-3"
             href="/"
           >
@@ -655,14 +654,14 @@ function LandingFooter() {
               className="h-11 w-auto"
               height={910}
               sizes="56px"
-              src="/brand/logo-mark-cropped.png"
+              src="/brand/mascot-vecalss-2.png"
               width={1145}
             />
             <span
               className="text-2xl font-normal uppercase tracking-[0.08em] text-[var(--voyage-deep)]"
               style={{ fontFamily: "var(--font-sports-world)" }}
             >
-              VECALSS
+              PTN PRO
             </span>
           </Link>
           <p className="mt-6 max-w-[29ch] text-base font-semibold leading-7 text-[var(--voyage-deep)]">
@@ -728,7 +727,7 @@ function LandingFooter() {
 
       <div className="mx-auto mt-6 w-full max-w-[1040px] pt-6 md:mt-8">
         <p className="text-xs text-[var(--voyage-deep)]/70">
-          © 2026 Vecalss Learning Academy
+          © 2026 PTN Pro
         </p>
       </div>
     </footer>

@@ -469,7 +469,7 @@ const toAssetDto = async (asset: {
     sizeBytes: asset.sizeBytes,
     state: asset.state,
     updatedAt: asset.updatedAt.toISOString(),
-    uploadedBy: asset.uploadedBy?.fullName ?? "Pengguna Vecalss",
+    uploadedBy: asset.uploadedBy?.fullName ?? "Pengguna PTN Pro",
     width: asset.width,
   };
 };

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSessionContext } from "@/lib/auth/session";
-import { getDefaultHomePath, getSafeAdminReturnPath } from "@/lib/auth/paths";
+import { getDefaultHomePath, getSafeLoginReturnPath } from "@/lib/auth/paths";
 import { LoginPageModule } from "@/modules/auth/LoginPageModule";
 
 export default async function LoginPage({
@@ -23,7 +23,7 @@ export default async function LoginPage({
   const notice = typeof resolvedSearchParams.notice === "string"
     ? resolvedSearchParams.notice
     : null;
-  const returnTo = getSafeAdminReturnPath(resolvedSearchParams.returnTo);
+  const returnTo = getSafeLoginReturnPath(resolvedSearchParams.returnTo);
 
   return <LoginPageModule notice={notice} returnTo={returnTo} />;
 }

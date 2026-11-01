@@ -37,26 +37,6 @@ export default async function NotFound() {
           strokeOpacity="0.34"
           strokeWidth="3"
         />
-        <circle className="route-current" fill="var(--voyage-warm-sun)" r="6">
-          <animateMotion
-            dur="7s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle
-          className="route-current"
-          fill="var(--voyage-forest)"
-          opacity="0.8"
-          r="5"
-        >
-          <animateMotion
-            begin="-2.4s"
-            dur="5.8s"
-            path={VOYAGE_ROUTE_PATH}
-            repeatCount="indefinite"
-          />
-        </circle>
       </svg>
       <div
         aria-hidden="true"
@@ -70,7 +50,7 @@ export default async function NotFound() {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-7 sm:px-8 md:px-10 md:py-9">
         <header className="flex items-center justify-between">
           <Link
-            aria-label="Beranda Vecalss"
+            aria-label="Beranda PTN Pro"
             className="group inline-flex min-h-11 items-center gap-3 rounded-[10px] pr-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#014C38]/30 focus-visible:ring-offset-4"
             href="/"
           >
@@ -80,11 +60,11 @@ export default async function NotFound() {
                 fill
                 className="object-contain"
                 sizes="44px"
-                src="/brand/logo-mark-cropped.png"
+                src="/brand/mascot-vecalss-2.png"
               />
             </span>
             <span className="font-logo text-lg tracking-[0.1em] text-[#014C38] sm:text-xl">
-              VECALSS
+              PTN PRO
             </span>
           </Link>
         </header>
@@ -104,7 +84,7 @@ export default async function NotFound() {
               </div>
               <div className="relative h-[230px] w-[230px] sm:h-[320px] sm:w-[320px] md:h-[390px] md:w-[390px] lg:h-[440px] lg:w-[440px]">
                 <Image
-                  alt="Maskot Vecalss sedang pusing"
+                  alt="Maskot PTN Pro sedang pusing"
                   fill
                   className="object-contain drop-shadow-[0_30px_24px_rgba(0,31,23,0.18)]"
                   priority
@@ -118,6 +98,12 @@ export default async function NotFound() {
               <h1 className="mt-5 max-w-[9ch] font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.9] font-extrabold tracking-[-0.065em] text-[#173C2D] sm:mt-7">
                 Maaf, halaman ini tidak ditemukan.
               </h1>
+
+              <p className="mt-6 max-w-[44ch] text-base leading-7 text-[var(--voyage-muted-ink)]">
+                {hasDashboardAction
+                  ? "Alamat yang kamu buka mungkin salah ketik atau sudah dipindahkan."
+                  : "Alamat yang kamu buka mungkin salah ketik atau sudah dipindahkan. Kembali ke beranda untuk mulai dari awal."}
+              </p>
 
               <ActionButtonLink className="mt-8" href={actionHref}>
                 {hasDashboardAction ? "Kembali ke dashboard" : "Kembali ke beranda"}

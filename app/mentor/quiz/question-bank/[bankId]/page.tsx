@@ -11,7 +11,7 @@ type MentorQuestionBankPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Detail Bank Soal Kapten | Vecalss LMS",
+  title: "Detail Bank Soal Kapten | PTN Pro LMS",
 };
 
 function parseTab(value: string | string[] | undefined) {

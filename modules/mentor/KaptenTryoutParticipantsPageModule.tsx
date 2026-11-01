@@ -14,8 +14,10 @@ import {
   DataTableFilterMenu,
   type DataTableFilterMenuItem,
 } from "@/components/ui/data-table-filter-menu";
+import { Badge } from "@/components/ui/badge";
 import { buildMentorTryoutAttemptHref, buildMentorTryoutHref, parseMentorTryoutContext, type TryoutResultFilter } from "@/lib/navigation/canonical-context";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { describeParticipantResultStatus, describeResultReleaseRule } from "@/lib/tryout/result-release-status";
 import { TryoutSessionResultReadiness } from "@/modules/mentor/components/tryout-session-result-readiness";
 import { navigateTryoutResultHref } from "@/modules/mentor/tryout-result-navigation";
 
@@ -148,10 +150,10 @@ function KaptenTryoutParticipantsPageModule({
           </Link>
         );
       },
-      headerClassName: "w-[36%] rounded-l-xl",
+      headerClassName: "w-[30%] rounded-l-xl",
       id: "participant",
       label: "Peserta",
-      width: 36,
+      width: 30,
     },
     {
       cell: (attempt) => {
@@ -163,14 +165,38 @@ function KaptenTryoutParticipantsPageModule({
               ? "—"
               : result?.scoreVisible && result.displayScore !== null
                 ? Number(result.displayScore).toFixed(2)
-                : "Belum tersedia"}
+                : <><span aria-hidden="true">—</span><span className="sr-only">Belum ditampilkan</span></>}
           </span>
         );
       },
-      headerClassName: "w-[24%]",
+      headerClassName: "w-[16%]",
       id: "score",
       label: "Skor",
-      width: 24,
+      width: 16,
+    },
+    {
+      cell: (attempt) => {
+        const status = describeParticipantResultStatus({
+          inProgress: isInProgress(attempt),
+          result: resultByAttemptId.get(attempt.id),
+        });
+        // Status is hidden on narrow screens, so an attempt still running is named here instead.
+        if (!status) {
+          return isInProgress(attempt)
+            ? <><span className="block min-w-0 text-secondary-700 sm:hidden">Berjalan</span><span aria-hidden="true" className="hidden min-w-0 text-secondary-700 sm:block">—</span></>
+            : <span className="block min-w-0 text-secondary-700">—</span>;
+        }
+        return (
+          <Badge size="sm" title={status.hint ?? undefined} tone={status.tone}>
+            {status.label}
+            {status.hint ? <span className="sr-only">. {status.hint}</span> : null}
+          </Badge>
+        );
+      },
+      headerClassName: "w-[22%] max-sm:rounded-r-xl",
+      id: "release",
+      label: "Hasil",
+      width: 22,
     },
     {
       cell: (attempt) => {
@@ -181,10 +207,11 @@ function KaptenTryoutParticipantsPageModule({
           </span>
         );
       },
-      headerClassName: "w-[20%] max-sm:rounded-r-xl",
+      cellClassName: "hidden sm:table-cell",
+      headerClassName: "hidden w-[16%] sm:table-cell",
       id: "status",
       label: "Status",
-      width: 20,
+      width: 16,
     },
     {
       cell: (attempt) => (
@@ -198,10 +225,10 @@ function KaptenTryoutParticipantsPageModule({
         </time>
       ),
       cellClassName: "hidden sm:table-cell",
-      headerClassName: "hidden w-[20%] rounded-r-xl sm:table-cell",
+      headerClassName: "hidden w-[16%] rounded-r-xl sm:table-cell",
       id: "started",
       label: "Mulai",
-      width: 20,
+      width: 16,
     },
   ];
   const filters: DataTableFilter[] =
@@ -231,7 +258,10 @@ function KaptenTryoutParticipantsPageModule({
       ) : null}
       <ReferenceSurface as="section" aria-labelledby="tryout-attempts-title" className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary-100 px-4 py-4 sm:px-5">
-          <h3 className="text-base font-semibold text-secondary-900" id="tryout-attempts-title">Pengerjaan peserta</h3>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-secondary-900" id="tryout-attempts-title">Pengerjaan peserta</h3>
+            {selectedSession ? <p className="text-sm text-secondary-600">{describeResultReleaseRule({ availableUntil: selectedSession.availableUntil, defaultPolicy: initial.defaultReleasePolicy, scheduledReleaseAt: selectedSession.scheduledReleaseAt, sessionPolicy: selectedSession.releasePolicy })}</p> : null}
+          </div>
           <div className="flex min-w-0 items-center gap-3">
             <p className="text-sm tabular-nums text-secondary-600">{visibleAttempts.length} ditampilkan</p>
           </div>

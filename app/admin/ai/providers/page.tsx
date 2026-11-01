@@ -5,7 +5,7 @@ import { AiProvidersPageModule } from "@/modules/admin/ai/AiProvidersPageModule"
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Provider & Routing Vera AI | Vecalss Admin",
+  title: "Provider & Routing Vera AI | PTN Pro Admin",
 };
 
 export default async function AdminAiProvidersPage() {

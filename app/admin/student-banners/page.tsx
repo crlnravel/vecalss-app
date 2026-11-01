@@ -11,7 +11,7 @@ import { BannerMakerDestinationPageModule } from "@/modules/admin/BannerMakerDes
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Editor banner | Vecalss LMS",
+  title: "Editor banner | PTN Pro LMS",
 };
 
 export default async function AdminStudentBannersPage({

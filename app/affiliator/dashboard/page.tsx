@@ -7,7 +7,7 @@ import { AffiliatorDashboardPageModule } from "@/modules/affiliator/AffiliatorDa
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Dashboard Affiliator | Vecalss LMS",
+  title: "Dashboard Affiliator | PTN Pro LMS",
 };
 
 export default async function AffiliatorDashboardPage() {

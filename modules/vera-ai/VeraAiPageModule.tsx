@@ -29,6 +29,7 @@ import {
   PanelLeftOpen,
   Pencil,
   Plus,
+  RefreshCw,
   RotateCcw,
   SendHorizontal,
   Sparkles,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { showToast } from "@/components/ui/toast";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -63,9 +65,6 @@ import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
@@ -755,6 +754,8 @@ type VeraAiWorkspaceProps = {
   sessionSidebarCollapsed: boolean;
   sessions: StudySession[];
   usage: VeraBackendUsage | null;
+  usageFetching: boolean;
+  onRefreshUsage: () => void;
   dataState: VeraDataState;
   workspaceTab: WorkspaceTab;
   returnToHref: string;
@@ -799,6 +800,8 @@ function VeraAiWorkspace({
   sessionSidebarCollapsed,
   sessions,
   usage,
+  usageFetching,
+  onRefreshUsage,
   dataState,
   workspaceTab,
   returnToHref,
@@ -833,6 +836,8 @@ function VeraAiWorkspace({
           returnToHref={returnToHref}
           session={session}
           usage={usage}
+          usageFetching={usageFetching}
+          onRefreshUsage={onRefreshUsage}
         />
         <h1 className="sr-only">Vera AI Workspace: {activeSession.title}</h1>
 
@@ -997,6 +1002,24 @@ function useVeraAiModuleState({
   const [activeArtifactDetail, setActiveArtifactDetail] =
     useState<VeraBackendArtifactDetail | null>(null);
   const [usage, setUsage] = useState<VeraBackendUsage | null>(null);
+  const [usageFetching, setUsageFetching] = useState(false);
+  const usageUserId = session.user.id;
+  const fetchUsage = useCallback(async () => {
+    setUsageFetching(true);
+    try {
+      const usageDto = await requestJson<VeraBackendUsage>(
+        "/api/vera-ai/usage",
+      );
+      writeCachedVeraUsage(usageUserId, usageDto);
+      setUsage(usageDto);
+      return usageDto;
+    } finally {
+      setUsageFetching(false);
+    }
+  }, [usageUserId]);
+  const refreshUsage = useCallback(() => {
+    void fetchUsage().catch(() => undefined);
+  }, [fetchUsage]);
   const [busy, setBusy] = useState(false);
   const [requestCancelable, setRequestCancelable] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -1108,6 +1131,8 @@ function useVeraAiModuleState({
   );
 
   const hydrate = useCallback(async () => {
+    const cachedUsage = readCachedVeraUsage(usageUserId);
+    if (cachedUsage) setUsage(cachedUsage);
     try {
       setDataState("loading");
       setBackendError(null);
@@ -1116,7 +1141,7 @@ function useVeraAiModuleState({
       );
       const authority = readVeraContextAuthority(conversationPage);
       const [usageResult] = await Promise.allSettled([
-        requestJson<VeraBackendUsage>("/api/vera-ai/usage"),
+        fetchUsage(),
       ]);
       if (usageResult.status === "rejected") {
         throw new VeraRequestError("usage_unavailable", {
@@ -1156,11 +1181,10 @@ function useVeraAiModuleState({
       setActiveArtifactDetail(null);
       setBackendArtifacts([]);
       setAutomaticProgress(null);
-      setUsage(null);
       setLastFailed(null);
       setBackendError(veraErrorMessage(caught));
     }
-  }, [loadConversation]);
+  }, [fetchUsage, loadConversation, usageUserId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1828,7 +1852,7 @@ function useVeraAiModuleState({
       setDraft("");
       await Promise.all([
         loadConversation(conversationId, finalStatus),
-        requestJson<VeraBackendUsage>("/api/vera-ai/usage").then(setUsage),
+        fetchUsage(),
       ]);
 
       if (kind === "studio" && attempt.artifactId) {
@@ -1922,6 +1946,8 @@ function useVeraAiModuleState({
     sessionSidebarCollapsed,
     sessions,
     usage,
+    usageFetching,
+    onRefreshUsage: refreshUsage,
     dataState,
     workspaceTab,
     returnToHref: buildStudentReturnHref(returnToHref),
@@ -1993,6 +2019,42 @@ const DATA_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
 });
 
+function VeraWorkspaceSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      className="flex h-full min-h-[min(32rem,calc(100svh-8rem))] min-w-0 gap-3 [&_[data-slot=skeleton]]:motion-reduce:animate-none"
+      role="status"
+    >
+      <p className="sr-only">Memuat ruang kerja Vera…</p>
+      <aside
+        aria-hidden="true"
+        className="hidden h-full w-72 shrink-0 flex-col gap-3 rounded-card border border-learning-card-border bg-white p-3 md:flex"
+      >
+        <Skeleton className="h-11 w-full" />
+        {Array.from({ length: 5 }, (_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </aside>
+      <div aria-hidden="true" className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-28" />
+          <Skeleton className="h-10 w-28" />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 rounded-card border border-learning-card-border bg-white p-5 shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)] md:p-6">
+          <Skeleton className="h-16 w-3/5" />
+          <Skeleton className="ml-auto h-10 w-2/5" />
+          <Skeleton className="h-24 w-4/5" />
+          <div className="mt-auto flex gap-3">
+            <Skeleton className="h-14 flex-1" />
+            <Skeleton className="size-14 shrink-0" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VeraDataStatePanel({
   dataState,
   error,
@@ -2002,36 +2064,30 @@ function VeraDataStatePanel({
   error: string | null;
   onRetry: () => void;
 }) {
-  const loading = dataState === "loading";
+  if (dataState === "loading") {
+    return <VeraWorkspaceSkeleton />;
+  }
 
   return (
     <section
-      aria-live={loading ? "polite" : "assertive"}
+      aria-live="assertive"
       className="mx-auto flex min-h-[min(32rem,calc(100svh-8rem))] w-full max-w-3xl flex-col items-center justify-center rounded-card border border-learning-card-border bg-white px-6 py-12 text-center shadow-[0_26px_80px_-46px_color-mix(in_oklab,var(--voyage-deep)_24%,transparent)]"
-      role={loading ? "status" : "alert"}
+      role="alert"
     >
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
-        {loading ? (
-          <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" />
-        ) : (
-          <Gauge className="size-5" />
-        )}
+      <span className="flex size-14 items-center justify-center rounded-control bg-learning-hero-bg text-learning-hero-fg shadow-[0_18px_34px_-24px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
+        <Gauge className="size-5" />
       </span>
       <h2 className="mt-5 text-xl font-semibold tracking-[-0.025em] text-secondary-950">
-        {loading ? "Memuat ruang kerja Vera…" : "Data Vera belum tersedia"}
+        Data Vera belum tersedia
       </h2>
       <p className="mt-2 max-w-md text-sm leading-6 text-secondary-600">
-        {loading
-          ? "Sesi, sumber belajar, dan penggunaan sedang dimuat dari server."
-          : (error ??
-            "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server.")}
+        {error ??
+          "Sesi, sumber belajar, dan penggunaan belum dapat dimuat dari server."}
       </p>
-      {!loading ? (
-        <Button className="mt-6 " onClick={onRetry} variant="default">
-          <RotateCcw data-icon="inline-start" />
-          Coba lagi
-        </Button>
-      ) : null}
+      <Button className="mt-6 " onClick={onRetry} variant="default">
+        <RotateCcw data-icon="inline-start" />
+        Coba lagi
+      </Button>
     </section>
   );
 }
@@ -2042,12 +2098,16 @@ function VeraTopBar({
   returnToHref,
   session,
   usage,
+  usageFetching,
+  onRefreshUsage,
 }: {
   notificationFeed: StudentNotificationFeed;
   onOpenSessionSidebar: () => void;
+  onRefreshUsage: () => void;
   returnToHref: string;
   session: SessionContext;
   usage: VeraBackendUsage | null;
+  usageFetching: boolean;
 }) {
   return (
     <header className="mx-2 mt-2 flex min-h-18 items-center gap-3 px-3 py-3 text-secondary-900 md:mx-3 md:mt-3 md:px-4">
@@ -2058,18 +2118,18 @@ function VeraTopBar({
           href={returnToHref}
         >
           <Image
-            alt="Vecalss"
+            alt="PTN Pro"
             className="h-7 w-auto object-contain md:h-8"
             height={42}
             priority
-            src="/brand/logo-mark-cropped.png"
+            src="/brand/mascot-vecalss-2.png"
             width={52}
           />
           <span
             className="hidden text-2xl leading-none tracking-[0.04em] text-primary-700 sm:inline"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
-            VECALSS
+            PTN PRO
           </span>
         </Link>
       </div>
@@ -2082,7 +2142,7 @@ function VeraTopBar({
           size="icon"
           title="Sesi"
           type="button"
-          variant="outline"
+          variant="quiet"
         >
           <MessageCircleMore aria-hidden="true" />
         </Button>
@@ -2091,12 +2151,16 @@ function VeraTopBar({
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon"
-          variant="outline"
+          variant="quiet"
         >
           <House />
         </Button>
-        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 text-primary-900 shadow-sm">
-          <VeraUsagePopover usage={usage} />
+        <div className="flex items-center gap-1.5 rounded-control border border-primary-100 bg-white px-1.5 py-1 text-primary-900 shadow-sm">
+          <VeraUsagePopover
+            onRefresh={onRefreshUsage}
+            refreshing={usageFetching}
+            usage={usage}
+          />
           <StudentNotificationPopover
             items={notificationFeed.items}
             unreadCount={notificationFeed.unreadCount}
@@ -2106,6 +2170,30 @@ function VeraTopBar({
       </div>
     </header>
   );
+}
+
+function veraUsageCacheKey(userId: string) {
+  return `vera-ai:usage:${userId}`;
+}
+
+function readCachedVeraUsage(userId: string): VeraBackendUsage | null {
+  try {
+    const raw = window.localStorage.getItem(veraUsageCacheKey(userId));
+    return raw ? (JSON.parse(raw) as VeraBackendUsage) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedVeraUsage(userId: string, usage: VeraBackendUsage) {
+  try {
+    window.localStorage.setItem(
+      veraUsageCacheKey(userId),
+      JSON.stringify(usage),
+    );
+  } catch {
+    // Storage can be blocked or full; the live value still renders.
+  }
 }
 
 function getVeraUsageSummary(usage: VeraBackendUsage | null) {
@@ -2157,178 +2245,75 @@ function getVeraUsageSummary(usage: VeraBackendUsage | null) {
   };
 }
 
-const VERA_USAGE_WINDOW_LABELS: Record<VeraUsageWindow["periodKind"], string> =
-  {
-    day: "Hari ini",
-    iso_week: "Minggu ini",
-    month: "Bulan ini",
-  };
-
-const VERA_USD_FORMATTER = new Intl.NumberFormat("en-US", {
-  currency: "USD",
-  maximumFractionDigits: 4,
-  style: "currency",
-});
-
-function formatVeraUsdMicros(value: string | undefined) {
-  if (!value || !/^\d+$/.test(value)) return "—";
-  const amount = Number(value) / 1_000_000;
-  if (!Number.isFinite(amount)) return "—";
-  return VERA_USD_FORMATTER.format(amount);
-}
-
-function formatVeraResetAt(
-  value: string | undefined,
-  timeZone: string | undefined,
-) {
-  if (!value) return "reset belum tersedia";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "reset belum tersedia";
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    timeZone: timeZone || "Asia/Jakarta",
-  }).format(date);
-}
-
-function VeraUsagePopover({ usage }: { usage: VeraBackendUsage | null }) {
-  const {
-    committedCredits,
-    consumedCredits,
-    creditLimit,
-    remainingCredits,
-    reservedCredits,
-    usagePercent,
-    usageState,
-  } = getVeraUsageSummary(usage);
-  const windows = usage?.windows ?? [];
+function VeraUsagePopover({
+  onRefresh,
+  refreshing,
+  usage,
+}: {
+  onRefresh: () => void;
+  refreshing: boolean;
+  usage: VeraBackendUsage | null;
+}) {
+  const { committedCredits, creditLimit, usagePercent } =
+    getVeraUsageSummary(usage);
+  const percent = usagePercent ?? 0;
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button
-            aria-label={
-              usagePercent === null
-                ? "Penggunaan Vera belum tersedia"
-                : `Penggunaan Vera ${usagePercent} persen dari kredit bulanan`
-            }
+            aria-label={`Penggunaan Vera ${percent} persen dari kredit bulanan`}
             className=" px-2.5"
             size="default"
-            variant="outline"
+            variant="quiet"
           />
         }
       >
         <Gauge data-icon="inline-start" />
         <span className="hidden text-xs tabular-nums sm:inline">
-          {usagePercent === null ? "—" : `${usagePercent}%`}
+          {percent}%
         </span>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80" sideOffset={10}>
-        <PopoverHeader>
-          <PopoverTitle>Penggunaan Vera</PopoverTitle>
-          <PopoverDescription>{usageState}</PopoverDescription>
-        </PopoverHeader>
-
-        {usage &&
-        usagePercent !== null &&
-        consumedCredits !== null &&
-        creditLimit !== null ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="font-semibold text-secondary-800">
-                Kredit bulan ini
-              </span>
-              <span className="tabular-nums text-secondary-500">
-                {committedCredits?.toLocaleString("id-ID")} /{" "}
-                {creditLimit.toLocaleString("id-ID")}
-              </span>
-            </div>
-            <Progress
-              aria-label="Penggunaan kredit Vera"
-              value={usagePercent}
-            />
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <p className="text-secondary-400">Terpakai</p>
-                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
-                  {consumedCredits.toLocaleString("id-ID")}
-                </p>
-              </div>
-              <div>
-                <p className="text-secondary-400">Diproses</p>
-                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
-                  {reservedCredits.toLocaleString("id-ID")}
-                </p>
-              </div>
-              <div>
-                <p className="text-secondary-400">Tersisa</p>
-                <p className="mt-0.5 font-semibold tabular-nums text-secondary-800">
-                  {remainingCredits?.toLocaleString("id-ID") ?? "—"}
-                </p>
-              </div>
-            </div>
-            {windows.length > 0 ? (
-              <div className="flex flex-col gap-2 border-t border-primary-100 pt-3">
-                {windows.map((window) => (
-                  <div
-                    className="flex items-center justify-between gap-3 text-xs"
-                    key={window.periodKind}
-                  >
-                    <span className="text-secondary-600">
-                      {VERA_USAGE_WINDOW_LABELS[window.periodKind]}
-                    </span>
-                    <span className="text-right tabular-nums text-secondary-500">
-                      {window.consumedCredits + window.reservedCredits} /{" "}
-                      {window.creditLimit}
-                      <span className="block text-xs text-secondary-400">
-                        reset{" "}
-                        {formatVeraResetAt(window.resetAt, usage.quotaTimezone)}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {usage.providerSpend ? (
-              <div className="border-t border-primary-100 pt-3 text-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-secondary-600">Biaya provider</span>
-                  <span className="tabular-nums text-secondary-500">
-                    {formatVeraUsdMicros(usage.providerSpend.exposureUsdMicros)}{" "}
-                    /{" "}
-                    {formatVeraUsdMicros(
-                      usage.providerSpend.costLimitUsdMicros,
-                    )}
-                  </span>
-                </div>
-                {usage.providerSpend.unknownUsdMicros !== "0" ? (
-                  <p className="mt-1 text-secondary-400">
-                    {formatVeraUsdMicros(usage.providerSpend.unknownUsdMicros)}{" "}
-                    masih menunggu rekonsiliasi.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            <p className="text-xs leading-5 text-secondary-500">
-              Zona {usage.quotaTimezone ?? "belum tersedia"}. Kredit analisis
-              dan rute memakai 2 kredit; chat dan review 1 kredit.
-            </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold text-secondary-800">
+              Kredit bulan ini
+            </span>
+            <span className="tabular-nums text-secondary-500">
+              {(committedCredits ?? 0).toLocaleString("id-ID")} /{" "}
+              {creditLimit?.toLocaleString("id-ID") ?? "—"}
+            </span>
           </div>
-        ) : (
-          <p className="text-sm leading-6 text-secondary-600">
-            Angka kuota dan waktu reset tidak ditampilkan sampai sumber akun
-            berhasil dibaca.
-          </p>
-        )}
+          <Progress aria-label="Penggunaan kredit Vera" value={percent} />
+          <div className="flex items-center justify-between gap-3">
+            <span
+              aria-live="polite"
+              className="text-xs text-secondary-500"
+            >
+              {refreshing ? "Menyegarkan..." : null}
+            </span>
+            <Button
+              aria-label="Segarkan penggunaan Vera"
+              onClick={onRefresh}
+              size="icon"
+              title="Segarkan"
+              variant="quiet"
+            >
+              <RefreshCw
+                className={cn(
+                  "motion-reduce:animate-none",
+                  refreshing && "animate-spin",
+                )}
+              />
+            </Button>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );
 }
-
 function WorkspaceTabs({
   onChange,
 }: {
@@ -2396,17 +2381,18 @@ function SessionSidebar({
   return (
     <nav
       aria-label="Sidebar sesi Vera"
-      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
+      className="flex h-full flex-col items-center rounded-panel border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_color-mix(in_oklab,var(--voyage-deep)_42%,transparent)]"
     >
-      <button
+      <Button
         aria-label="Buka sidebar sesi"
-        className="flex size-11 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
         onClick={() => onSetCollapsed(false)}
+        size="icon"
         title="Buka sidebar sesi"
         type="button"
+        variant="quiet"
       >
-        <PanelLeftOpen className="size-4" />
-      </button>
+        <PanelLeftOpen />
+      </Button>
 
       <div className="mt-7 flex flex-col items-center gap-2">
         <Button
@@ -2415,7 +2401,7 @@ function SessionSidebar({
           onClick={onNewSession}
           size="icon"
           title="Sesi baru"
-          variant="outline"
+          variant="quiet"
         >
           <Plus />
         </Button>
@@ -2425,7 +2411,7 @@ function SessionSidebar({
           onClick={() => onSetCollapsed(false)}
           size="icon"
           title="Daftar percakapan"
-          variant="outline"
+          variant="quiet"
         >
           <MessageCircleMore />
         </Button>
@@ -2498,7 +2484,7 @@ function SessionPanel({
                 }}
                 size="icon"
                 title={showArchived ? "Sesi aktif" : "Arsip sesi"}
-                variant="outline"
+                variant="quiet"
               >
                 <Archive />
               </Button>
@@ -2509,7 +2495,7 @@ function SessionPanel({
                   onClick={onNewSession}
                   size="icon"
                   title="Sesi baru"
-                  variant="outline"
+                  variant="quiet"
                 >
                   <Plus />
                 </Button>
@@ -2520,7 +2506,7 @@ function SessionPanel({
                   className=""
                   onClick={onCollapse}
                   size="icon"
-                  variant="outline"
+                  variant="quiet"
                 >
                   <PanelLeftClose />
                 </Button>
@@ -2636,7 +2622,7 @@ function SessionListItem({
       ) : (
         <button
           aria-current={active ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
           disabled={item.archivedAt !== null}
           onClick={onSelect}
           type="button"
@@ -2679,7 +2665,7 @@ function SessionListItemActions({
   showArchived: boolean;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+    <div className="absolute inset-y-0 right-2 flex items-center gap-0.5 rounded-control bg-inherit pl-3 opacity-0 transition-opacity group-hover:opacity-100 has-[:focus-visible]:opacity-100">
       {showArchived ? (
         <Button
           aria-label={`Pulihkan ${item.title}`}
@@ -2687,7 +2673,7 @@ function SessionListItemActions({
           onClick={onRestore}
           size="icon"
           title="Pulihkan sesi"
-          variant="outline"
+          variant="quiet"
         >
           <Archive />
         </Button>
@@ -2699,7 +2685,7 @@ function SessionListItemActions({
             onClick={onBeginRename}
             size="icon"
             title="Ubah judul"
-            variant="outline"
+            variant="quiet"
           >
             <Pencil />
           </Button>
@@ -2709,7 +2695,7 @@ function SessionListItemActions({
             onClick={onArchive}
             size="icon"
             title="Arsipkan sesi"
-            variant="outline"
+            variant="quiet"
           >
             <Archive />
           </Button>
@@ -2721,7 +2707,7 @@ function SessionListItemActions({
         onClick={onDelete}
         size="icon"
         title="Hapus sesi"
-        variant="outline"
+        variant="quiet"
       >
         <Trash2 />
       </Button>
@@ -2954,7 +2940,7 @@ function VeraStudentMessage({
 }) {
   return (
     <Bubble align="end" className="max-w-[84%]">
-      <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
+      <BubbleContent className="rounded-card rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_color-mix(in_oklab,var(--voyage-deep)_70%,transparent)]">
         <p>{message.body}</p>
         {stateNotice ? (
           <p className="mt-1.5 text-xs text-white/70">{stateNotice}</p>
@@ -3015,7 +3001,7 @@ function VeraMascotAvatar() {
         aria-hidden="true"
         className="size-10 object-contain"
         height={40}
-        src="/brand/mascot-vecalss.png"
+        src="/brand/mascot-vecalss-2.png"
         width={40}
       />
     </span>
@@ -3035,7 +3021,7 @@ function VeraAutomaticMessageEvidence({
   return (
     <>
       {evidenceLabel ? (
-        <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
+        <p className="mt-3 rounded-control border border-primary-100 bg-primary-50/55 px-3 py-2 text-xs leading-5 text-primary-900">
           {evidenceLabel}
         </p>
       ) : null}
@@ -3134,7 +3120,7 @@ function ProvisionalMessageCard({
           aria-hidden="true"
           className="size-10 object-contain"
           height={40}
-          src="/brand/mascot-vecalss.png"
+          src="/brand/mascot-vecalss-2.png"
           width={40}
         />
       </span>
@@ -3177,7 +3163,7 @@ function ChatComposer({
           onSend();
         }}
       >
-        <div className="flex items-center gap-2 rounded-field border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_color-mix(in_oklab,var(--voyage-deep)_65%,transparent)] transition-shadow motion-reduce:transition-none focus-within:shadow-[0_16px_38px_-28px_color-mix(in_oklab,var(--voyage-deep)_80%,transparent)]">
+        <div className="flex items-center gap-2">
           <Input
             aria-label="Tanyakan sesuatu kepada Vera"
             className="min-w-0 flex-1"
@@ -3193,7 +3179,7 @@ function ChatComposer({
               onClick={onCancel}
               size="icon"
               type="button"
-              variant="outline"
+              variant="quiet"
             >
               <X />
             </Button>
@@ -3246,7 +3232,7 @@ function StudioPanel({
               className=""
               onClick={() => onExpandArtifact(activeArtifact.id)}
               size="icon"
-              variant="outline"
+              variant="quiet"
             >
               <Maximize2 />
             </Button>
@@ -3353,7 +3339,7 @@ function StudioToolRow({
       onClick={onGenerate}
       type="button"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-700 transition-transform duration-200 motion-safe:group-hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-control border border-primary-100 bg-white text-primary-700 transition-transform duration-200 motion-safe:group-hover:-translate-y-0.5 motion-reduce:translate-y-0 motion-reduce:transition-none">
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -3387,7 +3373,7 @@ function StudioArtifactCard({
       type="button"
     >
       <span className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-control bg-primary-50 text-primary-700">
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
@@ -3429,7 +3415,7 @@ function StudioArtifactDocument({
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-50 text-primary-700">
           <Icon className="size-5" aria-hidden="true" />
         </span>
       </div>

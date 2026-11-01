@@ -18,7 +18,7 @@ type MentorQuizDetailPageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Detail Kuis Kapten | Vecalss LMS",
+  title: "Detail Kuis Kapten | PTN Pro LMS",
 };
 
 function parseTab(value: string | string[] | undefined) {

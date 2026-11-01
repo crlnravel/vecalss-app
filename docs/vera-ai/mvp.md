@@ -4,7 +4,7 @@
 > Prisma schema remain authoritative if this page becomes stale.
 
 This page is the concise product and operations contract for the first paid
-Vera release. The MVP uses published Vecalss materials and practice evidence;
+Vera release. The MVP uses published PTN Pro materials and practice evidence;
 it is not an upload-first or open-ended research assistant. Automatic context
 is implemented behind a rollout gate and remains off in development.
 

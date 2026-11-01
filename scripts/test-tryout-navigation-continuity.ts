@@ -30,7 +30,7 @@ const results = buildTryoutWorkspaceHref("exam", "participants", query(operation
 assert.equal(query(results).get("delivery"), null, "Hasil must not retain an incompatible delivery pane");
 assert.equal(query(results).get("resultQ"), "Alya");
 assert.equal(query(results).get("resultStatus"), "submitted");
-assert.equal(query(results).get("session"), "session");
+assert.equal(query(results).get("session"), null, "a legacy session value is dropped: a Tryout has one session");
 for (const path of ["/mentor/tryout/exam/soal/PU", "/mentor/tryout/exam/soal/PU/editor", "/mentor/tryout/exam/operations/participants"]) {
   const child = withTryoutCatalogueReturn(path, query(results).get("returnTo"));
   assert.equal(tryoutCatalogueReturnHref(query(child).get("returnTo")), catalogue);

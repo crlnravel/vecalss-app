@@ -14,7 +14,8 @@ export function queryTryoutParticipants(view: Pick<TryoutOperationsView, "partic
     (status === "all" || participantStatus(participant) === status)
     && (!q || `${participant.participant.displayName} ${participant.participant.email}`.toLocaleLowerCase("id-ID").includes(q)),
   );
-  const pages = Math.max(1, Math.ceil(matching.length / PARTICIPANT_PAGE_SIZE));
+  const pageSize = context.pageSize ?? PARTICIPANT_PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(matching.length / pageSize));
   const page = Math.min(context.page ?? 1, pages);
-  return { page, pages, pendingCount, rows: matching.slice((page - 1) * PARTICIPANT_PAGE_SIZE, page * PARTICIPANT_PAGE_SIZE), status, total: matching.length };
+  return { page, pageSize, pages, pendingCount, rows: matching.slice((page - 1) * pageSize, page * pageSize), status, total: matching.length };
 }

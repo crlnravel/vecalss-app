@@ -29,6 +29,7 @@ import {
 import { resolveStudentBannerText, type StudentBannerVariables } from "@/lib/student/banner-content";
 import { canRequestNewTryoutAdmission } from "@/lib/tryout/registration-availability";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
+import { studentResultActionLabel } from "@/lib/tryout/participant-result-copy";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { StudentBannerArtwork } from "@/modules/student/components/student-banner-artwork";
 import {
@@ -237,9 +238,7 @@ function ParticipantTryoutWorkspace({
               const actionLabel = attempt?.status === "in_progress"
                 ? "Lanjutkan"
                 : attempt
-                  ? attempt.resultAvailability === "released"
-                    ? "Lihat hasil"
-                    : "Periksa status hasil"
+                  ? studentResultActionLabel(attempt.resultAvailability)
                   : canEnterWaiting
                     ? "Mulai"
                     : hasEnrolledAssignment

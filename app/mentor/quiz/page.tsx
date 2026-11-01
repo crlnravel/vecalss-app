@@ -15,7 +15,7 @@ import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { getKaptenSettings } from "@/modules/mentor/settings-actions";
 import { applyTeachingSubjectDefault } from "@/modules/mentor/teaching-subject-default";
 
-export const metadata: Metadata = { title: "Kuis Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Kuis Kapten | PTN Pro LMS" };
 
 export default async function MentorQuizPage({
   searchParams,

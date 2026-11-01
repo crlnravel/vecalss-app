@@ -12,7 +12,7 @@ import { KaptenMateriPageModule } from "@/modules/mentor/KaptenMateriCataloguePa
 import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
 export const metadata: Metadata = {
-  title: "Materi Kapten | Vecalss LMS",
+  title: "Materi Kapten | PTN Pro LMS",
 };
 
 type MentorMateriPageProps = {

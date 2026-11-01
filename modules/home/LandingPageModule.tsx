@@ -117,17 +117,17 @@ function Hero() {
                 TRYOUT <ArrowRight aria-hidden="true" className="size-3.5" /> KAPTEN
               </div>
               <div className="absolute bottom-[9%] left-[10%] z-20 rounded-2xl border border-white/18 bg-voyage-deep/80 px-4 py-3 backdrop-blur">
-                <p className="text-xs font-bold tracking-[0.18em] text-voyage-sea-glass">CARA BELAJAR VECALSS</p>
+                <p className="text-xs font-bold tracking-[0.18em] text-voyage-sea-glass">CARA BELAJAR PTN PRO</p>
                 <p className="mt-1 text-sm font-semibold text-white">Bergerak setiap hari.</p>
               </div>
 
               <Image
-                alt="Maskot Vecalss sebagai Kapten perjalanan belajar"
+                alt="Maskot PTN Pro sebagai Kapten perjalanan belajar"
                 className="animate-float-slow absolute inset-5 z-10 size-[calc(100%-2.5rem)] object-contain drop-shadow-[0_36px_48px_rgba(0,0,0,0.28)]"
                 height={720}
                 priority
                 sizes="(min-width: 1024px) 560px, 88vw"
-                src="/brand/mascot-vecalss.png"
+                src="/brand/mascot-vecalss-2.png"
                 width={720}
               />
               <Image
@@ -145,7 +145,7 @@ function Hero() {
 
         <div className="flex flex-col gap-4 border-t border-white/12 py-5 text-sm text-voyage-sea-glass sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-[32ch]">Dari fondasi sampai hari ujian, kamu tidak perlu menebak sendirian.</p>
-          <div className="flex flex-wrap gap-2" aria-label="Alur belajar Vecalss">
+          <div className="flex flex-wrap gap-2" aria-label="Alur belajar PTN Pro">
             {loopItems.map((item) => (
               <span className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-semibold text-voyage-sea-glass" key={item.title}>
                 {item.title}
@@ -187,7 +187,7 @@ function LearningLoopSection() {
             Belajar dengan <span className="text-voyage-forest">jalur,</span> bukan tebakan.
           </h2>
           <p className="mt-7 max-w-[43ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
-            Vecalss merangkai aktivitas belajar menjadi satu perjalanan yang
+            PTN Pro merangkai aktivitas belajar menjadi satu perjalanan yang
             bisa kamu lihat, jalani, dan ulangi dengan ritme yang lebih masuk akal.
           </p>
           <ActionButtonLink className="mt-9" href="/login" variant="default">
@@ -241,7 +241,7 @@ function AboutSection() {
           <div aria-hidden="true" className="absolute -left-16 top-10 size-64 rounded-full border border-voyage-forest/15" />
           <div aria-hidden="true" className="absolute -right-20 bottom-0 size-72 rounded-full bg-voyage-sea-glass/70" />
           <Image
-            alt="Variasi maskot Vecalss yang menemani perjalanan belajar"
+            alt="Variasi maskot PTN Pro yang menemani perjalanan belajar"
             className="relative z-10 size-full object-contain object-center drop-shadow-[0_34px_70px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)]"
             height={720}
             sizes="(min-width: 1024px) 550px, 92vw"
@@ -259,7 +259,7 @@ function AboutSection() {
             Perjalanan kecil yang terasa berarti.
           </h2>
           <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
-            Vecalss tumbuh dari ruang belajar kecil menjadi ekosistem yang
+            PTN Pro tumbuh dari ruang belajar kecil menjadi ekosistem yang
             membantu Voyager menata persiapan menuju PTN dengan lebih terarah,
             konsisten, dan tidak sendirian.
           </p>
@@ -507,7 +507,7 @@ function VeraAiSection() {
             Vera AI sedang menyiapkan kompas personalmu.
           </h2>
           <p className="mt-7 max-w-[50ch] text-base leading-7 text-voyage-ink md:text-lg md:leading-8">
-            Vecalss sedang menyiapkan Vera AI untuk membantu membaca pola
+            PTN Pro sedang menyiapkan Vera AI untuk membantu membaca pola
             belajar dan memberi rekomendasi langkah yang lebih tepat untuk setiap Voyager.
           </p>
           <div className="mt-10 grid gap-6 border-t border-voyage-deep/12 pt-6 sm:grid-cols-2">
@@ -552,11 +552,11 @@ function QuestionsSection() {
           <div className="relative mt-10 aspect-square w-full max-w-[320px]">
             <div aria-hidden="true" className="absolute inset-8 rounded-full bg-voyage-sea-glass-wash" />
             <Image
-              alt="Maskot Vecalss menemani bagian pertanyaan"
+              alt="Maskot PTN Pro menemani bagian pertanyaan"
               className="relative size-full object-contain drop-shadow-[0_30px_70px_color-mix(in_oklab,var(--voyage-deep)_14%,transparent)]"
               height={360}
               sizes="320px"
-              src="/brand/mascot-vecalss.png"
+              src="/brand/mascot-vecalss-2.png"
               width={360}
             />
           </div>
@@ -585,7 +585,7 @@ function FinalCTA() {
           </ActionButtonLink>
         </div>
         <div className="relative mx-auto mt-8 aspect-square w-full max-w-[240px] lg:mt-0 lg:max-w-none">
-          <Image alt="Maskot Vecalss mengajak memulai misi belajar" className="size-full object-contain drop-shadow-[0_32px_48px_rgba(0,0,0,0.28)]" fill sizes="300px" src="/brand/mascot-vecalss.png" />
+          <Image alt="Maskot PTN Pro mengajak memulai misi belajar" className="size-full object-contain drop-shadow-[0_32px_48px_rgba(0,0,0,0.28)]" fill sizes="300px" src="/brand/mascot-vecalss-2.png" />
         </div>
       </div>
     </section>

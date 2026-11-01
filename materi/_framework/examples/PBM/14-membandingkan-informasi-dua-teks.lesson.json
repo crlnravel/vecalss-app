@@ -1,0 +1,974 @@
+{
+  "title": "MATERI 14 — Membandingkan Informasi Dua Teks",
+  "code": "PBM",
+  "subject": "Pemahaman Bacaan & Menulis",
+  "source": "materi/downloaded-from-google-doc/PBM/14 - Membandingkan Dua Teks.pdf",
+  "verbatim": true,
+  "pages": [
+    {
+      "id": "material-14-page-01",
+      "title": "MATERI 14 — Membandingkan Informasi Dua Teks",
+      "continuation": false,
+      "source_pages": [
+        1
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
+        },
+        {
+          "type": "heading",
+          "text": "A. Pola Hubungan Informasi Dua teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "Secara umum, hubungan antara Teks A dan Teks B dapat dikategorikan ke dalam"
+        },
+        {
+          "type": "paragraph",
+          "text": "beberapa pola berikut:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Saling Mendukung (Komplementer)"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Kedua teks membahas topik yang sama dari sudut pandang yang sejalan. Teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "B menambahkan detail, memberikan contoh konkret, atau memperluas"
+        },
+        {
+          "type": "paragraph",
+          "text": "penjelasan yang ada di Teks A."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Saling Bertentangan (Kontradiktif)"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A dan Teks B memiliki sudut pandang, argumen, atau temuan ilmiah yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "saling berlawanan atau bertolak belakang mengenai suatu isu."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Sebab-Akibat (Kausalitas)"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Salah satu teks membahas penyebab suatu fenomena (misalnya, perubahan"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-02",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        1,
+        2
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "iklim), sedangkan teks lainnya membahas dampak atau akibat dari fenomena"
+        },
+        {
+          "type": "paragraph",
+          "text": "tersebut."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Masalah dan Solusi"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A memaparkan suatu masalah atau fenomena negatif, sementara Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "menawarkan solusi, jalan keluar, atau langkah preventifnya."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Teori dan Implementasi"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A menjelaskan suatu konsep atau teori secara abstrak, sedangkan Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "menunjukkan bagaimana teori tersebut diterapkan dalam kehidupan nyata atau"
+        },
+        {
+          "type": "paragraph",
+          "text": "eksperimen."
+        },
+        {
+          "type": "heading",
+          "text": "B. Jenis Pertanyaan yang Sering Muncul"
+        },
+        {
+          "type": "paragraph",
+          "text": "Di lembar soal UTBK, tipe materi ini biasanya ditanyakan dengan redaksi berikut:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "“Apa hubungan isi Teks A dan Teks B pada bacaan di atas?”"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "“Informasi manakah yang terdapat pada Teks A, tetapi tidak terdapat pada"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks B?”"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "“Kedua teks tersebut sama-sama membahas tentang...”"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "“Pernyataan yang paling sesuai dengan isi kedua teks tersebut adalah...”"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-03",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2
+      ],
+      "blocks": [
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "“Perbedaan fokus pembahasan antara Teks A dan Teks B adalah...”"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "C. Strategi Mengerjakan Soal Membandingkan Informasi Dua Teks"
+        },
+        {
+          "type": "heading",
+          "text": "UTBK"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 1 — Temukan Gagasan Utama Masing-Masing Teks: Jangan langsung"
+        },
+        {
+          "type": "paragraph",
+          "text": "membaca pilihan ganda. Baca Teks A dengan cepat (skimming) untuk menemukan ide"
+        },
+        {
+          "type": "paragraph",
+          "text": "pokoknya, lalu lakukan hal yang sama pada Teks B."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 2 — Identifikasi Kata Kunci yang Sama: Perhatikan istilah atau topik utama"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang muncul di kedua teks untuk mengetahui kesamaan temanya."
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 3 — Analisis Sikap Penulis (Tone): Apakah penulis Teks A cenderung"
+        },
+        {
+          "type": "paragraph",
+          "text": "setuju/positif, sedangkan penulis Teks B cenderung mengkritik/negatif?"
+        },
+        {
+          "type": "paragraph",
+          "text": "Langkah 4 — Gunakan Metode Eliminasi: Singkirkan pilihan jawaban yang hanya"
+        },
+        {
+          "type": "paragraph",
+          "text": "menggambarkan salah satu teks saja, atau pilihan yang menyatakan hubungan yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "terlalu ekstrem dan tidak didukung data di dalam teks."
+        },
+        {
+          "type": "heading",
+          "text": "D. Contoh Soal Beserta Pembahasan"
+        },
+        {
+          "type": "paragraph",
+          "text": "Cermati teks di bawah ini untuk menjawab soal nomor 1 dan 2!"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        2,
+        3
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Teks A"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembelajaran jarak jauh (PJJ) yang diterapkan selama beberapa tahun terakhir"
+        },
+        {
+          "type": "paragraph",
+          "text": "memberikan fleksibilitas tinggi bagi siswa. Mereka dapat mengakses materi pelajaran"
+        },
+        {
+          "type": "paragraph",
+          "text": "kapan saja dan dari mana saja. Penggunaan platform digital juga memicu kreativitas"
+        },
+        {
+          "type": "paragraph",
+          "text": "guru dalam menciptakan media pembelajaran yang interaktif. Selain itu, siswa menjadi"
+        },
+        {
+          "type": "paragraph",
+          "text": "lebih mandiri dalam mengatur waktu belajar mereka dan lebih familier dengan teknologi"
+        },
+        {
+          "type": "paragraph",
+          "text": "mutakhir yang sangat dibutuhkan di era modern."
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "Meskipun teknologi menawarkan berbagai kemudahan, implementasi"
+        },
+        {
+          "type": "paragraph",
+          "text": "pembelajaran jarak jauh (PJJ) memicu tantangan serius terkait kesehatan mental"
+        },
+        {
+          "type": "paragraph",
+          "text": "remaja. Banyak siswa melaporkan rasa kesepian dan kecemasan yang meningkat"
+        },
+        {
+          "type": "paragraph",
+          "text": "akibat berkurangnya interaksi sosial secara langsung dengan teman sebaya."
+        },
+        {
+          "type": "paragraph",
+          "text": "Ketiadaan struktur ruang kelas fisik juga membuat sebagian besar siswa merasa"
+        },
+        {
+          "type": "paragraph",
+          "text": "jenuh dan kehilangan motivasi belajar, yang pada akhirnya menurunkan capaian"
+        },
+        {
+          "type": "paragraph",
+          "text": "akademis mereka."
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Hubungan isi Teks A dan Teks B yang paling tepat adalah …."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        3,
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "1. Teks B memerinci dampak positif yang disebut pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Teks B memaparkan solusi atas masalah yang dibahas pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Teks B menunjukkan sudut pandang yang bertentangan dengan Teks"
+        },
+        {
+          "type": "heading",
+          "text": "A."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Teks B merupakan akibat dari fenomena yang dijelaskan pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Teks B mengklarifikasi teori pembelajaran yang ada pada Teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A fokus pada sisi positif/manfaat PJJ (fleksibilitas, kreativitas,"
+        },
+        {
+          "type": "paragraph",
+          "text": "kemandirian). Sementara itu, Teks B diawali kata konjungsi pertentangan"
+        },
+        {
+          "type": "paragraph",
+          "text": "(Meskipun teknologi menawarkan...) dan fokus pada sisi negatif/tantangan PJJ"
+        },
+        {
+          "type": "paragraph",
+          "text": "(masalah kesehatan mental, penurunan motivasi). Oleh karena itu, hubungan"
+        },
+        {
+          "type": "paragraph",
+          "text": "kedua teks adalah saling bertentangan/kontradiktif (sudut pandang yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "berbeda mengenai satu topik yang sama)."
+        },
+        {
+          "type": "paragraph",
+          "text": "2. Perbedaan fokus pembahasan antara Teks A dan Teks B adalah …."
+        },
+        {
+          "type": "paragraph",
+          "text": "1. Teks A membahas efektivitas teknologi, sedangkan Teks B membahas"
+        },
+        {
+          "type": "paragraph",
+          "text": "kegagalan kurikulum."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "2. Teks A mengulas kelebihan PJJ dari sisi akademik, sedangkan Teks"
+        },
+        {
+          "type": "paragraph",
+          "text": "B mengulas dampak psikologis PJJ pada siswa."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Teks A memaparkan peran guru dalam PJJ, sedangkan Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "memaparkan peran orang tua."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Teks A fokus pada kemandirian siswa, sedangkan Teks B fokus pada"
+        },
+        {
+          "type": "paragraph",
+          "text": "interaksi sosial di sekolah."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Teks A menjelaskan fleksibilitas waktu, sedangkan Teks B menjelaskan"
+        },
+        {
+          "type": "paragraph",
+          "text": "penurunan nilai ujian siswa."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Fokus Teks A: Kelebihan PJJ dari aspek teknis belajar dan akademik siswa"
+        },
+        {
+          "type": "paragraph",
+          "text": "(mandiri, familier teknologi). Fokus Teks B: Dampak psikologis atau kesehatan"
+        },
+        {
+          "type": "paragraph",
+          "text": "mental siswa (kesepian, cemas, kehilangan motivasi). Pilihan B merangkum"
+        },
+        {
+          "type": "paragraph",
+          "text": "perbedaan fokus ini dengan paling akurat dan seimbang."
+        },
+        {
+          "type": "paragraph",
+          "text": "3. Cermati teks di bawah ini!"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pemanasan global memicu peningkatan suhu permukaan laut secara signifikan"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        4,
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "di berbagai belahan dunia. Fenomena ini menyebabkan penguapan air laut"
+        },
+        {
+          "type": "paragraph",
+          "text": "terjadi lebih cepat dan dalam volume yang jauh lebih besar. Udara yang hangat"
+        },
+        {
+          "type": "paragraph",
+          "text": "dan sarat kelembapan ini kemudian membentuk gumpalan awan badai yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "masif. Akibatnya, intensitas dan frekuensi badai tropis di wilayah pesisir"
+        },
+        {
+          "type": "paragraph",
+          "text": "meningkat tajam dalam satu dekade terakhir."
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "Gelombang badai ekstrem yang menghantam wilayah pesisir barat Sumatra"
+        },
+        {
+          "type": "paragraph",
+          "text": "pekan lalu menyebabkan kerusakan infrastruktur yang parah. Lebih dari ratusan"
+        },
+        {
+          "type": "paragraph",
+          "text": "rumah warga hancur, jembatan penghubung antar-desa terputus, dan fasilitas"
+        },
+        {
+          "type": "paragraph",
+          "text": "publik lumpuh total. Selain kerugian materi yang mencapai miliaran rupiah,"
+        },
+        {
+          "type": "paragraph",
+          "text": "ratusan kepala keluarga terpaksa mengungsi ke posko darurat karena"
+        },
+        {
+          "type": "paragraph",
+          "text": "kehilangan tempat tinggal dan akses air bersih."
+        },
+        {
+          "type": "paragraph",
+          "text": "Hubungan isi Teks A dan Teks B pada bacaan di atas adalah..."
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Teks A menjelaskan teori terbentuknya badai, sedangkan Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "memberikan"
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Teks B membantah kesimpulan mengenai pemanasan global yang"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-08",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        5
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "diulas pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Teks B memaparkan contoh dampak nyata dari fenomena yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "dijelaskan pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Teks A merupakan akibat langsung dari bencana alam yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "diceritakan pada Teks B."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Kedua teks sama-sama menjelaskan proses terjadinya kerusakan"
+        },
+        {
+          "type": "paragraph",
+          "text": "infrastruktur pesisir."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A menjelaskan sebab/proses bagaimana pemanasan global"
+        },
+        {
+          "type": "paragraph",
+          "text": "meningkatkan intensitas badai tropis (bersifat umum/ilmiah). Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "memaparkan akibat/dampak nyata dari badai tersebut yang melanda wilayah"
+        },
+        {
+          "type": "paragraph",
+          "text": "pesisir Sumatra (bersifat spesifik/kasus nyata). Hubungan kedua teks ini adalah"
+        },
+        {
+          "type": "paragraph",
+          "text": "Sebab-Akibat (Kausalitas), di mana Teks B menjadi dampak atau contoh"
+        },
+        {
+          "type": "paragraph",
+          "text": "konkret dari fenomena di Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "4. Bacalah kedua teks berikut!"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-09",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Konversi lahan hutan menjadi area perkebunan kelapa sawit berskala besar di"
+        },
+        {
+          "type": "paragraph",
+          "text": "berbagai wilayah Indonesia memicu penurunan populasi orang utan secara"
+        },
+        {
+          "type": "paragraph",
+          "text": "drastis. Aktivitas ini merusak habitat alami mereka, memutus jalur migrasi, dan"
+        },
+        {
+          "type": "paragraph",
+          "text": "mengurangi ketersediaan sumber makanan di alam liar. Jika tren deforestasi ini"
+        },
+        {
+          "type": "paragraph",
+          "text": "terus berlanjut tanpa kendali, spesies endemik ini terancam menghadapi"
+        },
+        {
+          "type": "paragraph",
+          "text": "kepunahan dalam beberapa dekade mendatang."
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "Pemerintah bersama organisasi lingkungan kini gencar menerapkan konsep"
+        },
+        {
+          "type": "paragraph",
+          "text": "koridor hijau (wildlife corridor) di sekitar kawasan perkebunan. Jalur hijau ini"
+        },
+        {
+          "type": "paragraph",
+          "text": "sengaja disisakan dan ditanami pohon-pohon hutan sebagai jembatan alami bagi"
+        },
+        {
+          "type": "paragraph",
+          "text": "orang utan untuk berpindah tempat dengan aman. Langkah ini terbukti efektif"
+        },
+        {
+          "type": "paragraph",
+          "text": "menekan angka konflik satwa dengan manusia sekaligus menjaga kelestarian"
+        },
+        {
+          "type": "paragraph",
+          "text": "genetik orang utan yang terisolasi."
+        },
+        {
+          "type": "paragraph",
+          "text": "Berdasarkan kedua teks tersebut, informasi pada Teks B berperan sebagai…"
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Penjelasan rincian mengenai dampak negatif yang diakibatkan oleh"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-10",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        6,
+        7
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "b. Alasan utama mengapa fenomena pada Teks A dapat terjadi di"
+        },
+        {
+          "type": "paragraph",
+          "text": "Indonesia."
+        },
+        {
+          "type": "paragraph",
+          "text": "c. Kritik terhadap kebijakan pemerintah yang dibahas pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Latar belakang sejarah dari munculnya konflik pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Solusi alternatif untuk mengatasi permasalahan yang dipaparkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A memaparkan sebuah masalah, yaitu ancaman kepunahan orang utan"
+        },
+        {
+          "type": "paragraph",
+          "text": "akibat konversi lahan hutan. Teks B memaparkan solusi, yaitu penerapan"
+        },
+        {
+          "type": "paragraph",
+          "text": "konsep koridor hijau untuk menyelamatkan orang utan dari masalah isolasi"
+        },
+        {
+          "type": "paragraph",
+          "text": "habitat tersebut. Oleh karena itu, Teks B berperan sebagai solusi atas masalah"
+        },
+        {
+          "type": "paragraph",
+          "text": "pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "5. Bacalah kedua teks berikut!"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teknik flipped classroom adalah model pembelajaran di mana siswa mempelajari"
+        },
+        {
+          "type": "paragraph",
+          "text": "materi dasar secara mandiri di rumah melalui video atau modul sebelum kelas"
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-11",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "dimulai. Saat di kelas, waktu belajar sepenuhnya digunakan untuk diskusi, bedah"
+        },
+        {
+          "type": "paragraph",
+          "text": "kasus, atau mengerjakan proyek kelompok. Model ini bertujuan mengubah peran"
+        },
+        {
+          "type": "paragraph",
+          "text": "guru dari sekadar penyampai informasi menjadi fasilitator yang mendorong"
+        },
+        {
+          "type": "paragraph",
+          "text": "kemampuan berpikir kritis siswa."
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks B"
+        },
+        {
+          "type": "paragraph",
+          "text": "Di SMA Cerdas Bangsa, para guru matematika tidak lagi mengajar dengan"
+        },
+        {
+          "type": "paragraph",
+          "text": "metode ceramah di depan papan tulis. Sebelum kelas dimulai, siswa diwajibkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "menonton video animasi konsep kalkulus yang diunggah di situs sekolah. Ketika"
+        },
+        {
+          "type": "paragraph",
+          "text": "jam pelajaran berlangsung, kelas langsung diubah menjadi forum diskusi"
+        },
+        {
+          "type": "paragraph",
+          "text": "interaktif di mana siswa memecahkan soal-soal rumit bersama kelompoknya,"
+        },
+        {
+          "type": "paragraph",
+          "text": "sementara guru berkeliling memberikan arahan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pernyataan yang paling tepat mengenai hubungan kedua teks di atas adalah..."
+        },
+        {
+          "type": "paragraph",
+          "text": "a. Teks B menunjukkan penerapan nyata dari model pembelajaran"
+        },
+        {
+          "type": "paragraph",
+          "text": "yang dijelaskan pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "b. Teks B menyajikan data statistik untuk mendukung teori pendidikan"
+        },
+        {
+          "type": "paragraph",
+          "text": "pada Teks A."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-12",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        7,
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "c. Teks B mengoreksi kelemahan sistem pembelajaran yang disebutkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "pada Teks A."
+        },
+        {
+          "type": "paragraph",
+          "text": "d. Teks A menggambarkan dampak psikologis dari metode yang"
+        },
+        {
+          "type": "paragraph",
+          "text": "dilaporkan pada Teks B."
+        },
+        {
+          "type": "paragraph",
+          "text": "e. Teks A dan Teks B saling bertentangan dalam mendefinisikan peran"
+        },
+        {
+          "type": "paragraph",
+          "text": "guru di kelas."
+        },
+        {
+          "type": "paragraph",
+          "text": "Pembahasan:"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teks A menjelaskan sebuah teori/konsep pendidikan secara umum, yaitu"
+        },
+        {
+          "type": "paragraph",
+          "text": "pengertian dan mekanisme teknik flipped classroom. Teks B menunjukkan"
+        },
+        {
+          "type": "paragraph",
+          "text": "implementasi/penerapan nyata dari konsep tersebut di sebuah sekolah (SMA"
+        },
+        {
+          "type": "paragraph",
+          "text": "Cerdas Bangsa) pada mata pelajaran matematika. Maka, hubungannya adalah"
+        },
+        {
+          "type": "paragraph",
+          "text": "Teori (Teks A) dan Implementasi/Contoh Kasus (Teks B)."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-13",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
+        },
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 1: Baca Soal Terlebih Dahulu",
+          "text": "Ketahui apa yang dicari. Jika soal menanyakan \"perbedaan fokus\" berarti kamu hanya\nperlu mencari ide pokok masing-masing teks, bukan detail angkanya."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-14",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 2: Skimming-Scanning!",
+          "text": "Untuk soal yang memakan waktu seperti ini, baca kalimat pertama dan kalimat terakhir\npada setiap paragraf tempat gagasan utama paling sering diletakkan (deduktif/induktif)."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-15",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 Veco Tips 3: Tandai Kata Transisi Hubungan",
+          "text": "Perhatikan kata-kata seperti namun, sebaliknya, selain itu, akibatnya, oleh karena\nitu. Kata-kata ini adalah kompas yang menunjukkan apakah teks kedua mendukung,\nmenolak, atau menjelaskan akibat dari teks pertama."
+        }
+      ]
+    },
+    {
+      "id": "material-14-page-16",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        8
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
+          "marker": "•",
+          "items": [
+            "Terjebak pilihan yang hanya benar untuk satu teks, lupa memikirkan teks lainnya",
+            "Generalisasi berlebihan demi menemukan “benang merah” dari kedua teks",
+            "Terpengaruh opini atau pengetahuan pribadi di luar konteks bahasan teks",
+            "Sengaja mengabaikan konjungsi transisi",
+            "Terlalu fokus pada detail angka/data",
+            "Terbalik dalam menentukan hubungan sebab-akibat"
+          ],
+          "tone": "warning"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Obscura Process Runner & Status Checker for Vecalss
+ * Obscura Process Runner & Status Checker for PTN Pro
  *
  * Usage:
  *   node scripts/run-obscura.mjs [serve|status|stop]

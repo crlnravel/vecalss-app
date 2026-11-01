@@ -15,7 +15,7 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
 export const metadata: Metadata = {
-  title: "Buat Materi Kapten | Vecalss LMS",
+  title: "Buat Materi Kapten | PTN Pro LMS",
 };
 
 type CreateMentorMateriPageProps = {

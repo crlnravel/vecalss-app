@@ -24,8 +24,8 @@ function LoginPageModule({
 }) {
   return (
     <AuthShell
-      description="Masuk ke akun Vecalss untuk melanjutkan."
-      title="Masuk ke Vecalss"
+      description="Masuk ke akun PTN Pro untuk melanjutkan."
+      title="Masuk ke PTN Pro"
     >
       <LoginForm
         notice={notice ? (noticeCopy[notice] ?? null) : null}

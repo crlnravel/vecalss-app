@@ -16,7 +16,7 @@ import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { ParticipantTryoutDetailModule } from "@/modules/tryout/ParticipantTryoutDetailModule";
 import { canEnterParticipantWaitingRoom } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
 
-export const metadata: Metadata = { title: "Detail Tryout | Vecalss LMS" };
+export const metadata: Metadata = { title: "Detail Tryout | PTN Pro LMS" };
 
 export default async function ParticipantTryoutDetailPage({
   params,

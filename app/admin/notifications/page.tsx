@@ -8,7 +8,7 @@ import { NotificationsPageModule } from "@/modules/admin/NotificationsPageModule
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kirim Notifikasi | Vecalss LMS",
+  title: "Kirim Notifikasi | PTN Pro LMS",
 };
 
 export default async function AdminNotificationsPage() {

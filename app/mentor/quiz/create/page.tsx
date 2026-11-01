@@ -12,7 +12,7 @@ import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = {
-  title: "Buat Kuis Kapten | Vecalss LMS",
+  title: "Buat Kuis Kapten | PTN Pro LMS",
 };
 
 export default async function CreateMentorQuizPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {

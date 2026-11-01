@@ -122,7 +122,7 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
               className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_color-mix(in_oklab,var(--voyage-deep)_18%,transparent)] xl:w-[26rem]"
               height={416}
               sizes="(min-width: 1280px) 416px, 352px"
-              src="/brand/mascot-vecalss.png"
+              src="/brand/mascot-vecalss-2.png"
               width={416}
             />
           </div>

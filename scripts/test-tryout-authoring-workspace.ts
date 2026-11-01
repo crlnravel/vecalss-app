@@ -40,7 +40,7 @@ assert.match(subtestIndex, /<span className="text-base font-semibold text-second
 assert.match(subtestIndex, /\{section\.subtest\} · \{questionCount\} soal/u, "subtest entries should show their code and question count");
 assert.doesNotMatch(subtestIndex, /Badge|durationMinutes|scoringLabelForSection|statusLabel/u, "subtest entries should not show secondary metadata");
 assert.match(subtestIndex, /<ChevronRight/u, "subtest entries should expose a forward affordance");
-assert.match(workspace, /function tryoutSubtestEditorHref[\s\S]*\/soal\//u, "subtest rows must point to a nested editor route");
+assert.match(workspace, /function tryoutSubtestDetailHref[\s\S]*\/soal\//u, "subtest rows must point to a nested subtest route");
 assert.match(workspace, /initialSubtest\?: SubjectCode/u, "the builder must accept a selected subtest from the child route");
 assert.match(workspace, /if \(!initialSubtest \|\| mode === "published" \|\| draft\.locked\) return/u, "the child editor must load editable sources only for a selected unlocked draft subtest");
 assert.match(workspace, /readOnly=\{mode === "published" \|\| (?:draft|viewDraft)\.locked\}/u, "published and locked Tryouts must keep subtest details read-only");
@@ -52,7 +52,7 @@ assert.match(workspaceHeader, /onTabChange\?: \(tab: TryoutWorkspaceTab\)/u, "th
 assert.doesNotMatch(workspaceHeader, /label: "Overview"|value: "overview"/u, "the Tryout workspace must not expose an Overview tab");
 assert.doesNotMatch(workspace, /aria-label="Bagian detail Tryout"|defaultValue="identity"/u, "the content workspace must not nest identity and subtests under a second tab bar");
 assert.match(workspace, /function TryoutQuestionSourcePanel[\s\S]*<TryoutSectionQuestionManager/u, "the subtest editor must render the direct Bank Soal selector");
-assert.match(workspace, /function TryoutSavedQuestionList[\s\S]*<ol\s+aria-label=\{`Daftar soal subtes/u, "read-only subtest details must render a single numbered question list");
+assert.match(workspace, /function TryoutSavedQuestionList[\s\S]*aria-label=\{`Daftar soal subtes[\s\S]*as="article"/u, "read-only subtest details must render one labelled list of question cards");
 assert.match(workspace, /readOnly\s*\?\s*\(\s*<TryoutSavedQuestionList/u, "read-only subtest details must avoid nested question cards");
 assert.match(workspace, /setTimeout\(\(\) => autosaveRequestRef\.current\(\), 5000\)/u, "the subtest editor must debounce draft saves for five seconds");
 assert.match(workspace, /addEventListener\("pagehide"/u, "the subtest editor must flush draft changes when the page is hidden");

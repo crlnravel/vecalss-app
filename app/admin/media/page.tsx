@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth/access";
 
 export const metadata: Metadata = {
-  title: "Media | Vecalss LMS",
+  title: "Media | PTN Pro LMS",
 };
 
 export default async function AdminMediaPage() {

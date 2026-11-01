@@ -13,7 +13,8 @@ import {
   type ReferenceActivity,
 } from "@/components/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, ChevronRight } from "@/lib/icons";
+import { AlertTriangle, CalendarDays, ChevronRight } from "@/lib/icons";
+import type { TryoutResultReviewAlert } from "@/lib/notifications/tryout-result-review";
 import type { SessionContext } from "@/lib/auth/types";
 import { QuickCreateMenu } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -110,11 +111,46 @@ function DashboardResourceTask({ resource }: { resource: DashboardResource }) {
   );
 }
 
+/** Released Tryout results that participants could not open; shown only while still unresolved. */
+function ResultReviewAlerts({ alerts }: { alerts: TryoutResultReviewAlert[] }) {
+  if (!alerts.length) return null;
+  return (
+    <section aria-label="Perlu diperiksa" className="min-w-0 space-y-4">
+      <ReferenceSectionHeading title="Perlu diperiksa" />
+      <ul className="grid gap-3">
+        {alerts.map((alert) => (
+          <li className="rounded-card border border-student-status-attention-border bg-student-status-attention-bg p-4" key={alert.id}>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-semibold text-student-status-attention-fg">
+                  <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
+                  {alert.title}
+                </p>
+                <p className="mt-1 break-words text-sm leading-6 text-secondary-800">{alert.body}</p>
+                <p className="mt-1 text-ui-xs text-secondary-600">{formatDashboardTimestamp(alert.createdAt)} WIB</p>
+              </div>
+              <Link
+                className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-control font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2"
+                href={alert.href}
+              >
+                Periksa
+                <ChevronRight aria-hidden="true" />
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function MentorDashboardPageModule({
   dashboard: serverProjection,
+  resultReviews = [],
   session,
 }: {
   dashboard: DashboardProjection;
+  resultReviews?: TryoutResultReviewAlert[];
   session: SessionContext;
 }) {
   const firstName = getFirstName(session.user.fullName);
@@ -156,6 +192,8 @@ function MentorDashboardPageModule({
         actions={<QuickCreateMenu label="Buat konten" />}
         title={`Selamat datang, ${firstName}!`}
       />
+
+      <ResultReviewAlerts alerts={resultReviews} />
 
       <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
         <section aria-label="Aktivitas terbaru" className="min-w-0 space-y-4">

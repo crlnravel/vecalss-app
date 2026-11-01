@@ -1,6 +1,6 @@
 # Foundations
 
-Use this file for the visual vocabulary shared by every Vecalss surface.
+Use this file for the visual vocabulary shared by every PTN Pro surface.
 
 [Back to the design-system index](../../DESIGN.md)
 
@@ -59,7 +59,7 @@ second competing brand palette across ordinary cards or navigation.
 **Field Label Font:** Manrope for form field headings, at 12px, matching the original Student `/settings` label
 scale, with semibold weight and muted green. Values and option text stay Plus
 Jakarta Sans. Other compact metadata labels follow the hierarchy below.
-The local Sports World face is reserved for the Vecalss logo lockup.
+The local Sports World face is reserved for the PTN Pro logo lockup.
 
 **Character:** The pairing is confident, rounded, and highly legible. Heavy
 weights make learning milestones feel inviting and decisive, while the body

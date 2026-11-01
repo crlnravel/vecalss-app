@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { ImagePlus } from "@/lib/icons";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { TryoutIdentityHeader } from "@/modules/mentor/components/tryout-identity-header";
 import {
@@ -19,15 +20,20 @@ function KaptenTryoutWorkspaceHero({
       status={initial.status}
       title={<h1 className="reference-page-title min-w-0 break-words">{initial.title || "Tryout tanpa judul"}</h1>}
     >
-      {initial.bannerMediaId ? (
-        <div className="relative aspect-[6/1] min-h-40 min-w-0 max-w-full overflow-hidden rounded-3xl border border-primary-100 bg-primary-50 sm:min-h-48">
+      <div className="relative aspect-[6/1] min-h-40 min-w-0 max-w-full overflow-hidden rounded-3xl border border-primary-100 bg-primary-50 sm:min-h-48">
+        {initial.bannerMediaId ? (
           <MediaAssetPreview
             alt="Banner Tryout"
             assetId={initial.bannerMediaId}
             className="absolute inset-0 min-h-0 min-w-0 w-full max-w-full [&_img]:object-cover"
           />
-        </div>
-      ) : null}
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-50 px-6 text-center text-secondary-600">
+            <ImagePlus aria-hidden="true" className="size-7 text-primary-700" />
+            <span className="text-sm font-semibold">Belum ada banner</span>
+          </div>
+        )}
+      </div>
       <div>
         <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
         <p className="mt-1 text-sm leading-6 text-secondary-700">

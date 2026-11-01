@@ -12,7 +12,7 @@ export function normalizeSeedReferralCode(value) {
 
 export const DEFAULT_ADMIN = {
   email: process.env.SEED_ADMIN_EMAIL?.trim() || "admin@vecalss.local",
-  fullName: "Vecalss Admin",
+  fullName: "PTN Pro Admin",
   get password() {
     return seedPassword("SEED_ADMIN_PASSWORD", "Admin12345!");
   },
@@ -20,7 +20,7 @@ export const DEFAULT_ADMIN = {
 
 export const DEFAULT_DEVELOPER = {
   email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
-  fullName: "Vecalss Developer",
+  fullName: "PTN Pro Developer",
   get password() {
     return seedPassword("SEED_DEVELOPER_PASSWORD", "Developer12345!");
   },

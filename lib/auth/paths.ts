@@ -22,6 +22,23 @@ function getSafeAdminReturnPath(value: unknown) {
   return path;
 }
 
+function getSafePricingReturnPath(value: unknown) {
+  if (typeof value !== "string") return null;
+  const path = value.trim();
+  if (
+    !/^\/pricing(?:\/checkout)?(?:\?[A-Za-z0-9=&%._~+-]*)?$/u.test(path)
+    || path.startsWith("//")
+  ) {
+    return null;
+  }
+  return path;
+}
+
+/** Return targets the login form may redirect to after a successful sign-in. */
+function getSafeLoginReturnPath(value: unknown) {
+  return getSafeAdminReturnPath(value) ?? getSafePricingReturnPath(value);
+}
+
 function getStudentHomePath(user: AuthenticatedUser) {
   if (user.mustChangePassword) {
     return "/change-password";
@@ -88,6 +105,8 @@ export {
   getDeveloperHomePath,
   getLoginPathForAudience,
   getSafeAdminReturnPath,
+  getSafeLoginReturnPath,
+  getSafePricingReturnPath,
   getStudentHomePath,
   getTutorHomePath,
 };

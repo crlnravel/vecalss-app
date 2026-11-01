@@ -6,7 +6,7 @@ import { getReusableQuestionPackageVersionHub } from "@/lib/tryout/repository";
 import { KaptenPackageMetadataEditorModule } from "@/modules/mentor/KaptenPackageMetadataEditorModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Edit Paket Soal Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Edit Paket Soal Kapten | PTN Pro LMS" };
 
 export default async function PackageEditPage({ params }: { params: Promise<{ packageId: string }> }) {
   const [{ packageId }, session] = await Promise.all([params, requireTutorSession()]);

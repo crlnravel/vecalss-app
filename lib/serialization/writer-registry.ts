@@ -87,6 +87,7 @@ const AUTHORING_WRITER_REGISTRY = [
   { name: "updateTryoutMetadata", source: "lib/tryout/repository.ts", classification: "leased", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 5, 7] },
   { name: "unpublishTryout", source: "lib/tryout/repository.ts", classification: "leased", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 5, 7] },
   { name: "archiveTryout", source: "lib/tryout/repository.ts", classification: "leased", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 5, 7] },
+  { name: "restoreTryout", source: "lib/tryout/repository.ts", classification: "leased", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 5, 7] },
   { name: "deleteTryout", source: "lib/tryout/repository.ts", classification: "leased", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 1, 4, 5, 7] },
   { name: "duplicateTryout", source: "lib/tryout/repository.ts", classification: "create-only", resource: "tryout:new", resolver: "direct-aggregate", lockOrder: [] },
   { name: "configureTryoutAdmission", source: "lib/tryout/delivery-repository.ts", classification: "system/deferred", resource: "tryout:{id}", resolver: "direct-aggregate", lockOrder: [0, 4, 5, 8] },

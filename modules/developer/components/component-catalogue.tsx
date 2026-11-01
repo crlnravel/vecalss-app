@@ -50,7 +50,7 @@ function ComponentCatalogue() {
     <div className="flex min-w-0 flex-col gap-8">
       <div className="flex min-w-0 flex-col gap-5">
         <p className="max-w-[65ch] text-sm leading-6 text-secondary-700">
-          Jelajahi contoh yang tersedia di Vecalss, coba interaksinya, lalu ikuti
+          Jelajahi contoh yang tersedia di PTN Pro, coba interaksinya, lalu ikuti
           sumber komponennya saat membangun halaman baru.
         </p>
         <div aria-label="Kategori katalog" className="flex flex-wrap gap-2" role="group">

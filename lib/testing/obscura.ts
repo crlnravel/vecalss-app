@@ -1,5 +1,5 @@
 /**
- * Obscura Headless Browser Playwright Integration Helper for Vecalss
+ * Obscura Headless Browser Playwright Integration Helper for PTN Pro
  *
  * This module connects Playwright to the lightweight, Rust-based Obscura browser
  * engine via Chrome DevTools Protocol (CDP).
@@ -124,7 +124,7 @@ export async function connectObscura(
  * ```ts
  * await withObscuraPage(async (page) => {
  *   await page.goto("http://localhost:5023/login");
- *   expect(await page.title()).toContain("Vecalss");
+ *   expect(await page.title()).toContain("PTN Pro");
  * });
  * ```
  */

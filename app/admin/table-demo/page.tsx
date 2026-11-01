@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/auth/access";
 import { TransactionGridDemo } from "@/modules/admin/table-demo/transaction-grid-demo";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
-export const metadata: Metadata = { title: "Demo tabel | Vecalss LMS" };
+export const metadata: Metadata = { title: "Demo tabel | PTN Pro LMS" };
 
 export default async function TableDemoPage() {
   const session = await requireAdminSession();

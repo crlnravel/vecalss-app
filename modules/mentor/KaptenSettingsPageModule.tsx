@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
@@ -8,8 +15,7 @@ import {
   REFERENCE_CONTROL_CLASS_NAMES,
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -26,7 +32,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
-import { BookOpen, Copy, UserRound } from "@/lib/icons";
+import { BookOpen, Camera, Copy, UserRound } from "@/lib/icons";
+import {
+  AVATAR_FORMAT_ERROR_MESSAGE,
+  MAX_AVATAR_BYTES,
+  validateKaptenAvatarDataUrl,
+} from "@/modules/mentor/avatar-validation";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { MENTOR_SETTINGS_ACTION_WIDTH_CLASS_NAME } from "@/modules/mentor/components/administration-action-row";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
@@ -39,8 +50,99 @@ import type { KaptenSettings } from "@/modules/mentor/settings-types";
 type SettingsMenu = "profil" | "subjek";
 type MenuFeedback = {
   status: "idle" | "saving" | "saved" | "error";
-  error?: { field?: "profileName" | "subjectCode"; message: string };
+  error?: {
+    field?: "avatarUrl" | "profileName" | "subjectCode";
+    message: string;
+  };
 };
+
+const MAX_RAW_AVATAR_FILE_BYTES = 5 * 1024 * 1024;
+const AVATAR_CROP_SIZE_PX = 256;
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/u)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("File tidak dapat dibaca."));
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("File tidak dapat dibaca."));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeAvatarImageDataUrl(
+  rawDataUrl: string,
+  mimeType: string,
+): Promise<string> {
+  if (mimeType === "image/gif" || typeof document === "undefined") {
+    return Promise.resolve(rawDataUrl);
+  }
+
+  return new Promise<string>((resolve) => {
+    const image = new window.Image();
+    image.onload = () => {
+      try {
+        const width = image.naturalWidth || image.width;
+        const height = image.naturalHeight || image.height;
+        if (!width || !height) {
+          resolve(rawDataUrl);
+          return;
+        }
+        const squareSide = Math.min(width, height);
+        const sourceX = Math.floor((width - squareSide) / 2);
+        const sourceY = Math.floor((height - squareSide) / 2);
+        const targetSide = Math.min(squareSide, AVATAR_CROP_SIZE_PX);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetSide;
+        canvas.height = targetSide;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          resolve(rawDataUrl);
+          return;
+        }
+        context.drawImage(
+          image,
+          sourceX,
+          sourceY,
+          squareSide,
+          squareSide,
+          0,
+          0,
+          targetSide,
+          targetSide,
+        );
+        const outputMime =
+          mimeType === "image/jpeg" ? "image/jpeg" : "image/png";
+        const resizedDataUrl =
+          outputMime === "image/jpeg"
+            ? canvas.toDataURL("image/jpeg", 0.9)
+            : canvas.toDataURL("image/png");
+        resolve(resizedDataUrl);
+      } catch {
+        resolve(rawDataUrl);
+      }
+    };
+    image.onerror = () => resolve(rawDataUrl);
+    image.src = rawDataUrl;
+  });
+}
 
 function SettingsPanel({
   children,
@@ -101,7 +203,11 @@ function KaptenSettingsPageModule({
   initialSettings: KaptenSettings;
   session: SessionContext;
 }) {
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [savedSettings, setSavedSettings] = useState(initialSettings);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    initialSettings.avatarUrl,
+  );
   const [profileName, setProfileName] = useState(initialSettings.profileName);
   const [subjectCode, setSubjectCode] = useState(
     initialSettings.subjectCode ?? "",
@@ -115,7 +221,9 @@ function KaptenSettingsPageModule({
     subjek: { status: "idle" },
   });
   const menuDirty = {
-    profil: profileName !== savedSettings.profileName,
+    profil:
+      profileName !== savedSettings.profileName ||
+      avatarUrl !== savedSettings.avatarUrl,
     subjek: subjectCode !== (savedSettings.subjectCode ?? ""),
   };
   const dirty = menuDirty.profil || menuDirty.subjek;
@@ -124,23 +232,22 @@ function KaptenSettingsPageModule({
   const { error } = feedback[activeMenu];
   const activeDirty = menuDirty[activeMenu];
   const otherMenu = activeMenu === "profil" ? "subjek" : "profil";
-  const initials = savedSettings.profileName
-    .trim()
-    .split(/\s+/u)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
+  const initials = getInitials(savedSettings.profileName);
+  const draftInitials = getInitials(profileName || savedSettings.profileName);
   const currentSession = {
     ...session,
-    user: { ...session.user, fullName: savedSettings.profileName },
+    user: {
+      ...session.user,
+      avatarUrl: savedSettings.avatarUrl,
+      fullName: savedSettings.profileName,
+    },
   };
 
   usePageStatusToast({
     active: dirty || saving,
     description: error?.message,
     message: saving
-      ? "Menyimpan perubahan…"
+      ? "Menyimpan perubahan\u2026"
       : error
         ? "Perubahan belum tersimpan"
         : activeDirty
@@ -171,6 +278,53 @@ function KaptenSettingsPageModule({
     setFeedback((previous) => ({ ...previous, [menu]: next }));
   }
 
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const normalizedType = file.type.trim().toLowerCase();
+    const maxRawBytes =
+      normalizedType === "image/gif"
+        ? MAX_AVATAR_BYTES
+        : MAX_RAW_AVATAR_FILE_BYTES;
+    if (file.size <= 0 || file.size > maxRawBytes) {
+      updateFeedback("profil", {
+        status: "error",
+        error: { field: "avatarUrl", message: AVATAR_FORMAT_ERROR_MESSAGE },
+      });
+      return;
+    }
+
+    try {
+      const rawDataUrl = await readFileAsDataUrl(file);
+      const normalizedDataUrl = await normalizeAvatarImageDataUrl(
+        rawDataUrl,
+        normalizedType,
+      );
+      const candidateCheck = validateKaptenAvatarDataUrl(normalizedDataUrl);
+      const finalCheck = candidateCheck.ok
+        ? candidateCheck
+        : validateKaptenAvatarDataUrl(rawDataUrl);
+
+      if (!finalCheck.ok) {
+        updateFeedback("profil", {
+          status: "error",
+          error: { field: "avatarUrl", message: finalCheck.message },
+        });
+        return;
+      }
+
+      setAvatarUrl(finalCheck.avatarUrl);
+      updateFeedback("profil", { status: "idle" });
+    } catch {
+      updateFeedback("profil", {
+        status: "error",
+        error: { field: "avatarUrl", message: AVATAR_FORMAT_ERROR_MESSAGE },
+      });
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeDirty || saving) return;
@@ -179,7 +333,7 @@ function KaptenSettingsPageModule({
     try {
       const result =
         menu === "profil"
-          ? await saveKaptenSettingsAction({ profileName })
+          ? await saveKaptenSettingsAction({ avatarUrl, profileName })
           : await saveKaptenSubjectAction({ subjectCode: subjectCode || null });
       if (!result.ok) {
         updateFeedback(menu, {
@@ -190,8 +344,12 @@ function KaptenSettingsPageModule({
       }
       setSavedSettings(result.settings);
       // Saving one menu never discards the draft in the other menu.
-      if (menu === "profil") setProfileName(result.settings.profileName);
-      else setSubjectCode(result.settings.subjectCode ?? "");
+      if (menu === "profil") {
+        setProfileName(result.settings.profileName);
+        setAvatarUrl(result.settings.avatarUrl);
+      } else {
+        setSubjectCode(result.settings.subjectCode ?? "");
+      }
       updateFeedback(menu, { status: "saved" });
       showToast("Perubahan tersimpan.", { variant: "success" });
     } catch {
@@ -203,8 +361,15 @@ function KaptenSettingsPageModule({
   }
 
   function cancelChanges() {
-    if (activeMenu === "profil") setProfileName(savedSettings.profileName);
-    else setSubjectCode(savedSettings.subjectCode ?? "");
+    if (activeMenu === "profil") {
+      setProfileName(savedSettings.profileName);
+      setAvatarUrl(savedSettings.avatarUrl);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    } else {
+      setSubjectCode(savedSettings.subjectCode ?? "");
+    }
     updateFeedback(activeMenu, { status: "idle" });
   }
 
@@ -239,6 +404,12 @@ function KaptenSettingsPageModule({
       <ReferencePageHeader title="Pengaturan" />
       <div className="flex min-w-0 items-center gap-4">
         <Avatar className="!size-14">
+          {savedSettings.avatarUrl ? (
+            <AvatarImage
+              alt={`Foto profil ${savedSettings.profileName}`}
+              src={savedSettings.avatarUrl}
+            />
+          ) : null}
           <AvatarFallback className="text-lg">{initials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
@@ -297,6 +468,86 @@ function KaptenSettingsPageModule({
             <form aria-busy={saving} onSubmit={handleSubmit}>
               {activeMenu === "profil" ? (
                 <>
+                  <Field className="grid gap-3 border-b border-voyage-soft-border px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
+                    <div className="min-w-0">
+                      <FieldLabel
+                        className={REFERENCE_FIELD_LABEL_CLASS_NAME}
+                        htmlFor="kapten-profile-avatar"
+                      >
+                        Foto profil
+                      </FieldLabel>
+                      <p
+                        className="mt-1 text-xs leading-5 text-voyage-muted-ink"
+                        id="kapten-profile-avatar-help"
+                      >
+                        Format JPG, PNG, WebP, atau GIF (maks. 2 MB).
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-4">
+                      <div className="group/photo relative shrink-0">
+                        <Avatar className="!size-16">
+                          {avatarUrl ? (
+                            <AvatarImage
+                              alt={`Pratinjau foto profil ${profileName || savedSettings.profileName}`}
+                              src={avatarUrl}
+                            />
+                          ) : null}
+                          <AvatarFallback className="text-lg transition duration-200 group-hover/photo:brightness-[0.72] group-focus-within/photo:brightness-[0.72]">
+                            {draftInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="pointer-events-none absolute inset-0 rounded-pill bg-secondary-950/0 transition-colors duration-200 group-hover/photo:bg-secondary-950/28 group-focus-within/photo:bg-secondary-950/28" />
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                aria-label={
+                                  avatarUrl
+                                    ? "Ganti foto profil"
+                                    : "Pilih foto profil"
+                                }
+                                className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center rounded-pill bg-transparent text-white opacity-0 transition-opacity duration-200 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35 group-hover/photo:opacity-100 disabled:pointer-events-none"
+                                disabled={saving}
+                                onClick={() => avatarInputRef.current?.click()}
+                                type="button"
+                              >
+                                <Camera aria-hidden="true" className="size-5" />
+                              </button>
+                            }
+                          />
+                          <TooltipContent>
+                            {avatarUrl
+                              ? "Ganti foto profil"
+                              : "Pilih foto profil"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      <input
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        aria-describedby={
+                          error?.field === "avatarUrl"
+                            ? "kapten-profile-avatar-help kapten-profile-avatar-error"
+                            : "kapten-profile-avatar-help"
+                        }
+                        aria-invalid={error?.field === "avatarUrl"}
+                        className="sr-only"
+                        disabled={saving}
+                        id="kapten-profile-avatar"
+                        onChange={handleAvatarChange}
+                        ref={avatarInputRef}
+                        type="file"
+                      />
+                    </div>
+                    {error?.field === "avatarUrl" ? (
+                      <div className="sm:col-start-2">
+                        <FieldError
+                          error={error.message}
+                          id="kapten-profile-avatar-error"
+                        />
+                      </div>
+                    ) : null}
+                  </Field>
                   <Field className="grid gap-3 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
                     <FieldLabel
                       className={REFERENCE_FIELD_LABEL_CLASS_NAME}
@@ -410,10 +661,7 @@ function KaptenSettingsPageModule({
             <SettingsPanel id="settings-account-info" title="Informasi akun">
               <dl className="divide-y divide-voyage-soft-border">
                 <AccountRow title="Peran akun">Kapten</AccountRow>
-                <AccountRow
-                  description="Sertakan ID ini saat melaporkan kendala akun."
-                  title="ID akun"
-                >
+                <AccountRow title="ID akun">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 flex-1 break-all select-all">
                       {savedSettings.userId}
@@ -427,7 +675,7 @@ function KaptenSettingsPageModule({
                             onClick={copyAccountId}
                             size="icon"
                             type="button"
-                            variant="outline"
+                            variant="quiet"
                           />
                         }
                       >

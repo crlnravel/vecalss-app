@@ -5,7 +5,7 @@ import { listReusableQuestionPackages } from "@/lib/tryout/repository";
 import { KaptenPackageCataloguePageModule } from "@/modules/mentor/KaptenPackageCataloguePageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Paket Soal Kapten | Vecalss LMS" };
+export const metadata: Metadata = { title: "Paket Soal Kapten | PTN Pro LMS" };
 
 export default async function PackagePage({ searchParams }: PageProps<"/mentor/packages">) {
   const [params, session] = await Promise.all([

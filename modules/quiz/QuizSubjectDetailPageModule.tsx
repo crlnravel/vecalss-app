@@ -10,6 +10,7 @@ import {
 import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-card";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -103,7 +104,7 @@ function QuizSubjectDetailPageModule({
                 height={464}
                 priority
                 sizes="(min-width: 1280px) 432px, (min-width: 768px) 352px, 256px"
-                src="/brand/mascot-vecalss.png"
+                src="/brand/mascot-vecalss-2.png"
                 width={464}
               />
             </div>
@@ -121,7 +122,7 @@ function QuizSubjectDetailPageModule({
               </h2>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {subject.quizzes.map((quiz) => (
                 <QuizCard key={quiz.slug} quiz={quiz} subject={subject} />
               ))}
@@ -154,52 +155,45 @@ function QuizSubjectDetailPageModule({
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   const hasReviewableResult = Boolean(quiz.isCompleted && quiz.latestAttemptId);
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-white text-left text-primary-900 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_52%,transparent)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_color-mix(in_oklab,var(--voyage-forest)_55%,transparent)] motion-reduce:transition-none">
-      <div className="relative z-10 flex flex-col px-3 py-5 sm:px-4 sm:py-6 md:px-5 md:py-7">
-        <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">
-          {quiz.title}
-        </h3>
-        <p className="mt-2 line-clamp-3 max-w-[40ch] text-xs leading-5 text-primary-800">
-          Paket latihan siap pakai untuk latihan {subject.title.toLowerCase()}.
-        </p>
+    <StudentCatalogueCardFrame className="text-left" variant="kuis">
+      <div className="flex flex-1 flex-col gap-5">
+        <div>
+          <h3 className="font-heading text-xl leading-snug font-extrabold tracking-[-0.03em] text-balance [overflow-wrap:anywhere]">
+            {quiz.title}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {subject.title}
+          </p>
+        </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {quiz.duration ? (
-            <Badge
-              className={QUIZ_BADGE_CLASS_NAME}
-              size="sm"
-              tone="neutral"
-            >
-              <Clock3 className="size-4" />
-              {quiz.duration}
-            </Badge>
-          ) : null}
-          <Badge
-            className={QUIZ_BADGE_CLASS_NAME}
-            size="sm"
-            tone="neutral"
-          >
-            <ListChecks className="size-4" />
-            {quiz.questionCount} soal
-          </Badge>
-          <Badge
-            className={QUIZ_BADGE_CLASS_NAME}
-            size="sm"
-            tone="category"
-          >
+        <div className="flex flex-wrap gap-2">
+          <Badge size="sm" tone="category">
             {quiz.difficulty}
           </Badge>
-          <Badge
-            className={QUIZ_BADGE_CLASS_NAME}
-            size="sm"
-            tone={quizStatusTone(quiz.status)}
-          >
+          <Badge size="sm" tone={quizStatusTone(quiz.status)}>
             {quizStatusLabel(quiz.status)}
           </Badge>
         </div>
 
+        <dl className="mt-auto space-y-3 rounded-field bg-voyage-sea-glass-wash p-4 text-sm leading-6 text-voyage-deep">
+          <div className="flex flex-wrap items-start gap-x-1">
+            <dt className="flex items-center gap-3">
+              <ListChecks aria-hidden="true" className="size-4 shrink-0" />
+              Jumlah soal:
+            </dt>
+            <dd className="font-semibold">{quiz.questionCount} soal</dd>
+          </div>
+          <div className="flex flex-wrap items-start gap-x-1">
+            <dt className="flex items-center gap-3">
+              <Clock3 aria-hidden="true" className="size-4 shrink-0" />
+              Waktu:
+            </dt>
+            <dd className="font-semibold">{quiz.duration || "Tanpa batas waktu"}</dd>
+          </div>
+        </dl>
+
         <Button
-          className="mt-6 w-full justify-center"
+          className="w-full justify-center"
           nativeButton={false}
           render={
             <Link
@@ -215,7 +209,7 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
           <ArrowUpRight className="size-4" data-icon="inline-end" />
         </Button>
       </div>
-    </article>
+    </StudentCatalogueCardFrame>
   );
 }
 

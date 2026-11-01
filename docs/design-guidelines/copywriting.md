@@ -2,9 +2,9 @@
 
 Panduan ini melengkapi aturan visual di [DESIGN.md](../../DESIGN.md) dengan
 aturan untuk teks yang dibaca atau didengar pengguna. Untuk arti istilah
-produk, lihat [glosarium Vecalss](../../CONTEXT.md).
+produk, lihat [glosarium PTN Pro](../../CONTEXT.md).
 
-## Suara Vecalss
+## Suara PTN Pro
 
 - Utamakan Bahasa Indonesia yang jelas, natural, ramah, dan tidak kaku.
 - Untuk siswa, gunakan “kamu” sebagai sapaan. Gunakan “Voyager” pada momen
@@ -12,7 +12,7 @@ produk, lihat [glosarium Vecalss](../../CONTEXT.md).
   setiap instruksi.
 - Gunakan “Kapten” untuk tutor dan penulis konten pada antarmuka. Untuk area
   admin dan Kapten, gunakan bahasa yang langsung dan profesional.
-- Pertahankan sedikit karakter Vecalss pada onboarding, empty state, progres,
+- Pertahankan sedikit karakter PTN Pro pada onboarding, empty state, progres,
   dan perayaan. Pada formulir, tombol, konfirmasi, error, dan tindakan penting,
   utamakan kata yang menjelaskan tindakan atau akibatnya.
 - Hindari bahasa terlalu formal, slang yang dipaksakan, jargon internal,
@@ -42,7 +42,7 @@ produk, lihat [glosarium Vecalss](../../CONTEXT.md).
   warna, posisi, bentuk ikon, atau kata “klik di sini”. Beri nama aksesibel pada
   tombol ikon dan kontrol tanpa teks yang terlihat.
 - Gunakan kapitalisasi kalimat dalam Bahasa Indonesia. Kapitalisasi khusus
-  dipakai untuk nama brand dan nama fitur resmi, termasuk Vecalss, Voyager,
+  dipakai untuk nama brand dan nama fitur resmi, termasuk PTN Pro, Voyager,
   Kapten, Kuis, dan Tryout.
 
 ## Bahasa dan istilah

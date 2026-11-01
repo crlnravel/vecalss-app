@@ -212,13 +212,13 @@ function OnboardingForm({
           <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center vecalss-enter-fade-zoom-500">
             <div className="relative mb-6 grid size-28 place-items-center rounded-[2.4rem] bg-[linear-gradient(145deg,var(--voyage-sea-glass-wash),var(--voyage-sea-glass-wash))]">
               <span className="absolute inset-2 rounded-[2rem] border border-white/80" />
-              <Image alt="Maskot Vecalss" className="relative h-24 w-24 object-contain drop-shadow-[0_9px_8px_color-mix(in_oklab,var(--voyage-forest)_18%,transparent)]" height={3100} priority src="/brand/mascot-vecalss.png" width={3100} />
+              <Image alt="Maskot PTN Pro" className="relative h-24 w-24 object-contain drop-shadow-[0_9px_8px_color-mix(in_oklab,var(--voyage-forest)_18%,transparent)]" height={3100} priority src="/brand/mascot-vecalss-2.png" width={3100} />
             </div>
             <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.06] font-extrabold tracking-[-0.045em] text-voyage-ink sm:text-5xl">
               Halo, kita mulai perjalanan belajarmu.
             </h1>
             <p className="mt-5 max-w-sm text-base leading-7 text-voyage-muted-ink">
-              Jawab beberapa pertanyaan singkat supaya Vecalss bisa menyiapkan arah belajar yang pas buatmu.
+              Jawab beberapa pertanyaan singkat supaya PTN Pro bisa menyiapkan arah belajar yang pas buatmu.
             </p>
             <Button className="mt-9 w-full max-w-sm" onClick={() => setStep(1)} size="lg" type="button" variant="warning">
               Atur target belajar <ArrowRight size={19} weight="bold" />
@@ -230,7 +230,7 @@ function OnboardingForm({
         {step === 1 ? (
           <section className="mx-auto w-full max-w-[33rem] vecalss-enter-fade-slide-right-300">
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-secondary-200 bg-voyage-surface/90 p-4 shadow-[0_12px_24px_-22px_color-mix(in_oklab,var(--voyage-deep)_60%,transparent)]">
-              <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
+              <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss-2.png" width={3100} />
               <div>
                 <h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Apa target belajarmu?</h1>
                 <p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Pilih ujian atau kampus tujuan. Kamu bisa melengkapi detailnya nanti.</p>
@@ -255,7 +255,7 @@ function OnboardingForm({
         {step === 2 ? (
           <section className="mx-auto w-full max-w-[33rem] vecalss-enter-fade-slide-right-300">
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-secondary-200 bg-voyage-surface/90 p-4 shadow-[0_12px_24px_-22px_color-mix(in_oklab,var(--voyage-deep)_60%,transparent)]">
-              <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
+              <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss-2.png" width={3100} />
               <div><h1 className="text-xl font-bold tracking-[-0.035em] text-voyage-ink">Pilih kampus dan jurusan tujuan</h1><p className="mt-1 text-sm leading-5 text-voyage-muted-ink">Belum yakin? Pilih nanti. Kamu bisa mengubah target ini di Profil.</p></div>
             </div>
             <label className={`${fieldLabelClassName} mt-9 block`} htmlFor="university">Pilih kampus</label>
@@ -305,7 +305,7 @@ function OnboardingForm({
           <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center vecalss-enter-fade-zoom-500">
             <div className="relative mb-7 grid size-32 place-items-center rounded-full bg-[linear-gradient(145deg,var(--voyage-sea-glass-wash),var(--voyage-sea-glass-wash))] shadow-[0_20px_40px_-25px_color-mix(in_oklab,var(--voyage-leaf)_55%,transparent)]">
               <span className="absolute inset-2 rounded-full border-2 border-white/90" />
-              <Image alt="Maskot Vecalss" className="relative size-28 object-contain drop-shadow-[0_10px_9px_color-mix(in_oklab,var(--voyage-forest)_18%,transparent)]" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
+              <Image alt="Maskot PTN Pro" className="relative size-28 object-contain drop-shadow-[0_10px_9px_color-mix(in_oklab,var(--voyage-forest)_18%,transparent)]" height={3100} src="/brand/mascot-vecalss-2.png" width={3100} />
             </div>
             <h1 className="max-w-[17ch] font-heading text-4xl leading-[1.08] font-extrabold tracking-[-0.045em] text-voyage-ink sm:text-5xl">Terima kasih sudah berbagi.</h1>
             <p className="mt-5 max-w-sm text-base leading-7 text-voyage-muted-ink">Kami akan menyiapkan pengalaman belajar yang lebih personal untukmu.</p>

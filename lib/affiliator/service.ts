@@ -76,6 +76,23 @@ const affiliatorProfileSelect = {
   referralCode: true,
 } satisfies Prisma.AffiliatorProfileSelect;
 
+function activeAffiliatorProfileWhere(referralCode: string) {
+  return {
+    isActive: true,
+    referralCode,
+    user: {
+      roleAssignments: {
+        some: {
+          revokedAt: null,
+          role: RoleName.affiliator,
+        },
+      },
+      softDeletedAt: null,
+      status: UserStatus.active,
+    },
+  } satisfies Prisma.AffiliatorProfileWhereInput;
+}
+
 const successfulPurchaseWhere = (affiliatorProfileId: string) => ({
   affiliatorProfileId,
   completedAt: { not: null },
@@ -448,20 +465,7 @@ async function recordSuccessfulPackagePurchase({
     const affiliatorProfile = normalizedReferralCode
       ? await tx.affiliatorProfile.findFirst({
           select: affiliatorProfileSelect,
-          where: {
-            isActive: true,
-            referralCode: normalizedReferralCode,
-            user: {
-              roleAssignments: {
-                some: {
-                  revokedAt: null,
-                  role: RoleName.affiliator,
-                },
-              },
-              softDeletedAt: null,
-              status: UserStatus.active,
-            },
-          },
+          where: activeAffiliatorProfileWhere(normalizedReferralCode),
         })
       : null;
 
@@ -529,7 +533,25 @@ async function recordSuccessfulPackagePurchase({
   });
 }
 
+/**
+ * Resolves a typed or linked referral code to its canonical form when it
+ * belongs to an active affiliator. Uses the same rule as the purchase webhook,
+ * so a code accepted here is not rejected when the purchase is recorded.
+ */
+async function findActiveReferralCode(value: unknown) {
+  const referralCode = normalizeReferralCode(value);
+  if (!referralCode) return null;
+
+  const profile = await prisma.affiliatorProfile.findFirst({
+    select: { referralCode: true },
+    where: activeAffiliatorProfileWhere(referralCode),
+  });
+
+  return profile?.referralCode ?? null;
+}
+
 export {
+  findActiveReferralCode,
   getAffiliatorConversionLog,
   getAffiliatorDashboard,
   recordSuccessfulPackagePurchase,

@@ -5,6 +5,7 @@ import {
   ReferenceSectionHeading,
   ReferenceSurface,
 } from "@/components/dashboard";
+import { getAppBaseUrl } from "@/lib/config";
 import { ArrowRight } from "@/lib/icons";
 import type {
   AffiliatorDashboardData,
@@ -97,6 +98,7 @@ function AffiliatorDashboardPageModule({
         <AffiliatorReferralCodeCard
           code={dashboard.profile.referralCode}
           isActive={dashboard.profile.isActive}
+          referralLink={`${getAppBaseUrl()}/pricing?ref=${encodeURIComponent(dashboard.profile.referralCode)}`}
         />
       ) : (
         <ReferenceSurface

@@ -1,12 +1,12 @@
 # Obscura Headless Browser Guide for AI Agents
 
-This guide documents how AI agents and automated workflows use **Obscura** within the Vecalss repository. It establishes the division of labor between `ego-browser` and `obscura`, details how to run Playwright tests against Obscura over Chrome DevTools Protocol (CDP), and provides standard operating procedures for automated headless browser testing.
+This guide documents how AI agents and automated workflows use **Obscura** within the PTN Pro repository. It establishes the division of labor between `ego-browser` and `obscura`, details how to run Playwright tests against Obscura over Chrome DevTools Protocol (CDP), and provides standard operating procedures for automated headless browser testing.
 
 ---
 
 ## 1. Core Principles & Division of Labor
 
-The Vecalss repository operates under a **dual-browser paradigm**:
+The PTN Pro repository operates under a **dual-browser paradigm**:
 
 | Attribute | `ego-browser` (`ego-lite`) | `obscura` |
 |---|---|---|
@@ -145,7 +145,7 @@ await withObscuraPage(async (page) => {
   await page.goto("http://localhost:5023/login", { waitUntil: "domcontentloaded" });
 
   const title = await page.title();
-  assert.ok(title.includes("Vecalss"), "Page title should contain Vecalss");
+  assert.ok(title.includes("PTN Pro"), "Page title should contain PTN Pro");
 
   const emailField = await page.$('input[type="email"]');
   assert.ok(emailField !== null, "Email input should exist");

@@ -10,7 +10,7 @@ import { AlertTriangle, CircleCheckBig, CircleX, Info } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./button-variants";
 import styles from "./sonner-layout.module.css";
-import { toastVariantClassNames, type ToastVariant, type VecalssToastOptions } from "./toast";
+import { toastVariantClassNames, type ToastVariant, type PtnProToastOptions } from "./toast";
 
 const SONNER_BUTTON_CASCADE_CLASSES =
   "min-h-[44px] !rounded-control !border !px-3.5 !text-sm !transition-[background-color,border-color,box-shadow,color] focus-visible:!ring-3 focus-visible:!ring-offset-2 motion-reduce:!transition-none";
@@ -83,4 +83,4 @@ function Toaster({ className, toastOptions, ...props }: ToasterProps) {
 }
 
 export { Toaster };
-export type { ToastVariant, VecalssToastOptions };
+export type { ToastVariant, PtnProToastOptions };

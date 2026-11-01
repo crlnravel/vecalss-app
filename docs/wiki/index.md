@@ -1,4 +1,4 @@
-# Vecalss project wiki
+# PTN Pro project wiki
 
 > Source snapshot: 23 September 2026 after the automatic-context rollout and
 > gate-snapshot migration work. This wiki describes
@@ -7,7 +7,7 @@
 > becomes stale. The shared worktree also contains unrelated uncommitted
 > product edits that are intentionally not part of this wiki snapshot.
 
-Vecalss is a Next.js learning academy/LMS for Indonesian students preparing
+PTN Pro is a Next.js learning academy/LMS for Indonesian students preparing
 for PTN admission through Materi, Kuis, Tryout, progress, and human mentoring.
 The product uses three role vocabularies: Voyager (student), Kapten (tutor and
 content author), and Administrator.

@@ -1,6 +1,6 @@
 # Database and Environment Guide for AI Agents
 
-This guide documents the database and runtime environments available in the Vecalss repository, specifically designed for AI agents and developers.
+This guide documents the database and runtime environments available in the PTN Pro repository, specifically designed for AI agents and developers.
 
 ---
 
@@ -153,7 +153,7 @@ DATABASE_URL="<neon-staging-url>" ./_harness/resource-guard.sh run -- rtk pnpm e
 
 > [!WARNING]
 > **Production is currently NOT AVAILABLE.**
-> Vecalss is in active pre-release development. No production infrastructure, database cluster, or live user store is provisioned.
+> PTN Pro is in active pre-release development. No production infrastructure, database cluster, or live user store is provisioned.
 
 ### Agent Rules for Production:
 

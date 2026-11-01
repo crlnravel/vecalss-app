@@ -15,7 +15,7 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 const faqHighlights = [
   {
     title: "Program dan latihan",
-    description: "Kenali pilihan program, Kuis, dan Tryout Vecalss.",
+    description: "Kenali pilihan program, Kuis, dan Tryout PTN Pro.",
     icon: ScanSearch,
   },
   {
@@ -34,7 +34,7 @@ const supportLanes = [
   "Persiapan masuk PTN",
   "Materi, Kuis, dan Tryout",
   "Bantuan belajar dengan Vera AI",
-  "Informasi program Vecalss",
+  "Informasi program PTN Pro",
 ];
 
 export default function FaqPageModule() {
@@ -56,14 +56,14 @@ export default function FaqPageModule() {
                 </h1>
 
                 <p className="mt-6 max-w-[660px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
-                  Cari tahu tentang program Vecalss, Vera AI, Tryout, dan cara
+                  Cari tahu tentang program PTN Pro, Vera AI, Tryout, dan cara
                   memulai persiapan masuk PTN.
                 </p>
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
                   <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
                   <ActionButtonLink href="/#about" variant="outline">
-                    Tentang Vecalss
+                    Tentang PTN Pro
                   </ActionButtonLink>
                 </div>
               </div>
@@ -190,7 +190,7 @@ export default function FaqPageModule() {
             <div className="relative flex flex-col gap-4 sm:flex-row md:flex-col">
               <ActionButtonLink href="/#contact">Lihat pilihan kontak</ActionButtonLink>
               <ActionButtonLink href="/#about" variant="inverse">
-                Tentang Vecalss
+                Tentang PTN Pro
               </ActionButtonLink>
             </div>
           </div>

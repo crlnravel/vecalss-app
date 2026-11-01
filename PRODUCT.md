@@ -21,7 +21,7 @@ intentionally separate from the student experience.
 
 ## Product Purpose
 
-Vecalss is a web learning academy and learning management system for helping
+PTN Pro is a web learning academy and learning management system for helping
 Indonesian students prepare for PTN through a clear, sustained learning
 journey. It brings together subject-based Materi, Kuis, reusable question banks,
 Tryout assessments, progress, onboarding, and human guidance so a Voyager can
@@ -34,7 +34,7 @@ student-management dashboard becoming the center of their work.
 
 ## Positioning
 
-Vecalss combines an integrated learning loop (Materi → Kuis → Tryout →
+PTN Pro combines an integrated learning loop (Materi → Kuis → Tryout →
 progress and next steps) with human mentoring from Kapten. Its position is not
 just a content library or a test engine: learning activities and personal
 guidance are designed to reinforce one another across the student's journey.
@@ -76,7 +76,7 @@ guidance are designed to reinforce one another across the student's journey.
 
 ## Brand Commitments
 
-- The product name is Vecalss / Vecalss Learning Academy.
+- The product name is PTN Pro.
 - Students are Voyager and tutors/content authors are Kapten; this terminology
   is part of the product language.
 - Existing voyage and learning-journey language, mascot and illustration
@@ -95,7 +95,7 @@ guidance are designed to reinforce one another across the student's journey.
   calm personal workflow rather than analytics-first administration.
 - The App Router and modules under `app/` and `modules/` provide the current
   implemented flows for students, Kapten, and administrators.
-- `public/brand/` and `public/landing-assets/` contain the current Vecalss logo,
+- `public/brand/` and `public/landing-assets/` contain the current PTN Pro logo,
   mascot, voyage illustrations, campus marks, mentor imagery, alumni imagery,
   testimonials, and related assets.
 - Prisma seed and fixture files provide local demonstration data, including

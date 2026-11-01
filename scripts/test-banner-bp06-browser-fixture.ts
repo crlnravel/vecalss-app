@@ -1738,7 +1738,7 @@ async function waitForNextReady(child: ChildProcess, output: string[]) {
       const body = await response.text();
       const markers = {
         email: body.includes('id="login-email"'),
-        heading: body.includes("Masuk ke Vecalss"),
+        heading: body.includes("Masuk ke PTN Pro"),
         password: body.includes('id="login-password"'),
       };
       lastProbe = {
@@ -1895,7 +1895,7 @@ function browserVerificationScript(privatePaths: BrowserPrivatePaths, playwright
   function routeDefaults(path) {
     const pathname = new URL(baseUrl + path).pathname;
     if (pathname === "/login") {
-      return { requiredSelectors: ["form", "#login-email, input[name=\"email\"]", "#login-password, input[name=\"password\"]"], requiredText: ["Masuk ke Vecalss"] };
+      return { requiredSelectors: ["form", "#login-email, input[name=\"email\"]", "#login-password, input[name=\"password\"]"], requiredText: ["Masuk ke PTN Pro"] };
     }
     if (pathname === "/admin/student-preview" || pathname.startsWith("/admin/student-preview/")) {
       return { requiredSelectors: [], requiredText: ["STUDENT PREVIEW"] };
