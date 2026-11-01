@@ -84,9 +84,21 @@ async function waitFor<T>(read: () => Promise<T | null>, label: string) {
 const createdConversationIds: string[] = [];
 
 try {
-  const student = await prisma.user.findUnique({ where: { email: "student@vecalss.local" }, select: { id: true } });
-  assert.ok(student, "Seed the local database first: the student@vecalss.local account is required");
-  const studentId = student.id;
+  // Dedicated accounts keep this test's usage away from the seeded students. The main flows make five requests, which is
+  // the burst limit, so the provider-failure case runs on its own account.
+  const dedicatedStudent = async (email: string) =>
+    (
+      await prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: { email, fullName: "Vera Chat Test", passwordHash: "test-only" },
+        select: { id: true },
+      })
+    ).id;
+  const studentId = await dedicatedStudent("vera-chat-test@vecalss.local");
+  const failureStudentId = await dedicatedStudent("vera-chat-test-failure@vecalss.local");
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: { in: [studentId, failureStudentId] } } });
+  await prisma.veraConversation.deleteMany({ where: { studentId: { in: [studentId, failureStudentId] } } });
 
   // Creates a conversation, streams text, and persists the user and assistant messages.
   const firstModel = answerModel(["Halo, ", "aku Vera."]);
@@ -205,6 +217,48 @@ try {
   );
   assert.ok(JSON.stringify(stoppedAnswer.parts).includes("data-vera-status"), "The partial answer is marked as stopped");
   assert.ok(JSON.stringify(stoppedAnswer.parts).includes("Ini "), "The partial answer keeps the streamed text");
+
+  // Aborting after generation started still charges: the first step was cut off, so the reserve is the charge.
+  const stoppedUsage = await waitFor(
+    () =>
+      prisma.veraUsageEvent
+        .findFirst({
+          where: { conversationId: stoppedConversationId },
+          select: { status: true, credits: true, errorCode: true },
+        })
+        .then((row) => (row && row.status !== "reserved" ? row : null)),
+    "the stopped answer's usage to settle",
+  );
+  assert.equal(stoppedUsage.status, "settled", "An aborted answer that started generating is settled, not released");
+  assert.equal(Number(stoppedUsage.credits), 2, "An aborted first step is charged the cepat reserve");
+  assert.equal(stoppedUsage.errorCode, "aborted", "The settled row records why the answer ended early");
+
+  // A provider failure before any output releases the reservation: nothing was generated, so nothing is billed.
+  setVeraModelForTests(
+    new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error("Provider tidak tersedia.");
+      },
+    }),
+  );
+  const failedEvents = await readEvents(
+    await runVeraChat({ studentId: failureStudentId, input: userInput("Halo gagal"), signal: new AbortController().signal }),
+  );
+  const failedConversationId = conversationIdFrom(failedEvents);
+  createdConversationIds.push(failedConversationId);
+  const failedUsage = await waitFor(
+    () =>
+      prisma.veraUsageEvent
+        .findFirst({
+          where: { conversationId: failedConversationId },
+          select: { status: true, credits: true, errorCode: true },
+        })
+        .then((row) => (row && row.status !== "reserved" ? row : null)),
+    "the failed answer's usage to release",
+  );
+  assert.equal(failedUsage.status, "released", "A failure before any output releases the reservation");
+  assert.equal(Number(failedUsage.credits), 0);
+  assert.equal(failedUsage.errorCode, "error");
 
   // History trimming keeps the newest messages that fit the budget.
   const message = (id: string, length: number) => ({

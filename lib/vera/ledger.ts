@@ -130,12 +130,19 @@ async function readTotals(db: Prisma.TransactionClient, studentId: string, now: 
   };
 }
 
-/** Marks reservations older than the stale threshold as failed. They keep their reserved amount, which is the conservative charge. */
-async function sweepStaleReservations(db: Prisma.TransactionClient, now: Date) {
+/**
+ * Marks this student's stale reservations as failed. They keep their reserved
+ * amount, which is the conservative charge. The filter on student_id keeps the
+ * update on the (studentId, createdAt) index, and other students are swept
+ * on their own requests.
+ */
+async function sweepStaleReservations(db: Prisma.TransactionClient, studentId: string, now: Date) {
   await db.$executeRaw`
     UPDATE vera_usage_events
     SET status = 'failed', credits = reserved_credits, settled_at = ${now}
-    WHERE status = 'reserved' AND created_at < ${new Date(now.getTime() - STALE_RESERVATION_MS)}
+    WHERE student_id = ${studentId}::uuid
+      AND status = 'reserved'
+      AND created_at < ${new Date(now.getTime() - STALE_RESERVATION_MS)}
   `;
 }
 
@@ -205,7 +212,7 @@ export async function reserveVeraCredits({
 
   const outcome: Outcome = await prisma.$transaction(async (tx): Promise<Outcome> => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`vera:${studentId}`}))`;
-    await sweepStaleReservations(tx, now);
+    await sweepStaleReservations(tx, studentId, now);
     const totals = await readTotals(tx, studentId, now);
     const hit = admissionLimit(totals, effort, now);
     if (hit) {
@@ -246,13 +253,19 @@ export async function attachReservationConversation(eventId: string, conversatio
 export async function settleVeraUsage({
   eventId,
   usage,
+  chargedMicros,
+  errorCode = null,
   now = new Date(),
 }: {
   eventId: string;
   usage: VeraTokenUsage & { reasoningTokens: number; steps: number };
+  /** Defaults to the provider cost of the recorded tokens. Pass a floor for a step that was cut off. */
+  chargedMicros?: number;
+  /** Null for a finished answer. "aborted" or "error" marks an answer that ended early. */
+  errorCode?: string | null;
   now?: Date;
 }): Promise<number> {
-  const micros = costUsdMicros(usage, getVeraPrices());
+  const micros = chargedMicros ?? costUsdMicros(usage, getVeraPrices());
   const credits = creditsFromMicros(micros);
   await prisma.veraUsageEvent.update({
     where: { id: eventId },
@@ -265,6 +278,7 @@ export async function settleVeraUsage({
       outputTokens: usage.outputTokens,
       reasoningTokens: usage.reasoningTokens,
       steps: usage.steps,
+      errorCode,
       settledAt: now,
     },
   });
@@ -299,6 +313,8 @@ export type VeraUsageSnapshot = {
   day: VeraWindowUsage;
   week: VeraWindowUsage;
   month: VeraWindowUsage;
+  /** Non-secret. The composer uses them so its estimate matches what the server charges. */
+  prices: VeraPrices;
 };
 
 function windowUsage(used: number, limit: { hardCredits: number; softCredits: number | null }, resetsAt: Date): VeraWindowUsage {
@@ -324,5 +340,6 @@ export async function getVeraUsageSnapshot({
     day: windowUsage(totals.dayCredits, VERA_LIMITS.day, dayWindow(now).resetsAt),
     week: windowUsage(totals.weekCredits, VERA_LIMITS.week, weekWindow(now).resetsAt),
     month: windowUsage(totals.monthCredits, { hardCredits: VERA_LIMITS.month.hardCredits, softCredits: null }, monthWindow(now).resetsAt),
+    prices: getVeraPrices(),
   };
 }

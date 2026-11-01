@@ -5,7 +5,15 @@ import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
 import { runVeraChat } from "../lib/vera/chat";
-import { costUsdMicros, creditsForUsage, creditsFromMicros, estimateCreditRange, formatCredits, formatCreditRange } from "../lib/vera/credits-shared";
+import {
+  costUsdMicros,
+  creditsForUsage,
+  creditsFromMicros,
+  estimateCreditRange,
+  formatCredits,
+  formatCreditRange,
+  settlementCharge,
+} from "../lib/vera/credits-shared";
 import {
   getVeraUsageSnapshot,
   releaseVeraReservation,
@@ -128,6 +136,33 @@ try {
   const range = estimateCreditRange({ effort: "mendalam", historyChars: 40_000, mentionCount: 2 });
   assert.ok(range.low >= 0.1 && range.high >= range.low, "The estimate range is ordered");
   assert.equal(formatCredits(0.6), "0,6");
+
+  // Settlement after a cut-off step. OpenAI bills generation once it starts, so a cut-off step is charged at least the reserve.
+  assert.deepEqual(
+    settlementCharge({ actualMicros: 0, completedSteps: 0, unfinishedStepStarted: false, reserveCredits: 3 }),
+    { kind: "release" },
+    "No output at all releases the reservation",
+  );
+  assert.deepEqual(
+    settlementCharge({ actualMicros: 0, completedSteps: 0, unfinishedStepStarted: true, reserveCredits: 3 }),
+    { kind: "settle", chargedMicros: 7_050 },
+    "An aborted first step is charged the reserve (3 credits)",
+  );
+  assert.deepEqual(
+    settlementCharge({ actualMicros: 1_000, completedSteps: 1, unfinishedStepStarted: true, reserveCredits: 3 }),
+    { kind: "settle", chargedMicros: 7_050 },
+    "A finished step plus a cut-off second step is charged at least the reserve",
+  );
+  assert.deepEqual(
+    settlementCharge({ actualMicros: 9_000, completedSteps: 1, unfinishedStepStarted: true, reserveCredits: 3 }),
+    { kind: "settle", chargedMicros: 9_000 },
+    "A higher actual cost is charged in full",
+  );
+  assert.deepEqual(
+    settlementCharge({ actualMicros: 500, completedSteps: 1, unfinishedStepStarted: false, reserveCredits: 3 }),
+    { kind: "settle", chargedMicros: 500 },
+    "Finished steps are charged their exact cost",
+  );
   assert.equal(formatCreditRange({ low: 0.3, high: 1.2 }), "≈ 0,3–1,2 kredit");
 
   // Windows in WIB, including the day, week and month edges.
@@ -224,6 +259,43 @@ try {
   const afterRelease = await getVeraUsageSnapshot({ studentId, now });
   assert.equal(afterRelease.day.used, 0, "A released reservation does not count");
   await reserveVeraCredits({ studentId, effort: "mendalam", model: "test", now });
+
+  // The sweep touches only the student who is reserving. Another student's stale reservation waits for their own request.
+  const otherStudent = await prisma.user.upsert({
+    where: { email: "vera-ledger-other@vecalss.local" },
+    update: {},
+    create: { email: "vera-ledger-other@vecalss.local", fullName: "Vera Ledger Lain", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  await clearLedger(studentId);
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: otherStudent.id } });
+  const staleAt = new Date(now.getTime() - 20 * 60_000);
+  const staleReservation = (owner: string) => ({
+    studentId: owner,
+    kind: "chat" as const,
+    status: "reserved" as const,
+    effort: "cepat" as const,
+    model: "test",
+    reservedCredits: 2,
+    credits: 2,
+    reservedUsdMicros: BigInt(4_700),
+    createdAt: staleAt,
+  });
+  const otherStale = await prisma.veraUsageEvent.create({ data: staleReservation(otherStudent.id), select: { id: true } });
+  const ownStale = await prisma.veraUsageEvent.create({ data: staleReservation(studentId), select: { id: true } });
+  const fresh = await reserveVeraCredits({ studentId, effort: "cepat", model: "test", now });
+  await releaseVeraReservation({ eventId: fresh.eventId, errorCode: "test", now });
+  assert.equal(
+    (await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: ownStale.id }, select: { status: true } })).status,
+    "failed",
+    "This student's stale reservation is swept by their own request",
+  );
+  assert.equal(
+    (await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: otherStale.id }, select: { status: true } })).status,
+    "reserved",
+    "Another student's stale reservation is left for their own request",
+  );
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: otherStudent.id } });
 
   // Soft warnings: the day warns at 10 and the week at 70. The monthly window has no soft limit.
   await clearLedger(studentId);

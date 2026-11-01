@@ -162,7 +162,8 @@ export function VeraPageModule({
       total + message.parts.reduce((sum, part) => sum + (part.type === "text" ? part.text.length : 0), 0),
     0,
   );
-  const estimate = formatCreditRange(estimateCreditRange({ effort, historyChars, mentionCount: 0 }));
+  // The prices come from the server with the usage snapshot, so the estimate and the charge use the same numbers.
+  const estimate = formatCreditRange(estimateCreditRange({ effort, historyChars, mentionCount: 0 }, usage.prices));
 
   function send(text: string) {
     void sendMessage(

@@ -28,7 +28,9 @@ export function VeraEffortMenu({ value, onChange }: { value: VeraEffortId; onCha
             <DropdownMenuRadioItem key={id} value={id}>
               <span className="flex flex-col gap-0.5">
                 <span className="font-medium">{VERA_EFFORTS[id].label}</span>
-                <span className="text-xs text-muted-foreground">{VERA_EFFORTS[id].hint}</span>
+                <span className="text-xs text-muted-foreground">
+                  {VERA_EFFORTS[id].hint} Maks {VERA_EFFORTS[id].ceilingCredits} kredit per jawaban.
+                </span>
               </span>
             </DropdownMenuRadioItem>
           ))}

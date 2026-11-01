@@ -16,7 +16,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 import { VERA_EFFORT_IDS, VERA_EFFORTS, VERA_LIMITS, type VeraEffortId } from "./config";
-import { costUsdMicros, creditsFromMicros, type VeraPrices, type VeraTokenUsage } from "./credits-shared";
+import { costUsdMicros, creditsFromMicros, settlementCharge, type VeraPrices, type VeraTokenUsage } from "./credits-shared";
 import { appendMessages, createConversation, getConversationWithMessages, touchConversation } from "./conversations";
 import { VeraError } from "./errors";
 import {
@@ -45,6 +45,9 @@ export const veraChatRequestSchema = z.object({
 export type VeraChatInput = z.infer<typeof veraChatRequestSchema>;
 
 const STOPPED_PART_TYPE = "data-vera-status";
+
+/** Stream parts the SDK emits itself. Any other part means the provider has started generating output. */
+const CONTROL_PART_TYPES = new Set(["start", "start-step", "finish-step", "finish", "abort", "error"]);
 
 type UsageTally = VeraTokenUsage & { reasoningTokens: number; steps: number };
 
@@ -79,10 +82,6 @@ function ceilingReached(
     prices,
   );
   return costUsdMicros(tallyOf(steps), prices) >= ceilingMicros - worstStepMicros;
-}
-
-function answerCredits(tally: UsageTally, prices: VeraPrices): number | null {
-  return tally.steps > 0 ? creditsFromMicros(costUsdMicros(tally, prices)) : null;
 }
 
 /** Starts one answer and returns the UI message stream. Ownership is checked and a reservation taken before anything is written. */
@@ -148,17 +147,31 @@ export async function runVeraChat({
     throw error;
   }
 
-  // Usage is tallied per step, so an error or an abort still settles with the usage that was spent.
+  // Usage is tallied per completed step. A step that began generating but was cut off is billed at least the reserve,
+  // because the provider bills it once generation starts, even though its token counts never arrived.
   let tally: UsageTally = NO_USAGE;
+  let unfinishedStepStarted = false;
   let settled = false;
+  const chargeForAnswer = () =>
+    settlementCharge({
+      actualMicros: costUsdMicros(tally, prices),
+      completedSteps: tally.steps,
+      unfinishedStepStarted,
+      reserveCredits: effort.reserveCredits,
+    });
+  const creditsForAnswer = () => {
+    const charge = chargeForAnswer();
+    return charge.kind === "release" ? null : creditsFromMicros(charge.chargedMicros);
+  };
   const settleOnce = async (errorCode: string | null) => {
     if (settled) return;
     settled = true;
     try {
-      if (tally.steps === 0) {
-        await releaseVeraReservation({ eventId, errorCode: errorCode ?? "no_usage" });
+      const charge = chargeForAnswer();
+      if (charge.kind === "release") {
+        await releaseVeraReservation({ eventId, errorCode: errorCode ?? "no_output" });
       } else {
-        await settleVeraUsage({ eventId, usage: tally });
+        await settleVeraUsage({ eventId, usage: tally, chargedMicros: charge.chargedMicros, errorCode });
       }
     } catch (error) {
       serverLogger.error("vera.usage.settle_failed", error, { area: "vera", operation: "settle_usage" });
@@ -176,8 +189,12 @@ export async function runVeraChat({
     providerOptions: {
       openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
     },
+    onChunk: ({ chunk }) => {
+      if (!CONTROL_PART_TYPES.has(chunk.type)) unfinishedStepStarted = true;
+    },
     onStepEnd: (step) => {
       tally = addStepUsage(tally, step.usage);
+      unfinishedStepStarted = false;
     },
     onEnd: () => settleOnce(null),
     onAbort: () => settleOnce("aborted"),
@@ -190,7 +207,7 @@ export async function runVeraChat({
     generateMessageId: () => crypto.randomUUID(),
     messageMetadata: ({ part }) => {
       if (part.type === "start") return { conversationId, effort: input.effort };
-      if (part.type === "finish") return { effort: input.effort, credits: answerCredits(tally, prices) };
+      if (part.type === "finish") return { effort: input.effort, credits: creditsForAnswer() };
       return undefined;
     },
     onError: () => "Vera belum bisa menjawab sekarang. Coba kirim lagi.",
@@ -200,7 +217,7 @@ export async function runVeraChat({
         conversationId,
         messages,
         effort: input.effort,
-        credits: answerCredits(tally, prices),
+        credits: creditsForAnswer(),
         stopped: isAborted || isCancelled === true,
       });
     },
