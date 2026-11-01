@@ -15,6 +15,7 @@ const REFUSALS: Record<string, string> = {
   not_found: "Tidak ditemukan",
   under_review: "Masih ditinjau",
   not_available: "Belum tersedia",
+  unavailable: "Belum bisa dibaca",
 };
 
 function statusOf(state: string, output: unknown): { label: string; tone: BadgeProps["tone"] } {

@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { join, sep } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join, sep } from "node:path";
 
 import { getPublishedLesson } from "@/lib/materi/repository";
 import { readMediaObject } from "@/lib/media/r2";
@@ -235,10 +236,10 @@ async function pdfText({
   return text;
 }
 
-/** Node reads pdf.js's standard font and CMap files from the installed package, so their folders are passed explicitly. */
+/** Node reads pdf.js's standard font and CMap files from disk, so their folders are resolved from the installed package. */
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const assets = join(process.cwd(), "node_modules", "pdfjs-dist");
+  const assets = dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
   const document = await getDocument({
     data: bytes,
     disableFontFace: true,

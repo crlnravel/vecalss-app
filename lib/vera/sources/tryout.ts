@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   participantTryoutResult,
@@ -11,21 +12,68 @@ import { isUuid, reviewItem, subtestMatches, tryoutResultHref, type VeraSource, 
 
 const REVIEW_ITEM_LIMIT = 20;
 
-/** The student's own released result, from the same reader as their result page. Null when it cannot be shown yet. */
-async function releasedResult(attemptId: string, studentId: string) {
-  try {
-    return await participantTryoutResult(attemptId, studentId);
-  } catch (error) {
-    if (error instanceof TryoutResultValidationError) return null;
-    throw error;
+/** The part of the student's result reader that a list needs: whether the result is released, and its runs. */
+export type ResultReader = (
+  attemptId: string,
+  studentId: string,
+) => Promise<{
+  released: boolean;
+  runs?: Array<{ subtestName: string; materializedScore: { normalizedScore: number | null } }>;
+}>;
+
+export type ListedAttempt = {
+  id: string;
+  score: Prisma.Decimal | null;
+  releaseAt: Date | null;
+  tryout: { title: string };
+};
+
+export type TryoutListRow = {
+  attemptId: string;
+  title: string;
+  date: string | null;
+  finalScore: number | null;
+  status: "released" | "under_review";
+  subtests: Array<{ subtest: string; score: number | null }> | null;
+  source: VeraSource;
+};
+
+/**
+ * One row per listed result, read one after another: each reader call takes the student's result lock. A result the reader
+ * will not show yet is listed as under review, so it never hides the others. Any other failure is left to the caller.
+ */
+export async function readListedRows(
+  rows: ListedAttempt[],
+  studentId: string,
+  readResult: ResultReader = participantTryoutResult,
+): Promise<TryoutListRow[]> {
+  const listed: TryoutListRow[] = [];
+  for (const row of rows) {
+    listed.push(await listedRow(row, studentId, readResult));
   }
+  return listed;
 }
 
-async function subtestScores(attemptId: string, studentId: string) {
-  const result = await releasedResult(attemptId, studentId);
-  const runs = result && "runs" in result ? result.runs : undefined;
-  if (!runs) return null;
-  return runs.map((run) => ({ subtest: run.subtestName, score: run.materializedScore.normalizedScore }));
+async function listedRow(row: ListedAttempt, studentId: string, readResult: ResultReader): Promise<TryoutListRow> {
+  const base = {
+    attemptId: row.id,
+    title: row.tryout.title,
+    date: row.releaseAt?.toISOString() ?? null,
+    finalScore: row.score === null ? null : Number(row.score),
+    source: { type: "tryout", id: row.id, label: row.tryout.title, href: tryoutResultHref(row.id) } satisfies VeraSource,
+  };
+  try {
+    const result = await readResult(row.id, studentId);
+    if (!result.released || !result.runs) return { ...base, status: "under_review", subtests: null };
+    return {
+      ...base,
+      status: "released",
+      subtests: result.runs.map((run) => ({ subtest: run.subtestName, score: run.materializedScore.normalizedScore })),
+    };
+  } catch (error) {
+    if (error instanceof TryoutResultValidationError) return { ...base, status: "under_review", subtests: null };
+    throw error;
+  }
 }
 
 export async function listTryoutResults({
@@ -36,23 +84,14 @@ export async function listTryoutResults({
   studentId: string;
   limit: number;
   now?: Date;
-}) {
+}): Promise<TryoutListRow[]> {
   const rows = await prisma.tryoutAttempt.findMany({
     where: releasedTryoutAttemptWhere(studentId, now),
     orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
     take: limit,
     select: { id: true, score: true, releaseAt: true, tryout: { select: { title: true } } },
   });
-  return Promise.all(
-    rows.map(async (row) => ({
-      attemptId: row.id,
-      title: row.tryout.title,
-      date: row.releaseAt?.toISOString() ?? null,
-      finalScore: row.score === null ? null : Number(row.score),
-      subtests: await subtestScores(row.id, studentId),
-      source: { type: "tryout", id: row.id, label: row.tryout.title, href: tryoutResultHref(row.id) } satisfies VeraSource,
-    })),
-  );
+  return readListedRows(rows, studentId);
 }
 
 /**

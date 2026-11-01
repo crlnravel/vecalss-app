@@ -9,8 +9,10 @@ import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { getKuisAttemptReview, listKuisAttempts } from "../lib/vera/sources/kuis";
 import { readMateri, searchMateri } from "../lib/vera/sources/materi";
-import { getTryoutResultReview, listTryoutResults } from "../lib/vera/sources/tryout";
+import { getTryoutResultReview, listTryoutResults, readListedRows, type ResultReader } from "../lib/vera/sources/tryout";
 import { materiHref } from "../lib/vera/sources/types";
+import { guarded } from "../lib/vera/tools";
+import { TryoutResultReviewRequiredError } from "../lib/tryout/result-repository";
 
 // These checks write rows, so they only run against the disposable local dev database.
 if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
@@ -461,6 +463,45 @@ try {
     throw new Error(`The owner can read their own result, got ${JSON.stringify(ownedReview)}`);
   }
   assert.equal(ownedReview.source.href, `/tryout/attempt/${owned.id}/result`);
+
+  // A list keeps every row: a result under review is listed as such, and the reader calls never overlap.
+  const reviewAttemptId = crypto.randomUUID();
+  let inFlight = 0;
+  let peakInFlight = 0;
+  const readWithReview: ResultReader = async (attemptId) => {
+    inFlight += 1;
+    peakInFlight = Math.max(peakInFlight, inFlight);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      if (attemptId === reviewAttemptId) throw new TryoutResultReviewRequiredError("Hasil Tryout perlu ditinjau.");
+      return { released: true, runs: [{ subtestName: "Penalaran Umum", materializedScore: { normalizedScore: 80 } }] };
+    } finally {
+      inFlight -= 1;
+    }
+  };
+  const listedRows = await readListedRows(
+    [
+      { id: owned.id, score: null, releaseAt: past, tryout: { title: "Tryout uji released" } },
+      { id: reviewAttemptId, score: null, releaseAt: past, tryout: { title: "Tryout uji ditinjau" } },
+    ],
+    owned.studentId,
+    readWithReview,
+  );
+  assert.equal(listedRows.length, 2, "Both rows are listed, the one under review included");
+  assert.equal(listedRows[0].status, "released");
+  assert.deepEqual(listedRows[0].subtests, [{ subtest: "Penalaran Umum", score: 80 }]);
+  assert.equal(listedRows[1].status, "under_review");
+  assert.equal(listedRows[1].subtests, null, "A result under review has no subtest scores yet");
+  assert.equal(peakInFlight, 1, "The reader calls run one after another, never in parallel");
+
+  // A failing tool reports only that it could not read, so its message never reaches the model or the stored answer.
+  assert.deepEqual(await guarded("list_kuis_attempts", async () => ({ attempts: [] })), { attempts: [] });
+  assert.deepEqual(
+    await guarded("list_kuis_attempts", async () => {
+      throw new Error("SELECT secret FROM vera_usage_events");
+    }),
+    { error: "unavailable" },
+  );
 
   // Kuis: another student's attempt is not found, and the test student's hidden correctness returns no item answers.
   assert.deepEqual(

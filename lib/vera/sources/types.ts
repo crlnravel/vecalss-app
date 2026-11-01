@@ -8,7 +8,7 @@ export type VeraSource = {
   href: string;
 };
 
-export type VeraToolError = { error: "not_found" | "under_review" | "not_available" };
+export type VeraToolError = { error: "not_found" | "under_review" | "not_available" | "unavailable" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
