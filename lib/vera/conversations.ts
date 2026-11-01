@@ -11,6 +11,7 @@ export type StoredVeraMessage = {
   role: "user" | "assistant";
   parts: UIMessage["parts"];
   effort?: VeraEffortId;
+  credits?: number | null;
   createdAt: Date;
 };
 
@@ -39,7 +40,7 @@ export async function getConversationWithMessages(studentId: string, conversatio
       title: true,
       messages: {
         orderBy: { createdAt: "asc" },
-        select: { id: true, role: true, parts: true, effort: true },
+        select: { id: true, role: true, parts: true, effort: true, credits: true },
       },
     },
   });
@@ -59,6 +60,7 @@ export async function appendMessages(conversationId: string, messages: StoredVer
       role: message.role,
       parts: message.parts as unknown as Prisma.InputJsonValue,
       effort: message.effort ?? null,
+      credits: message.credits ?? null,
       createdAt: message.createdAt,
     })),
   });
@@ -71,11 +73,21 @@ export async function touchConversation(studentId: string, conversationId: strin
   });
 }
 
-function toUiMessage(message: { id: string; role: "user" | "assistant"; parts: unknown; effort: VeraEffort | null }): UIMessage {
+function toUiMessage(message: {
+  id: string;
+  role: "user" | "assistant";
+  parts: unknown;
+  effort: VeraEffort | null;
+  credits: Prisma.Decimal | null;
+}): UIMessage {
+  const metadata = {
+    ...(message.effort ? { effort: message.effort } : {}),
+    ...(message.credits !== null ? { credits: Number(message.credits) } : {}),
+  };
   return {
     id: message.id,
     role: message.role,
     parts: message.parts as UIMessage["parts"],
-    metadata: message.effort ? { effort: message.effort } : undefined,
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
   };
 }

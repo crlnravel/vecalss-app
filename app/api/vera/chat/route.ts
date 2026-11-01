@@ -2,6 +2,7 @@ import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { runVeraChat, veraChatRequestSchema } from "@/lib/vera/chat";
 import { VERA_ERROR_STATUS, VeraError } from "@/lib/vera/errors";
+import { VeraLimitError } from "@/lib/vera/ledger";
 import { serverLogger } from "@/lib/server-logger";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,17 @@ export async function POST(request: Request) {
       return Response.json(
         { code: error.code, message: error.message },
         { headers: responseHeaders, status: VERA_ERROR_STATUS[error.code] },
+      );
+    }
+    if (error instanceof VeraLimitError) {
+      return Response.json(
+        {
+          code: error.code,
+          message: error.message,
+          resetsAt: error.resetsAt.toISOString(),
+          lowerEffort: error.lowerEffortFits,
+        },
+        { headers: responseHeaders, status: 429 },
       );
     }
     serverLogger.error("vera.chat.failed", error, { area: "vera", operation: "start_chat" });

@@ -104,6 +104,19 @@ try {
   });
   assert.deepEqual(firstRows.map((row) => row.role), ["user", "assistant"]);
 
+  // Every answer settles its usage: tokens and cost are recorded, and the assistant message shows the same credits.
+  const usage = await prisma.veraUsageEvent.findFirst({
+    where: { conversationId },
+    select: { status: true, inputTokens: true, outputTokens: true, costUsdMicros: true, credits: true, steps: true },
+  });
+  assert.equal(usage?.status, "settled", "The answer settles its usage event");
+  assert.equal(usage?.inputTokens, 12);
+  assert.equal(usage?.outputTokens, 2);
+  assert.equal(usage?.steps, 1);
+  assert.equal(Number(usage?.costUsdMicros), 3, "Cost is priced from the tokens (12 input at 0.10, 2 output at 0.50 per million)");
+  const answerRow = await prisma.veraMessage.findFirst({ where: { conversationId, role: "assistant" }, select: { credits: true } });
+  assert.equal(Number(answerRow?.credits), Number(usage?.credits), "The stored answer credits match the settled event");
+
   // A second message on the same conversation sends the earlier turns back to the model.
   const secondModel = answerModel(["Oke, lanjut."]);
   setVeraModelForTests(secondModel);
