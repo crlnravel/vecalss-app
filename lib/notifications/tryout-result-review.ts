@@ -2,7 +2,8 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { NotificationChannel, NotificationEventType, NotificationStatus, UserStatus } from "@/generated/prisma/client";
+import { NotificationChannel, NotificationEventType, NotificationStatus } from "@/generated/prisma/client";
+import { activeKaptenUserIds } from "@/lib/auth/kapten-access";
 import { buildMentorTryoutAttemptHref } from "@/lib/navigation/canonical-context";
 import { prisma } from "@/lib/prisma";
 import { reviewRequiredReleasedAttemptIds } from "@/lib/tryout/result-repository";
@@ -19,9 +20,10 @@ type TryoutResultReviewAlert = {
 };
 
 /**
- * Tell the Tryout's organizer that a participant tried to open a released
- * result that failed its integrity check. One notification per attempt, ever:
- * a student reloading the page must not fill the Kapten's alerts.
+ * Tell every active Kapten (all of them can edit the Tryout) that a participant
+ * tried to open a released result that failed its integrity check. One
+ * notification per Kapten per attempt, ever: a student reloading the page must
+ * not fill anyone's alerts.
  */
 async function notifyTryoutResultReviewRequired(attemptId: string) {
   const attempt = await prisma.tryoutAttempt.findUnique({
@@ -29,43 +31,50 @@ async function notifyTryoutResultReviewRequired(attemptId: string) {
       admissionId: true,
       id: true,
       student: { select: { fullName: true } },
-      tryout: { select: { createdBy: { select: { id: true, status: true } }, id: true, title: true } },
+      tryout: { select: { id: true, title: true } },
       tryoutId: true,
     },
     where: { id: attemptId },
   });
-  const recipient = attempt?.tryout.createdBy;
-  if (!attempt || !recipient || recipient.status !== UserStatus.active) return null;
+  if (!attempt) return [];
+  const recipientIds = await activeKaptenUserIds(prisma);
+  if (!recipientIds.length) return [];
 
   return prisma.$transaction(async (tx) => {
-    // Serialize concurrent first opens of the same result so only one alert is created.
+    // Serialize concurrent first opens of the same result so each Kapten gets one alert.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${TRYOUT_RESULT_REVIEW_SOURCE_ENTITY_TYPE}:${attempt.id}`}))`;
-    const existing = await tx.notification.findFirst({
-      select: { id: true },
-      where: { recipientUserId: recipient.id, sourceEntityId: attempt.id, sourceEntityType: TRYOUT_RESULT_REVIEW_SOURCE_ENTITY_TYPE },
+    const existing = await tx.notification.findMany({
+      select: { recipientUserId: true },
+      where: { recipientUserId: { in: recipientIds }, sourceEntityId: attempt.id, sourceEntityType: TRYOUT_RESULT_REVIEW_SOURCE_ENTITY_TYPE },
     });
-    if (existing) return existing;
-
+    const alreadyNotified = new Set(existing.map((item) => item.recipientUserId));
     const now = new Date();
     const participant = attempt.student.fullName.trim() || "Seorang peserta";
-    const notification = await tx.notification.create({
-      data: {
-        body: `${participant} belum bisa membuka hasil Tryout “${attempt.tryout.title}”. Periksa pengerjaannya sebelum peserta mencoba lagi.`,
-        createdAt: now,
-        deepLink: buildMentorTryoutAttemptHref(attempt.tryoutId, attempt.id, { participant: attempt.admissionId, workspace: "participants" }),
-        eventType: NotificationEventType.custom,
-        id: randomUUID(),
-        priority: 2,
-        recipientUserId: recipient.id,
-        sourceEntityId: attempt.id,
-        sourceEntityType: TRYOUT_RESULT_REVIEW_SOURCE_ENTITY_TYPE,
-        title: "Hasil Tryout perlu diperiksa",
-      },
-    });
-    await tx.notificationDelivery.create({
-      data: { channel: NotificationChannel.in_app, deliveredAt: now, notificationId: notification.id, queuedAt: now, status: NotificationStatus.delivered },
-    });
-    return notification;
+    const body = `${participant} belum bisa membuka hasil Tryout “${attempt.tryout.title}”. Periksa pengerjaannya sebelum peserta mencoba lagi.`;
+    const deepLink = buildMentorTryoutAttemptHref(attempt.tryoutId, attempt.id, { participant: attempt.admissionId, workspace: "participants" });
+    const created = [];
+    for (const recipientUserId of recipientIds.filter((id) => !alreadyNotified.has(id))) {
+      // react-doctor-disable-next-line async-await-in-loop -- one small insert pair per Kapten inside a single locked transaction.
+      const notification = await tx.notification.create({
+        data: {
+          body,
+          createdAt: now,
+          deepLink,
+          eventType: NotificationEventType.custom,
+          id: randomUUID(),
+          priority: 2,
+          recipientUserId,
+          sourceEntityId: attempt.id,
+          sourceEntityType: TRYOUT_RESULT_REVIEW_SOURCE_ENTITY_TYPE,
+          title: "Hasil Tryout perlu diperiksa",
+        },
+      });
+      await tx.notificationDelivery.create({
+        data: { channel: NotificationChannel.in_app, deliveredAt: now, notificationId: notification.id, queuedAt: now, status: NotificationStatus.delivered },
+      });
+      created.push(notification);
+    }
+    return created;
   });
 }
 

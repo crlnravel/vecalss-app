@@ -33,6 +33,26 @@ async function isActiveKaptenOrAdmin(db: UserLookup, userId: string) {
 }
 
 /**
+ * Active Kapten accounts, for notices that every Kapten who can edit shared
+ * content should see. Admins can edit too but have no Kapten workspace to show
+ * a notice in, so they are not listed unless they also hold the Kapten role.
+ */
+async function activeKaptenUserIds(db: UserLookup) {
+  const kapten = await db.user.findMany({
+    orderBy: { id: "asc" },
+    select: { id: true },
+    where: {
+      previewPurpose: null,
+      roleAssignments: { some: { revokedAt: null, role: RoleName.tutor } },
+      softDeletedAt: null,
+      status: UserStatus.active,
+    },
+  });
+
+  return kapten.map((user) => user.id);
+}
+
+/**
  * Spread into a `where` that used to say `createdByUserId: actorId`. Active
  * Kapten and admins get no creator filter; anyone else gets a filter that
  * matches nothing.
@@ -41,4 +61,4 @@ async function kaptenAccessFilter(db: UserLookup, userId: string): Promise<{ cre
   return (await isActiveKaptenOrAdmin(db, userId)) ? {} : { createdByUserId: NO_ACCESS_USER_ID };
 }
 
-export { isActiveKaptenOrAdmin, kaptenAccessFilter, NO_ACCESS_USER_ID };
+export { activeKaptenUserIds, isActiveKaptenOrAdmin, kaptenAccessFilter, NO_ACCESS_USER_ID };

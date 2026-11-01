@@ -130,80 +130,122 @@ For repairing the previously generated set, use the
 proof and per-lesson acceptance steps are mandatory before promoting repaired
 outputs. Preserve the corrected PBM 02/03 compositions as references.
 
-`prepare_material_set.py` prepares the 15 LBE and 15 PBM editable lessons from
-the source manifest. `batch_material_set.py` is the durable sequential runner:
-it renders generated PDFs, audits all 30 source → lesson → rendered bodies,
-checks each PDF with `inspect_pdf.py`, writes per-file fidelity reports, and
-saves a machine manifest plus review sheets under `tmp/pdfs/material-final/`.
-The full run regenerates 28 PDFs and reuses the PBM 02/03 canonical PDFs while
-still inspecting and auditing all 30. Final PDFs stay in `output/pdf/LBE/` and
-`output/pdf/PBM/`; original sources and the PBM 01 reference are left in place.
+For the repair job, first collect source-page images, content/visual-order
+text, styled spans and native table cells into
+`tmp/pdfs/material-repair/source/`:
 
-Run the representative proof first and visually compare it with
-`output/pdf/PBM/pbm1-vecalss.pdf`. The PDF skill's operation marker is run once,
-immediately before the first render:
+```bash
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
+  materi/_framework/repair_source_evidence.py
+```
+
+`repair_material_set.py` reads the
+human-reviewed staged lesson JSON directly; it does not call the old automatic
+extractor or paginator. Each repaired lesson has a sibling `.source-order.txt`
+with `[[SOURCE PAGE NNN]]` markers and a `.review.md` with page, table, semantic
+and emphasis checks. The runner checks source-page coverage, source transcript
+to lesson text in exact order, table shape, rendered height and PDF text. A
+page whose visible order differs from the PDF content stream must have its
+specific visual reconstruction documented in that lesson's review note. It
+also verifies each original PDF's bytes against `source_sha256`, checks that
+captured page text still matches the live source PDF, and snapshots the lesson,
+transcript, review note and source evidence before and after preflight.
+
+Stage direct trios and recipe wrappers flat in
+`tmp/pdfs/material-repair/repairs/<LBE|PBM>/` using each manifest evidence
+folder's basename. The runner also accepts an unambiguous per-material nested
+folder, but it will not mix flat and nested inputs for the same lesson.
+
+Workers may stage that file trio directly, or provide an explicit recipe at
+`tmp/pdfs/material-repair/repairs/<LBE|PBM>/NN-<manifest-slug>.recipe.py`.
+Recipes export a pure `compose(material, source_pages)` function returning the
+lesson object, independently verified per-page source-order text, review
+status fields and human-readable review notes. The single sequential preflight
+instantiates each recipe and writes the same staged trio before validating it.
+The manifest entry and source-page evidence are the recipe inputs; legacy
+lesson JSON may be consulted as an index aid but does not supply semantic
+structure. Return:
+
+```python
+{
+    "lesson": { ... },
+    "source_order_pages": [
+        {"source_page_number": 1, "text": "..."},
+    ],
+    "review": {
+        "source_pages_reviewed": 12,
+        "source_transcript_verified": True,
+        "semantic_review": "passed",
+        "emphasis_review": "passed",
+        "table_review": "passed",  # or "not_applicable"
+        "visual_review": "pending",
+        "visual_pages_reviewed": 0,
+    },
+    "review_markdown": "Page/block mapping and source-order exceptions...",
+}
+```
+
+For a direct trio, start with `visual_pdf_sha256: pending` in review-note
+frontmatter; recipe-generated notes receive the same initial value from the
+runner. The runner resets it before every candidate render.
+
+Run preflight only after all staged compositions are complete. It aggregates
+failures across the set and writes per-lesson results into
+`tmp/pdfs/material-repair/manifest.json`:
+
+```bash
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
+  materi/_framework/repair_material_set.py preflight
+```
+
+Only after all 28 preflights pass, render sequential candidate PDFs and page
+images. Start the PDF operation marker once before this first authoring/render
+command. Compare representative pages with the historical PBM 01 reference,
+then have the assigned reviewers inspect every candidate page image and update
+their review notes. Before each candidate-render invocation, the runner clears
+prior visual approvals. Reviewers must set `visual_review: passed`, record the
+exact output page count, and copy `visual_pdf_sha256` from that material's
+`candidate_render_audit` manifest entry after reviewing all its page images.
+Promotion checks the current staged lesson, independent source-order transcript,
+and candidate-PDF checksums against the audited values, so edits and rerenders
+require a new review. It also verifies the original source PDF and captured
+source evidence have not changed. The PBM 02/03 preservation audit now checks
+source-to-editable and editable-to-PDF text against the live files. The tools
+owner reviews PBM 01 from its existing master and binds that review to the same
+hashes.
 
 ```bash
 ./_harness/resource-guard.sh status
 ./_harness/resource-guard.sh run -- sh -c '
   node /Users/ravel/.codex/plugins/cache/openai-primary-runtime/pdf/26.915.20218/skills/pdf/container_tools/mark_artifact_operation_started.mjs \
-    --operation-kind edit --expected-output-count 30 --output-format pdf &&
-  /tmp/vecalss-pdf-venv/bin/python materi/_framework/selfcheck.py &&
-  /tmp/vecalss-pdf-venv/bin/python materi/_framework/batch_material_set.py --proof
+    --operation-kind edit --expected-output-count 28 --output-format pdf &&
+  /tmp/vecalss-pdf-venv/bin/python materi/_framework/repair_material_set.py render-candidates
+'
+
+./_harness/resource-guard.sh status
+./_harness/resource-guard.sh run -- sh -c '
+  /tmp/vecalss-pdf-venv/bin/python materi/_framework/repair_material_set.py accept-pbm01-review --reviewed-pages 16 &&
+  /tmp/vecalss-pdf-venv/bin/python materi/_framework/repair_material_set.py promote
 '
 ```
 
-After reviewing proofs for LBE 01 and PBM 02, 03, 04, 05, 06, 09, 13 and 15,
-run the complete sequential batch. Review every final rendered page before
-marking the manifest as visually reviewed:
+The phases are `preflight`, `render-candidates`, `accept-pbm01-review --reviewed-pages N`, and `promote`. The manifest keeps source evidence,
+preserved PBM 02/03 audit results, per-lesson transcript and rendered fidelity,
+page images, review state and final promotion status. The complete delivery
+contains 30 materials: 28 repaired outputs plus the unchanged, audited PBM 02/03
+masters. Promotion only copies accepted candidate PDFs and their editable JSON;
+pending or failed lessons remain listed and are not promoted. The historical
+`output/pdf/PBM/pbm1-vecalss.pdf` is never overwritten.
 
-```bash
-./_harness/resource-guard.sh status
-./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
-  materi/_framework/batch_material_set.py
-
-./_harness/resource-guard.sh status
-./_harness/resource-guard.sh run -- /tmp/vecalss-pdf-venv/bin/python \
-  materi/_framework/batch_material_set.py --mark-visual-reviewed
-```
-
-The runner options are `--proof` (prepare and validate only LBE 01 and PBM 02,
-03, 04, 05, 06, 09, 13 and 15, then render representative PDFs), `--prepare-only` (prepare editable lesson
-JSON without rendering; only the proof selection when paired with `--proof`), and
-`--mark-visual-reviewed` (mark all final pages reviewed after a successful
-30-PDF fidelity run and manual page review). The aggregate manifest includes
-subject, title, source pages, output path, page count, fidelity state and visual
-review state. PBM tables are compared in exact row-major cell order after an
-explicit source-layout reconstruction; there is no token-multiset fallback.
-Every selected proof still passes exact source-to-editable and editable-to-
-rendered character-order checks. PBM 05 page 11 reconstructs the split
-comparison row as full cell 2 followed by full cell 3, preserving its bold and
-italic spans without relaxing the ordered-text comparison. Source-preview
-review confirmed table continuations at PBM 02 pages 3–4; PBM 03 pages 5–6 and
-6–7; PBM 04 pages 1–2, 3–4 and 4–5; PBM 05 pages 9–11; PBM 06 pages
-5–6; PBM 13 pages 7–8; and PBM 15 pages 2–3. The runner joins only these
-explicitly reviewed adjacent page pairs with the same column count, matching
-outer edges, and every internal divider within an absolute 2pt in PDF
-coordinates (about three pixels at the reviewed preview scale). PBM 04 pages
-3–4 and 4–5 and PBM 05 pages 9–10 and 10–11 use explicit
-column-label mappings for visible width reflows; those mapped pairs check the
-source labels and outer edges and bypass the general 2pt internal-divider
-comparison. PBM 04 pages 6–7 are not a
-continuation: page 6's three-column table ends before page 7 prose and a separate
-two-column table. Row-level source pages stay with their rows through
-pagination; repeated source headers are included as provenance on each output
-chunk. Single-row header
-fragments remain headers until joined to following data rows;
-PBM 05's final continuation row appends its cell fragments to the preceding
-row. PBM 09 page 2 has verified within-word line wraps in narrow cells
-(including "Konjung|si" and "penamba|han"); those cells are reconstructed from
-the source image and checked by exact ordered-text comparison. PBM 09's tables
-on pages 2, 4 and 5 are otherwise separate; no tables appear in PBM 07–08,
-10–12 or 14 in the reviewed previews. Unsupported tables outside the
-2–4-column schema, table rows that cannot paginate intact, and single list
-items that cannot retain hanging-list structure fail preparation instead of
-being flattened into plain paragraphs. The proof manifest remains pending
-until readable manual review; proof selection does not waive that gate.
+Earlier source-preview review found table continuations at PBM 03 pages 5–6 and
+6–7, PBM 04 pages 1–2, 3–4 and 4–5, PBM 05 pages 9–11, PBM 06 pages 5–6,
+PBM 13 pages 7–8, and PBM 15 pages 2–3. PBM 04 pages 6–7 are separate tables;
+PBM 09 page 2 has visually wrapped words such as “Konjung|si” and “penamba|han”.
+These are source-review warnings, not automatic merge rules. Each staged PBM
+lesson must preserve exact row/cell order and record any continuation,
+repeated-header or within-cell reconstruction in its review note.
 
 ## Editable format
 

@@ -76,6 +76,17 @@ fidelity and resource rules.
     structure, label style and estimated page heights. Collect all failures in a
     per-lesson report in the same command. Do not repeatedly launch an all-set
     job that stops at the first unrelated extraction problem.
+    Stage `NN-<slug>.source-order.txt` beside each composition as the source
+    transcript. Prefer the original content-stream text when its order agrees
+    with the images. When extraction order differs from visible reading order,
+    construct and verify the transcript independently from original page, span
+    and table-cell evidence; document the exact page/row/cell reconciliation in
+    the lesson's review notes. Never create the reference transcript merely by
+    flattening the staged lesson JSON. Check source-to-transcript integrity and
+    complete page/row/label coverage before the exact transcript-to-lesson
+    comparison. Reject unexplained wording, punctuation or coverage differences.
+    Visual confirmation of source reading order remains mandatory; an unordered
+    word count cannot establish that order.
 11. **Render candidates and inspect them.** Build staged PDFs in
     `tmp/pdfs/material-repair/candidates/` using the shared renderer. Fully
     justify body/explanations/passages/lists/options/callout text, with natural

@@ -22,6 +22,9 @@ def authored_text(lesson):
             kind = block["type"]
             if kind in ("paragraph", "heading", "title"):
                 text.append(block["text"])
+            elif kind == "note":
+                text.append(block["title"])
+                text.append(block["text"])
             elif kind == "tip":
                 text.append(block["title"])
                 if "content" in block:
@@ -67,6 +70,11 @@ def authored_text(lesson):
                     raise ValueError("Answer-option labels must match the number of options")
                 text.extend(label + " " + option
                             for label, option in zip(option_labels, block["options"]))
+            elif kind == "references":
+                text.extend(item["label"] for item in block["items"])
+            elif kind == "route":
+                # Decorative Voyage flowable has no authored lesson wording.
+                continue
             else:
                 raise ValueError(f"Verbatim fidelity needs an explicit text contract for {kind}")
     return re.sub(r"\*\*|\*", "", "\n".join(text))

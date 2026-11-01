@@ -125,7 +125,8 @@ const releasedParticipant = sanitizeTryoutWorkspaceParticipant(participantFixtur
 assert.equal(releasedParticipant.attempt?.score, "91");
 assert.equal(releasedParticipant.score.score, "91");
 
-for (const label of ["Informasi Tryout", "Subtest Tryout", "Informasi dasar", "Terbitkan"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
+assert.match(workspace, /id="tryout-basic-info-title">\s*Informasi Tryout\s*<\/h2>/u, "the basic-info section must stay labelled by its heading (renamed from 'Informasi dasar')");
+for (const label of ["Subtes Tryout", "Terbitkan"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
 assert.match(workspace, /initialSubtest/u);
 assert.doesNotMatch(workspace, /TryoutWorkspaceTabs|TryoutDeliveryTab|TryoutReviewTab/u);
 assert.match(operations, /participantsWithAttention/u);
@@ -158,7 +159,7 @@ assert.doesNotMatch(live, /Pantau posisi peserta dari admission sampai terkirim/
 assert.doesNotMatch(live, /peserta terpantau/u);
 assert.match(attempts, /useTryoutOperationsRefresh/u);
 assert.match(attempts, /TryoutRefreshToolbar/u);
-assert.match(attempts, /TryoutRefreshNotice/u);
+assert.match(refreshModule, /usePageStatusToast\(\{[\s\S]*label: "Coba lagi"/u, "refresh failures must surface a retry action via the page status toast (replaced TryoutRefreshNotice)");
 assert.match(refreshModule, /setInterval\(poll, LIVE_REFRESH_INTERVAL_MS\)/u);
 assert.match(attempts, /remainingSeconds/u);
 assert.match(results, /displayScore/u);
@@ -177,7 +178,7 @@ assert.doesNotMatch(results, /Rilis manual tertahan/u);
 assert.doesNotMatch(results, /Buka detail sesi untuk validasi bundle lengkap/u);
 assert.doesNotMatch(results, /AssessmentReleaseNotice/u);
 assert.doesNotMatch(resultRepository, /Aturan peringkat sesi harus dipilih sebelum paket hasil dapat dirilis/u);
-assert.match(resultRepository, /const ready = session\.attempts\.length > 0/u);
+assert.match(resultRepository, /ready: candidates\.length > 0 && blockers\.length === 0/u, "session readiness requires at least one non-excluded attempt and no blockers (replaced 'const ready = session.attempts.length > 0')");
 assert.match(participants, /initial\.results/u);
 assert.match(participants, /initial\.attempts/u);
 assert.match(participants, /resultFilterTabs/u);
