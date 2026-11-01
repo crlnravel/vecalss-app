@@ -45,8 +45,7 @@ servers before handing work to another agent.
    `pnpm dev` workflow.
 4. Use `pnpm db:seed` only when a disposable/local database reset is intended;
    it resets the database, reapplies migrations, and seeds the demonstration
-   journey. `pnpm db:seed-assessment` and `pnpm db:seed-ai-usage` are narrower
-   fixture workflows.
+   journey. `pnpm db:seed-assessment` is a narrower fixture workflow.
 
 Never copy credentials or `.env` values into this wiki, commit, issue, or
 agent message. Demo accounts in `README.md` are fixtures, not production
@@ -70,15 +69,8 @@ access.
 | Operational primitives | `pnpm test:media-domain`, `pnpm test:mentor-bank-package-ui`, `pnpm test:mentor-bank-soal-catalogue-context-menu`, `pnpm test:tryout-authoring-workspace` | Select, field-wrapper, table, badge, mode-card, and tab composition contracts |
 | Test manifest | `pnpm test:suite-manifest` | Every `scripts/test-*` file is exposed by a package test command |
 | Mentor IA | `pnpm test:mentor-dashboard-ia` | Mentor dashboard/reference surface contracts |
-| Vera AI control plane | `pnpm test:admin-ai-control-plane` | Admin AI metric/privacy/governance contracts |
-| Vera learner MVP | `pnpm test:vera-mvp-contracts` | Feature gates, context/history budgets, typed studio output, and disabled apply registry |
-| Vera automatic context foundation | `pnpm test:vera-auto-context-foundation` | Strict tool/result contracts, released-source authority, deterministic registry projections, identity-bearing pack manifests, encryption, and purge markers |
-| Vera automatic context orchestrator | `pnpm test:vera-auto-context-orchestrator` | Two-stage dispatch state machine, single tool execution, frozen evidence, replay/crash boundaries, final-turn tool disablement, and citation validation |
-| Vera automatic context UI | `pnpm test:vera-auto-context-ui` | Enabled/legacy cohort rendering, absence of manual context APIs in automatic mode, committed source summaries, and reconnect/empty-evidence states |
-| Vera automatic context operations | `pnpm test:vera-auto-context-operations` | Rollout policy, emergency off, aggregate-only telemetry, capability/canary gates, privacy checks, and release verification |
-| Vera v2 billing | `pnpm test:vera-billing-v2` | Exact decimal/USD-micro accounting, reservation conservation, cutover windows, schema markers, and worker bounds |
-| Vera paid provider | `pnpm test:vera-paid-provider` | Release manifest, Relace/OpenRouter route, privacy/max-price gates, SSE mapping, and generation reconciliation |
-| Vera reconciliation worker | `pnpm vera:reconciliation-worker:check`; run `pnpm vera:reconciliation-worker` only in an approved worker environment | TypeScript worker contract and bounded lease/claim/evidence-settlement loop; `VERA_RECONCILIATION_ONCE=1` runs one cycle |
+| Vera AI | `pnpm test:vera-authorization`, `pnpm test:vera-admin-usage`, `pnpm test:vera-chat`, `pnpm test:vera-ledger`, `pnpm test:vera-mentions`, `pnpm test:vera-model`, `pnpm test:vera-sessions`, `pnpm test:vera-studio`, `pnpm test:vera-tools` | Ownership and admin-privacy checks, the admin cost view, streamed chat and its settlement, the credit ledger and limits, `@` sources, sessions, Studio runs, the read tools, and the dev-only stand-in flag. They write to the local dev database and never call OpenAI. See [`docs/vera-ai/README.md`](../vera-ai/README.md). |
+| Vera browser smoke | `pnpm test:vera-obscura-smoke` | Login, a streamed answer, the credit footer, `@`, a saved Studio document, the saved session title, and a session rename, against a dev server started with `VERA_MOCK_MODEL=1`. Needs Obscura on `127.0.0.1:9222`, and `OBSCURA_CDP_TOKEN` when that server requires one. |
 | Scalability simulation | `pnpm test:scalability` | Disposable Docker/two-API/Redis simulation only |
 
 The test suite is contract-oriented rather than a single catch-all command.
@@ -88,28 +80,20 @@ some reset or mutate fixture data.
 
 ## Current environment and migration boundary
 
-The Vera code reads additional deployment/runtime values that are not safe to
-materialize in documentation: `VERA_IDEMPOTENCY_HMAC_SECRET`, optional
-`VERA_CURSOR_HMAC_SECRET`, `VERA_ENVELOPE_MASTER_KEY`, live/mock provider flags,
-`OPENROUTER_API_KEY`, `VERA_GENERATION_API_URL`, and a validated provider
-release manifest/certifier. `VERA_DISPOSABLE_DB_ACK=1`,
-`VERA_DISPOSABLE_REDIS_URL`, and `VERA_HTTP_ROUTE_TEST_MODE=1` are reserved for
-guarded disposable tests. Keep values in `.env`, CI secrets, or the deployment
-secret store; never add them to the wiki.
+The Vera code reads `OPENAI_API_KEY` and `VERA_OPENAI_MODEL`, and the dev-only
+`VERA_MOCK_MODEL` flag, which production ignores. The browser helper reads
+`OBSCURA_CDP_TOKEN`. The values are described in
+[`docs/vera-ai/README.md`](../vera-ai/README.md). Keep real values in `.env`,
+CI secrets, or the deployment secret store; never add them to the wiki.
 
-At the snapshot commit, `prisma/migrations/` contains 71 migration files,
-including Kuis version storage/runtime scoping, CBT-only schema retirement,
-question-bank purpose/materi changes, affiliator attribution, auto-publish,
-and the Vera usage-window/cost/reservation ledger. This is migration history,
-not proof that a configured local or production database has applied all 70;
-use the guarded Prisma status command before any mutation.
+`prisma/migrations/` contains 90 migration folders at this snapshot, including
+the Vera usage ledger, Studio documents, and the partial-document column. This
+is migration history, not proof that a configured local or production database
+has applied all of them. Use the guarded Prisma status command before any
+mutation.
 
-The reconciliation worker's fixed safety envelope is batch 50, a 30-second
-poll interval, 90-second leases renewed every 20 seconds, at most 10 in-flight
-evidence calls, a 5-second call timeout, five-minute evidence backoff, and a
-120-minute settlement deadline. Claims are fenced in the database; stale or
-unrecoverable attempts settle conservatively as unknown. Use the one-cycle
-mode only with disposable or explicitly approved worker credentials.
+Vera has no background worker. Answers and Studio runs settle their usage inside
+their own request, so there is no reconciliation loop to run or to bound.
 
 The admin-import worker requires valid `DATABASE_URL`, `REDIS_URL`,
 `APP_BASE_URL`, and the enrollment-handoff key ring. It publishes a Redis

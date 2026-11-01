@@ -70,8 +70,8 @@ current workspace owns the canonical route.
 
 | Status | Examples | Meaning |
 | --- | --- | --- |
-| Canonical | `/mentor/tryout/[tryoutId]`, `/mentor/quiz/[quizId]`, `/admin/ai/policies`, `/admin/affiliators`, `/admin/student-banners` | Active page destinations and current workspace entry points. |
-| Redirect or compatibility | `/tryout/[tryoutId]/register`, `/admin/ai-policy`, `/admin/ai-usage`, `/admin/media` | Kept for existing links or migration compatibility; follow the redirect to the canonical surface. |
+| Canonical | `/mentor/tryout/[tryoutId]`, `/mentor/quiz/[quizId]`, `/admin/ai`, `/admin/ai/usage`, `/admin/affiliators`, `/admin/student-banners` | Active page destinations and current workspace entry points. |
+| Redirect or compatibility | `/tryout/[tryoutId]/register`, `/admin/ai-usage`, `/admin/media` | Kept for existing links or migration compatibility; follow the redirect to the canonical surface. |
 | Archived / not found | `/mentor/packages/*`, `/mentor/tryout/packages/*` | The route remains in the tree for compatibility, but its layout authenticates and returns `notFound()`; it is not an active authoring destination. |
 
 ### Administrator operations
@@ -81,28 +81,26 @@ current workspace owns the canonical route.
 | Core operations | `/admin`, `/admin/enrollment`, `/admin/enrollment/[studentId]`, `/admin/notifications`, `/admin/audit-logs`, `/admin/kapten` |
 | Imports | `/admin/imports/[importId]` plus the `/api/admin/imports/*` command and row endpoints |
 | Student preview | `/admin/student-preview/[[...slug]]` |
-| Vera AI control plane | `/admin/ai`, `/admin/ai/usage`, `/admin/ai/reliability`, `/admin/ai/providers`, `/admin/ai/policies` |
+| Vera AI cost view | `/admin/ai`, `/admin/ai/usage` |
 | Growth and merchandising | `/admin/affiliators`, `/admin/student-banners` |
 
-`/admin/ai-usage`, `/admin/ai-policy`, and `/admin/media` are retained as
-legacy redirects/compatibility routes. Administrator pages use
-`requireAdminSession`; read-only preview reads use the dedicated admin
-read-only session boundary.
+`/admin/ai-usage` redirects to `/admin/ai/usage`, and `/admin/media` is kept for
+existing links. Administrator pages use `requireAdminSession`; read-only
+preview reads use the dedicated admin read-only session boundary.
 
 ## API families
 
 The current API tree includes:
 
-- Admin AI projections under `/api/admin/ai/*`; the policy metadata and
-  lifecycle contract is under `/api/admin/ai-policy/*`. `/api/admin/ai-usage`
-  remains a legacy compatibility handler, while `/admin/ai/policies` is the
-  canonical page.
-- Enrollment/import/handoff commands under `/api/admin/*`.
+- Enrollment/import/handoff commands under `/api/admin/*`. The Vera cost view
+  has no API of its own: its pages read `lib/admin/ai-usage/`.
 - Student-banner, purchase-attribution, Materi document/progress,
   notifications, media preview/thumbnail, invite, health, and scalability
   endpoints.
-- Vera AI conversations, requests, context, artifacts, exports, lifecycle,
-  sources, usage, and adaptive-practice endpoints under `/api/vera-ai/*`.
+- Vera AI endpoints under `/api/vera/*`: `chat` (the streamed answer),
+  `conversations` (list, rename, archive, delete), `mentions` (the `@` menu),
+  `studio` (the documents list and runs, with `studio/[id]` to read or delete
+  one), and `usage` (the day, week, and month balance).
 
 API handlers should be read together with their `lib/` service and access
 boundary. The route name alone is not a permission contract.
@@ -120,7 +118,7 @@ flowchart TD
     Practice --> Assess[Register or start Tryout]
     Assess --> Review[Review result and next step]
     Review --> Learn
-    Home --> Vera[Ask Vera AI / adaptive practice]
+    Home --> Vera[Ask Vera AI or open Studio]
 
     KaptenLogin[Kapten sign in] --> Workspace[Resume authoring]
     Workspace --> Content[Materi / Kuis / Bank Soal / Tryout / Media]
