@@ -175,15 +175,23 @@ try {
   const forged = await resolveMentions({
     studentId: testStudent.id,
     mentions: [
-      { type: "kuis", id: foreignKuis.id },
-      { type: "tryout", id: owned.id },
-      { type: "materi", id: draftLesson.id },
+      { type: "kuis", id: foreignKuis.id, label: "Kuis palsu" },
+      { type: "tryout", id: owned.id, label: "Tryout palsu" },
+      { type: "materi", id: draftLesson.id, label: "Materi palsu" },
       { type: "kuis", id: "not-a-uuid" },
     ],
   });
   assert.equal(forged.accepted.length, 0, "Forged, hidden and malformed sources are not accepted");
   assert.equal(forged.rejected.length, 4);
   assert.deepEqual(forged.pinned, []);
+  assert.deepEqual(
+    forged.rejected.map((mention) => mention.label),
+    ["Kuis palsu", "Tryout palsu", "Materi palsu", "Kuis"],
+    "A refused pin keeps only the label the client sent, and a pin without one falls back to its type",
+  );
+  const refusedJson = JSON.stringify(forged.rejected);
+  assert.ok(!refusedJson.includes(`Kuis mention ${token}`), "A refused pin never carries a title the server looked up");
+  assert.ok(!refusedJson.includes(owned.tryout.title), "A refused Tryout never carries its title");
 
   // The student's own sources are pinned: a Kuis as its score facts, a Materi as its text, with its link kept.
   const owncheck = await resolveMentions({

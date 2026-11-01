@@ -46,7 +46,14 @@ export const veraChatRequestSchema = z.object({
   effort: z.enum(VERA_EFFORT_IDS).default("seimbang"),
   // Sources the student pinned with @. The server re-reads each one before it reaches the prompt.
   mentions: z
-    .array(z.object({ type: z.enum(["materi", "kuis", "tryout"]), id: z.string().min(1).max(64) }))
+    .array(
+      z.object({
+        type: z.enum(["materi", "kuis", "tryout"]),
+        id: z.string().min(1).max(64),
+        // The label the student's menu showed. Kept only for a pin the server refuses.
+        label: z.string().max(200).optional(),
+      }),
+    )
     .max(VERA_LIMITS.maxMentions)
     .default([]),
 });

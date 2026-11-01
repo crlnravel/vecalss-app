@@ -179,7 +179,7 @@ export function VeraPageModule({
         body: {
           conversationId: conversationId ?? undefined,
           effort,
-          mentions: chips.map((chip) => ({ type: chip.type, id: chip.id })),
+          mentions: chips.map((chip) => ({ type: chip.type, id: chip.id, label: chip.label })),
         },
       },
     );

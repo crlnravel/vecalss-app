@@ -22,6 +22,7 @@ const RECENT_KUIS = 3;
 const RECENT_TRYOUT = 3;
 const SUMMARY_ITEMS = 5;
 const ITEM_CHARS = 200;
+const LABEL_CHARS = 200;
 const MIN_BODY_CHARS = 200;
 /** The same rough rate the prompt's history window uses, so the budget and the window agree. */
 const CHARS_PER_TOKEN = 4;
@@ -35,7 +36,8 @@ const STATUS_LABELS: Record<ReviewItem["status"], string> = {
   unknown: "belum diketahui",
 };
 
-export type MentionRef = { type: VeraMentionType; id: string };
+/** A pin as the client sent it. The label is what the student's menu showed, and only a refused pin ever falls back to it. */
+export type MentionRef = { type: VeraMentionType; id: string; label?: string };
 
 export type MentionCandidate = {
   type: VeraMentionType;
@@ -148,7 +150,7 @@ export async function resolveMentions({
   for (const mention of distinct(mentions)) {
     const read = await readMention(studentId, mention, now);
     if (!read || budget < MIN_BODY_CHARS) {
-      rejected.push({ type: mention.type, id: mention.id, label: TYPE_LABELS[mention.type], status: "rejected", source: null });
+      rejected.push({ type: mention.type, id: mention.id, label: clientLabel(mention), status: "rejected", source: null });
       continue;
     }
     const body = fitBody(read.body, budget);
@@ -202,6 +204,14 @@ function itemLine(item: ReviewItem) {
 /** Cuts a body to the budget and says so, so the model knows the rest exists and can ask for it. */
 function fitBody(body: string, budget: number) {
   return body.length <= budget ? body : `${body.slice(0, budget - TRUNCATED_NOTE.length)}${TRUNCATED_NOTE}`;
+}
+
+/**
+ * The label the student's menu showed for a pin. A refused pin keeps this and nothing the server looked up, so a forged id can
+ * never surface another student's title.
+ */
+function clientLabel(mention: MentionRef) {
+  return clip(mention.label?.trim() || TYPE_LABELS[mention.type], LABEL_CHARS);
 }
 
 function distinct(mentions: MentionRef[]) {
