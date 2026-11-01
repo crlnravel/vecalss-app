@@ -97,6 +97,7 @@ async function readTotals(db: Prisma.TransactionClient, studentId: string, now: 
   const oldest = new Date(
     Math.min(dayStart.getTime(), weekStart.getTime(), monthStart.getTime(), burstSince.getTime(), busySince.getTime()),
   );
+  // A session title is not a request, so it never uses up the burst or busy limits. Its cost still counts in the monthly USD sum.
   const [row] = await db.$queryRaw<
     Array<{
       day_credits: string | number;
@@ -113,8 +114,8 @@ async function readTotals(db: Prisma.TransactionClient, studentId: string, now: 
       COALESCE(SUM(credits) FILTER (WHERE created_at >= ${monthStart}), 0) AS month_credits,
       COALESCE(SUM(CASE WHEN status = 'settled' THEN cost_usd_micros ELSE reserved_usd_micros END)
         FILTER (WHERE created_at >= ${monthStart}), 0) AS month_usd_micros,
-      COUNT(*) FILTER (WHERE created_at >= ${burstSince}) AS burst_count,
-      COUNT(*) FILTER (WHERE status = 'reserved' AND created_at >= ${busySince}) AS busy_count
+      COUNT(*) FILTER (WHERE created_at >= ${burstSince} AND kind <> 'title') AS burst_count,
+      COUNT(*) FILTER (WHERE status = 'reserved' AND created_at >= ${busySince} AND kind <> 'title') AS busy_count
     FROM vera_usage_events
     WHERE student_id = ${studentId}::uuid
       AND status IN ('reserved', 'settled', 'failed')

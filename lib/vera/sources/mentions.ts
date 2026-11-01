@@ -6,9 +6,11 @@ import { releasedKuisAttemptWhere, releasedTryoutAttemptWhere } from "./authoriz
 import { getKuisAttemptReview, kuisSource, type KuisAttemptReview } from "./kuis";
 import { readMateri, recentMateri, searchMateri } from "./materi";
 import { getTryoutResultReview } from "./tryout";
+import { getStudioDocument } from "../studio-documents";
 import {
   clip,
   isUuid,
+  studioDocumentHref,
   tryoutResultHref,
   type PinnedBlock,
   type ReviewItem,
@@ -20,6 +22,7 @@ import {
 const GROUP_LIMIT = 6;
 const RECENT_KUIS = 3;
 const RECENT_TRYOUT = 3;
+const RECENT_STUDIO = 3;
 const SUMMARY_ITEMS = 5;
 const ITEM_CHARS = 200;
 const LABEL_CHARS = 200;
@@ -28,7 +31,7 @@ const MIN_BODY_CHARS = 200;
 const CHARS_PER_TOKEN = 4;
 const TRUNCATED_NOTE = "\n[Isi dipangkas karena batas konteks Vera.]";
 
-const TYPE_LABELS: Record<VeraMentionType, string> = { materi: "Materi", kuis: "Kuis", tryout: "Tryout" };
+const TYPE_LABELS: Record<VeraMentionType, string> = { materi: "Materi", kuis: "Kuis", tryout: "Tryout", studio: "Studio" };
 const STATUS_LABELS: Record<ReviewItem["status"], string> = {
   correct: "benar",
   wrong: "salah",
@@ -63,12 +66,13 @@ export async function searchMentions({
   now?: Date;
 }): Promise<MentionGroups> {
   const term = query.trim();
-  const [materi, kuis, tryout] = await Promise.all([
+  const [materi, kuis, tryout, studio] = await Promise.all([
     materiCandidates(studentId, term, now),
     kuisCandidates(studentId, term, now),
     tryoutCandidates(studentId, term, now),
+    studioCandidates(studentId, term),
   ]);
-  return { materi, kuis, tryout };
+  return { materi, kuis, tryout, studio };
 }
 
 async function materiCandidates(studentId: string, term: string, now: Date): Promise<MentionCandidate[]> {
@@ -130,6 +134,23 @@ async function tryoutCandidates(studentId: string, term: string, now: Date): Pro
   }));
 }
 
+/** The student's own Studio documents: the recent ones, or the ones whose title matches the search. */
+async function studioCandidates(studentId: string, term: string): Promise<MentionCandidate[]> {
+  const rows = await prisma.veraStudioDocument.findMany({
+    where: term ? { studentId, title: { contains: term, mode: "insensitive" } } : { studentId },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: term ? GROUP_LIMIT : RECENT_STUDIO,
+    select: { id: true, title: true },
+  });
+  return rows.map((row): MentionCandidate => ({
+    type: "studio",
+    id: row.id,
+    label: row.title,
+    detail: "Dokumen Studio",
+    source: { type: "studio", id: row.id, label: row.title, href: studioDocumentHref(row.id) },
+  }));
+}
+
 /**
  * Pins the `@` sources of one message. Each source is read again with the readers the student's own pages use, so a forged,
  * hidden or missing id is refused. Accepted sources become pinned blocks inside the token budget. The rest come back as rejected.
@@ -176,6 +197,16 @@ async function readMention(studentId: string, mention: MentionRef, now: Date): P
     const review = await getKuisAttemptReview({ studentId, attemptId: mention.id, onlyWrong: true, now });
     if ("error" in review) return null;
     return { title: review.title, body: summarizeKuis(review), source: review.source };
+  }
+  if (mention.type === "studio") {
+    // Only the student's own document. Its markdown is what the pin carries, cut to the budget like any other source.
+    const document = await getStudioDocument({ studentId, id: mention.id });
+    if (!document) return null;
+    return {
+      title: document.title,
+      body: document.markdown,
+      source: { type: "studio", id: document.id, label: document.title, href: studioDocumentHref(document.id) },
+    };
   }
   const review = await getTryoutResultReview({ studentId, attemptId: mention.id, onlyWrong: true, now });
   if ("error" in review) return null;

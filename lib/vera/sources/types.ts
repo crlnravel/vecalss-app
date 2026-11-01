@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 /** A place in PTN Pro that a Vera answer can point to. Every link is a page the student can open. */
 export type VeraSource = {
-  type: "materi" | "kuis" | "tryout";
+  type: VeraMentionType;
   id: string;
   label: string;
   href: string;
@@ -10,7 +10,9 @@ export type VeraSource = {
 
 export type VeraToolError = { error: "not_found" | "under_review" | "not_available" | "unavailable" };
 
-export type VeraMentionType = "materi" | "kuis" | "tryout";
+/** Everything a student can point Vera at: a lesson, a Kuis or Tryout result, or a Studio document. */
+export const VERA_MENTION_TYPES = ["materi", "kuis", "tryout", "studio"] as const;
+export type VeraMentionType = (typeof VERA_MENTION_TYPES)[number];
 
 /** A source the student pinned with `@`. `status` says whether it could be opened for this answer. */
 export type ResolvedMention = {
@@ -55,6 +57,11 @@ export function kuisResultHref(subjectSlug: string | undefined, quizSlug: string
 
 export function tryoutResultHref(attemptId: string) {
   return `/tryout/attempt/${encodeURIComponent(attemptId)}/result`;
+}
+
+/** A Studio document opens in the Vera page's Studio tab. */
+export function studioDocumentHref(documentId: string) {
+  return `/vera-ai?tab=studio&doc=${encodeURIComponent(documentId)}`;
 }
 
 /** Topic codes look like `materi:<course slug>:section-<n>`. The course slug is the middle part. */
@@ -152,7 +159,7 @@ function isVeraSource(value: unknown): value is VeraSource {
     typeof value === "object" &&
     typeof (value as VeraSource).id === "string" &&
     typeof (value as VeraSource).href === "string" &&
-    ["materi", "kuis", "tryout"].includes((value as VeraSource).type)
+    (VERA_MENTION_TYPES as readonly string[]).includes((value as VeraSource).type)
   );
 }
 

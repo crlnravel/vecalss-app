@@ -19,6 +19,7 @@ export const MENTION_GROUPS: Array<{ type: VeraMentionType; label: string }> = [
   { type: "materi", label: "Materi" },
   { type: "kuis", label: "Kuis" },
   { type: "tryout", label: "Tryout" },
+  { type: "studio", label: "Studio" },
 ];
 
 export const MENTION_LIMIT = VERA_LIMITS.maxMentions;

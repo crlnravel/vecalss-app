@@ -32,6 +32,15 @@ export function answerChunks(deltas: string[], usage: [number, number] = [12, 2]
   ];
 }
 
+/** One model step that asks for a tool, in the provider stream protocol the SDK reads. */
+export function toolCallChunks(toolName: string, input: Record<string, unknown>, usage: [number, number] = [12, 2]): StreamPart[] {
+  return [
+    { type: "stream-start", warnings: [] },
+    { type: "tool-call", toolCallId: `call-${crypto.randomUUID()}`, toolName, input: JSON.stringify(input) },
+    { type: "finish", finishReason: { unified: "tool-calls", raw: "tool_calls" }, usage: usageOf(usage) },
+  ];
+}
+
 /** A mock model whose successive calls follow the given steps. */
 export function scriptedModel(steps: ModelStep[]) {
   let call = 0;

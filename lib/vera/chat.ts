@@ -8,7 +8,6 @@ import {
   isToolUIPart,
   streamText,
   toUIMessageStream,
-  type LanguageModelUsage,
   type ModelMessage,
   type UIMessage,
 } from "ai";
@@ -17,7 +16,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 import { VERA_EFFORT_IDS, VERA_EFFORTS, VERA_LIMITS, type VeraEffortId } from "./config";
-import { costUsdMicros, creditsFromMicros, settlementCharge, type VeraPrices, type VeraTokenUsage } from "./credits-shared";
 import {
   appendMessages,
   createConversation,
@@ -31,14 +29,14 @@ import {
   getVeraPrices,
   releaseVeraReservation,
   reserveVeraCredits,
-  settleVeraUsage,
 } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
 import { resolveMentions } from "./sources/mentions";
-import { scheduleConversationTitle } from "./titles";
-import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
+import { collectSources, uniqueSources, VERA_MENTION_TYPES, type VeraSource } from "./sources/types";
 import { createVeraTools } from "./tools";
+import { scheduleConversationTitle } from "./titles";
+import { trackAnswerUsage } from "./usage-tracker";
 
 export const veraChatRequestSchema = z.object({
   conversationId: z.uuid().optional(),
@@ -55,7 +53,7 @@ export const veraChatRequestSchema = z.object({
   mentions: z
     .array(
       z.object({
-        type: z.enum(["materi", "kuis", "tryout"]),
+        type: z.enum(VERA_MENTION_TYPES),
         id: z.string().min(1).max(64),
         // The label the student's menu showed. Kept only for a pin the server refuses.
         label: z.string().max(200).optional(),
@@ -68,51 +66,6 @@ export const veraChatRequestSchema = z.object({
 export type VeraChatInput = z.infer<typeof veraChatRequestSchema>;
 
 const STOPPED_PART_TYPE = "data-vera-status";
-
-/** Stream parts the SDK emits itself. Any other part means the provider has started generating output. */
-const CONTROL_PART_TYPES = new Set(["start", "start-step", "finish-step", "finish", "abort", "error"]);
-
-type UsageTally = VeraTokenUsage & { reasoningTokens: number; steps: number };
-
-const NO_USAGE: UsageTally = { noCacheInputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningTokens: 0, steps: 0 };
-
-function addStepUsage(tally: UsageTally, usage: LanguageModelUsage | undefined): UsageTally {
-  const input = usage?.inputTokens ?? 0;
-  const cached = usage?.inputTokenDetails?.cacheReadTokens ?? 0;
-  return {
-    noCacheInputTokens:
-      tally.noCacheInputTokens + (usage?.inputTokenDetails?.noCacheTokens ?? Math.max(0, input - cached)),
-    cachedInputTokens: tally.cachedInputTokens + cached,
-    outputTokens: tally.outputTokens + (usage?.outputTokens ?? 0),
-    reasoningTokens: tally.reasoningTokens + (usage?.outputTokenDetails?.reasoningTokens ?? 0),
-    steps: tally.steps + 1,
-  };
-}
-
-function tallyOf(steps: Array<{ usage: LanguageModelUsage }>): UsageTally {
-  return steps.reduce((tally, step) => addStepUsage(tally, step.usage), NO_USAGE);
-}
-
-/**
- * Stops before the next step could carry the answer past its ceiling. A step after a tool call reads everything the last step
- * read and wrote, plus up to one step's worth of tool output, and it may use its full output cap.
- */
-function ceilingReached(
-  steps: Array<{ usage: LanguageModelUsage }>,
-  effort: { ceilingCredits: number; maxOutputTokens: number },
-  prices: VeraPrices,
-) {
-  const ceilingMicros = effort.ceilingCredits * VERA_LIMITS.microUsdPerCredit;
-  const last = steps.at(-1)?.usage;
-  const nextInputTokens = last
-    ? (last.inputTokens ?? 0) + (last.outputTokens ?? 0) + VERA_LIMITS.maxToolOutputTokensPerStep
-    : VERA_LIMITS.maxInputTokensPerStep;
-  const worstStepMicros = costUsdMicros(
-    { noCacheInputTokens: nextInputTokens, cachedInputTokens: 0, outputTokens: effort.maxOutputTokens },
-    prices,
-  );
-  return costUsdMicros(tallyOf(steps), prices) >= ceilingMicros - worstStepMicros;
-}
 
 /** Starts one answer and returns the UI message stream. Ownership is checked and a reservation taken before anything is written. */
 export async function runVeraChat({
@@ -195,37 +148,7 @@ export async function runVeraChat({
     scheduleConversationTitle({ studentId, conversationId });
   }
 
-  // Usage is tallied per completed step. A step that began generating but was cut off is billed at least the reserve,
-  // because the provider bills it once generation starts, even though its token counts never arrived.
-  let tally: UsageTally = NO_USAGE;
-  let unfinishedStepStarted = false;
-  let settled = false;
-  const chargeForAnswer = () =>
-    settlementCharge({
-      actualMicros: costUsdMicros(tally, prices),
-      completedSteps: tally.steps,
-      unfinishedStepStarted,
-      reserveCredits: effort.reserveCredits,
-    });
-  const creditsForAnswer = () => {
-    const charge = chargeForAnswer();
-    return charge.kind === "release" ? null : creditsFromMicros(charge.chargedMicros);
-  };
-  const settleOnce = async (errorCode: string | null) => {
-    if (settled) return;
-    settled = true;
-    try {
-      const charge = chargeForAnswer();
-      if (charge.kind === "release") {
-        await releaseVeraReservation({ eventId, errorCode: errorCode ?? "no_output" });
-      } else {
-        await settleVeraUsage({ eventId, usage: tally, chargedMicros: charge.chargedMicros, errorCode });
-      }
-    } catch (error) {
-      serverLogger.error("vera.usage.settle_failed", error, { area: "vera", operation: "settle_usage" });
-    }
-  };
-
+  const usage = trackAnswerUsage({ eventId, effort, prices });
   const result = streamText({
     model,
     instructions,
@@ -234,20 +157,15 @@ export async function runVeraChat({
     maxOutputTokens: effort.maxOutputTokens,
     maxRetries: 1,
     tools: createVeraTools({ studentId, now }),
-    stopWhen: [isStepCount(VERA_LIMITS.maxSteps), ({ steps }) => ceilingReached(steps, effort, prices)],
+    stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
     providerOptions: {
       openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
     },
-    onChunk: ({ chunk }) => {
-      if (!CONTROL_PART_TYPES.has(chunk.type)) unfinishedStepStarted = true;
-    },
-    onStepEnd: (step) => {
-      tally = addStepUsage(tally, step.usage);
-      unfinishedStepStarted = false;
-    },
-    onEnd: () => settleOnce(null),
-    onAbort: () => settleOnce("aborted"),
-    onError: () => settleOnce("error"),
+    onChunk: usage.onChunk,
+    onStepEnd: usage.onStepEnd,
+    onEnd: usage.onEnd,
+    onAbort: usage.onAbort,
+    onError: usage.onError,
   });
 
   const stream = toUIMessageStream({
@@ -256,7 +174,7 @@ export async function runVeraChat({
     generateMessageId: () => crypto.randomUUID(),
     messageMetadata: ({ part }) => {
       if (part.type === "start") return { conversationId, effort: input.effort, sources: mentionSources };
-      if (part.type === "finish") return { effort: input.effort, credits: creditsForAnswer() };
+      if (part.type === "finish") return { effort: input.effort, credits: usage.creditsForAnswer() };
       return undefined;
     },
     onError: () => "Vera belum bisa menjawab sekarang. Coba kirim lagi.",
@@ -266,7 +184,7 @@ export async function runVeraChat({
         conversationId,
         messages,
         effort: input.effort,
-        credits: creditsForAnswer(),
+        credits: usage.creditsForAnswer(),
         stopped: isAborted || isCancelled === true,
         mentionSources,
       });

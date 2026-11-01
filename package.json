@@ -20,6 +20,7 @@
     "test:vera-tools": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-tools.ts",
     "test:vera-mentions": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-mentions.ts",
     "test:vera-sessions": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sessions.ts",
+    "test:vera-studio": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-studio.ts",
     "db:seed-materi": "node prisma/seed-materi.mjs",
     "db:apply-materi-reset": "node prisma/seed-materi.mjs --apply",
     "db:seed-assessment": "node prisma/seed-assessment.mjs",

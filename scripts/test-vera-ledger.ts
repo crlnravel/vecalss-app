@@ -228,6 +228,11 @@ try {
   }
   await expectLimit(reserveVeraCredits({ studentId, effort: "cepat", model: "test", now }), "burst");
 
+  // A session title is not a request: five titles in the same minute leave the burst limit free.
+  await clearLedger(studentId);
+  await prisma.veraUsageEvent.createMany({ data: Array.from({ length: 5 }, () => ({ studentId, kind: "title" as const, status: "settled" as const, model: "test", reservedCredits: 0, reservedUsdMicros: BigInt(0), costUsdMicros: BigInt(4), createdAt: now, settledAt: now })) });
+  assert.ok(await reserveVeraCredits({ studentId, effort: "cepat", model: "test", now }), "Title events leave the burst limit free");
+
   // Concurrency: two simultaneous reservations, one wins and one is busy.
   await clearLedger(studentId);
   const results = await Promise.allSettled([

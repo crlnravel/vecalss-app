@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { VeraSource } from "@/lib/vera/sources/types";
 
-const TYPE_LABELS: Record<VeraSource["type"], string> = { materi: "Materi", kuis: "Kuis", tryout: "Tryout" };
+const TYPE_LABELS: Record<VeraSource["type"], string> = { materi: "Materi", kuis: "Kuis", tryout: "Tryout", studio: "Studio" };
 
 /** The pages an answer drew on. Each chip opens the student's own lesson or result. */
 function Sources({ sources }: { sources: VeraSource[] }) {
