@@ -1004,9 +1004,10 @@ model StudentProfile {
   currentStreak      Int              @default(0) @map("current_streak")
   longestStreak      Int              @default(0) @map("longest_streak")
   lastStreakDate     DateTime?        @map("last_streak_date") @db.Date
-  /// Compatibility metadata only. Vera admission uses the policy bundle and
-  /// BillingAccount plan mapping, never this legacy field.
+  /// Legacy column from the retired AI quota. No code reads it. Vera's limits are
+  /// the credit windows in lib/vera/config.ts, enforced by lib/vera/ledger.ts.
   dailyAiTokenLimit  Int              @default(10000) @map("daily_ai_token_limit")
+  /// Legacy column from the retired AI quota. No code reads it.
   dailyAiQuotaLimit  Int?             @map("daily_ai_quota_limit")
   timezone           String           @default("Asia/Jakarta") @db.VarChar(64)
   enrolledByUserId   String?          @map("enrolled_by_user_id") @db.Uuid

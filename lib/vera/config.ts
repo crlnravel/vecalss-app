@@ -5,6 +5,9 @@
 
 export const VERA_TIME_ZONE = "Asia/Jakarta";
 
+/** Rupiah per US dollar for the admin cost view. From the project's assumptions sheet. */
+export const VERA_IDR_PER_USD = 17_979.45;
+
 export const VERA_EFFORT_IDS = ["cepat", "seimbang", "mendalam"] as const;
 
 export type VeraEffortId = (typeof VERA_EFFORT_IDS)[number];
