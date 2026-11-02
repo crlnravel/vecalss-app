@@ -5,8 +5,10 @@ import { RoleName } from "@/generated/prisma/client";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import { getCheckoutBaseUrl, getPackageCode } from "@/lib/pricing/checkout";
+import { createCheckoutIdempotencyKey, isCheckoutPaused } from "@/lib/pricing/checkout-intent";
 import { isPricingPlanId, resolvePricing } from "@/lib/pricing/schedule";
 import PricingCheckoutPageModule, {
+  type CheckoutNotice,
   type ReferralStatus,
 } from "@/modules/pricing/PricingCheckoutPageModule";
 
@@ -57,13 +59,22 @@ export default async function PricingCheckoutPage({
   if (!entry) redirect("/pricing");
 
   const referral = await resolveReferral(rawReferral);
-  const checkoutReady = getCheckoutBaseUrl() !== null && getPackageCode(plan, entry) !== null;
+  const paused = isCheckoutPaused();
+  const checkoutReady =
+    !paused && getCheckoutBaseUrl() !== null && getPackageCode(plan, entry) !== null;
+  const requestedNotice = firstValue(params.notice);
+  const notice: CheckoutNotice | null = paused
+    ? "checkout-paused"
+    : requestedNotice === "checkout-unavailable" || requestedNotice === "checkout-changed"
+      ? requestedNotice
+      : null;
 
   return (
     <PricingCheckoutPageModule
       checkoutReady={checkoutReady}
       entry={entry}
-      notice={firstValue(params.notice) === "checkout-unavailable" ? "checkout-unavailable" : null}
+      intentKey={createCheckoutIdempotencyKey()}
+      notice={notice}
       plan={plan}
       referralCode={referral.code}
       referralStatus={referral.status}

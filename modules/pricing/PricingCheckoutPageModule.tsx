@@ -16,12 +16,22 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 import { PLAN_COPY } from "./plan-copy";
 
-type CheckoutNotice = "checkout-unavailable";
+type CheckoutNotice = "checkout-changed" | "checkout-paused" | "checkout-unavailable";
+
+const NOTICE_COPY: Record<CheckoutNotice, string> = {
+  "checkout-changed":
+    "Pilihan di halaman ini sempat berubah. Periksa lagi paket dan kode referralmu, lalu lanjut ke pembayaran.",
+  "checkout-paused":
+    "Pembelian paket sedang dijeda sementara. Coba lagi beberapa saat lagi, atau hubungi tim Vecalss kalau butuh bantuan.",
+  "checkout-unavailable":
+    "Pembayaran belum bisa dibuka saat ini. Coba lagi nanti atau hubungi tim Vecalss.",
+};
 type ReferralStatus = "active" | "invalid" | "none" | "unchecked";
 
 type PricingCheckoutPageModuleProps = {
   checkoutReady: boolean;
   entry: PricingScheduleEntry;
+  intentKey: string;
   notice: CheckoutNotice | null;
   plan: PricingPlanId;
   referralCode: string;
@@ -80,6 +90,7 @@ function ReferralField({
 export default function PricingCheckoutPageModule({
   checkoutReady,
   entry,
+  intentKey,
   notice,
   plan,
   referralCode,
@@ -107,16 +118,17 @@ export default function PricingCheckoutPageModule({
             role="status"
           >
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            Pembayaran belum bisa dibuka saat ini. Coba lagi nanti atau hubungi tim Vecalss.
+            {NOTICE_COPY[notice]}
           </p>
         ) : null}
 
         <form
           action="/pricing/checkout/pay"
           className="mt-10 rounded-card border border-voyage-soft-border bg-voyage-surface p-6 sm:p-7"
-          method="get"
+          method="post"
         >
           <input name="plan" type="hidden" value={plan} />
+          <input name="key" type="hidden" value={intentKey} />
 
           <div className="flex items-start justify-between gap-4">
             <div>
