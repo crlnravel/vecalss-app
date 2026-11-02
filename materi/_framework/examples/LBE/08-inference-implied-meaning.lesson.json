@@ -6,7 +6,7 @@
   "verbatim": true,
   "pages": [
     {
-      "id": "source-page-41",
+      "id": "lbe-08-reviewed-01",
       "title": "MATERI 08 — Inference & Implied Meaning",
       "continuation": false,
       "source_pages": [
@@ -15,36 +15,38 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
-          "small": true
+          "text": "*Subtes:* *LBE* *·* *Literasi* *Bahasa* *Inggris*"
         },
         {
           "type": "heading",
-          "text": "A. PENGERTIAN & DEFINISI"
+          "text": "**A.** **PENGERTIAN** **&** **DEFINISI**"
         },
         {
           "type": "paragraph",
-          "text": "Dalam subtes Literasi Bahasa Inggris SNBT, kamu tidak hanya diuji untuk mencari\ninformasi yang tertulis dengan jelas, tetapi juga diuji kemampuannya untuk \"membaca\nyang tersirat\" (reading between the lines). Inference & Implied Meaning adalah tipe\nsoal yang memintamu menarik kesimpulan logis berdasarkan petunjuk atau bukti yang\nada di dalam teks, meskipun informasi tersebut tidak pernah dituliskan secara\nlangsung. Ibarat seorang detektif, kamu diberikan fakta A dan fakta B, lalu kamu harus\nmenyimpulkan sendiri fakta C yang merupakan hasil logis dari perpaduan kedua fakta\ntersebut. Kemampuan ini sangat krusial karena mengukur seberapa dalam\npemahamanmu terhadap konteks dan arah pemikiran penulis, bukan sekadar\nkemampuan mencari kecocokan kata.",
-          "small": true
+          "text": "Dalam subtes Literasi Bahasa Inggris SNBT, kamu tidak hanya diuji untuk mencari informasi yang tertulis dengan jelas, tetapi juga diuji kemampuannya untuk \"membaca yang tersirat\" (*reading* *between* *the* *lines*). **Inference** **&** **Implied** **Meaning** adalah tipe soal yang memintamu menarik kesimpulan logis berdasarkan petunjuk atau bukti yang ada di dalam teks, meskipun informasi tersebut **tidak** **pernah** **dituliskan** **secara** **langsung**. Ibarat seorang detektif, kamu diberikan fakta A dan fakta B, lalu kamu harus menyimpulkan sendiri fakta C yang merupakan hasil logis dari perpaduan kedua fakta tersebut. Kemampuan ini sangat krusial karena mengukur seberapa dalam pemahamanmu terhadap konteks dan arah pemikiran penulis, bukan sekadar kemampuan mencari kecocokan kata."
         },
         {
           "type": "heading",
-          "text": "B. CIRI-CIRI & KARAKTERISTIK"
+          "text": "**B.** **CIRI-CIRI** **&** **KARAKTERISTIK**"
         },
         {
           "type": "paragraph",
-          "text": "Soal inferensi sering kali menjadi momok karena jawabannya tidak bisa sekadar\ndi-copy-paste dari teks. Berikut adalah karakteristik utama tipe soal ini:",
-          "small": true
+          "text": "Soal inferensi sering kali menjadi momok karena jawabannya tidak bisa sekadar di-*copy-paste* dari teks. Berikut adalah karakteristik utama tipe soal ini:"
         },
         {
-          "type": "paragraph",
-          "text": "● Kata Kunci Soal yang Khas: Pertanyaan ini selalu ditandai dengan kata-kata\npemicu seperti: \"It can be inferred from the passage that...\", \"The author implies\nthat...\", \"Which of the following can be logically concluded...?\", atau \"The text\nsuggests that...\".\n● Jawaban Tersembunyi (Tidak Eksplisit): Jika kamu menemukan opsi jawaban\nyang kalimatnya 100% sama persis dengan yang ada di teks, opsi itu\nkemungkinan besar salah. Soal ini meminta kesimpulan, bukan pengulangan\nfakta.\n● Berbasis Bukti Teks (Text-Bound): Meskipun kamu diminta menyimpulkan\nsesuatu yang tidak tertulis, kesimpulan tersebut mutlak harus memiliki pondasi\natau bukti kuat dari kalimat di dalam teks.\n● Logika Moderat: Jawaban inferensi yang benar biasanya terdengar masuk akal,\naman, dan tidak berlebihan. Opsi yang menggunakan kata-kata ekstrem (seperti\npasti, tidak pernah, selalu) sering kali merupakan jebakan.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Kata** **Kunci** **Soal** **yang** **Khas:** Pertanyaan ini selalu ditandai dengan kata-kata pemicu seperti: *\"It* *can* *be* ***inferred*** *from* *the* *passage* *that...\"*, *\"The* *author* ***implies*** *that...\"*, *\"Which* *of* *the* *following* *can* *be* *logically* ***concluded****...?\"*, atau *\"The* *text* ***suggests*** *that...\"*.",
+            "**Jawaban** **Tersembunyi** **(Tidak** **Eksplisit):** Jika kamu menemukan opsi jawaban yang kalimatnya 100% sama persis dengan yang ada di teks, **opsi** **itu** **kemungkinan** **besar** **salah**. Soal ini meminta kesimpulan, bukan pengulangan fakta.",
+            "**Berbasis** **Bukti** **Teks** **(*****Text-Bound*****):** Meskipun kamu diminta menyimpulkan sesuatu yang tidak tertulis, kesimpulan tersebut mutlak harus memiliki pondasi atau bukti kuat dari kalimat di dalam teks.",
+            "**Logika** **Moderat:** Jawaban inferensi yang benar biasanya terdengar masuk akal, aman, dan tidak berlebihan. Opsi yang menggunakan kata-kata ekstrem (seperti *pasti,* *tidak* *pernah,* *selalu*) sering kali merupakan jebakan."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-42",
+      "id": "lbe-08-reviewed-02",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -52,183 +54,190 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "C. CARA MENGERJAKAN / STRATEGI (Metode C.L.U.E)",
-          "small": true
+          "type": "heading",
+          "text": "**C.** **CARA** **MENGERJAKAN** **/** **STRATEGI** **(Metode** **C.L.U.E)**"
         },
         {
           "type": "paragraph",
-          "text": "Jangan menebak-nebak secara liar! Gunakan metode detektif C.L.U.E berikut untuk\nmenarik kesimpulan yang presisi:",
-          "small": true
+          "text": "Jangan menebak-nebak secara liar! Gunakan metode detektif **C.L.U.E** berikut untuk menarik kesimpulan yang presisi:"
         },
         {
-          "type": "paragraph",
-          "text": "1. C - Catch the Focus (Tangkap Fokus Pertanyaan): Baca soalnya dan cari tahu\napa atau siapa yang diminta untuk disimpulkan. Jangan membaca seluruh teks\ndengan tujuan kosong.\n2. L - Locate the Evidence (Lacak Lokasi Bukti): Gunakan teknik scanning untuk\nmenemukan paragraf atau kalimat yang membahas fokus pertanyaan tersebut.\n3. U - Understand the Premise (Pahami Premis/Fakta): Baca dengan saksama\n1-2 kalimat di sekitar kata kunci tersebut. Catat fakta murni apa saja yang\ndiberikan oleh penulis.\n4. E - Extract the Logic (Tarik Kesimpulan Logis): Hubungkan fakta-fakta\ntersebut. Tanyakan pada dirimu: \"Jika fakta ini benar, maka hal apa lagi yang\npasti ikut benar secara otomatis?\" Pilih opsi yang menjadi akibat logis dari fakta\ntersebut tanpa perlu menambahkan asumsi pribadimu.",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3.",
+            "4."
+          ],
+          "items": [
+            "**C** **-** **Catch** **the** **Focus** **(Tangkap** **Fokus** **Pertanyaan):** Baca soalnya dan cari tahu *apa* atau *siapa* yang diminta untuk disimpulkan. Jangan membaca seluruh teks dengan tujuan kosong.",
+            "**L** **-** **Locate** **the** **Evidence** **(Lacak** **Lokasi** **Bukti):** Gunakan teknik *scanning* untuk menemukan paragraf atau kalimat yang membahas fokus pertanyaan tersebut.",
+            "**U** **-** **Understand** **the** **Premise** **(Pahami** **Premis/Fakta):** Baca dengan saksama 1-2 kalimat di sekitar kata kunci tersebut. Catat fakta murni apa saja yang diberikan oleh penulis.",
+            "**E** **-** **Extract** **the** **Logic** **(Tarik** **Kesimpulan** **Logis):** Hubungkan fakta-fakta tersebut. Tanyakan pada dirimu: \"Jika fakta ini benar, maka hal apa lagi yang **pasti** **ikut** **benar** secara otomatis?\" Pilih opsi yang menjadi akibat logis dari fakta tersebut tanpa perlu menambahkan asumsi pribadimu."
+          ]
         },
         {
           "type": "heading",
-          "text": "D. CONTOH SOAL BESERTA PEMBAHASAN"
+          "text": "**D.** **CONTOH** **SOAL** **BESERTA** **PEMBAHASAN**"
         },
         {
           "type": "paragraph",
-          "text": "Soal 1: Tingkat Mudah (Kesimpulan Sebab-Akibat Sederhana)",
-          "small": true
+          "text": "**Soal** **1:** **Tingkat** **Mudah** **(Kesimpulan** **Sebab-Akibat** **Sederhana)**"
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"Despite the massive one-million-dollar marketing budget, the company's newest\nsmartphone model sold only 10% of its projected units in the first quarter. Upon\nreceiving the quarterly report, the CEO immediately scheduled an emergency meeting\nto restructure the entire sales department.\"",
-          "small": true
+          "text": "*Teks:* \"Despite the massive one-million-dollar marketing budget, the company's newest smartphone model sold only 10% of its projected units in the first quarter. Upon receiving the quarterly report, the CEO immediately scheduled an emergency meeting to restructure the entire sales department.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: It can be inferred from the passage that...",
-          "small": true
+          "text": "*Question:* It can be inferred from the passage that..."
         },
         {
-          "type": "paragraph",
-          "text": "A) The new smartphone model was too expensive for the target market.",
-          "small": true
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "The new smartphone model was too expensive for the target market."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "B) The marketing campaign was highly successful and broke records.",
-          "small": true
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "The marketing campaign was highly successful and broke records."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "C) The CEO was highly dissatisfied with the initial sales performance.",
-          "small": true
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "The CEO was highly dissatisfied with the initial sales performance."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "D) The sales department requested a massive restructure.",
-          "small": true
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "The sales department requested a massive restructure."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "E) The company will immediately stop producing all smartphones.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Fakta di teks: Penjualan hanya mencapai 10% dari target (gagal), dan CEO\nlangsung memanggil rapat darurat untuk merombak departemen penjualan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) too expensive: Salah. Teks tidak pernah menyebutkan alasan kenapa hp itu\ntidak laku (apakah karena harga, fitur, dll). Ini murni asumsi di luar teks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) highly successful: Salah. Bertentangan dengan fakta bahwa penjualan\nhanya 10%.",
-          "small": true
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "The company will immediately stop producing all smartphones."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-43",
+      "id": "lbe-08-reviewed-03",
       "title": "",
       "continuation": true,
       "source_pages": [
+        42,
         43
       ],
       "blocks": [
         {
           "type": "paragraph",
-          "text": "● C) highly dissatisfied: Benar. Jika seseorang bereaksi terhadap laporan yang\nburuk dengan \"rapat darurat\" dan \"perombakan\", kesimpulan logisnya adalah\norang tersebut sangat tidak puas (dissatisfied). Ini tidak ditulis, tapi sangat\ntersirat.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **1:** *Jawaban* *Benar:* ***C***"
         },
         {
           "type": "paragraph",
-          "text": "● D) requested a restructure: Salah. Teks menyatakan CEO yang menjadwalkan\nperombakan, bukan departemen yang memintanya.",
-          "small": true
+          "text": "● **Fakta** **di** **teks:** Penjualan hanya mencapai 10% dari target (gagal), dan CEO langsung memanggil rapat darurat untuk merombak departemen penjualan."
         },
         {
-          "type": "paragraph",
-          "text": "● E) stop producing: Salah. Terlalu ekstrem (Too Extreme). Melakukan\nperombakan tim bukan berarti langsung berhenti produksi total.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Soal 2: Tingkat Menengah (Inferensi dari Perbandingan)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Teks: \"While 20th-century traditional classrooms heavily emphasized rote memorization\nand passive listening, modern educational frameworks prioritize interactive learning and\ncritical thinking. Consequently, today's students are often evaluated on their\ncollaborative problem-solving skills rather than their ability to recall specific historical\ndates.\"",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Question: The author implies that in 20th-century traditional classrooms...",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "A) Students were frequently tested on problem-solving skills.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "B) Teachers strongly encouraged interactive group discussions.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "C) Assessments likely involved recalling specific facts or dates.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "D) Critical thinking was the main focus of the national curriculum.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) Education was generally much better than it is today.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Fakta di teks: Kelas abad ke-20 menekankan \"hafalan\" (rote memorization).\nSiswa saat ini dievaluasi dari \"memecahkan masalah\" BUKAN dari \"mengingat\ntanggal sejarah\".",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) tested on problem-solving: Salah. Ini adalah ciri kelas modern, bukan kelas\nabad ke-20.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) interactive group discussions: Salah. Kelas abad ke-20 bersifat pasif\n(passive listening).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) recalling specific facts or dates: Benar. Jika kelas modern TIDAK lagi\nmengevaluasi hafalan tanggal, dan kelas abad 20 berfokus pada hafalan, maka\nkesimpulan logisnya adalah ujian di masa lalu sangat bergantung pada hafalan\nfakta/tanggal.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) critical thinking was the main focus: Salah. Ini ciri pendidikan modern.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **too** **expensive:** Salah. Teks tidak pernah menyebutkan alasan *kenapa* hp itu tidak laku (apakah karena harga, fitur, dll). Ini murni asumsi di luar teks.",
+            "**B)** **highly** **successful:** Salah. Bertentangan dengan fakta bahwa penjualan hanya 10%.",
+            "**C)** **highly** **dissatisfied:** **Benar.** Jika seseorang bereaksi terhadap laporan yang buruk dengan \"rapat darurat\" dan \"perombakan\", kesimpulan logisnya adalah orang tersebut sangat tidak puas (*dissatisfied*). Ini tidak ditulis, tapi sangat tersirat.",
+            "**D)** **requested** **a** **restructure:** Salah. Teks menyatakan CEO yang menjadwalkan perombakan, bukan departemen yang memintanya.",
+            "**E)** **stop** **producing:** Salah. Terlalu ekstrem (*Too* *Extreme*). Melakukan perombakan tim bukan berarti langsung berhenti produksi total."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-44",
+      "id": "lbe-08-reviewed-04",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        43,
+        44
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "**Soal** **2:** **Tingkat** **Menengah** **(Inferensi** **dari** **Perbandingan)**"
+        },
+        {
+          "type": "paragraph",
+          "text": "*Teks:* \"While 20th-century traditional classrooms heavily emphasized rote memorization and passive listening, modern educational frameworks prioritize interactive learning and critical thinking. Consequently, today's students are often evaluated on their collaborative problem-solving skills rather than their ability to recall specific historical dates.\""
+        },
+        {
+          "type": "paragraph",
+          "text": "*Question:* The author implies that in 20th-century traditional classrooms..."
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "Students were frequently tested on problem-solving skills."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Teachers strongly encouraged interactive group discussions."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Assessments likely involved recalling specific facts or dates."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Critical thinking was the main focus of the national curriculum."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Education was generally much better than it is today."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "**Pembahasan** **Opsi** **Soal** **2:** *Jawaban* *Benar:* ***C***"
+        },
+        {
+          "type": "paragraph",
+          "text": "● **Fakta** **di** **teks:** Kelas abad ke-20 menekankan \"hafalan\" (*rote* *memorization*). Siswa *saat* *ini* dievaluasi dari \"memecahkan masalah\" BUKAN dari \"mengingat tanggal sejarah\"."
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **tested** **on** **problem-solving:** Salah. Ini adalah ciri kelas modern, bukan kelas abad ke-20.",
+            "**B)** **interactive** **group** **discussions:** Salah. Kelas abad ke-20 bersifat pasif (*passive* *listening*).",
+            "**C)** **recalling** **specific** **facts** **or** **dates:** **Benar.** Jika kelas modern *TIDAK* lagi mengevaluasi hafalan tanggal, dan kelas abad 20 berfokus pada hafalan, maka kesimpulan logisnya adalah ujian di masa lalu sangat bergantung pada hafalan fakta/tanggal.",
+            "**D)** **critical** **thinking** **was** **the** **main** **focus:** Salah. Ini ciri pendidikan modern.",
+            "**E)** **education** **was** **generally** **much** **better:** Salah. Penulis bersikap netral, tidak ada opini/penilaian mana yang lebih \"baik\"."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lbe-08-reviewed-05",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -236,89 +245,75 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "● E) education was generally much better: Salah. Penulis bersikap netral, tidak\nada opini/penilaian mana yang lebih \"baik\".",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **3:** **Tingkat** **Sulit** **(Deduksi** **Logika** **Bertingkat)**"
         },
         {
           "type": "paragraph",
-          "text": "Soal 3: Tingkat Sulit (Deduksi Logika Bertingkat)",
-          "small": true
+          "text": "*Teks:* \"The introduction of the invasive cane toad to Australia in the 1930s was originally intended to control the destructive cane beetle population in sugarcane crops. However, the toads could not jump high enough to reach the beetles residing on the upper stalks of the plants. Instead, with no natural predators in the new environment and a highly toxic defense mechanism, the toad population exploded, devastating local wildlife.\""
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"The introduction of the invasive cane toad to Australia in the 1930s was originally\nintended to control the destructive cane beetle population in sugarcane crops. However,\nthe toads could not jump high enough to reach the beetles residing on the upper stalks\nof the plants. Instead, with no natural predators in the new environment and a highly\ntoxic defense mechanism, the toad population exploded, devastating local wildlife.\"",
-          "small": true
+          "text": "*Question:* Which of the following can be logically concluded from the passage?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "The cane beetles were eventually eradicated by the cane toads."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "The creators of the plan did not fully research the physical capabilities of the cane toad."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Native Australian wildlife has slowly developed an immunity to the cane toad's toxin."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Sugarcane crops in Australia are currently completely free from any agricultural pests."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "The cane toad is a natural predator of native Australian wildlife."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "Question: Which of the following can be logically concluded from the passage?",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **3:** *Jawaban* *Benar:* ***B***"
         },
         {
           "type": "paragraph",
-          "text": "A) The cane beetles were eventually eradicated by the cane toads.",
-          "small": true
+          "text": "● **Fakta** **di** **teks:** Kodok dibawa untuk memakan kumbang di tebu. TAPI, kodoknya *tidak* *bisa* *melompat* *cukup* *tinggi* untuk mencapai kumbang tersebut. Alhasil, rencana gagal dan kodok malah merusak lingkungan."
         },
         {
-          "type": "paragraph",
-          "text": "B) The creators of the plan did not fully research the physical capabilities of the cane\ntoad.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "C) Native Australian wildlife has slowly developed an immunity to the cane toad's toxin.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "D) Sugarcane crops in Australia are currently completely free from any agricultural\npests.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) The cane toad is a natural predator of native Australian wildlife.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: B",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Fakta di teks: Kodok dibawa untuk memakan kumbang di tebu. TAPI, kodoknya\ntidak bisa melompat cukup tinggi untuk mencapai kumbang tersebut. Alhasil,\nrencana gagal dan kodok malah merusak lingkungan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) eradicated by the cane toads: Salah. Kodoknya tidak bisa menjangkau\nkumbang, jadi kumbang tidak musnah oleh mereka.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) did not fully research the physical capabilities: Benar. Jika mereka\nmerencanakan kodok itu memakan kumbang di pucuk tanaman, tapi ternyata\nkodok itu secara fisik tidak bisa melompat tinggi, artinya para penggagas\nrencana tersebut gagal meriset kemampuan fisik sang kodok sebelum\nmembawanya. Ini adalah kesimpulan yang paling cerdas dan logis.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) developed an immunity: Salah. Tidak ada informasi tentang kekebalan\nhewan lokal di teks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) completely free from pests: Salah. Ekstrem dan tidak didukung teks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● E) natural predator: Salah. Teks menyebutkan kodok merusak karena mereka\nberacun dan tidak punya pemangsa, bukan karena mereka predator alami\nhewan lokal.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **eradicated** **by** **the** **cane** **toads:** Salah. Kodoknya tidak bisa menjangkau kumbang, jadi kumbang tidak musnah oleh mereka.",
+            "**B)** **did** **not** **fully** **research** **the** **physical** **capabilities:** **Benar.** Jika mereka merencanakan kodok itu memakan kumbang di pucuk tanaman, tapi ternyata kodok itu secara fisik tidak bisa melompat tinggi, artinya para penggagas rencana tersebut gagal meriset kemampuan fisik sang kodok sebelum membawanya. Ini adalah kesimpulan yang paling cerdas dan logis.",
+            "**C)** **developed** **an** **immunity:** Salah. Tidak ada informasi tentang kekebalan hewan lokal di teks.",
+            "**D)** **completely** **free** **from** **pests:** Salah. Ekstrem dan tidak didukung teks.",
+            "**E)** **natural** **predator:** Salah. Teks menyebutkan kodok merusak karena mereka beracun dan tidak punya pemangsa, bukan karena mereka predator alami hewan lokal."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-45",
+      "id": "lbe-08-reviewed-06",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -326,39 +321,70 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus",
-          "small": true
+          "type": "heading",
+          "text": "🦆 **VECO** **TIPS** **—** **Cara** **Cepat** **&** **Trik** **Khusus**"
         },
         {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Radar Kata Pemicu (The Trigger Words)",
-          "small": true
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Radar** **Kata** **Pemicu** **(The** **Trigger** **Words)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Kwek! Sebelum buang-buang waktu mengartikan teks, selalu cek kata tanya di soal. Kalau matamu nangkap kata *Infer,* *Imply,* *Suggest*, atau *Conclude*, **TOLAK** **mentah-mentah** opsi jawaban yang kalimatnya persis sama alias *copy-paste* dari teks! Kenapa? Karena soal ini minta hal yang *tersirat* (nggak tertulis). Jawaban *copy-paste* itu cuma diperuntukkan buat soal *Specific* *Details*. Singkirkan opsi *copy-paste*, pilihanmu bakal menyusut!"
+            }
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "Kwek! Sebelum buang-buang waktu mengartikan teks, selalu cek kata tanya di soal.\nKalau matamu nangkap kata Infer, Imply, Suggest, atau Conclude, TOLAK\nmentah-mentah opsi jawaban yang kalimatnya persis sama alias copy-paste dari teks!\nKenapa? Karena soal ini minta hal yang tersirat (nggak tertulis). Jawaban copy-paste itu\ncuma diperuntukkan buat soal Specific Details. Singkirkan opsi copy-paste, pilihanmu\nbakal menyusut!",
-          "small": true
-        },
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Jebakan** **Kata** **Ekstrem** **(The** **Extreme** **Words** **Trap)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Kalau bebek disuruh milih antara hal yang \"mungkin\" sama hal yang \"pasti terjadi 100%\", mending pilih yang aman aja, kwek! Dalam soal inferensi SNBT, jawaban yang benar biasanya menggunakan bahasa yang moderat/berhati-hati, seperti: *likely,* *probably,* *some,* *may,* *often*. Hati-hati dan curigai opsi yang mengandung kata ekstrem seperti: *always* (selalu), *never* (tidak pernah), *completely* (sepenuhnya), *must* (wajib), atau *all* (semua). Di dunia akademis, jarang banget ada hal yang 100% mutlak tanpa pengecualian!"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lbe-08-reviewed-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        45
+      ],
+      "blocks": [
         {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Jebakan Kata Ekstrem (The Extreme Words Trap)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalau bebek disuruh milih antara hal yang \"mungkin\" sama hal yang \"pasti terjadi\n100%\", mending pilih yang aman aja, kwek! Dalam soal inferensi SNBT, jawaban yang\nbenar biasanya menggunakan bahasa yang moderat/berhati-hati, seperti: likely,\nprobably, some, may, often. Hati-hati dan curigai opsi yang mengandung kata ekstrem\nseperti: always (selalu), never (tidak pernah), completely (sepenuhnya), must (wajib),\natau all (semua). Di dunia akademis, jarang banget ada hal yang 100% mutlak tanpa\npengecualian!\n⚠ Kesalahan Umum yang Sering Terjadi",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Tipe soal inferensi adalah ladang ranjau! Berikut adalah 3 kesalahan paling sering yang\nmembuat siswa terkecoh:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Membawa Pengetahuan Pribadi (Outside Knowledge): Kesalahan paling\nfatal! Siswa sering membaca soal, lalu menyimpulkan berdasarkan hal-hal yang\nmereka tonton di berita, baca di Twitter, atau pelajari di sekolah, padahal\ninformasi itu tidak ada di dalam teks. Ingat hukum emas inferensi: Batas\nduniamu adalah batas teks tersebut. Jika tidak ada premisnya di teks, maka opsi\nitu salah!\n2. Memilih Fakta yang Eksplisit (Bukan Kesimpulan): Sering kali pembuat soal\nberbaik hati memberikan kalimat yang benar secara fakta dan memang tertulis di\nparagraf. Siswa yang terburu-buru akan langsung memilihnya. Ingat, fakta\neksplisit adalah jawaban untuk soal Specific Details, BUKAN jawaban untuk\npertanyaan yang mengandung kata \"infer\".\n3. Membuat Loncatan Logika yang Terlalu Jauh (Over-inferring): Misalnya teks\nmenyatakan, \"Harga tiket pesawat naik 50% menjelang Lebaran.\" Kesimpulan\nlogisnya: \"Banyak orang akan mengeluarkan uang ekstra untuk mudik.\"\nLoncatan logika yang salah: \"Semua maskapai penerbangan akan bangkrut\nsetelah Lebaran karena orang tidak mau naik pesawat lagi.\" Jangan berlebihan,\nsimpulkan hal yang paling dekat dan paling masuk akal dari fakta yang ada.",
-          "small": true
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "tone": "warning",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Tipe soal inferensi adalah ladang ranjau! Berikut adalah 3 kesalahan paling sering yang membuat siswa terkecoh:"
+            },
+            {
+              "type": "bullets",
+              "marker": "1.",
+              "items": [
+                "**Membawa** **Pengetahuan** **Pribadi** **(*****Outside*** ***Knowledge*****):** Kesalahan paling fatal! Siswa sering membaca soal, lalu menyimpulkan berdasarkan hal-hal yang mereka tonton di berita, baca di Twitter, atau pelajari di sekolah, padahal informasi itu **tidak** **ada** di dalam teks. Ingat hukum emas inferensi: *Batas* *duniamu* *adalah* *batas* *teks* *tersebut*. Jika tidak ada premisnya di teks, maka opsi itu salah!"
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "2.",
+              "items": [
+                "**Memilih** **Fakta** **yang** **Eksplisit** **(Bukan** **Kesimpulan):** Sering kali pembuat soal berbaik hati memberikan kalimat yang benar secara fakta dan memang tertulis di paragraf. Siswa yang terburu-buru akan langsung memilihnya. Ingat, fakta eksplisit adalah jawaban untuk soal *Specific* *Details*, BUKAN jawaban untuk pertanyaan yang mengandung kata *\"infer\"*."
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "3.",
+              "items": [
+                "**Membuat** **Loncatan** **Logika** **yang** **Terlalu** **Jauh** **(*****Over-inferring*****):** Misalnya teks menyatakan, \"Harga tiket pesawat naik 50% menjelang Lebaran.\" Kesimpulan logisnya: \"Banyak orang akan mengeluarkan uang ekstra untuk mudik.\" Loncatan logika yang salah: \"Semua maskapai penerbangan akan bangkrut setelah Lebaran karena orang tidak mau naik pesawat lagi.\" Jangan berlebihan, simpulkan hal yang paling dekat dan paling masuk akal dari fakta yang ada."
+              ]
+            }
+          ]
         }
       ]
     }

@@ -6,1235 +6,333 @@
   "verbatim": true,
   "pages": [
     {
-      "id": "material-04-page-01",
+      "id": "pbm04-reviewed-01",
       "title": "MATERI 04 — Semantik: Makna & Relasi Makna",
       "continuation": false,
-      "source_pages": [
-        1
-      ],
+      "source_pages": [1, 2],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
-        },
-        {
-          "type": "heading",
-          "text": "A. Pengertian Semantik"
-        },
-        {
-          "type": "paragraph",
-          "text": "Semantik adalah cabang ilmu bahasa yang mempelajari makna — bagaimana kata,"
-        },
-        {
-          "type": "paragraph",
-          "text": "frasa, dan kalimat menyampaikan arti, serta bagaimana makna-makna itu berelasi satu"
-        },
-        {
-          "type": "paragraph",
-          "text": "sama lain. Dalam UTBK PBM, soal semantik biasanya menguji kemampuan"
-        },
-        {
-          "type": "paragraph",
-          "text": "membedakan jenis makna, mengenali relasi makna antarkata, dan mendeteksi"
-        },
-        {
-          "type": "paragraph",
-          "text": "perubahan atau pergeseran makna dalam konteks bacaan."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jenis-Jenis Makna"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-02",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        1,
-        2
-      ],
-      "blocks": [
+        {"type": "paragraph", "text": "*Subtes: PBM · Pemahaman Bacaan & Menulis*", "small": true},
+        {"type": "heading", "text": "**A. Pengertian Semantik**"},
+        {"type": "paragraph", "text": "**Semantik** adalah cabang ilmu bahasa yang mempelajari **makna** — bagaimana kata, frasa, dan kalimat menyampaikan arti, serta bagaimana makna-makna itu **berelasi satu sama lain**. Dalam UTBK PBM, soal semantik biasanya menguji kemampuan membedakan jenis makna, mengenali relasi makna antarkata, dan mendeteksi **perubahan atau pergeseran makna** dalam konteks bacaan."},
+        {"type": "heading", "text": "**Jenis-Jenis Makna**"},
         {
           "type": "table",
-          "headers": [
-            "Jenis Makna",
-            "Definisi",
-            "Contoh"
-          ],
+          "headers": ["**Jenis Makna**", "**Definisi**", "**Contoh**"],
+          "widths": [1, 1.55, 1.35],
           "rows": [
-            [
-              "Makna leksikal",
-              "makna dasar/asli kata sebagaimana tercantum di kamus, lepas dari konteks kalimat",
-              "kepala = bagian tubuh paling atas"
-            ],
-            [
-              "Makna gramatikal",
-              "makna yang muncul akibat proses gramatikal (afiksasi, reduplikasi, komposisi)",
-              "ke-+pala+an kepalaan → (tidak lazim); ber-kepala = memiliki kepala/pemimpin"
-            ],
-            [
-              "Makna denotatif",
-              "makna sebenarnya/lugas, sesuai referen objektifnya",
-              "kepala sekolah = pemimpin sekolah (makna sebenarnya, bukan bagian tubuh)"
-            ],
-            [
-              "Makna konotatif",
-              "makna tambahan yang muncul akibat nilai rasa/asosiasi budaya",
-              "kambing hitam = pihak yang disalahkan (konotasi negatif)"
-            ],
-            [
-              "Makna referensial",
-              "makna yang memiliki acuan/referen nyata di dunia",
-              "kucing mengacu pada hewan tertentu"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna kata tugas yang tidak"
-        },
-        {
-          "type": "paragraph",
-          "text": "kata dan, atau, karena —"
-        },
-        {
-          "type": "paragraph",
-          "text": "non-referensial"
-        },
-        {
-          "type": "paragraph",
-          "text": "memiliki acuan konkret"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-03",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        2
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "hanya menyatakan hubungan"
-        },
-        {
-          "type": "paragraph",
-          "text": "gramatikal"
-        },
-        {
-          "type": "paragraph",
-          "text": "Ciri paling sering diuji: membedakan denotasi vs konotasi dalam konteks kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "bacaan, karena penulis sering menggunakan ungkapan konotatif (majas, idiom) yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "maknanya harus ditafsirkan sesuai konteks, bukan makna harfiah kata per kata."
-        },
-        {
-          "type": "heading",
-          "text": "B. Relasi Makna Antarkata"
-        },
-        {
-          "type": "heading",
-          "text": "B1. Sinonim dan Antonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "Sinonim adalah relasi makna kemiripan/kesamaan makna antara dua kata atau lebih."
-        },
-        {
-          "type": "paragraph",
-          "text": "Perlu diingat: sinonim jarang bermakna 100% identik — biasanya berbeda pada"
-        },
-        {
-          "type": "paragraph",
-          "text": "tingkat formalitas, nilai rasa, atau kolokasi (kata yang lazim mendampinginya). Antonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "adalah relasi makna berlawanan/oposisi."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-04",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        2
-      ],
-      "blocks": [
-        {
-          "type": "table",
-          "headers": [
-            "Jenis Antonim",
-            "Ciri",
-            "Contoh"
-          ],
-          "rows": [
-            [
-              "Oposisi mutlak (biner)",
-              "hanya ada dua kemungkinan, tidak ada tengah",
-              "hidup ≠ mati; hamil ≠ tidak hamil"
-            ],
-            [
-              "Oposisi kutub (gradual)",
-              "ada tingkatan/skala di antara dua kutub",
-              "panas ≠ dingin (ada \"hangat\", \"sejuk\")"
-            ],
-            [
-              "Oposisi relasional",
-              "berlawanan tapi saling melengkapi/berkorelasi",
-              "jual ≠ beli; guru ≠ murid; suami ≠ istri"
-            ],
-            [
-              "Oposisi hierarkis",
-              "berlawanan dalam suatu urutan/tingkatan",
-              "kopral ≠ sersan (tingkat kepangkatan)"
-            ],
-            [
-              "Oposisi majemuk",
-              "satu kata punya lebih dari satu lawan kata tergantung konteks",
-              "lawan kata tinggi bisa pendek (orang) atau rendah (nilai/suhu)"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
+            ["**Makna leksikal**", "makna dasar/asli kata sebagaimana tercantum di kamus, lepas dari konteks kalimat", "*kepala* = bagian tubuh paling atas"],
+            ["**Makna gramatikal**", "makna yang muncul akibat proses gramatikal (afiksasi, reduplikasi, komposisi)", "*ke-+pala+an* → **kepalaan** (tidak lazim); *ber-kepala* = memiliki kepala/pemimpin"],
+            ["**Makna denotatif**", "makna sebenarnya/lugas, sesuai referen objektifnya", "*kepala sekolah* = pemimpin sekolah (makna sebenarnya, bukan bagian tubuh)"],
+            ["**Makna konotatif**", "makna tambahan yang muncul akibat nilai rasa/asosiasi budaya", "*kambing hitam* = pihak yang disalahkan (konotasi negatif)"],
+            ["**Makna referensial**", "makna yang memiliki acuan/referen nyata di dunia", "*kucing* mengacu pada hewan tertentu"],
+            ["**Makna non-referensial**", "makna kata tugas yang tidak memiliki acuan konkret", "kata *dan, atau, karena* — hanya menyatakan hubungan gramatikal"]
           ]
         }
       ]
     },
     {
-      "id": "material-04-page-05",
+      "id": "pbm04-reviewed-02",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        3
-      ],
+      "source_pages": [2],
       "blocks": [
-        {
-          "type": "heading",
-          "text": "B2. Homonim, Homofon, dan Homograf"
-        },
+        {"type": "paragraph", "text": "Ciri paling sering diuji: membedakan **denotasi vs konotasi** dalam konteks kalimat bacaan, karena penulis sering menggunakan ungkapan konotatif (majas, idiom) yang maknanya harus ditafsirkan sesuai konteks, bukan makna harfiah kata per kata."},
+        {"type": "heading", "text": "**B. Relasi Makna Antarkata**"},
+        {"type": "heading", "text": "**B1. Sinonim dan Antonim**"},
+        {"type": "paragraph", "text": "**Sinonim** adalah relasi makna kemiripan/kesamaan makna antara dua kata atau lebih. Perlu diingat: sinonim **jarang bermakna 100% identik** — biasanya berbeda pada tingkat formalitas, nilai rasa, atau kolokasi (kata yang lazim mendampinginya). **Antonim** adalah relasi makna berlawanan/oposisi."},
         {
           "type": "table",
-          "headers": [
-            "Istilah",
-            "Definisi",
-            "Contoh"
-          ],
+          "headers": ["**Jenis Antonim**", "**Ciri**", "**Contoh**"],
+          "widths": [1.1, 1.45, 1.35],
           "rows": [
-            [
-              "Homonim",
-              "kata yang sama ejaan dan sama lafal, tetapi maknanya berbeda dan tidak berkaitan",
-              "bisa (racun ular) vs bisa (dapat/mampu); genting (gawat) vs genting (atap rumah)"
-            ],
-            [
-              "Homofon",
-              "kata yang sama lafal (pengucapan) tetapi beda ejaan dan makna",
-              "bank vs bang; sangsi (ragu) vs sanksi (hukuman)"
-            ],
-            [
-              "Homograf",
-              "kata yang sama ejaan (tulisan) tetapi beda lafal dan makna",
-              "apel /apel/ (buah) vs apel /apəl/ (upacara); teras (bagian rumah) vs teras (inti kayu)"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Trik membedakan: ucapkan kedua kata itu keras-keras. Kalau bunyinya sama persis"
-        },
-        {
-          "type": "paragraph",
-          "text": "dan ejaannya juga sama, itu homonim. Kalau bunyinya sama tapi ejaan beda, itu"
-        },
-        {
-          "type": "paragraph",
-          "text": "homofon. Kalau ejaan sama tapi bunyi beda (biasanya beda letak tekanan/lafal"
-        },
-        {
-          "type": "paragraph",
-          "text": "vokal), itu homograf."
-        },
-        {
-          "type": "heading",
-          "text": "B3. Polisemi"
-        },
-        {
-          "type": "paragraph",
-          "text": "Polisemi adalah satu kata yang memiliki banyak makna yang saling"
-        },
-        {
-          "type": "paragraph",
-          "text": "berkaitan/berasal dari makna dasar yang sama (berbeda dengan homonim, yang"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-06",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        3
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "maknanya tidak berkaitan sama sekali). Contoh: kata kepala — (1) bagian tubuh paling"
-        },
-        {
-          "type": "paragraph",
-          "text": "atas, (2) pemimpin (kepala sekolah), (3) bagian paling atas/depan dari sesuatu (kepala"
-        },
-        {
-          "type": "paragraph",
-          "text": "surat, kepala berita), (4) per orang (10 ribu rupiah per kepala) — semua makna ini"
-        },
-        {
-          "type": "paragraph",
-          "text": "masih berkaitan secara metaforis dengan makna dasar \"bagian atas/utama\"."
-        },
-        {
-          "type": "heading",
-          "text": "B4. Hipernim, Hiponim, dan Meronim"
-        },
-        {
-          "type": "paragraph",
-          "text": "Istilah Definisi Contoh"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-07",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        4
-      ],
-      "blocks": [
-        {
-          "type": "table",
-          "headers": [
-            "Hipernim",
-            "kata yang maknanya lebih umum/luas, mencakupi kata-kata lain",
-            "bunga (mencakupi mawar, melati, anggrek)"
-          ],
-          "rows": [
-            [
-              "Hiponim",
-              "kata yang maknanya lebih khusus, tercakup dalam kata yang lebih umum",
-              "mawar, melati, anggrek (hiponim dari bunga)"
-            ],
-            [
-              "Kohiponim",
-              "kata-kata hiponim yang sederajat/setara di bawah hipernim yang sama",
-              "mawar dan melati adalah kohiponim (sederajat, sama-sama hiponim dari bunga)"
-            ],
-            [
-              "Meronim",
-              "kata yang menyatakan bagian dari keseluruhan (relasi bagian-utuh)",
-              "roda, mesin, kemudi adalah meronim dari mobil"
-            ],
-            [
-              "Holonim",
-              "kata yang menyatakan keseluruhan yang memiliki bagian-bagian (kebalikan meronim)",
-              "mobil adalah holonim dari roda, mesin, kemudi"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Jebakan umum: menyamakan hiponim dengan sinonim. Hiponim/hipernim adalah relasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "hierarkis (umum-khusus), sedangkan sinonim adalah relasi kesetaraan/kemiripan"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna pada tataran yang sama."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-08",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        4
-      ],
-      "blocks": [
-        {
-          "type": "heading",
-          "text": "C. Perubahan dan Pergeseran Makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "Makna kata dapat berubah seiring waktu, konteks sosial, atau pemakaian. UTBK sering"
-        },
-        {
-          "type": "paragraph",
-          "text": "menguji kemampuan mengenali jenis perubahan makna dalam sebuah kata atau"
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jenis Perubahan Definisi Contoh"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-09",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        5
-      ],
-      "blocks": [
-        {
-          "type": "table",
-          "headers": [
-            "Meluas (generalisasi)",
-            "makna kini mencakup ruang lingkup lebih luas dari makna asal",
-            "bapak dulu khusus untuk ayah kandung, kini dipakai untuk sapaan hormat pada semua pria dewasa"
-          ],
-          "rows": [
-            [
-              "Menyempit (spesialisasi)",
-              "makna kini mencakup ruang lingkup lebih sempit dari makna asal",
-              "sarjana dulu berarti \"orang pandai/cendekiawan\" secara umum, kini khusus lulusan S1"
-            ],
-            [
-              "Ameliorasi",
-              "makna baru dirasakan lebih baik/lebih halus daripada makna lama",
-              "istri dirasakan lebih halus daripada bini; tunanetra lebih halus daripada buta"
-            ],
-            [
-              "Peyorasi",
-              "makna baru dirasakan lebih buruk/kasar daripada makna lama",
-              "bini kini terasa lebih kasar dibanding istri; gerombolan terasa negatif dibanding kelompok"
-            ],
-            [
-              "Sinestesia",
-              "pertukaran tanggapan makna antar-indra yang berbeda",
-              "kata-katanya pedas (rasa → suaranya manis pendengaran); (rasa → pendengaran)"
-            ],
-            [
-              "Asosiasi",
-              "makna baru muncul karena persamaan sifat/hubungan dengan hal lain",
-              "amplop dapat bermakna \"uang suap/sogokan\" karena kaitannya dengan kebiasaan menyelipkan uang dalam amplop"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
+            ["**Oposisi mutlak (biner)**", "hanya ada dua kemungkinan, tidak ada tengah", "hidup ≠ mati; hamil ≠ tidak hamil"],
+            ["**Oposisi kutub (gradual)**", "ada tingkatan/skala di antara dua kutub", "panas ≠ dingin (ada \"hangat\", \"sejuk\")"],
+            ["**Oposisi relasional**", "berlawanan tapi saling melengkapi/berkorelasi", "jual ≠ beli; guru ≠ murid; suami ≠ istri"],
+            ["**Oposisi hierarkis**", "berlawanan dalam suatu urutan/tingkatan", "kopral ≠ sersan (tingkat kepangkatan)"],
+            ["**Oposisi majemuk**", "satu kata punya lebih dari satu lawan kata tergantung konteks", "lawan kata *tinggi* bisa *pendek* (orang) atau *rendah* (nilai/suhu)"]
           ]
         }
       ]
     },
     {
-      "id": "material-04-page-10",
+      "id": "pbm04-reviewed-03",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        5,
-        6
-      ],
+      "source_pages": [3],
       "blocks": [
-        {
-          "type": "heading",
-          "text": "D. Medan Makna dan Komponen Makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "Medan makna (semantic field) adalah sekelompok kata yang berkaitan makna karena"
-        },
-        {
-          "type": "paragraph",
-          "text": "berada dalam satu ranah konsep yang sama. Misalnya medan makna \"warna\""
-        },
-        {
-          "type": "paragraph",
-          "text": "mencakup merah, biru, hijau, kuning; medan makna \"alat masak\" mencakup wajan,"
-        },
-        {
-          "type": "paragraph",
-          "text": "panci, spatula, sendok sayur. Mengenali medan makna membantu menjawab soal"
-        },
-        {
-          "type": "paragraph",
-          "text": "sinonim/kata terkait dalam konteks bacaan, karena kata-kata dalam satu medan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "sering muncul berdampingan dan saling menjelaskan dalam sebuah paragraf."
-        },
-        {
-          "type": "paragraph",
-          "text": "Komponen makna (analisis fitur semantik) adalah unsur-unsur pembeda makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "terkecil dari sebuah kata. Misalnya kata pria, wanita, anak, dewasa dapat dianalisis"
-        },
-        {
-          "type": "paragraph",
-          "text": "dengan fitur [±insan] [±dewasa] [±pria]: pria = [+insan][+dewasa][+pria]; anak ="
-        },
-        {
-          "type": "paragraph",
-          "text": "[+insan][−dewasa][±pria]. Analisis ini membantu memahami mengapa dua kata"
-        },
-        {
-          "type": "paragraph",
-          "text": "bersinonim tidak sepenuhnya identik — biasanya berbeda pada satu komponen"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna saja."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-11",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6,
-        7
-      ],
-      "blocks": [
-        {
-          "type": "heading",
-          "text": "E. Makna dalam Konteks: Idiom, Peribahasa, dan Majas"
-        },
+        {"type": "heading", "text": "**B2. Homonim, Homofon, dan Homograf**"},
         {
           "type": "table",
-          "headers": [
-            "Bentuk Bahasa",
-            "Ciri Makna",
-            "Contoh"
-          ],
+          "headers": ["**Istilah**", "**Definisi**", "**Contoh**"],
+          "widths": [0.9, 1.45, 1.55],
           "rows": [
-            [
-              "Idiom (ungkapan)",
-              "gabungan kata dengan makna khusus/tetap, tidak bisa ditafsirkan dari makna leksikal unsurnya",
-              "banting tulang = bekerja keras (bukan makna harfiah \"membanting tulang\")"
-            ],
-            [
-              "Peribahasa",
-              "kalimat/kelompok kata ringkas berisi perbandingan, nasihat, atau prinsip hidup, bentuknya baku/tetap",
-              "\"Tong kosong nyaring bunyinya\" = orang yang banyak bicara biasanya kurang berilmu"
-            ],
-            [
-              "Majas metafora",
-              "perbandingan langsung tanpa kata pembanding",
-              "\"Dia adalah bintang kelas.\" (bintang = orang yang menonjol)"
-            ],
-            [
-              "Majas personifikasi",
-              "benda mati diberi sifat/tindakan manusia",
-              "\"Angin berbisik lembut.\""
-            ],
-            [
-              "Majas hiperbola",
-              "pernyataan berlebihan untuk menegaskan",
-              "\"Suaranya menggelegar memecah langit.\""
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
+            ["**Homonim**", "kata yang **sama ejaan dan sama lafal**, tetapi maknanya berbeda dan tidak berkaitan", "*bisa* (racun ular) vs *bisa* (dapat/mampu); *genting* (gawat) vs *genting* (atap rumah)"],
+            ["**Homofon**", "kata yang **sama lafal (pengucapan)** tetapi **beda ejaan dan makna**", "*bank* vs *bang*; *sangsi* (ragu) vs *sanksi* (hukuman)"],
+            ["**Homograf**", "kata yang **sama ejaan (tulisan)** tetapi **beda lafal dan makna**", "*apel* /apel/ (buah) vs *apel* /apəl/ (upacara); *teras* (bagian rumah) vs *teras* (inti kayu)"]
           ]
         },
-        {
-          "type": "paragraph",
-          "text": "Dalam soal PBM berbasis bacaan, makna idiom/peribahasa/majas hampir selalu diuji"
-        },
-        {
-          "type": "paragraph",
-          "text": "secara kontekstual — perhatikan kalimat sebelum dan sesudahnya untuk menentukan"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna yang dimaksud penulis, bukan makna leksikal kata per kata."
-        }
+        {"type": "paragraph", "text": "Trik membedakan: ucapkan kedua kata itu keras-keras. Kalau **bunyinya sama persis** dan **ejaannya juga sama**, itu **homonim**. Kalau **bunyinya sama** tapi **ejaan beda**, itu **homofon**. Kalau **ejaan sama** tapi **bunyi beda** (biasanya beda letak tekanan/lafal vokal), itu **homograf**."},
+        {"type": "heading", "text": "**B3. Polisemi**"},
+        {"type": "paragraph", "text": "**Polisemi** adalah satu kata yang memiliki **banyak makna yang saling berkaitan/berasal dari makna dasar yang sama** (berbeda dengan homonim, yang maknanya tidak berkaitan sama sekali). Contoh: kata **kepala** — (1) bagian tubuh paling atas, (2) pemimpin (*kepala sekolah*), (3) bagian paling atas/depan dari sesuatu (*kepala surat, kepala berita*), (4) per orang (*10 ribu rupiah per kepala*) — semua makna ini masih berkaitan secara metaforis dengan makna dasar \"bagian atas/utama\"."}
       ]
     },
     {
-      "id": "material-04-page-12",
+      "id": "pbm04-reviewed-04",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        7
-      ],
+      "source_pages": [3, 4],
       "blocks": [
-        {
-          "type": "heading",
-          "text": "F. Ringkasan Kilat: 15 Jebakan Semantik UTBK"
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-13",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        7
-      ],
-      "blocks": [
+        {"type": "heading", "text": "**B4. Hipernim, Hiponim, dan Meronim**"},
         {
           "type": "table",
-          "headers": [
-            "No",
-            "Jebakan"
-          ],
+          "headers": ["**Istilah**", "**Definisi**", "**Contoh**"],
+          "widths": [0.9, 1.45, 1.45],
           "rows": [
-            [
-              "1",
-              "Menyamakan sinonim dengan makna identik 100%, padahal sinonim biasanya berbeda nilai rasa/kolokasi."
-            ],
-            [
-              "2",
-              "Tertukar antara homonim (sama ejaan & lafal), homofon (sama lafal, beda ejaan), dan homograf (sama ejaan, beda lafal)."
-            ],
-            [
-              "3",
-              "Menganggap polisemi sebagai homonim, padahal polisemi maknanya saling berkaitan secara historis/metaforis."
-            ],
-            [
-              "4",
-              "Menyamakan hiponim dengan sinonim, padahal hiponim adalah relasi hierarkis (umum-khusus), bukan kesetaraan."
-            ],
-            [
-              "5",
-              "Salah arah pada hipernim vs hiponim: menyebut kata yang lebih khusus sebagai hipernim, atau sebaliknya."
-            ],
-            [
-              "6",
-              "Tidak bisa membedakan meronim (bagian) dari hiponim (jenis) — \"roda\" adalah bagian dari mobil, bukan jenis mobil."
-            ],
-            [
-              "7",
-              "Salah arah pada makna meluas vs menyempit — tertukar mana yang cakupannya membesar dan mana yang mengecil dari waktu ke waktu."
-            ]
-          ],
-          "widths": [
-            1,
-            1
+            ["**Hipernim**", "kata yang maknanya **lebih umum/luas**, mencakupi kata-kata lain", "*bunga* (mencakupi mawar, melati, anggrek)"],
+            ["**Hiponim**", "kata yang maknanya **lebih khusus**, tercakup dalam kata yang lebih umum", "*mawar, melati, anggrek* (hiponim dari *bunga*)"],
+            ["**Kohiponim**", "kata-kata hiponim yang sederajat/setara di bawah hipernim yang sama", "*mawar* dan *melati* adalah kohiponim (sederajat, sama-sama hiponim dari *bunga*)"],
+            ["**Meronim**", "kata yang menyatakan **bagian dari** keseluruhan (relasi bagian-utuh)", "*roda, mesin, kemudi* adalah meronim dari *mobil*"],
+            ["**Holonim**", "kata yang menyatakan **keseluruhan** yang memiliki bagian-bagian (kebalikan meronim)", "*mobil* adalah holonim dari *roda, mesin, kemudi*"]
+          ]
+        },
+        {"type": "paragraph", "text": "Jebakan umum: menyamakan hiponim dengan sinonim. Hiponim/hipernim adalah relasi **hierarkis** (umum-khusus), sedangkan sinonim adalah relasi **kesetaraan/kemiripan makna** pada tataran yang sama."}
+      ]
+    },
+    {
+      "id": "pbm04-reviewed-05",
+      "title": "",
+      "continuation": true,
+      "source_pages": [4, 5],
+      "blocks": [
+        {"type": "heading", "text": "**C. Perubahan dan Pergeseran Makna**"},
+        {"type": "paragraph", "text": "Makna kata dapat berubah seiring waktu, konteks sosial, atau pemakaian. UTBK sering menguji kemampuan mengenali **jenis perubahan makna** dalam sebuah kata atau kalimat."},
+        {
+          "type": "table",
+          "headers": ["**Jenis Perubahan**", "**Definisi**", "**Contoh**"],
+          "widths": [1, 1.35, 1.5],
+          "rows": [
+            ["**Meluas (generalisasi)**", "makna kini mencakup ruang lingkup lebih luas dari makna asal", "*bapak* dulu khusus untuk ayah kandung, kini dipakai untuk sapaan hormat pada semua pria dewasa"],
+            ["**Menyempit (spesialisasi)**", "makna kini mencakup ruang lingkup lebih sempit dari makna asal", "*sarjana* dulu berarti \"orang pandai/cendekiawan\" secara umum, kini khusus lulusan S1"],
+            ["**Ameliorasi**", "makna baru dirasakan **lebih baik/lebih halus** daripada makna lama", "*istri* dirasakan lebih halus daripada *bini*; *tunanetra* lebih halus daripada *buta*"],
+            ["**Peyorasi**", "makna baru dirasakan **lebih buruk/kasar** daripada makna lama", "*bini* kini terasa lebih kasar dibanding *istri*; *gerombolan* terasa negatif dibanding *kelompok*"],
+            ["**Sinestesia**", "pertukaran tanggapan makna antar-indra yang berbeda", "*kata-katanya pedas* (rasa → pendengaran); *suaranya manis* (rasa → pendengaran)"],
+            ["**Asosiasi**", "makna baru muncul karena persamaan sifat/hubungan dengan hal lain", "*amplop* dapat bermakna \"uang suap/sogokan\" karena kaitannya dengan kebiasaan menyelipkan uang dalam amplop"]
           ]
         }
       ]
     },
     {
-      "id": "material-04-page-14",
+      "id": "pbm04-reviewed-06",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        7
-      ],
+      "source_pages": [5, 6, 7],
       "blocks": [
+        {"type": "heading", "text": "**D. Medan Makna dan Komponen Makna**"},
+        {"type": "paragraph", "text": "**Medan makna (semantic field)** adalah sekelompok kata yang berkaitan makna karena berada dalam satu ranah konsep yang sama. Misalnya medan makna \"warna\" mencakup *merah, biru, hijau, kuning*; medan makna \"alat masak\" mencakup *wajan, panci, spatula, sendok sayur*. Mengenali medan makna membantu menjawab soal sinonim/kata terkait dalam konteks bacaan, karena kata-kata dalam satu medan makna sering muncul berdampingan dan saling menjelaskan dalam sebuah paragraf."},
+        {"type": "paragraph", "text": "**Komponen makna (analisis fitur semantik)** adalah unsur-unsur pembeda makna terkecil dari sebuah kata. Misalnya kata *pria, wanita, anak, dewasa* dapat dianalisis dengan fitur [±insan] [±dewasa] [±pria]: *pria* = [+insan][+dewasa][+pria]; *anak* = [+insan][−dewasa][±pria]. Analisis ini membantu memahami **mengapa dua kata bersinonim tidak sepenuhnya identik** — biasanya berbeda pada satu komponen makna saja."},
+        {"type": "heading", "text": "**E. Makna dalam Konteks: Idiom, Peribahasa, dan Majas**"},
         {
           "type": "table",
-          "headers": [
-            "",
-            ""
-          ],
+          "headers": ["**Bentuk Bahasa**", "**Ciri Makna**", "**Contoh**"],
+          "widths": [1, 1.5, 1.45],
           "rows": [
-            [
-              "8",
-              "Menganggap ameliorasi dan peyorasi sebagai sinonim dari makna meluas/menyempit, padahal ameliorasi/peyorasi soal nilai rasa (halus/kasar), bukan cakupan makna."
-            ],
-            [
-              "9",
-              "Menafsirkan idiom/peribahasa secara harfiah kata per kata, bukan makna kias yang disepakati."
-            ],
-            [
-              "10",
-              "Tidak memperhatikan konteks kalimat saat menentukan makna kata polisemis/homonim dalam bacaan."
-            ]
-          ],
-          "widths": [
-            1,
-            1
+            ["**Idiom (ungkapan)**", "gabungan kata dengan makna **khusus/tetap**, tidak bisa ditafsirkan dari makna leksikal unsurnya", "*banting tulang* = bekerja keras (bukan makna harfiah \"membanting tulang\")"],
+            ["**Peribahasa**", "kalimat/kelompok kata ringkas berisi **perbandingan, nasihat, atau prinsip hidup**, bentuknya baku/tetap", "*\"Tong kosong nyaring bunyinya\"* = orang yang banyak bicara biasanya kurang berilmu"],
+            ["**Majas metafora**", "perbandingan langsung tanpa kata pembanding", "*\"Dia adalah bintang kelas.\"* (bintang = orang yang menonjol)"],
+            ["**Majas personifikasi**", "benda mati diberi sifat/tindakan manusia", "*\"Angin berbisik lembut.\"*"],
+            ["**Majas hiperbola**", "pernyataan berlebihan untuk menegaskan", "*\"Suaranya menggelegar memecah langit.\"*"]
+          ]
+        },
+        {"type": "paragraph", "text": "Dalam soal PBM berbasis bacaan, makna idiom/peribahasa/majas hampir selalu diuji secara **kontekstual** — perhatikan kalimat sebelum dan sesudahnya untuk menentukan makna yang dimaksud penulis, bukan makna leksikal kata per kata."}
+      ]
+    },
+    {
+      "id": "pbm04-reviewed-07",
+      "title": "",
+      "continuation": true,
+      "source_pages": [7],
+      "blocks": [
+        {"type": "heading", "text": "**F. Ringkasan Kilat: 15 Jebakan Semantik UTBK**"},
+        {
+          "type": "table",
+          "headers": ["**No**", "**Jebakan**"],
+          "widths": [0.25, 3.2],
+          "rows": [
+            ["1", "Menyamakan sinonim dengan makna identik 100%, padahal sinonim biasanya berbeda nilai rasa/kolokasi."],
+            ["2", "Tertukar antara homonim (sama ejaan & lafal), homofon (sama lafal, beda ejaan), dan homograf (sama ejaan, beda lafal)."],
+            ["3", "Menganggap polisemi sebagai homonim, padahal polisemi maknanya saling berkaitan secara historis/metaforis."],
+            ["4", "Menyamakan hiponim dengan sinonim, padahal hiponim adalah relasi hierarkis (umum-khusus), bukan kesetaraan."],
+            ["5", "Salah arah pada hipernim vs hiponim: menyebut kata yang lebih khusus sebagai hipernim, atau sebaliknya."],
+            ["6", "Tidak bisa membedakan meronim (bagian) dari hiponim (jenis) — \"roda\" adalah bagian dari mobil, bukan jenis mobil."],
+            ["7", "Salah arah pada makna meluas vs menyempit — tertukar mana yang cakupannya membesar dan mana yang mengecil dari waktu ke waktu."],
+            ["8", "Menganggap ameliorasi dan peyorasi sebagai sinonim dari makna meluas/menyempit, padahal ameliorasi/peyorasi soal nilai rasa (halus/kasar), bukan cakupan makna."],
+            ["9", "Menafsirkan idiom/peribahasa secara harfiah kata per kata, bukan makna kias yang disepakati."],
+            ["10", "Tidak memperhatikan konteks kalimat saat menentukan makna kata polisemis/homonim dalam bacaan."]
           ]
         }
       ]
     },
     {
-      "id": "material-04-page-15",
+      "id": "pbm04-reviewed-08",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        8
-      ],
+      "source_pages": [8],
       "blocks": [
         {
           "type": "table",
-          "headers": [
-            "11",
-            "Menyamakan makna denotatif dengan makna leksikal, padahal keduanya berbeda sudut pandang (leksikal vs konteks kalimat sebenarnya)."
-          ],
+          "headers": ["**No**", "**Jebakan**"],
+          "widths": [0.25, 3.2],
+          "synthetic_header": true,
           "rows": [
-            [
-              "12",
-              "Salah mengenali majas dalam kalimat, misalnya menyebut personifikasi sebagai metafora atau sebaliknya."
-            ],
-            [
-              "13",
-              "Mengabaikan sinestesia sebagai jenis perubahan makna tersendiri, menganggapnya hanya sekadar majas biasa."
-            ],
-            [
-              "14",
-              "Tidak menyadari bahwa satu kata bisa memiliki lebih dari satu lawan kata tergantung konteks (oposisi majemuk)."
-            ],
-            [
-              "15",
-              "Salah menentukan medan makna suatu kelompok kata karena hanya melihat kemiripan bentuk, bukan kesamaan ranah konsep."
-            ]
-          ],
-          "widths": [
-            1,
-            1
+            ["11", "Menyamakan makna denotatif dengan makna leksikal, padahal keduanya berbeda sudut pandang (leksikal vs konteks kalimat sebenarnya)."],
+            ["12", "Salah mengenali majas dalam kalimat, misalnya menyebut personifikasi sebagai metafora atau sebaliknya."],
+            ["13", "Mengabaikan sinestesia sebagai jenis perubahan makna tersendiri, menganggapnya hanya sekadar majas biasa."],
+            ["14", "Tidak menyadari bahwa satu kata bisa memiliki lebih dari satu lawan kata tergantung konteks (oposisi majemuk)."],
+            ["15", "Salah menentukan medan makna suatu kelompok kata karena hanya melihat kemiripan bentuk, bukan kesamaan ranah konsep."]
           ]
         },
+        {"type": "heading", "text": "**G. Strategi Mengerjakan Soal Semantik UTBK**"},
         {
-          "type": "heading",
-          "text": "G. Strategi Mengerjakan Soal Semantik UTBK"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Baca konteks kalimat/paragraf secara utuh sebelum menentukan makna kata"
-        },
-        {
-          "type": "paragraph",
-          "text": "— jangan menjawab hanya berdasarkan makna kamus di luar konteks."
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Uji relasi makna dengan pertanyaan pembeda: \"Apakah maknanya berkaitan"
+          "type": "steps",
+          "item_labels": ["1.", "2.", "3.", "4.", "5.", "6."],
+          "items": [
+            "**Baca konteks kalimat/paragraf secara utuh** sebelum menentukan makna kata — jangan menjawab hanya berdasarkan makna kamus di luar konteks.",
+            "**Uji relasi makna dengan pertanyaan pembeda:** \"Apakah maknanya berkaitan (polisemi) atau sama sekali tidak berkaitan (homonim)?\"",
+            "**Untuk soal hipernim-hiponim,** tanyakan: \"Mana yang mencakupi, mana yang tercakup?\" — kata yang lebih umum adalah hipernim.",
+            "**Untuk soal perubahan makna,** bandingkan cakupan makna lama vs makna sekarang: melebar (meluas) atau menyempit; lalu nilai rasanya: membaik (ameliorasi) atau memburuk (peyorasi).",
+            "**Untuk idiom/peribahasa,** cari makna kias yang paling logis dengan konteks kalimat, bukan makna harfiah tiap katanya.",
+            "**Eliminasi opsi yang benar secara leksikal tapi salah konteks** — banyak jebakan UTBK berupa makna kata yang benar di kamus tetapi tidak sesuai dengan konteks kalimat yang diberikan."
+          ]
         }
       ]
     },
     {
-      "id": "material-04-page-16",
+      "id": "pbm04-reviewed-09",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        8,
-        9
-      ],
+      "source_pages": [8, 9],
       "blocks": [
+        {"type": "heading", "text": "**H. Latihan Soal UTBK**"},
         {
-          "type": "paragraph",
-          "text": "(polisemi) atau sama sekali tidak berkaitan (homonim)?\""
+          "type": "question",
+          "id": "1",
+          "question_label": "**1.**",
+          "prompt": "Kata \"bisa\" dalam kalimat \"Ular itu berbisa\" dan \"Dia bisa berenang\" menunjukkan relasi makna ... (**kategori soal MUDAH**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "b.", "**c.**", "d.", "e."],
+          "options": ["sinonim", "antonim", "**homonim**", "hipernim", "polisemi"]
         },
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kedua kata \"bisa\" memiliki **ejaan dan lafal yang sama persis**, tetapi maknanya sama sekali **tidak berkaitan**: \"berbisa\" bermakna \"mengandung racun\", sedangkan \"bisa\" pada kalimat kedua bermakna \"mampu/dapat\". Tidak ada kaitan historis/metaforis antar-makna, sehingga ini disebut **homonim**, bukan polisemi."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **C**."},
         {
-          "type": "paragraph",
-          "text": "3. Untuk soal hipernim-hiponim, tanyakan: \"Mana yang mencakupi, mana yang"
+          "type": "question",
+          "id": "2",
+          "question_label": "**2.**",
+          "prompt": "Kata \"kepala\" pada frasa \"kepala sekolah\", \"kepala surat\", dan \"kepala manusia\" menunjukkan relasi makna ... (**kategori soal SEDANG**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "b.", "c.", "**d.**", "e."],
+          "options": ["homonim", "homofon", "antonim", "**polisemi**", "hipernim"]
         },
-        {
-          "type": "paragraph",
-          "text": "tercakup?\" — kata yang lebih umum adalah hipernim."
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Untuk soal perubahan makna, bandingkan cakupan makna lama vs makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "sekarang: melebar (meluas) atau menyempit; lalu nilai rasanya: membaik"
-        },
-        {
-          "type": "paragraph",
-          "text": "(ameliorasi) atau memburuk (peyorasi)."
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Untuk idiom/peribahasa, cari makna kias yang paling logis dengan konteks"
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat, bukan makna harfiah tiap katanya."
-        },
-        {
-          "type": "paragraph",
-          "text": "6. Eliminasi opsi yang benar secara leksikal tapi salah konteks — banyak"
-        },
-        {
-          "type": "paragraph",
-          "text": "jebakan UTBK berupa makna kata yang benar di kamus tetapi tidak sesuai"
-        },
-        {
-          "type": "paragraph",
-          "text": "dengan konteks kalimat yang diberikan."
-        },
-        {
-          "type": "heading",
-          "text": "H. Latihan Soal UTBK"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Kata \"bisa\" dalam kalimat \"Ular itu berbisa\" dan \"Dia bisa berenang\" menunjukkan"
-        },
-        {
-          "type": "paragraph",
-          "text": "relasi makna ... (kategori soal MUDAH)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. sinonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. antonim"
-        }
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Ketiga makna \"kepala\" (pemimpin, bagian atas dokumen, bagian tubuh) semuanya **berkaitan secara metaforis** dengan makna dasar \"bagian paling atas/utama\" — ciri khas **polisemi**, berbeda dengan homonim yang maknanya sama sekali tidak berkaitan."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **D**."}
       ]
     },
     {
-      "id": "material-04-page-17",
+      "id": "pbm04-reviewed-10",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        9
-      ],
+      "source_pages": [9, 10],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "c. homonim"
+          "type": "question",
+          "id": "3",
+          "question_label": "**3.**",
+          "prompt": "Pasangan kata \"bank\" dan \"bang\" merupakan contoh relasi makna ... (**kategori soal SEDANG**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "**b.**", "c.", "d.", "e."],
+          "options": ["homonim", "**homofon**", "homograf", "polisemi", "sinonim"]
         },
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kedua kata memiliki **lafal/pengucapan yang sama** (\"bang\"), tetapi **ejaan dan maknanya berbeda** — \"bank\" (lembaga keuangan) dan \"bang\" (sapaan kakak laki-laki). Ini adalah ciri khas **homofon**."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **B**."},
         {
-          "type": "paragraph",
-          "text": "d. hipernim"
+          "type": "question",
+          "id": "4",
+          "question_label": "**4.**",
+          "prompt": "Kata \"mawar\" merupakan hiponim dari kata \"bunga\". Hubungan makna semacam ini disebut ... (**kategori soal SEDANG**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "b.", "c.", "**d.**", "e."],
+          "options": ["sinonim", "antonim", "meronim", "**hiponimi**", "homonim"]
         },
-        {
-          "type": "paragraph",
-          "text": "e. polisemi"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kedua kata \"bisa\" memiliki ejaan dan lafal yang sama persis, tetapi maknanya"
-        },
-        {
-          "type": "paragraph",
-          "text": "sama sekali tidak berkaitan: \"berbisa\" bermakna \"mengandung racun\", sedangkan"
-        },
-        {
-          "type": "paragraph",
-          "text": "\"bisa\" pada kalimat kedua bermakna \"mampu/dapat\". Tidak ada kaitan"
-        },
-        {
-          "type": "paragraph",
-          "text": "historis/metaforis antar-makna, sehingga ini disebut homonim, bukan polisemi."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah C."
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Kata \"kepala\" pada frasa \"kepala sekolah\", \"kepala surat\", dan \"kepala manusia\""
-        },
-        {
-          "type": "paragraph",
-          "text": "menunjukkan relasi makna ... (kategori soal SEDANG)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. homonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. homofon"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. antonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. polisemi"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. hipernim"
-        }
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "\"Mawar\" adalah kata yang maknanya **lebih khusus** dan tercakup dalam kata \"bunga\" yang lebih umum (hipernim). Relasi umum-khusus seperti ini disebut **hiponimi**."},
+        {"type": "paragraph", "text": "Perhatikan bahwa ini berbeda dari **meronim**, yang menyatakan relasi bagian-utuh (misalnya \"kelopak\" adalah meronim dari \"bunga\", karena kelopak adalah *bagian dari* bunga, bukan *jenis* bunga)."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **D**."}
       ]
     },
     {
-      "id": "material-04-page-18",
+      "id": "pbm04-reviewed-11",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        9,
-        10
-      ],
+      "source_pages": [11, 12],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "Pembahasan:"
+          "type": "question",
+          "id": "5",
+          "question_label": "**5.**",
+          "prompt": "Kata \"sarjana\" pada zaman dahulu bermakna \"orang pandai/cendekiawan\" secara umum, kini khusus merujuk pada \"lulusan pendidikan strata satu (S1)\". Perubahan makna ini disebut ... (**kategori soal SEDANG**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "b.", "c.", "**d.**", "e."],
+          "options": ["ameliorasi", "peyorasi", "perluasan makna", "**penyempitan makna**", "sinestesia"]
         },
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Cakupan makna kata \"sarjana\" menjadi **lebih sempit/khusus** dibandingkan makna asalnya yang lebih luas — ini adalah ciri **penyempitan makna (spesialisasi)**. Bandingkan dengan perluasan makna seperti kata \"bapak\" yang cakupannya justru melebar."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **D**."},
         {
-          "type": "paragraph",
-          "text": "Ketiga makna \"kepala\" (pemimpin, bagian atas dokumen, bagian tubuh) semuanya"
+          "type": "question",
+          "id": "6",
+          "question_label": "**6.**",
+          "prompt": "Kata \"bini\" dirasakan lebih kasar dibandingkan kata \"istri\" yang bermakna sama. Fenomena ini merupakan contoh ... (**kategori soal SULIT**)",
+          "labels": "abcde",
+          "option_labels": ["a.", "**b.**", "c.", "d.", "e."],
+          "options": ["ameliorasi", "**peyorasi**", "perluasan makna", "penyempitan makna", "asosiasi"]
         },
-        {
-          "type": "paragraph",
-          "text": "berkaitan secara metaforis dengan makna dasar \"bagian paling atas/utama\" — ciri"
-        },
-        {
-          "type": "paragraph",
-          "text": "khas polisemi, berbeda dengan homonim yang maknanya sama sekali tidak"
-        },
-        {
-          "type": "paragraph",
-          "text": "berkaitan."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah D."
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Pasangan kata \"bank\" dan \"bang\" merupakan contoh relasi makna ... (kategori soal"
-        },
-        {
-          "type": "heading",
-          "text": "SEDANG)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. homonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. homofon"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. homograf"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. polisemi"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. sinonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kedua kata memiliki lafal/pengucapan yang sama (\"bang\"), tetapi ejaan dan"
-        },
-        {
-          "type": "paragraph",
-          "text": "maknanya berbeda — \"bank\" (lembaga keuangan) dan \"bang\" (sapaan kakak"
-        }
+        {"type": "heading", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Perubahan yang terjadi bukan pada **cakupan** makna, melainkan pada **nilai rasa** — kata \"bini\" kini dirasakan **lebih rendah/kasar** dibandingkan \"istri\" yang bermakna sama persis secara leksikal. Penurunan nilai rasa makna seperti ini disebut **peyorasi**. Kebalikannya adalah **ameliorasi**, misalnya kata \"tunanetra\" yang dirasakan lebih halus daripada \"buta\"."},
+        {"type": "paragraph", "text": "Jawaban yang tepat adalah **B**."}
       ]
     },
     {
-      "id": "material-04-page-19",
+      "id": "pbm04-reviewed-12",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        10
-      ],
+      "source_pages": [12],
       "blocks": [
+        {"type": "title", "text": "🦆 **VECO TIPS — Cara Cepat & Trik Khusus**"},
         {
-          "type": "paragraph",
-          "text": "laki-laki). Ini adalah ciri khas homofon."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah B."
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Kata \"mawar\" merupakan hiponim dari kata \"bunga\". Hubungan makna semacam ini"
-        },
-        {
-          "type": "paragraph",
-          "text": "disebut ... (kategori soal SEDANG)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. sinonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. antonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. meronim"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. hiponimi"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. homonim"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "\"Mawar\" adalah kata yang maknanya lebih khusus dan tercakup dalam kata"
-        },
-        {
-          "type": "paragraph",
-          "text": "\"bunga\" yang lebih umum (hipernim). Relasi umum-khusus seperti ini disebut"
-        },
-        {
-          "type": "paragraph",
-          "text": "hiponimi."
-        },
-        {
-          "type": "paragraph",
-          "text": "Perhatikan bahwa ini berbeda dari meronim, yang menyatakan relasi bagian-utuh"
-        },
-        {
-          "type": "paragraph",
-          "text": "(misalnya \"kelopak\" adalah meronim dari \"bunga\", karena kelopak adalah bagian"
-        },
-        {
-          "type": "paragraph",
-          "text": "dari bunga, bukan jenis bunga)."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-20",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        10,
-        11
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah D."
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Kata \"sarjana\" pada zaman dahulu bermakna \"orang pandai/cendekiawan\" secara"
-        },
-        {
-          "type": "paragraph",
-          "text": "umum, kini khusus merujuk pada \"lulusan pendidikan strata satu (S1)\". Perubahan"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna ini disebut ... (kategori soal SEDANG)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. ameliorasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. peyorasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. perluasan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. penyempitan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. sinestesia"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Cakupan makna kata \"sarjana\" menjadi lebih sempit/khusus dibandingkan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "asalnya yang lebih luas — ini adalah ciri penyempitan makna (spesialisasi)."
-        },
-        {
-          "type": "paragraph",
-          "text": "Bandingkan dengan perluasan makna seperti kata \"bapak\" yang cakupannya justru"
-        },
-        {
-          "type": "paragraph",
-          "text": "melebar."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah D."
-        },
-        {
-          "type": "paragraph",
-          "text": "6. Kata \"bini\" dirasakan lebih kasar dibandingkan kata \"istri\" yang bermakna sama."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-21",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        11,
-        12
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Fenomena ini merupakan contoh ... (kategori soal SULIT)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. ameliorasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. peyorasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. perluasan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. penyempitan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. asosiasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Perubahan yang terjadi bukan pada cakupan makna, melainkan pada nilai rasa —"
-        },
-        {
-          "type": "paragraph",
-          "text": "kata \"bini\" kini dirasakan lebih rendah/kasar dibandingkan \"istri\" yang bermakna"
-        },
-        {
-          "type": "paragraph",
-          "text": "sama persis secara leksikal. Penurunan nilai rasa makna seperti ini disebut"
-        },
-        {
-          "type": "paragraph",
-          "text": "peyorasi."
-        },
-        {
-          "type": "paragraph",
-          "text": "Kebalikannya adalah ameliorasi, misalnya kata \"tunanetra\" yang dirasakan lebih"
-        },
-        {
-          "type": "paragraph",
-          "text": "halus daripada \"buta\"."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jawaban yang tepat adalah B."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-22",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        12
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
+          "type": "tip",
+          "title": "💡 **Veco Tips 1: Tes \"Kaitan Makna\"**",
+          "text": "*Bingung membedakan polisemi dari homonim? Tanyakan: \"Apakah makna-makna ini masih bisa dijelaskan berasal dari satu makna dasar yang sama (metaforis)?\" Jika ya, itu **polisemi**. Jika **sama sekali tidak berkaitan** (kebetulan ejaan/lafal sama), itu **homonim**.*"
         },
         {
           "type": "tip",
-          "title": "💡 Veco Tips 1: Tes \"Kaitan Makna\"",
-          "text": "Bingung membedakan polisemi dari homonim? Tanyakan: \"Apakah makna-makna ini\nmasih bisa dijelaskan berasal dari satu makna dasar yang sama (metaforis)?\" Jika ya,\nitu polisemi. Jika sama sekali tidak berkaitan (kebetulan ejaan/lafal sama), itu\nhomonim."
+          "title": "💡 **Veco Tips 2: Segitiga Hiponim-Hipernim-Meronim**",
+          "text": "*Gambar segitiga kecil di kertas buram: puncak = **hipernim** (kata umum), dasar = **hiponim** (kata khusus, jenis-jenisnya). Kalau pertanyaannya soal \"bagian dari\" (bukan \"jenis dari\"), itu bukan segitiga hiponim, melainkan relasi **meronim-holonim**.*"
         }
       ]
     },
     {
-      "id": "material-04-page-23",
+      "id": "pbm04-reviewed-13",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        12
-      ],
+      "source_pages": [12, 13],
       "blocks": [
         {
           "type": "tip",
-          "title": "💡 Veco Tips 2: Segitiga Hiponim-Hipernim-Meronim",
-          "text": "Gambar segitiga kecil di kertas buram: puncak = hipernim (kata umum), dasar =\nhiponim (kata khusus, jenis-jenisnya). Kalau pertanyaannya soal \"bagian dari\" (bukan\n\"jenis dari\"), itu bukan segitiga hiponim, melainkan relasi meronim-holonim."
-        }
-      ]
-    },
-    {
-      "id": "material-04-page-24",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        12
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
+          "title": "⚠️ **Kesalahan Umum yang Sering Terjadi**",
+          "tone": "warning",
           "marker": "●",
           "items": [
             "Menyamakan sinonim dengan makna yang benar-benar identik, padahal sinonim biasanya berbeda nilai rasa atau konteks pemakaian.",
@@ -1244,8 +342,7 @@
             "Salah arah menentukan perluasan vs penyempitan makna karena tidak membandingkan cakupan makna lama dan makna sekarang secara eksplisit.",
             "Mencampuradukkan perubahan makna dari segi cakupan (meluas/menyempit) dengan perubahan dari segi nilai rasa (ameliorasi/peyorasi).",
             "Mengabaikan makna konotatif/asosiatif dalam bacaan yang bersifat naratif atau opini, padahal penulis sering memakai kata dengan makna kias."
-          ],
-          "tone": "warning"
+          ]
         }
       ]
     }

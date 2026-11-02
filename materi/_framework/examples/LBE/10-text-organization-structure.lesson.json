@@ -6,7 +6,7 @@
   "verbatim": true,
   "pages": [
     {
-      "id": "source-page-52",
+      "id": "lbe-10-reviewed-01",
       "title": "MATERI 10 — Text Organization & Structure",
       "continuation": false,
       "source_pages": [
@@ -15,37 +15,45 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
-          "small": true
+          "text": "*Subtes:* *LBE* *·* *Literasi* *Bahasa* *Inggris*"
         },
         {
           "type": "heading",
-          "text": "A. PENGERTIAN & DEFINISI"
+          "text": "**A.** **PENGERTIAN** **&** **DEFINISI**"
         },
         {
           "type": "paragraph",
-          "text": "Dalam subtes Literasi Bahasa Inggris SNBT, soal Text Organization & Structure\n(Struktur dan Organisasi Teks) tidak menguji pemahamanmu tentang apa isi teks\ntersebut, melainkan menguji pemahamanmu tentang bagaimana teks tersebut\ndibangun. Pembuat soal ingin tahu apakah kamu bisa melihat \"kerangka tulang\" dari\nsebuah bacaan. Apakah penulis menyusun paragraf-paragrafnya berdasarkan urutan\nwaktu? Atau apakah penulis memaparkan masalah di paragraf pertama, lalu\nmemberikan solusinya di paragraf kedua? Dengan memahami struktur teks, kamu bisa\nmemprediksi arah alur pikiran penulis, sehingga membaca teks yang panjang dan rumit\nakan terasa jauh lebih ringan dan terarah.",
-          "small": true
+          "text": "Dalam subtes Literasi Bahasa Inggris SNBT, soal **Text** **Organization** **&** **Structure** (Struktur dan Organisasi Teks) tidak menguji pemahamanmu tentang *apa* isi teks tersebut, melainkan menguji pemahamanmu tentang *bagaimana* teks tersebut dibangun. Pembuat soal ingin tahu apakah kamu bisa melihat \"kerangka tulang\" dari sebuah bacaan. Apakah penulis menyusun paragraf-paragrafnya berdasarkan urutan waktu? Atau apakah penulis memaparkan masalah di paragraf pertama, lalu memberikan solusinya di paragraf kedua? Dengan memahami struktur teks, kamu bisa memprediksi arah alur pikiran penulis, sehingga membaca teks yang panjang dan rumit akan terasa jauh lebih ringan dan terarah."
+        },
+        {
+          "type": "heading",
+          "text": "**SUBMATERI:** **Jenis-Jenis** **Text** **Organization** **&** **Structure** **di** **SNBT**"
         },
         {
           "type": "paragraph",
-          "text": "SUBMATERI: Jenis-Jenis Text Organization & Structure di SNBT",
-          "small": true
+          "text": "Agar tidak bingung saat menganalisis teks, kamu wajib hafal 5 pola kerangka dasar yang paling sering digunakan penulis dalam teks UTBK/SNBT:"
         },
         {
-          "type": "paragraph",
-          "text": "Agar tidak bingung saat menganalisis teks, kamu wajib hafal 5 pola kerangka dasar\nyang paling sering digunakan penulis dalam teks UTBK/SNBT:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Chronological / Sequential Order (Urutan Waktu/Proses): Penulis menyusun\ninformasi berdasarkan urutan terjadinya peristiwa (sejarah) atau urutan\nlangkah-langkah (prosedur). Sinyal: in 1990, then, next, finally, over the decades.\n2. Cause and Effect (Sebab dan Akibat): Penulis menjelaskan suatu fenomena\n(akibat) lalu membedah faktor-faktor pemicunya (sebab), atau sebaliknya. Sinyal:\nbecause, as a result, consequently, leads to, stems from.\n3. Compare and Contrast (Perbandingan): Penulis meletakkan dua hal secara\nberdampingan untuk menunjukkan persamaannya (compare) atau perbedaannya\n(contrast). Sinyal: similarly, unlike, on the other hand, in contrast, whereas.\n4. Problem and Solution (Masalah dan Solusi): Penulis memaparkan sebuah isu\nyang mengkhawatirkan di awal teks, kemudian menawarkan satu atau beberapa\njalan keluar di paragraf selanjutnya. Sinyal: the issue, challenge, to resolve this,\nalternative, the cure.\n5. General to Specific / Classification (Umum ke Khusus): Penulis melempar\nide pokok yang sangat luas di awal, lalu memecahnya menjadi contoh-contoh\nspesifik, kategori, atau sub-topik di kalimat/paragraf berikutnya. Sinyal: for\nexample, there are three types, specifically, namely",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3.",
+            "4.",
+            "5."
+          ],
+          "items": [
+            "**Chronological** **/** **Sequential** **Order** **(Urutan** **Waktu/Proses):** Penulis menyusun informasi berdasarkan urutan terjadinya peristiwa (sejarah) atau urutan langkah-langkah (prosedur). *Sinyal:* *in* *1990,* *then,* *next,* *finally,* *over* *the* *decades.*",
+            "**Cause** **and** **Effect** **(Sebab** **dan** **Akibat):** Penulis menjelaskan suatu fenomena (akibat) lalu membedah faktor-faktor pemicunya (sebab), atau sebaliknya. *Sinyal:* *because,* *as* *a* *result,* *consequently,* *leads* *to,* *stems* *from.*",
+            "**Compare** **and** **Contrast** **(Perbandingan):** Penulis meletakkan dua hal secara berdampingan untuk menunjukkan persamaannya (*compare*) atau perbedaannya (*contrast*). *Sinyal:* *similarly,* *unlike,* *on* *the* *other* *hand,* *in* *contrast,* *whereas.*",
+            "**Problem** **and** **Solution** **(Masalah** **dan** **Solusi):** Penulis memaparkan sebuah isu yang mengkhawatirkan di awal teks, kemudian menawarkan satu atau beberapa jalan keluar di paragraf selanjutnya. *Sinyal:* *the* *issue,* *challenge,* *to* *resolve* *this,* *alternative,* *the* *cure.*",
+            "**General** **to** **Specific** **/** **Classification** **(Umum** **ke** **Khusus):** Penulis melempar ide pokok yang sangat luas di awal, lalu memecahnya menjadi contoh-contoh spesifik, kategori, atau sub-topik di kalimat/paragraf berikutnya. *Sinyal:* *for* *example,* *there* *are* *three* *types,* *specifically,* *namely*"
+          ]
         }
       ]
     },
     {
-      "id": "source-page-53",
+      "id": "lbe-10-reviewed-02",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -54,136 +62,127 @@
       "blocks": [
         {
           "type": "heading",
-          "text": "B. CIRI-CIRI & KARAKTERISTIK"
+          "text": "**B.** **CIRI-CIRI** **&** **KARAKTERISTIK**"
         },
         {
           "type": "paragraph",
-          "text": "Soal yang menguji struktur teks memiliki gaya pertanyaan yang sangat khas dan unik.\nBerikut adalah karakteristik utamanya:",
-          "small": true
+          "text": "Soal yang menguji struktur teks memiliki gaya pertanyaan yang sangat khas dan unik. Berikut adalah karakteristik utamanya:"
         },
         {
-          "type": "paragraph",
-          "text": "● Bentuk Pertanyaan Pola Keseluruhan: \"How is the information in the passage\norganized?\", \"Which of the following best describes the structure of the text?\",\natau \"The author organizes the passage by...\".\n● Bentuk Pertanyaan Hubungan Antar-Paragraf: \"How does paragraph 2 relate\nto paragraph 1?\" atau \"What is the relationship between the first and the second\nparagraph?\".\n● Opsi Jawaban Berupa Kata Kerja Aktif (Verb-ing): Pilihan ganda biasanya\ntidak berisi informasi isi teks, melainkan diawali dengan kata kerja operasional\nseperti: presenting (menyajikan), chronologizing (mengurutkan waktu),\ncontrasting (membedakan), explaining (menjelaskan), atau proposing\n(mengusulkan).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "C. CARA MENGERJAKAN / STRATEGI (Metode M.A.P.S)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Jangan membaca teks untuk menghafal isinya! Alihkan mode otakmu menjadi seorang\n\"arsitek bangunan\" menggunakan metode M.A.P.S:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. M - Main Idea Check (Cek Gagasan Utama Tiap Paragraf): Baca hanya\nkalimat pertama dan terakhir dari setiap paragraf. Buat ringkasan 2-3 kata untuk\ntiap paragraf. (Misal: Paragraf 1 = Pemanasan global, Paragraf 2 = Mobil listrik).\n2. A - Analyze the Transitions (Analisis Kata Transisi): Perhatikan kata hubung\n(connectives) yang menjembatani paragraf 1 dan paragraf 2. Apakah ada kata\n\"However\"? (Berarti Contrast). Apakah ada kata \"Therefore\"? (Berarti\nEffect/Result).\n3. P - Pattern Recognition (Kenali Polanya): Cocokkan hasil temuanmu dengan 5\njenis pola organisasi teks di atas. Jika Paragraf 1 bahas kerusakan lingkungan\n(Masalah) dan Paragraf 2 bahas daur ulang (Solusi), polanya pasti\nProblem-Solution.\n4. S - Select the Blueprint (Pilih Opsi Kerangka): Cari opsi jawaban yang\nsusunan kata kerjanya paling cocok dengan pola yang kamu temukan. Eliminasi\nopsi yang membahas isi/konten spesifik (Too Detailed).",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Bentuk** **Pertanyaan** **Pola** **Keseluruhan:** *\"How* *is* *the* *information* *in* *the* *passage* *organized?\"*, *\"Which* *of* *the* *following* *best* *describes* *the* *structure* *of* *the* *text?\"*, atau *\"The* *author* *organizes* *the* *passage* *by...\"*.",
+            "**Bentuk** **Pertanyaan** **Hubungan** **Antar-Paragraf:** *\"How* *does* *paragraph* *2* *relate* *to* *paragraph* *1?\"* atau *\"What* *is* *the* *relationship* *between* *the* *first* *and* *the* *second* *paragraph?\"*.",
+            "**Opsi** **Jawaban** **Berupa** **Kata** **Kerja** **Aktif** **(*****Verb-ing*****):** Pilihan ganda biasanya tidak berisi informasi isi teks, melainkan diawali dengan kata kerja operasional seperti: *presenting* *(menyajikan),* *chronologizing* *(mengurutkan* *waktu),* *contrasting* *(membedakan),* *explaining* *(menjelaskan),* atau *proposing* *(mengusulkan).*"
+          ]
         },
         {
           "type": "heading",
-          "text": "D. CONTOH SOAL BESERTA PEMBAHASAN"
+          "text": "**C.** **CARA** **MENGERJAKAN** **/** **STRATEGI** **(Metode** **M.A.P.S)**"
         },
         {
           "type": "paragraph",
-          "text": "Soal 1: Tingkat Mudah (Hubungan Antar-Paragraf)",
-          "small": true
+          "text": "Jangan membaca teks untuk menghafal isinya! Alihkan mode otakmu menjadi seorang \"arsitek bangunan\" menggunakan metode **M.A.P.S**:"
         },
         {
-          "type": "paragraph",
-          "text": "Teks: (Paragraph 1) \"Urban areas around the world are currently facing an\nunprecedented housing crisis. Rapid population growth and skyrocketing property",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3.",
+            "4."
+          ],
+          "items": [
+            "**M** **-** **Main** **Idea** **Check** **(Cek** **Gagasan** **Utama** **Tiap** **Paragraf):** Baca hanya kalimat pertama dan terakhir dari setiap paragraf. Buat ringkasan 2-3 kata untuk tiap paragraf. (Misal: Paragraf 1 = Pemanasan global, Paragraf 2 = Mobil listrik).",
+            "**A** **-** **Analyze** **the** **Transitions** **(Analisis** **Kata** **Transisi):** Perhatikan kata hubung (*connectives*) yang menjembatani paragraf 1 dan paragraf 2. Apakah ada kata *\"However\"*? (Berarti *Contrast*). Apakah ada kata *\"Therefore\"*? (Berarti *Effect/Result*).",
+            "**P** **-** **Pattern** **Recognition** **(Kenali** **Polanya):** Cocokkan hasil temuanmu dengan 5 jenis pola organisasi teks di atas. Jika Paragraf 1 bahas kerusakan lingkungan (Masalah) dan Paragraf 2 bahas daur ulang (Solusi), polanya pasti *Problem-Solution*.",
+            "**S** **-** **Select** **the** **Blueprint** **(Pilih** **Opsi** **Kerangka):** Cari opsi jawaban yang susunan kata kerjanya paling cocok dengan pola yang kamu temukan. Eliminasi opsi yang membahas isi/konten spesifik (*Too* *Detailed*)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-54",
+      "id": "lbe-10-reviewed-03",
       "title": "",
       "continuation": true,
       "source_pages": [
+        53,
         54
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "prices have left millions of middle-to-low-income families struggling to find affordable\nshelter, leading to increased homelessness.\" (Paragraph 2) \"To tackle this pressing\nissue, several European cities have started implementing aggressive rent-control\npolicies. Furthermore, governments are providing massive subsidies to construction\ncompanies to build high-density public housing strictly reserved for low-income\nresidents.\"",
-          "small": true
+          "type": "heading",
+          "text": "**D.** **CONTOH** **SOAL** **BESERTA** **PEMBAHASAN**"
         },
         {
           "type": "paragraph",
-          "text": "Question: How does paragraph 2 relate to paragraph 1?",
-          "small": true
+          "text": "**Soal** **1:** **Tingkat** **Mudah** **(Hubungan** **Antar-Paragraf)**"
         },
         {
           "type": "paragraph",
-          "text": "A) It questions the validity of the issue mentioned in paragraph 1.",
-          "small": true
+          "text": "*Teks:* (Paragraph 1) \"Urban areas around the world are currently facing an unprecedented housing crisis. Rapid population growth and skyrocketing property prices have left millions of middle-to-low-income families struggling to find affordable shelter, leading to increased homelessness.\" (Paragraph 2) \"To tackle this pressing issue, several European cities have started implementing aggressive rent-control policies. Furthermore, governments are providing massive subsidies to construction companies to build high-density public housing strictly reserved for low-income residents.\""
         },
         {
           "type": "paragraph",
-          "text": "B) It provides solutions to the problem described in paragraph 1.",
-          "small": true
+          "text": "*Question:* How does paragraph 2 relate to paragraph 1?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "It questions the validity of the issue mentioned in paragraph 1."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "It provides solutions to the problem described in paragraph 1."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "It explains the detailed causes of the crisis in paragraph 1."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "It contrasts the European housing market with global markets."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "It gives a specific example of homelessness mentioned in paragraph 1."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "C) It explains the detailed causes of the crisis in paragraph 1.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **1:** *Jawaban* *Benar:* ***B***"
         },
         {
-          "type": "paragraph",
-          "text": "D) It contrasts the European housing market with global markets.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) It gives a specific example of homelessness mentioned in paragraph 1.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: B",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Analisis Paragraf 1: Membahas housing crisis (krisis perumahan/masalah).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Analisis Paragraf 2: Ada frasa \"To tackle this pressing issue\" (Untuk mengatasi\nmasalah ini), lalu dibahas kebijakan kontrol harga dan subsidi (jalan keluar).\nPolanya adalah Problem and Solution.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) questions the validity: Salah. Paragraf 2 tidak meragukan masalah tersebut.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) provides solutions to the problem: Benar. (Memberikan solusi terhadap\nmasalah). Sangat sesuai dengan pola.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) explains the causes: Salah. Subsidi dan kontrol sewa bukanlah \"penyebab\"\nkrisis, melainkan obatnya.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) contrasts the market: Salah. Tidak ada perbandingan pasar Eropa dan\nglobal.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● E) gives a specific example: Salah. Paragraf 2 tidak memberikan contoh\ngelandangan, melainkan solusi dari pemerintah.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Analisis** **Paragraf** **1:** Membahas *housing* *crisis* (krisis perumahan/masalah).",
+            "**Analisis** **Paragraf** **2:** Ada frasa *\"To* *tackle* *this* *pressing* *issue\"* (Untuk mengatasi masalah ini), lalu dibahas kebijakan kontrol harga dan subsidi (jalan keluar). Polanya adalah *Problem* *and* *Solution*.",
+            "**A)** **questions** **the** **validity:** Salah. Paragraf 2 tidak meragukan masalah tersebut.",
+            "**B)** **provides** **solutions** **to** **the** **problem:** **Benar.** (Memberikan solusi terhadap masalah). Sangat sesuai dengan pola.",
+            "**C)** **explains** **the** **causes:** Salah. Subsidi dan kontrol sewa bukanlah \"penyebab\" krisis, melainkan obatnya.",
+            "**D)** **contrasts** **the** **market:** Salah. Tidak ada perbandingan pasar Eropa dan global.",
+            "**E)** **gives** **a** **specific** **example:** Salah. Paragraf 2 tidak memberikan contoh gelandangan, melainkan solusi dari pemerintah."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-55",
+      "id": "lbe-10-reviewed-04",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -191,189 +190,194 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "Soal 2: Tingkat Menengah (Mengidentifikasi Text Organization Tunggal)",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **2:** **Tingkat** **Menengah** **(Mengidentifikasi** ***Text*** ***Organization*** **Tunggal)**"
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"Traditional fossil fuels, such as coal and oil, are highly effective at generating\nmassive amounts of energy; however, they are finite resources that release catastrophic\namounts of greenhouse gases into the atmosphere. Conversely, renewable energy\nsources like wind and solar power produce zero carbon emissions during operation.\nWhile they demand significant upfront investment and depend heavily on weather\nconditions, their sustainable nature makes them the inevitable future of global power.\"",
-          "small": true
+          "text": "*Teks:* \"Traditional fossil fuels, such as coal and oil, are highly effective at generating massive amounts of energy; however, they are finite resources that release catastrophic amounts of greenhouse gases into the atmosphere. Conversely, renewable energy sources like wind and solar power produce zero carbon emissions during operation. While they demand significant upfront investment and depend heavily on weather conditions, their sustainable nature makes them the inevitable future of global power.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: The author organizes the passage primarily by...",
-          "small": true
+          "text": "*Question:* The author organizes the passage primarily by..."
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "Chronologizing the history of global energy usage."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Explaining the cause and effect of greenhouse gas emissions."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Contrasting the characteristics of two different energy sources."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Proposing a new technology to replace traditional fossil fuels."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Classifying the various types of renewable energy."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "A) Chronologizing the history of global energy usage.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **2:** *Jawaban* *Benar:* ***C***"
         },
         {
-          "type": "paragraph",
-          "text": "B) Explaining the cause and effect of greenhouse gas emissions.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "C) Contrasting the characteristics of two different energy sources.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "D) Proposing a new technology to replace traditional fossil fuels.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) Classifying the various types of renewable energy.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Analisis Teks: Teks membagi dua kubu: fossil fuels vs renewable energy.\nTerdapat kata transisi yang kuat yaitu \"however\" dan \"Conversely\" (Sebaliknya).\nTeks ini membahas kelebihan dan kekurangan masing-masing.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) Chronologizing: Salah. Tidak ada urutan waktu/tahun sejarah.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Explaining cause and effect: Salah. Efek emisi gas kaca hanya disebutkan\nsekilas sebagai sifat bahan bakar fosil, bukan menjadi fokus utama pergerakan\nteks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) Contrasting the characteristics: Benar. (Membedakan karakteristik/sifat\ndari dua sumber energi yang berbeda). Ini adalah pola Compare and Contrast.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) Proposing a new technology: Salah. Teks tidak sedang \"mengusulkan\nide/teknologi baru\" untuk diuji coba.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● E) Classifying types: Salah. Teks tidak mengklasifikasikan macam-macam\nenergi terbarukan (misal membedah angin, tata surya, geotermal).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Soal 3: Tingkat Sulit (Menyimpulkan Struktur Narasi Utuh)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Teks: \"The journey of Artificial Intelligence (AI) began in the 1950s when Alan Turing\nfirst proposed the idea of machines capable of simulating human thought. Progress\nstalled during the 'AI Winter' of the 1970s due to limited computing power. However, the\nlate 1990s saw a resurgence with the advent of machine learning algorithms. Today,\nwith the explosion of big data, AI has evolved into deep learning networks that power\neverything from self-driving cars to advanced medical diagnostics.\"",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Analisis** **Teks:** Teks membagi dua kubu: *fossil* *fuels* vs *renewable* *energy*. Terdapat kata transisi yang kuat yaitu *\"however\"* dan *\"Conversely\"* (Sebaliknya). Teks ini membahas kelebihan dan kekurangan masing-masing.",
+            "**A)** **Chronologizing:** Salah. Tidak ada urutan waktu/tahun sejarah.",
+            "**B)** **Explaining** **cause** **and** **effect:** Salah. Efek emisi gas kaca hanya disebutkan sekilas sebagai sifat bahan bakar fosil, bukan menjadi fokus utama pergerakan teks.",
+            "**C)** **Contrasting** **the** **characteristics:** **Benar.** (Membedakan karakteristik/sifat dari dua sumber energi yang berbeda). Ini adalah pola *Compare* *and* *Contrast*.",
+            "**D)** **Proposing** **a** **new** **technology:** Salah. Teks tidak sedang \"mengusulkan ide/teknologi baru\" untuk diuji coba.",
+            "**E)** **Classifying** **types:** Salah. Teks tidak mengklasifikasikan macam-macam energi terbarukan (misal membedah angin, tata surya, geotermal)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-56",
+      "id": "lbe-10-reviewed-05",
       "title": "",
       "continuation": true,
       "source_pages": [
+        55,
         56
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "Question: Which of the following best describes the overall structure of the text?",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **3:** **Tingkat** **Sulit** **(Menyimpulkan** **Struktur** **Narasi** **Utuh)**"
         },
         {
           "type": "paragraph",
-          "text": "A) Highlighting a problem and presenting technological solutions.",
-          "small": true
+          "text": "*Teks:* \"The journey of Artificial Intelligence (AI) began in the 1950s when Alan Turing first proposed the idea of machines capable of simulating human thought. Progress stalled during the 'AI Winter' of the 1970s due to limited computing power. However, the late 1990s saw a resurgence with the advent of machine learning algorithms. Today, with the explosion of big data, AI has evolved into deep learning networks that power everything from self-driving cars to advanced medical diagnostics.\""
         },
         {
           "type": "paragraph",
-          "text": "B) Tracing the historical development of a concept over time.",
-          "small": true
+          "text": "*Question:* Which of the following best describes the overall structure of the text?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "Highlighting a problem and presenting technological solutions."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Tracing the historical development of a concept over time."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Comparing human intelligence with artificial intelligence."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Listing the modern applications of artificial intelligence."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Arguing for the necessity of big data in modern computing."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "C) Comparing human intelligence with artificial intelligence.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **3:** *Jawaban* *Benar:* ***B***"
         },
         {
           "type": "paragraph",
-          "text": "D) Listing the modern applications of artificial intelligence.",
-          "small": true
+          "text": "● **Analisis** **Teks:** Teks penuh dengan sinyal waktu: *1950s* *->* *1970s* *->* *late* *1990s* *->* *Today*. Ini adalah ciri mutlak dari *Chronological* *Order*."
         },
         {
-          "type": "paragraph",
-          "text": "E) Arguing for the necessity of big data in modern computing.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **Highlighting** **a** **problem...:** Salah. AI Winter memang hambatan, tapi bukan pola utama teks.",
+            "**B)** **Tracing** **the** **historical** **development...:** **Benar.** (Menelusuri perkembangan historis sebuah konsep seiring berjalannya waktu). Ini adalah sinonim sempurna dari *Chronological* *Order*.",
+            "**C)** **Comparing** **human** **and** **AI:** Salah. Ujian Turing disebutkan, tapi fokusnya bukan membandingkan otak manusia dengan komputer.",
+            "**D)** **Listing** **modern** **applications:** Salah. Ini adalah jebakan *Too* *Narrow*. Aplikasi modern hanya dibahas di kalimat terakhir (*Today...*)."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: B",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Analisis Teks: Teks penuh dengan sinyal waktu: 1950s -> 1970s -> late 1990s\n-> Today. Ini adalah ciri mutlak dari Chronological Order.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) Highlighting a problem...: Salah. AI Winter memang hambatan, tapi bukan\npola utama teks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Tracing the historical development...: Benar. (Menelusuri perkembangan\nhistoris sebuah konsep seiring berjalannya waktu). Ini adalah sinonim sempurna\ndari Chronological Order.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) Comparing human and AI: Salah. Ujian Turing disebutkan, tapi fokusnya\nbukan membandingkan otak manusia dengan komputer.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) Listing modern applications: Salah. Ini adalah jebakan Too Narrow. Aplikasi\nmodern hanya dibahas di kalimat terakhir (Today...).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● E) Arguing for the necessity: Salah. Tidak ada argumen persuasif (persuade),\nmurni informasi sejarah.\n🦆 VECO TIPS — Cara Cepat & Trik Khusus",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Scanner Kalimat Pertama (Shortcut Paragraf)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Kwek! Soal yang nanya \"Hubungan Paragraf 1 dan Paragraf 2\" itu gampang banget\ndiculik poinnya! Kamu TIDAK PERLU baca isi tengah paragrafnya. Cukup baca kalimat\npertama Paragraf 1, terus langsung loncat baca kalimat pertama Paragraf 2. Biasanya\nkalimat pertama Paragraf 2 itu isinya kata hubung penting. Kalau kalimat awalnya\nbilang \"Another factor that...\" = berarti Addition/Penambahan. Kalau kalimat awalnya\n\"To resolve this crisis...\" = pasti Problem-Solution. Hemat waktu, bebek senang!",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Awas Opsi \"Tukang Cerita\" (The Verbs Trap)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Hati-hati sama kata kerja depan di pilihan ganda! Kalau teksnya ngomongin tentang\nDampak letusan gunung merapi (Sebab-Akibat murni saintifik), terus di opsi ada yang\nbilang: \"Criticizing the government's response to the volcano...\" langsung coret! Kata\nkerja Criticizing (mengkritik), Arguing (berargumen), atau Defending (membela) itu",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**E)** **Arguing** **for** **the** **necessity:** Salah. Tidak ada argumen persuasif (*persuade*), murni informasi sejarah."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-57",
+      "id": "lbe-10-reviewed-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        56,
+        57
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "🦆 **VECO** **TIPS** **—** **Cara** **Cepat** **&** **Trik** **Khusus**"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Scanner** **Kalimat** **Pertama** **(Shortcut** **Paragraf)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Kwek! Soal yang nanya \"Hubungan Paragraf 1 dan Paragraf 2\" itu gampang banget diculik poinnya! Kamu **TIDAK** **PERLU** baca isi tengah paragrafnya. Cukup baca kalimat pertama Paragraf 1, terus langsung loncat baca kalimat pertama Paragraf 2. Biasanya kalimat pertama Paragraf 2 itu isinya kata hubung penting. Kalau kalimat awalnya bilang *\"Another* *factor* *that...\"* = berarti Addition/Penambahan. Kalau kalimat awalnya *\"To* *resolve* *this* *crisis...\"* = pasti Problem-Solution. Hemat waktu, bebek senang!"
+            }
+          ]
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Awas** **Opsi** **\"Tukang** **Cerita\"** **(The** **Verbs** **Trap)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Hati-hati sama kata kerja depan di pilihan ganda! Kalau teksnya ngomongin tentang *Dampak* *letusan* *gunung* *merapi* (Sebab-Akibat murni saintifik), terus di opsi ada yang bilang: *\"Criticizing* *the* *government's* *response* *to* *the* *volcano...\"* langsung coret! Kata kerja *Criticizing* (mengkritik), *Arguing* (berargumen), atau *Defending* (membela) itu"
+            },
+            {
+              "type": "paragraph",
+              "text": "khusus buat teks Opini. Kalau teksnya murni ilmu pasti/fakta, cari kata kerja yang netral kayak *\"Describing\",* *\"Explaining\"*, atau *\"Tracing\"*. Jangan sampai salah *vibe*, kwek!"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lbe-10-reviewed-07",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -381,19 +385,36 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "khusus buat teks Opini. Kalau teksnya murni ilmu pasti/fakta, cari kata kerja yang netral\nkayak \"Describing\", \"Explaining\", atau \"Tracing\". Jangan sampai salah vibe, kwek!\n⚠ Kesalahan Umum yang Sering Terjadi",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Tipe soal kerangka teks ini sering membuat siswa terkecoh karena mengira ini adalah\nsoal Gagasan Utama (Main Idea). Berikut kesalahan yang harus dihindari:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Terjebak Opsi Isi (Memilih Main Idea): Ini adalah kesalahan paling umum!\nPertanyaan menanyakan struktur, tetapi siswa memilih opsi yang berisi\nrangkuman konten. Misalnya, opsi: \"The text explains that renewable energy is\nbetter than fossil fuel.\" Ini adalah Main Idea. Opsi jawaban untuk Structure harus\nlebih abstrak, seperti: \"The text contrasts two types of energy.\"\n2. Terburu-buru Menyimpulkan dari Kata Transisi Tengah: Siswa melihat kata\n\"however\" di tengah-tengah paragraf 1 dan langsung menyimpulkan bahwa\nseluruh teks adalah Compare and Contrast. Padahal, kata \"however\" itu mungkin\nhanya membandingkan detail kecil di kalimat tersebut. Untuk melihat struktur\nglobal, fokuslah pada kata transisi yang berada di awal-awal paragraf baru.\n3. Tidak Tahu Arti Kata Operasional Bahasa Inggris: Banyak siswa bisa\nmenganalisis teks dengan benar (\"Oh ini teksnya bahas Sejarah\"), tetapi gagal\nmemilih jawaban karena tidak tahu arti kosakata akademis di pilihan ganda.\nMulai sekarang, biasakan diri dengan kata-kata seperti: Tracing (menelusuri),\nOutlining (meringkas), Illustrating (menggambarkan), Refuting (membantah), dan\nProposing (mengusulkan).",
-          "small": true
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "tone": "warning",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Tipe soal kerangka teks ini sering membuat siswa terkecoh karena mengira ini adalah soal Gagasan Utama (*Main* *Idea*). Berikut kesalahan yang harus dihindari:"
+            },
+            {
+              "type": "bullets",
+              "marker": "1.",
+              "items": [
+                "**Terjebak** **Opsi** **Isi** **(Memilih** ***Main*** ***Idea*****):** Ini adalah kesalahan paling umum! Pertanyaan menanyakan **struktur**, tetapi siswa memilih opsi yang berisi rangkuman **konten**. Misalnya, opsi: *\"The* *text* *explains* *that* *renewable* *energy* *is* *better* *than* *fossil* *fuel.\"* Ini adalah *Main* *Idea*. Opsi jawaban untuk *Structure* harus lebih abstrak, seperti: *\"The* *text* *contrasts* *two* *types* *of* *energy.\"*"
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "2.",
+              "items": [
+                "**Terburu-buru** **Menyimpulkan** **dari** **Kata** **Transisi** **Tengah:** Siswa melihat kata *\"however\"* di tengah-tengah paragraf 1 dan langsung menyimpulkan bahwa seluruh teks adalah *Compare* *and* *Contrast*. Padahal, kata *\"however\"* itu mungkin hanya membandingkan detail kecil di kalimat tersebut. Untuk melihat struktur *global*, fokuslah pada kata transisi yang berada di **awal-awal** **paragraf** **baru**."
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "3.",
+              "items": [
+                "**Tidak** **Tahu** **Arti** **Kata** **Operasional** **Bahasa** **Inggris:** Banyak siswa bisa menganalisis teks dengan benar (\"Oh ini teksnya bahas Sejarah\"), tetapi gagal memilih jawaban karena tidak tahu arti kosakata akademis di pilihan ganda. Mulai sekarang, biasakan diri dengan kata-kata seperti: *Tracing* (menelusuri), *Outlining* (meringkas), *Illustrating* (menggambarkan), *Refuting* (membantah), dan *Proposing* (mengusulkan)."
+              ]
+            }
+          ]
         }
       ]
     }

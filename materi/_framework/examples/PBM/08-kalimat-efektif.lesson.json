@@ -9,841 +9,176 @@
       "id": "material-08-page-01",
       "title": "MATERI 08 — Kalimat Efektif",
       "continuation": false,
-      "source_pages": [
-        1
-      ],
+      "source_pages": [1],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
-        },
-        {
-          "type": "heading",
-          "text": "A. Pengertian Kalimat Efektif"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat efektif adalah kalimat yang dapat mengungkapkan gagasan maksud, atau informasi"
-        },
-        {
-          "type": "paragraph",
-          "text": "kepada orang lain secara lugas sehingga gagasan itu dipahami secara sama oleh pembaca"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau pendengar. Suatu kalimat dapat dikatakan efektif jika si penerima pesan dapat"
-        },
-        {
-          "type": "paragraph",
-          "text": "menyampaikan kembali gagasan, pesan, perasaan, ataupun pemberitahuan sebagaimana yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "dimaksud oleh pemberi pesan."
-        },
-        {
-          "type": "heading",
-          "text": "B. Syarat Kalimat Efektif"
-        },
-        {
-          "type": "paragraph",
-          "text": "1) Kesatuan, yaitu terdapatnya satu ide pokok pada satu kalimat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Kalimat yang tidak jelas kesatuan gagasannya"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembangunan gedung sekolah baru pihak yayasan dibantu oleh bank yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "memberikan kredit (terdapat subjek ganda dalam kalimat tunggal)"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Kalimat yang jelas kesatuan gagasannya"
-          ]
-        }
+        {"type": "paragraph", "text": "*Subtes: PBM · Pemahaman Bacaan & Menulis*"},
+        {"type": "heading", "text": "A. Pengertian Kalimat Efektif"},
+        {"type": "paragraph", "text": "**Kalimat efektif** adalah kalimat yang dapat mengungkapkan gagasan maksud, atau informasi kepada orang lain secara lugas sehingga gagasan itu dipahami secara sama oleh pembaca atau pendengar. Suatu kalimat dapat dikatakan efektif jika si penerima pesan dapat menyampaikan kembali gagasan, pesan, perasaan, ataupun pemberitahuan sebagaimana yang dimaksud oleh pemberi pesan."},
+        {"type": "heading", "text": "B. Syarat Kalimat Efektif"},
+        {"type": "paragraph", "text": "**1) Kesatuan**, yaitu terdapatnya satu ide pokok pada satu kalimat."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "bullets", "marker": "●", "items": ["Kalimat yang tidak jelas kesatuan gagasannya"]},
+        {"type": "paragraph", "text": "*Pembangunan gedung sekolah baru pihak yayasan dibantu oleh bank yang memberikan kredit (terdapat subjek ganda dalam kalimat tunggal)*"},
+        {"type": "bullets", "marker": "●", "items": ["Kalimat yang jelas kesatuan gagasannya"]},
+        {"type": "paragraph", "text": "*Pihak yayasan dibantu oleh bank yang memberi kredit untuk membangun gedung sekolah baru.*"},
+        {"type": "paragraph", "text": "**2) Kepaduan**, yaitu terjadinya hubungan yang padu antara unsur-unsur pembentuk kalimat."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "- Kalimat yang tidak memiliki kepaduan"},
+        {"type": "paragraph", "text": "*Kepada setiap pengemudi mobil harus memiliki surat izin mengemudi (subjeknya tidak jelas)*"},
+        {"type": "paragraph", "text": "- Kalimat yang memiliki kepaduan"},
+        {"type": "paragraph", "text": "*Setiap pengemudi mobil harus memiliki surat izin mengemudi.*"}
       ]
     },
     {
       "id": "material-08-page-02",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        1,
-        2
-      ],
+      "source_pages": [1, 2],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Pihak yayasan dibantu oleh bank yang memberi kredit untuk membangun"
-        },
-        {
-          "type": "paragraph",
-          "text": "gedung sekolah baru."
-        },
-        {
-          "type": "paragraph",
-          "text": "2) Kepaduan, yaitu terjadinya hubungan yang padu antara unsur-unsur pembentuk"
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang tidak memiliki kepaduan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kepada setiap pengemudi mobil harus memiliki surat izin mengemudi"
-        },
-        {
-          "type": "paragraph",
-          "text": "(subjeknya tidak jelas)"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang memiliki kepaduan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Setiap pengemudi mobil harus memiliki surat izin mengemudi."
-        },
-        {
-          "type": "paragraph",
-          "text": "3) Kesejajaran, yaitu terdapatnya unsur-unsur yang sama derajatnya sama pola"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau susunan kata dan frasa yang dipakai di dalam kalimat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang tidak sejajar"
-        },
-        {
-          "type": "paragraph",
-          "text": "Dalam rapat itu diputuskan tiga hal pokok, yaitu peningkatan mutu produk,"
-        },
-        {
-          "type": "paragraph",
-          "text": "memperbanyak waktu penyiaran iklan, dan pemasaran yang lebih gencar."
-        }
+        {"type": "paragraph", "text": "**3) Kesejajaran**, yaitu terdapatnya unsur-unsur yang sama derajatnya sama pola atau susunan kata dan frasa yang dipakai di dalam kalimat."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "- Kalimat yang tidak sejajar"},
+        {"type": "paragraph", "text": "*Dalam rapat itu diputuskan tiga hal pokok, yaitu peningkatan mutu produk, memperbanyak waktu penyiaran iklan, dan pemasaran yang lebih gencar.*"},
+        {"type": "paragraph", "text": "- Kalimat yang sejajar"},
+        {"type": "paragraph", "text": "*Dalam rapat itu diputuskan tiga hal pokok, yaitu meningkatkan mutu produk, meninggikan frekuensi waktu penyiaran iklan, dan menggencarkan pemasaran.*"},
+        {"type": "paragraph", "text": "**4) Ketepatan**, yaitu kesesuaian/kecocokan pemakaian unsur-unsur yang membangun suatu kalimat sehingga terbentuk pengertian yang bulat dan pasti."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "- Kalimat yang tidak memperhatikan ketepatan"},
+        {"type": "paragraph", "text": "*Karyawan teladan itu memang tekun bekerja dari pagi sehingga petang.*"},
+        {"type": "paragraph", "text": "*(salah dalam pemakaian “sehingga”)*"},
+        {"type": "paragraph", "text": "- Kalimat yang memperhatikan ketepatan"},
+        {"type": "paragraph", "text": "*Karyawan teladan itu memang tekun bekerja dari pagi sampai petang.*"},
+        {"type": "paragraph", "text": "**5) Kehematan**, yaitu menghindari pemakaian kata yang tidak perlu/boros."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "- Kalimat yang tidak hemat → *Saya melihatnya dengan mata kepala saya sendiri mahasiswa itu belajar seharian dari pagi sampai petang,*"},
+        {"type": "paragraph", "text": "- Kalimat hemat → *Saya melihat sendiri mahasiswa itu belajar seharian.*"}
       ]
     },
     {
       "id": "material-08-page-03",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        2
-      ],
+      "source_pages": [2, 3],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang sejajar"
-        },
-        {
-          "type": "paragraph",
-          "text": "Dalam rapat itu diputuskan tiga hal pokok, yaitu meningkatkan mutu"
-        },
-        {
-          "type": "paragraph",
-          "text": "produk, meninggikan frekuensi waktu penyiaran iklan, dan menggencarkan"
-        },
-        {
-          "type": "paragraph",
-          "text": "pemasaran."
-        },
-        {
-          "type": "paragraph",
-          "text": "4) Ketepatan, yaitu kesesuaian/kecocokan pemakaian unsur-unsur yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "membangun suatu kalimat sehingga terbentuk pengertian yang bulat dan pasti."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang tidak memperhatikan ketepatan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Karyawan teladan itu memang tekun bekerja dari pagi sehingga petang."
-        },
-        {
-          "type": "paragraph",
-          "text": "(salah dalam pemakaian “sehingga”)"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang memperhatikan ketepatan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Karyawan teladan itu memang tekun bekerja dari pagi sampai petang."
-        },
-        {
-          "type": "paragraph",
-          "text": "5) Kehematan, yaitu menghindari pemakaian kata yang tidak perlu/boros."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kalimat yang tidak hemat → Saya melihatnya dengan mata kepala saya sendiri"
-        },
-        {
-          "type": "paragraph",
-          "text": "mahasiswa itu belajar seharian dari pagi sampai petang,"
-        }
+        {"type": "paragraph", "text": "**6) Kelogisan**, yaitu terdapatnya arti kalimat yang logis atau masuk akal."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "- Kepada Bapak Rektor, kami persilakan."},
+        {"type": "paragraph", "text": "- Dengan mengucapkan syukur kepada Tuhan, makalah ini dapat diselesaikan tepat pada waktunya."},
+        {"type": "paragraph", "text": "**7) Tidak ambigu**, yaitu tidak memiliki makna ganda atau lebih dari satu agar mudah dipahami oleh pembaca/pendengar."},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "bullets", "marker": "●", "items": ["Kucing memakan tikus mati → punya dua makna."]},
+        {"type": "bullets", "marker": "○", "items": ["Kucing memakan tikus, mati. (setelah memakan tikus, kucingnya mati)", "Kucing memakan tikus mati. (kucing memakan tikus yang mati)"]},
+        {"type": "paragraph", "text": "Oleh karena itu, dibutuhkan tanda baca yang tepat agar kalimat tersebut tidak memiliki makna ganda."},
+        {"type": "bullets", "marker": "●", "items": ["Istri Pak Lurah yang baru itu sangat cantik → punya dua makna."]},
+        {"type": "bullets", "marker": "○", "items": ["Apakah yang baru itu adalah Pak Lurah-nya ataukah Pak Lurah memiliki istri yang baru?", "Untuk memperbaiki kalimat tersebut diubah menjadi:"]},
+        {"type": "bullets", "marker": "■", "items": ["Pak Lurah yang baru memiliki istri yang sangat cantik.", "Istri baru Pak Lurah sangat cantik."]}
       ]
     },
     {
       "id": "material-08-page-04",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        2,
-        3
-      ],
+      "source_pages": [3],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "- Kalimat hemat → Saya melihat sendiri mahasiswa itu belajar seharian."
-        },
-        {
-          "type": "paragraph",
-          "text": "6) Kelogisan, yaitu terdapatnya arti kalimat yang logis atau masuk akal."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Kepada Bapak Rektor, kami persilakan."
-        },
-        {
-          "type": "paragraph",
-          "text": "- Dengan mengucapkan syukur kepada Tuhan, makalah ini dapat"
-        },
-        {
-          "type": "paragraph",
-          "text": "diselesaikan tepat pada waktunya."
-        },
-        {
-          "type": "paragraph",
-          "text": "7) Tidak ambigu, yaitu tidak memiliki makna ganda atau lebih dari satu agar"
-        },
-        {
-          "type": "paragraph",
-          "text": "mudah dipahami oleh pembaca/pendengar."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Kucing memakan tikus mati → punya dua makna."
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Kucing memakan tikus, mati. (setelah memakan tikus, kucingnya"
-        },
-        {
-          "type": "paragraph",
-          "text": "mati)"
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Kucing memakan tikus mati. (kucing memakan tikus yang mati)"
-        },
-        {
-          "type": "paragraph",
-          "text": "Oleh karena itu, dibutuhkan tanda baca yang tepat agar kalimat tersebut"
-        },
-        {
-          "type": "paragraph",
-          "text": "tidak memiliki makna ganda."
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Istri Pak Lurah yang baru itu sangat cantik → punya dua makna."
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Apakah yang baru itu adalah Pak Lurah-nya ataukah Pak Lurah"
-        }
+        {"type": "heading", "text": "C. Strategi Mengerjakan Soal Kalimat Efektif UTBK"},
+        {"type": "paragraph", "text": "**Langkah 1 — Baca seluruh pilihan**"},
+        {"type": "paragraph", "text": "Jangan langsung memilih kalimat yang \"terdengar paling bagus\"."},
+        {"type": "paragraph", "text": "**Langkah 2 — Periksa struktur kalimat**"},
+        {"type": "paragraph", "text": "**S + P + O/Pel + K |** Pastikan subjek dan predikat jelas."},
+        {"type": "paragraph", "text": "**Langkah 3 — Periksa hubungan makna**"},
+        {"type": "paragraph", "text": "Apakah hubungan antarunsurnya logis?"},
+        {"type": "paragraph", "text": "**Langkah 4 — Periksa kesejajaran**"},
+        {"type": "paragraph", "text": "Apakah bentuk unsurnya sama?"},
+        {"type": "paragraph", "text": "Contoh:"},
+        {"type": "paragraph", "text": "membaca + menulis + berdiskusi ✅"},
+        {"type": "paragraph", "text": "membaca + tulisan + berdiskusi ❌"},
+        {"type": "paragraph", "text": "**Langkah 5 — Hilangkan pemborosan**"},
+        {"type": "paragraph", "text": "Cari kata yang bisa dihapus **tanpa mengubah informasi utama.**"},
+        {"type": "paragraph", "text": "**Langkah 6 — Periksa ambiguitas**"},
+        {"type": "paragraph", "text": "Tanyakan: \"Apakah kalimat ini bisa ditafsirkan dengan dua cara?\""},
+        {"type": "paragraph", "text": "**Langkah 7 — Bandingkan pilihan**"},
+        {"type": "paragraph", "text": "Pilih kalimat yang paling memenuhi: **jelas + tepat + logis + hemat + padu**"}
       ]
     },
     {
       "id": "material-08-page-05",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        3
-      ],
+      "source_pages": [4],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "memiliki istri yang baru?"
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Untuk memperbaiki kalimat tersebut diubah menjadi:"
-        },
-        {
-          "type": "bullets",
-          "marker": "■",
-          "items": [
-            "Pak Lurah yang baru memiliki istri yang sangat cantik."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "■",
-          "items": [
-            "Istri baru Pak Lurah sangat cantik."
-          ]
-        },
-        {
-          "type": "heading",
-          "text": "C. Strategi Mengerjakan Soal Kalimat Efektif UTBK"
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 1 — Baca seluruh pilihan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Jangan langsung memilih kalimat yang \"terdengar paling bagus\"."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 2 — Periksa struktur kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "S + P + O/Pel + K | Pastikan subjek dan predikat jelas."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 3 — Periksa hubungan makna"
-        },
-        {
-          "type": "paragraph",
-          "text": "Apakah hubungan antarunsurnya logis?"
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 4 — Periksa kesejajaran"
-        },
-        {
-          "type": "paragraph",
-          "text": "Apakah bentuk unsurnya sama?"
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "membaca + menulis + berdiskusi ✅"
-        },
-        {
-          "type": "paragraph",
-          "text": "membaca + tulisan + berdiskusi ❌"
-        }
+        {"type": "heading", "text": "D. Contoh Soal Beserta Pembahasan"},
+        {"type": "paragraph", "text": "1. (1) Guru tersebut memberikan penjelasan yang sangat detail dan panjang lebar mengenai materi matematika. (2) Hal ini membuat siswa menjadi lebih memahami konsep yang diajarkan. (3) Namun, beberapa siswa merasa kebingungan karena penjelasan yang terlalu bertele-tele."},
+        {"type": "paragraph", "text": "Agar kalimat (1) menjadi lebih efektif, sebaiknya diubah dengan cara… (Soal kategori **SEDANG**)"},
+        {"type": "paragraph", "text": "1. Menambahkan kata \"sangat\" sebelum \"detail\""},
+        {"type": "paragraph", "text": "2. Mengganti kata \"panjang lebar\" dengan \"singkat\""},
+        {"type": "paragraph", "text": "**3. Menghilangkan kata “sangat dan panjang lebar”**"},
+        {"type": "paragraph", "text": "4. Menambahkan klausa anak setelah klausa induk"},
+        {"type": "paragraph", "text": "5. Mengganti kata \"materi\" dengan \"pelajaran\""}
       ]
     },
     {
       "id": "material-08-page-06",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        3,
-        4
-      ],
+      "source_pages": [4, 5],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Langkah 5 — Hilangkan pemborosan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Cari kata yang bisa dihapus tanpa mengubah informasi utama."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 6 — Periksa ambiguitas"
-        },
-        {
-          "type": "paragraph",
-          "text": "Tanyakan: \"Apakah kalimat ini bisa ditafsirkan dengan dua cara?\""
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 7 — Bandingkan pilihan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilih kalimat yang paling memenuhi: jelas + tepat + logis + hemat + padu"
-        },
-        {
-          "type": "heading",
-          "text": "D. Contoh Soal Beserta Pembahasan"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. (1) Guru tersebut memberikan penjelasan yang sangat detail dan panjang lebar"
-        },
-        {
-          "type": "paragraph",
-          "text": "mengenai materi matematika. (2) Hal ini membuat siswa menjadi lebih memahami"
-        },
-        {
-          "type": "paragraph",
-          "text": "konsep yang diajarkan. (3) Namun, beberapa siswa merasa kebingungan karena"
-        },
-        {
-          "type": "paragraph",
-          "text": "penjelasan yang terlalu bertele-tele."
-        },
-        {
-          "type": "paragraph",
-          "text": "Agar kalimat (1) menjadi lebih efektif, sebaiknya diubah dengan cara… (Soal kategori"
-        },
-        {
-          "type": "heading",
-          "text": "SEDANG)"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Menambahkan kata \"sangat\" sebelum \"detail\""
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Mengganti kata \"panjang lebar\" dengan \"singkat\""
-        }
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kalimat (1) mengandung pemborosan kata, yaitu penggunaan kata \"sangat\" dan \"panjang lebar\" yang memiliki arti serupa sehingga menjadi berlebihan. Untuk membuat kalimat lebih efektif, kata yang berlebihan harus dihilangkan. **Kesimpulan:** Menghilangkan kata yang berlebihan dapat membuat kalimat menjadi lebih jelas dan efektif."},
+        {"type": "paragraph", "text": "**Analisis pilihan jawaban lain:**"},
+        {"type": "paragraph", "text": "**Pilihan a** → Justru semakin boros kata"},
+        {"type": "paragraph", "text": "**Pilihan b** → Kata “singkat” justru mengubah makna kalimat yang sebenarnya"},
+        {"type": "paragraph", "text": "**Pilihan d** → Kurang tepat karena permasalahannya pada pemborosan kata, bukan kelengkapan kalimat"},
+        {"type": "paragraph", "text": "**Pilihan e** → Dalam konteks ini, kedua kata tersebut memiliki makna yang sama"},
+        {"type": "paragraph", "text": "2. *Kebanyakan orang yang kecanduan internet ini dikarenakan mereka menemukan kepuasan di internet yang tidak mereka mendapatkan di dunia nyata.*"},
+        {"type": "paragraph", "text": "Perbaikan yang tepat untuk kalimat di atas agar menjadi kalimat efektif, kecuali…(soal kategori **MUDAH**)"},
+        {"type": "paragraph", "text": "a. Menghapus kata ‘yang’"},
+        {"type": "paragraph", "text": "b. Menghapus kata ‘ini’"},
+        {"type": "paragraph", "text": "c. Mengganti kata ‘dikarenakan’"},
+        {"type": "paragraph", "text": "**d. Mengganti kata ‘menemukan’ menjadi ‘menemui’**"},
+        {"type": "paragraph", "text": "e. Mengganti kata ‘mendapatkan’ menjadi ‘dapatkan’"}
       ]
     },
     {
       "id": "material-08-page-07",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        4
-      ],
+      "source_pages": [5],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "3. Menghilangkan kata “sangat dan panjang lebar”"
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Menambahkan klausa anak setelah klausa induk"
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Mengganti kata \"materi\" dengan \"pelajaran\""
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat (1) mengandung pemborosan kata, yaitu penggunaan kata \"sangat\" dan"
-        },
-        {
-          "type": "paragraph",
-          "text": "\"panjang lebar\" yang memiliki arti serupa sehingga menjadi berlebihan. Untuk membuat"
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat lebih efektif, kata yang berlebihan harus dihilangkan. Kesimpulan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Menghilangkan kata yang berlebihan dapat membuat kalimat menjadi lebih jelas dan"
-        },
-        {
-          "type": "paragraph",
-          "text": "efektif."
-        },
-        {
-          "type": "paragraph",
-          "text": "Analisis pilihan jawaban lain:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilihan a → Justru semakin boros kata"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilihan b → Kata “singkat” justru mengubah makna kalimat yang sebenarnya"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilihan d → Kurang tepat karena permasalahannya pada pemborosan kata, bukan"
-        },
-        {
-          "type": "paragraph",
-          "text": "kelengkapan kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilihan e → Dalam konteks ini, kedua kata tersebut memiliki makna yang sama"
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Kebanyakan orang yang kecanduan internet ini dikarenakan mereka menemukan"
-        }
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Soal di atas merupakan soal perbaikan kalimat tidak efektif. Perbaikan yang perlu dilakukan untuk kalimat tersebut agar menjadi kalimat efektif adalah sebagai berikut:"},
+        {"type": "steps", "items": ["Kata ‘yang’ dan ‘ini’ dihilangkan karena tidak memiliki fungsi dalam kalimat tersebut.", "Kata ‘dikarenakan’ harus diganti. Kata ‘karena’ bukan kata kerja sehingga tidak perlu diberi imbuhan.", "Kata ‘mendapatkan’ harus diganti karena maknanya tidak sesuai konteks, yaitu bermakna ‘menjumpai’."], "item_labels": ["1.", "2.", "3."]},
+        {"type": "paragraph", "text": "Bentuk perbaikan secara keseluruhan dari kalimat di atas adalah *‘Kebanyakan orang kecanduan internet karena mereka menemukan kepuasan di internet yang tidak mereka dapatkan di dunia nyata’.* Jadi, perbaikan yang tidak perlu dilakukan adalah **mengganti kata ‘menemukan’ menjadi ‘menemui’. Jawaban yang benar adalah D.**"}
       ]
     },
     {
       "id": "material-08-page-08",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        4,
-        5
-      ],
+      "source_pages": [5, 6],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "kepuasan di internet yang tidak mereka mendapatkan di dunia nyata."
-        },
-        {
-          "type": "paragraph",
-          "text": "Perbaikan yang tepat untuk kalimat di atas agar menjadi kalimat efektif, kecuali…(soal"
-        },
-        {
-          "type": "paragraph",
-          "text": "kategori MUDAH)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. Menghapus kata ‘yang’"
-        },
-        {
-          "type": "paragraph",
-          "text": "b. Menghapus kata ‘ini’"
-        },
-        {
-          "type": "paragraph",
-          "text": "c. Mengganti kata ‘dikarenakan’"
-        },
-        {
-          "type": "paragraph",
-          "text": "d. Mengganti kata ‘menemukan’ menjadi ‘menemui’"
-        },
-        {
-          "type": "paragraph",
-          "text": "e. Mengganti kata ‘mendapatkan’ menjadi ‘dapatkan’"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Soal di atas merupakan soal perbaikan kalimat tidak efektif. Perbaikan yang perlu"
-        },
-        {
-          "type": "paragraph",
-          "text": "dilakukan untuk kalimat tersebut agar menjadi kalimat efektif adalah sebagai berikut:"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Kata ‘yang’ dan ‘ini’ dihilangkan karena tidak memiliki fungsi dalam kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "tersebut."
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Kata ‘dikarenakan’ harus diganti. Kata ‘karena’ bukan kata kerja sehingga"
-        },
-        {
-          "type": "paragraph",
-          "text": "tidak perlu diberi imbuhan."
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Kata ‘mendapatkan’ harus diganti karena maknanya tidak sesuai konteks,"
-        }
+        {"type": "paragraph", "text": "3. (1) Stroke atau *Cerebrovascular Accident* (CVA) adalah kehilangan fungsi otak yang diakibatkan oleh berhentinya suplai darah ke bagian otak secara mendadak (dalam beberapa detik) atau secara cepat (dalam beberapa jam). (2) Kemudian, pada otak timbul gejala dan tanda-tanda sesuai dengan daerah yang terganggu sehingga dapat mengakibatkan kematian dan penyebab utama kecacatan. (3) Stroke merupakan salah satu penyakit yang dapat mengakibatkan kematian dan penyebab utama kecacatan tidak hanya pada penderita di usia tua, tetapi juga di usia muda. (4) Dalam pola kematian penderita rawat inap, stroke menduduki urutan pertama. (5) Sedangkan, dari seluruh penyebab kematian, stroke menduduki urutan ketiga terbesar setelah penyakit jantung dan kanker. (6)) Stroke dapat terjadi karena seseorang yang sehat memiliki faktor risiko stroke. (7) Terdapat faktor risiko stroke yang dapat dikendalikan dan faktor risiko stroke tidak dapat dikendalikan. (8) Pemahaman akan faktor risiko stroke yang dapat dikendalikan ini penting untuk menurunkan risiko seseorang terkena stroke."},
+        {"type": "paragraph", "text": "Dari paragraf bacaan di atas, manakah yang bukan merupakan kalimat efektif? (soal kategori **SULIT**)"},
+        {"type": "paragraph", "text": "1. Kalimat pertama"},
+        {"type": "paragraph", "text": "2. Kalimat kedua"},
+        {"type": "paragraph", "text": "3. Kalimat ketiga"},
+        {"type": "paragraph", "text": "**4. Kalimat keempat**"},
+        {"type": "paragraph", "text": "5. Kalimat kelima"},
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kalimat (4) **tidak efektif** karena konjungsi **sedangkan** seharusnya digunakan untuk menghubungkan dua bagian yang masih berada dalam **satu kalimat**. Penggunaan *sedangkan* setelah tanda titik membuat konstruksinya tidak tepat."},
+        {"type": "paragraph", "text": "Perbaikannya: *“Dalam pola kematian penderita rawat inap, stroke menduduki urutan pertama, sedangkan dari seluruh penyebab kematian, stroke menduduki urutan ketiga terbesar setelah penyakit jantung dan kanker.”*"}
       ]
     },
     {
-      "id": "material-08-page-09",
+      "id": "material-08-closing",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        5
-      ],
+      "source_pages": [6, 7],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "yaitu bermakna ‘menjumpai’."
-        },
-        {
-          "type": "paragraph",
-          "text": "Bentuk perbaikan secara keseluruhan dari kalimat di atas adalah ‘Kebanyakan orang"
-        },
-        {
-          "type": "paragraph",
-          "text": "kecanduan internet karena mereka menemukan kepuasan di internet yang tidak mereka"
-        },
-        {
-          "type": "paragraph",
-          "text": "dapatkan di dunia nyata’. Jadi, perbaikan yang tidak perlu dilakukan adalah mengganti"
-        },
-        {
-          "type": "paragraph",
-          "text": "kata ‘menemukan’ menjadi ‘menemui’. Jawaban yang benar adalah D."
-        },
-        {
-          "type": "paragraph",
-          "text": "3. (1) Stroke atau Cerebrovascular Accident (CVA) adalah kehilangan fungsi otak yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "diakibatkan oleh berhentinya suplai darah ke bagian otak secara mendadak (dalam"
-        },
-        {
-          "type": "paragraph",
-          "text": "beberapa detik) atau secara cepat (dalam beberapa jam). (2) Kemudian, pada otak"
-        },
-        {
-          "type": "paragraph",
-          "text": "timbul gejala dan tanda-tanda sesuai dengan daerah yang terganggu sehingga dapat"
-        },
-        {
-          "type": "paragraph",
-          "text": "mengakibatkan kematian dan penyebab utama kecacatan. (3) Stroke merupakan salah"
-        },
-        {
-          "type": "paragraph",
-          "text": "satu penyakit yang dapat mengakibatkan kematian dan penyebab utama kecacatan"
-        },
-        {
-          "type": "paragraph",
-          "text": "tidak hanya pada penderita di usia tua, tetapi juga di usia muda."
-        },
-        {
-          "type": "paragraph",
-          "text": "(4) Dalam pola kematian penderita rawat inap, stroke menduduki urutan pertama. (5)"
-        },
-        {
-          "type": "paragraph",
-          "text": "Sedangkan, dari seluruh penyebab kematian, stroke menduduki urutan ketiga terbesar"
-        },
-        {
-          "type": "paragraph",
-          "text": "setelah penyakit jantung dan kanker. (6)) Stroke dapat terjadi karena seseorang yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "sehat memiliki faktor risiko stroke. (7) Terdapat faktor risiko stroke yang dapat"
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-10",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        5,
-        6
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "dikendalikan dan faktor risiko stroke tidak dapat dikendalikan. (8) Pemahaman akan"
-        },
-        {
-          "type": "paragraph",
-          "text": "faktor risiko stroke yang dapat dikendalikan ini penting untuk menurunkan risiko"
-        },
-        {
-          "type": "paragraph",
-          "text": "seseorang terkena stroke."
-        },
-        {
-          "type": "paragraph",
-          "text": "Dari paragraf bacaan di atas, manakah yang bukan merupakan kalimat efektif? (soal"
-        },
-        {
-          "type": "paragraph",
-          "text": "kategori SULIT)"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Kalimat pertama"
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Kalimat kedua"
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Kalimat ketiga"
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Kalimat keempat"
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Kalimat kelima"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat (4) tidak efektif karena konjungsi sedangkan seharusnya digunakan untuk"
-        },
-        {
-          "type": "paragraph",
-          "text": "menghubungkan dua bagian yang masih berada dalam satu kalimat. Penggunaan"
-        },
-        {
-          "type": "paragraph",
-          "text": "sedangkan setelah tanda titik membuat konstruksinya tidak tepat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Perbaikannya: “Dalam pola kematian penderita rawat inap, stroke menduduki urutan"
-        },
-        {
-          "type": "paragraph",
-          "text": "pertama, sedangkan dari seluruh penyebab kematian, stroke menduduki urutan ketiga"
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-11",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "terbesar setelah penyakit jantung dan kanker.”"
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-12",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
-        },
-        {
-          "type": "tip",
-          "title": "💡 Veco Tips 1: Cek S-P-O-K dulu!",
-          "text": "Kalau struktur dasarnya saja sudah kabur, jangan buru-buru memikirkan kata-kata yang\nrumit. Cari dulu siapa melakukan apa dan kepada siapa."
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-13",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "💡 Veco Tips 2: Coba hapus!",
-          "text": "Hapus kata yang terasa berlebihan, lalu baca kembali. Kalau makna tetap sama dan\nkalimat justru lebih jelas, kata tersebut kemungkinan tidak diperlukan."
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-14",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "💡 Veco Tips 3: Cari Hubungan Logisnya",
-          "text": "Kata seperti karena, sehingga, agar, tetapi, dan meskipun membawa hubungan\ntertentu. Jangan hanya melihat apakah kalimatnya enak dibaca—cek apakah hubungan\nmaknanya benar."
-        }
-      ]
-    },
-    {
-      "id": "material-08-page-15",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        6
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
-          "marker": "•",
-          "items": [
-            "Menganggap kalimat efektif harus pendek",
-            "Mengira kalimat yang terdengar bagus pasti efektif",
-            "Hanya mencari kesalahan ejaan (EYD)",
-            "Menganggap kata yang diulang selalu salah",
-            "Tidak bisa membedakan kalimat “boros” dan “panjang”"
-          ],
-          "tone": "warning"
-        }
+        {"type": "heading", "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"},
+        {"type": "tip", "title": "💡 Veco Tips 1: Cek S-P-O-K dulu!", "text": "*Kalau struktur dasarnya saja sudah kabur, jangan buru-buru memikirkan kata-kata yang rumit. Cari dulu **siapa melakukan apa dan kepada siapa**.*"},
+        {"type": "tip", "title": "💡 Veco Tips 2: Coba hapus!", "text": "*Hapus kata yang terasa berlebihan, lalu baca kembali. Kalau makna tetap sama dan kalimat justru lebih jelas, kata tersebut kemungkinan tidak diperlukan.*"},
+        {"type": "tip", "title": "💡 Veco Tips 3: Cari Hubungan Logisnya", "text": "*Kata seperti **karena, sehingga, agar, tetapi, dan meskipun** membawa hubungan tertentu. Jangan hanya melihat apakah kalimatnya enak dibaca—cek apakah hubungan maknanya benar.*"},
+        {"type": "tip", "title": "⚠ Kesalahan Umum yang Sering Terjadi", "marker": "•", "items": ["Menganggap kalimat efektif harus pendek", "Mengira kalimat yang terdengar bagus pasti efektif", "Hanya mencari kesalahan ejaan (EYD)", "Menganggap kata yang diulang selalu salah", "Tidak bisa membedakan kalimat “boros” dan “panjang”"], "tone": "warning"}
       ]
     }
   ]

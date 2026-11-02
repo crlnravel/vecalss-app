@@ -6,7 +6,7 @@
   "verbatim": true,
   "pages": [
     {
-      "id": "source-page-78",
+      "id": "lbe-14-reviewed-01",
       "title": "MATERI 14 — Identifying Assumptions",
       "continuation": false,
       "source_pages": [
@@ -15,37 +15,39 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
-          "small": true
+          "text": "*Subtes:* *LBE* *·* *Literasi* *Bahasa* *Inggris*"
         },
         {
           "type": "heading",
-          "text": "A. PENGERTIAN & DEFINISI"
+          "text": "**A.** **PENGERTIAN** **&** **DEFINISI**"
         },
         {
           "type": "paragraph",
-          "text": "Dalam soal Literasi Bahasa Inggris SNBT, kamu akan sering bertemu dengan teks yang\nberisi pendapat atau argumen penulis. Setiap argumen yang logis pasti dibangun dari\ndua hal: Premis (fakta/bukti) dan Kesimpulan (Claim). Nah, Assumption (Asumsi)\nadalah elemen rahasia ketiga. Asumsi adalah keyakinan, ide, atau fondasi yang tidak\ntertulis (tersirat) di dalam teks, namun mutlak harus benar agar Kesimpulan penulis\nbisa terhubung dengan Premisnya. Ibarat membangun rumah, premis adalah dinding,\nkesimpulan adalah atap, dan asumsi adalah fondasi di bawah tanah. Kamu tidak bisa\nmelihat fondasinya, tapi kalau fondasi itu rapuh atau tidak ada, atapnya pasti runtuh.\nSoal tipe ini menguji kepekaanmu untuk menemukan \"jembatan gaib\" yang\ndisembunyikan oleh penulis.",
-          "small": true
+          "text": "Dalam soal Literasi Bahasa Inggris SNBT, kamu akan sering bertemu dengan teks yang berisi pendapat atau argumen penulis. Setiap argumen yang logis pasti dibangun dari dua hal: **Premis** (fakta/bukti) dan **Kesimpulan** (*Claim*). Nah, **Assumption** (Asumsi) adalah elemen rahasia ketiga. Asumsi adalah keyakinan, ide, atau fondasi yang **tidak** **tertulis** **(tersirat)** di dalam teks, namun *mutlak* *harus* *benar* agar Kesimpulan penulis bisa terhubung dengan Premisnya. Ibarat membangun rumah, premis adalah dinding, kesimpulan adalah atap, dan asumsi adalah fondasi di bawah tanah. Kamu tidak bisa melihat fondasinya, tapi kalau fondasi itu rapuh atau tidak ada, atapnya pasti runtuh. Soal tipe ini menguji kepekaanmu untuk menemukan \"jembatan gaib\" yang disembunyikan oleh penulis."
+        },
+        {
+          "type": "heading",
+          "text": "**SUBMATERI:** **2** **Jenis** **Asumsi** **dalam** **Teks** **Akademik**"
         },
         {
           "type": "paragraph",
-          "text": "SUBMATERI: 2 Jenis Asumsi dalam Teks Akademik",
-          "small": true
+          "text": "Untuk mempermudah pencarian, kamu perlu tahu bahwa penulis biasanya menyembunyikan salah satu dari dua jenis asumsi ini:"
         },
         {
-          "type": "paragraph",
-          "text": "Untuk mempermudah pencarian, kamu perlu tahu bahwa penulis biasanya\nmenyembunyikan salah satu dari dua jenis asumsi ini:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. The Supporter (Asumsi Jembatan/Penghubung): Asumsi ini bertugas\nmenghubungkan informasi baru di kesimpulan yang tidak pernah dibahas di\npremis.\n○ Contoh: \"Budi memakai kacamata tebal (Premis), maka Budi pasti sangat\npintar (Kesimpulan).\"\n○ Asumsi Supporter: Orang yang memakai kacamata tebal itu identik\ndengan kepintaran. (Tanpa asumsi ini, argumennya tidak masuk akal).\n2. The Defender (Asumsi Bertahan/Pelindung): Asumsi ini bertugas melindungi\nargumen dari faktor luar yang bisa merusaknya. Penulis berasumsi bahwa tidak\nada hal lain yang akan menggagalkan rencananya.\n○ Contoh: \"Pemerintah membangun jalan tol baru (Premis), maka\nkemacetan kota pasti akan hilang (Kesimpulan).\"\n○ Asumsi Defender: Penulis berasumsi bahwa tarif tol tersebut tidak terlalu\nmahal (sehingga warga mau lewat situ), atau penulis berasumsi bahwa\nmobil di kota itu tidak akan bertambah drastis secara tiba-tiba.",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2."
+          ],
+          "items": [
+            "**The** **Supporter** **(Asumsi** **Jembatan/Penghubung):** Asumsi ini bertugas menghubungkan informasi baru di kesimpulan yang tidak pernah dibahas di premis. ○ *Contoh:* \"Budi memakai kacamata tebal (Premis), maka Budi pasti sangat pintar (Kesimpulan).\" ○ *Asumsi* *Supporter:* Orang yang memakai kacamata tebal itu identik dengan kepintaran. (Tanpa asumsi ini, argumennya tidak masuk akal).",
+            "**The** **Defender** **(Asumsi** **Bertahan/Pelindung):** Asumsi ini bertugas melindungi argumen dari faktor luar yang bisa merusaknya. Penulis berasumsi bahwa **tidak** **ada** **hal** **lain** yang akan menggagalkan rencananya. ○ *Contoh:* \"Pemerintah membangun jalan tol baru (Premis), maka kemacetan kota pasti akan hilang (Kesimpulan).\" ○ *Asumsi* *Defender:* Penulis berasumsi bahwa tarif tol tersebut tidak terlalu mahal (sehingga warga mau lewat situ), atau penulis berasumsi bahwa mobil di kota itu tidak akan bertambah drastis secara tiba-tiba."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-79",
+      "id": "lbe-14-reviewed-02",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -54,37 +56,46 @@
       "blocks": [
         {
           "type": "heading",
-          "text": "B. CIRI-CIRI & KARAKTERISTIK"
+          "text": "**B.** **CIRI-CIRI** **&** **KARAKTERISTIK**"
         },
         {
           "type": "paragraph",
-          "text": "Soal yang menanyakan asumsi sangat mudah dibedakan dari soal lainnya. Berikut\nadalah karakteristik utamanya:",
-          "small": true
+          "text": "Soal yang menanyakan asumsi sangat mudah dibedakan dari soal lainnya. Berikut adalah karakteristik utamanya:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Pertanyaan** **Khas:** *\"The* *author's* *argument* ***relies*** ***on*** *which* *of* *the* *following* ***assumptions****?\"*, *\"Which* *of* *the* *following* *is* *an* ***underlying*** ***assumption*** *of* *the* *passage?\"*, atau *\"The* *conclusion* *drawn* *above* *is* *based* *on* *the* ***assumption*** *that...\"*.",
+            "**Fakta** **Tak** **Terlihat** **(*****Unstated*****):** Jawaban yang benar **TIDAK** **PERNAH** tertulis secara eksplisit di dalam teks. Jika kamu menemukan opsi jawaban yang kalimatnya bisa di-copy-paste langsung dari teks, opsi itu pasti salah!",
+            "**Sifatnya** **Wajib** **(Absolute** **Necessity):** Sebuah asumsi bukan cuma \"info tambahan yang bagus\", melainkan nyawa dari argumen. Kalau asumsi itu dibantah, argumen penulis hancur berkeping-keping."
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**C.** **CARA** **MENGERJAKAN** **/** **STRATEGI** **(Metode** **N.E.T)**"
         },
         {
           "type": "paragraph",
-          "text": "● Pertanyaan Khas: \"The author's argument relies on which of the following\nassumptions?\", \"Which of the following is an underlying assumption of the\npassage?\", atau \"The conclusion drawn above is based on the assumption\nthat...\".\n● Fakta Tak Terlihat (Unstated): Jawaban yang benar TIDAK PERNAH tertulis\nsecara eksplisit di dalam teks. Jika kamu menemukan opsi jawaban yang\nkalimatnya bisa di-copy-paste langsung dari teks, opsi itu pasti salah!\n● Sifatnya Wajib (Absolute Necessity): Sebuah asumsi bukan cuma \"info\ntambahan yang bagus\", melainkan nyawa dari argumen. Kalau asumsi itu\ndibantah, argumen penulis hancur berkeping-keping.",
-          "small": true
+          "text": "Mencari sesuatu yang tidak tertulis memang sulit. Tapi kamu bisa menggunakan strategi detektif **N.E.T** berikut ini:"
         },
         {
-          "type": "paragraph",
-          "text": "C. CARA MENGERJAKAN / STRATEGI (Metode N.E.T)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Mencari sesuatu yang tidak tertulis memang sulit. Tapi kamu bisa menggunakan\nstrategi detektif N.E.T berikut ini:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. N - Nail the Core (Paku Inti Argumennya): Jangan baca keseluruhan teks\nberulang-ulang. Cari kalimat Kesimpulan utamanya (biasanya diawali therefore,\nthus, clearly), dan cari Bukti yang menopangnya (biasanya diawali because,\nsince, data shows).\n2. E - Evaluate the Gap (Evaluasi Celahnya): Perhatikan kata-kata di kesimpulan.\nApakah ada kata baru atau ide baru yang tiba-tiba muncul tapi tidak pernah\ndibahas di bagian bukti? Kalau ada, jawaban asumsinya pasti mengandung ide\nbaru tersebut.\n3. T - The Negation Test (Uji Bantahan): Ini adalah senjata nuklir untuk soal\nasumsi! Ambil opsi jawaban yang kamu curigai, lalu Bantah/Negasikan\nkalimatnya (tambahkan kata TIDAK atau BUKAN). Setelah dibantah, baca ulang\nargumen penulis. Jika argumen penulis jadi terdengar bodoh dan hancur, maka\nitulah opsi asumsi yang BENAR!",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3."
+          ],
+          "items": [
+            "**N** **-** **Nail** **the** **Core** **(Paku** **Inti** **Argumennya):** Jangan baca keseluruhan teks berulang-ulang. Cari kalimat Kesimpulan utamanya (biasanya diawali *therefore,* *thus,* *clearly*), dan cari Bukti yang menopangnya (biasanya diawali *because,* *since,* *data* *shows*).",
+            "**E** **-** **Evaluate** **the** **Gap** **(Evaluasi** **Celahnya):** Perhatikan kata-kata di kesimpulan. Apakah ada kata baru atau ide baru yang tiba-tiba muncul tapi tidak pernah dibahas di bagian bukti? Kalau ada, jawaban asumsinya pasti mengandung ide baru tersebut.",
+            "**T** **-** **The** **Negation** **Test** **(Uji** **Bantahan):** Ini adalah senjata nuklir untuk soal asumsi! Ambil opsi jawaban yang kamu curigai, lalu **Bantah/Negasikan** kalimatnya (tambahkan kata *TIDAK* atau *BUKAN*). Setelah dibantah, baca ulang argumen penulis. Jika argumen penulis jadi terdengar bodoh dan hancur, maka itulah opsi asumsi yang BENAR!"
+          ]
         }
       ]
     },
     {
-      "id": "source-page-80",
+      "id": "lbe-14-reviewed-03",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -93,82 +104,99 @@
       "blocks": [
         {
           "type": "heading",
-          "text": "D. CONTOH SOAL BESERTA PEMBAHASAN"
+          "text": "**D.** **CONTOH** **SOAL** **BESERTA** **PEMBAHASAN**"
+        },
+        {
+          "type": "heading",
+          "text": "**Soal** **1:** **Tingkat** **Mudah** **(Asumsi** **Jembatan/Supporter)**"
         },
         {
           "type": "paragraph",
-          "text": "Soal 1: Tingkat Mudah (Asumsi Jembatan/Supporter) Teks: \"The new 'Xtreme-Fit'\ndiet program requires participants to consume only raw vegetables and drink three liters\nof lemon water every day. Because participants will significantly reduce their daily\ncalorie intake through this method, they are guaranteed to lose at least 5 kilograms in\nthe first week.\"",
-          "small": true
+          "text": "*Teks:* \"The new 'Xtreme-Fit' diet program requires participants to consume only raw vegetables and drink three liters of lemon water every day. Because participants will significantly reduce their daily calorie intake through this method, they are guaranteed to lose at least 5 kilograms in the first week.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: The argument above relies on the assumption that...",
-          "small": true
+          "text": "*Question:* The argument above relies on the assumption that..."
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "Lemon water contains special enzymes that burn body fat rapidly."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Raw vegetables are much cheaper to buy than processed foods."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "A significant reduction in daily calorie intake directly leads to weight loss."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Participants will not feel hungry while eating only raw vegetables."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Most diet programs fail because people do not drink enough water."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "A) Lemon water contains special enzymes that burn body fat rapidly.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **1:** *Jawaban* *Benar:* ***C***"
         },
         {
-          "type": "paragraph",
-          "text": "B) Raw vegetables are much cheaper to buy than processed foods.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Argumen** **(Nail** **the** **Core):**"
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "C) A significant reduction in daily calorie intake directly leads to weight loss.",
-          "small": true
+          "type": "bullets",
+          "marker": "○",
+          "items": [
+            "*Premis:* Diet ini memotong asupan kalori secara signifikan.",
+            "*Kesimpulan:* Peserta pasti turun berat badan 5 kg."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "D) Participants will not feel hungry while eating only raw vegetables.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Celah** **(Gap):** Penulis meloncat dari \"potong kalori\" langsung ke \"turun berat badan\"."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "E) Most diet programs fail because people do not drink enough water.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Terapkan** ***Negation*** ***Test*** **(Uji** **Bantahan)** **pada** **Opsi** **C:** Mari kita bantah opsi C menjadi *\"A* *significant* *reduction* *in* *daily* *calorie* *intake* *DOES* *NOT* *lead* *to* *weight* *loss\"* (Pengurangan kalori TIDAK menyebabkan turun berat badan). Jika ini benar, apakah kesimpulan penulis (peserta pasti turun 5 kg) masih masuk akal? Tentu tidak! Kesimpulannya hancur total. Maka, C adalah asumsi yang wajib ada."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Argumen (Nail the Core):",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Premis: Diet ini memotong asupan kalori secara signifikan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Kesimpulan: Peserta pasti turun berat badan 5 kg.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Celah (Gap): Penulis meloncat dari \"potong kalori\" langsung ke \"turun berat\nbadan\".",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Terapkan Negation Test (Uji Bantahan) pada Opsi C: Mari kita bantah opsi C\nmenjadi \"A significant reduction in daily calorie intake DOES NOT lead to weight\nloss\" (Pengurangan kalori TIDAK menyebabkan turun berat badan). Jika ini\nbenar, apakah kesimpulan penulis (peserta pasti turun 5 kg) masih masuk akal?\nTentu tidak! Kesimpulannya hancur total. Maka, C adalah asumsi yang wajib ada.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Opsi lain: A, B, D, dan E mungkin saja benar di dunia nyata, tetapi argumen\npenulis tidak \"bergantung\" pada fakta-fakta tersebut untuk bisa disimpulkan.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Opsi** **lain:** A, B, D, dan E mungkin saja benar di dunia nyata, tetapi argumen penulis tidak \"bergantung\" pada fakta-fakta tersebut untuk bisa disimpulkan."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-81",
+      "id": "lbe-14-reviewed-04",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -176,174 +204,221 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "Soal 2: Tingkat Menengah (Asumsi Pelindung/Defender)",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **2:** **Tingkat** **Menengah** **(Asumsi** **Pelindung/Defender)**"
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"To reduce the high operational costs caused by electricity usage, the university\nadministration has decided to replace all traditional library computers with new,\nenergy-efficient tablet devices. The administration calculates that this switch will save\nthe university 20% in overall electrical expenses next semester.\"",
-          "small": true
+          "text": "*Teks:* \"To reduce the high operational costs caused by electricity usage, the university administration has decided to replace all traditional library computers with new, energy-efficient tablet devices. The administration calculates that this switch will save the university 20% in overall electrical expenses next semester.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: The administration's conclusion is based on which underlying assumption?",
-          "small": true
+          "text": "*Question:* The administration's conclusion is based on which underlying assumption?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "The cost of purchasing the new tablets is lower than the expected electricity savings."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Students prefer using tablets over traditional desktop computers for their research."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "The new energy-efficient tablets will not need to be charged more frequently, negating the energy saved."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Other university buildings will also adopt the new tablet devices."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "The traditional library computers were outdated and extremely slow."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "A) The cost of purchasing the new tablets is lower than the expected electricity savings.\nB) Students prefer using tablets over traditional desktop computers for their research.\nC) The new energy-efficient tablets will not need to be charged more frequently,\nnegating the energy saved.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **2:** *Jawaban* *Benar:* ***C***"
         },
         {
-          "type": "paragraph",
-          "text": "D) Other university buildings will also adopt the new tablet devices.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Argumen:** Ganti komputer pakai tablet hemat energi (Premis) -> Pengeluaran listrik akan hemat 20% (Kesimpulan)."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "E) The traditional library computers were outdated and extremely slow.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kita cari *Defender* *Assumption* yang melindungi rencana ini dari kegagalan."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Argumen: Ganti komputer pakai tablet hemat energi (Premis) -> Pengeluaran\nlistrik akan hemat 20% (Kesimpulan).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Kita cari Defender Assumption yang melindungi rencana ini dari kegagalan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) Cost of purchasing: Salah. Kesimpulan teks hanya membahas\n\"penghematan tagihan listrik\" (electrical expenses), bukan soal apakah proyek ini\nmenguntungkan secara finansial secara keseluruhan (Return of Investment).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Students prefer tablets: Salah. Ini soal selera, tidak ada hubungannya\ndengan tagihan listrik.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) The tablets will not need to be charged more frequently: Benar. (Tablet\nhemat energi tersebut tidak butuh di-charge terus-terusan yang ujungnya malah\nmemakan listrik yang sama besarnya). Mari kita uji Negasi: \"Tabletnya ternyata\nHARUS di-charge setiap 1 jam.\" Kalau ini terjadi, maka penghematan listrik 20%\nakan GAGAL total. Karena jika dibantah argumennya hancur, maka ini adalah\nasumsi yang tepat!",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D & E: Salah karena Irrelevant (tidak berhubungan dengan tagihan listrik).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Soal 3: Tingkat Sulit (Asumsi Tersembunyi pada Konsep Sosial)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Teks: \"A recent survey conducted across major tech companies revealed that\nemployees who are allowed to work fully from home report a 40% higher rate of job\nsatisfaction compared to those working in the office. Consequently, to maximize overall\ncompany productivity, all tech corporations should immediately implement permanent\nwork-from-home policies.\"",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Question: Which of the following is a crucial assumption required by the argument?",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **Cost** **of** **purchasing:** Salah. Kesimpulan teks hanya membahas \"penghematan tagihan listrik\" (*electrical* *expenses*), bukan soal apakah proyek ini menguntungkan secara finansial secara keseluruhan (*Return* *of* *Investment*).",
+            "**B)** **Students** **prefer** **tablets:** Salah. Ini soal selera, tidak ada hubungannya dengan tagihan listrik.",
+            "**C)** **The** **tablets** **will** **not** **need** **to** **be** **charged** **more** **frequently:** **Benar.** (Tablet hemat energi tersebut tidak butuh di-charge terus-terusan yang ujungnya malah memakan listrik yang sama besarnya). Mari kita uji Negasi: *\"Tabletnya* *ternyata* *HARUS* *di-charge* *setiap* *1* *jam.\"* Kalau ini terjadi, maka penghematan listrik 20% akan GAGAL total. Karena jika dibantah argumennya hancur, maka ini adalah asumsi yang tepat!",
+            "**D** **&** **E:** Salah karena *Irrelevant* (tidak berhubungan dengan tagihan listrik)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-82",
+      "id": "lbe-14-reviewed-05",
       "title": "",
       "continuation": true,
       "source_pages": [
+        81,
         82
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "A) Tech companies currently struggle with extremely low productivity.",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **3:** **Tingkat** **Sulit** **(Asumsi** **Tersembunyi** **pada** **Konsep** **Sosial)**"
         },
         {
           "type": "paragraph",
-          "text": "B) High job satisfaction directly results in high or maximized employee productivity.",
-          "small": true
+          "text": "*Teks:* \"A recent survey conducted across major tech companies revealed that employees who are allowed to work fully from home report a 40% higher rate of job satisfaction compared to those working in the office. Consequently, to maximize overall company productivity, all tech corporations should immediately implement permanent work-from-home policies.\""
         },
         {
           "type": "paragraph",
-          "text": "C) Employees who work from home do not have to spend money on daily commuting.\nD) Most tech employees have access to high-speed internet in their homes.",
-          "small": true
+          "text": "*Question:* Which of the following is a crucial assumption required by the argument?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "Tech companies currently struggle with extremely low productivity."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "High job satisfaction directly results in high or maximized employee productivity."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Employees who work from home do not have to spend money on daily commuting."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Most tech employees have access to high-speed internet in their homes."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Working in an office environment causes severe stress for tech employees."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "E) Working in an office environment causes severe stress for tech employees.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **3:** *Jawaban* *Benar:* ***B***"
         },
         {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: B",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Argumen:**"
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "● Argumen:",
-          "small": true
+          "type": "bullets",
+          "marker": "○",
+          "items": [
+            "*Premis:* WFH bikin tingkat **kepuasan** **kerja** **(job** **satisfaction)** naik 40%.",
+            "*Kesimpulan:* Perusahaan harus WFH agar **produktivitas** **(productivity)** maksimal."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "○ Premis: WFH bikin tingkat kepuasan kerja (job satisfaction) naik 40%.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Celah** **(Gap):** Lho, premisnya ngomongin *kepuasan* *kerja* (bahagia), tapi kesimpulannya tiba-tiba ngomongin *produktivitas* (kinerja kerja)? Ada loncatan ide di sini!"
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "○ Kesimpulan: Perusahaan harus WFH agar produktivitas (productivity)\nmaksimal.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**B)** **High** **job** **satisfaction** **directly** **results** **in** **maximized** **productivity:** **Benar.** Penulis \"berasumsi\" bahwa karyawan yang puas/bahagia sudah PASTI akan produktif/rajin bekerja."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "● Celah (Gap): Lho, premisnya ngomongin kepuasan kerja (bahagia), tapi\nkesimpulannya tiba-tiba ngomongin produktivitas (kinerja kerja)? Ada loncatan\nide di sini!",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) High job satisfaction directly results in maximized productivity: Benar.\nPenulis \"berasumsi\" bahwa karyawan yang puas/bahagia sudah PASTI akan\nproduktif/rajin bekerja.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Mari kita Uji Negasi (Negation Test): \"Kepuasan kerja yang tinggi TIDAK\nmenghasilkan produktivitas\" (misalnya, mereka puas WFH karena bisa sambil\ntidur siang terus, kerjanya malah terbengkalai). Jika bantahan ini benar, maka\nkesimpulan penulis untuk \"mengimplementasikan WFH demi produktivitas\" jadi\nterlihat konyol dan gagal. Ini membuktikan bahwa opsi B adalah fondasi utama\nargumen tersebut\n🦆 VECO TIPS — Cara Cepat & Trik Khusus",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Senjata Pamungkas \"UJI NEGASI\" (The Negation Test)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Kwek! Ini adalah trik paling overpowered di materi asumsi! Kalau kamu bingung milih\nantara 2 opsi jawaban, masukin kata TIDAK (NOT/DOES NOT) ke dalam kalimat opsi\ntersebut. Contoh: Opsi bunyinya \"Vaksin itu aman\", kamu ubah jadi \"Vaksin itu TIDAK\naman\". Habis itu, baca kesimpulan di teks. Kalau kesimpulan teksnya jadi hancur lebur\ndan nggak masuk akal gara-gara tambahan kata \"TIDAK\" tadi, berarti selamat! Itulah\njawaban Asumsi yang benar! Kalau kesimpulannya masih aman-aman aja, berarti itu\nopsi bohongan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "💡Veco Tips: Awas Opsi \"Tercetak Jelas\" (The Explicit Trap)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Bebek pinter pantang tertipu! Kalau kamu baca pilihan ganda, dan kalimat itu sama\npersis tertulis di dalam paragraf soal... Coret detik itu juga! Kenapa? Karena yang",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Mari** **kita** **Uji** **Negasi** **(Negation** **Test):** \"Kepuasan kerja yang tinggi TIDAK menghasilkan produktivitas\" (misalnya, mereka puas WFH karena bisa sambil tidur siang terus, kerjanya malah terbengkalai). Jika bantahan ini benar, maka kesimpulan penulis untuk *\"mengimplementasikan* *WFH* *demi* *produktivitas\"* jadi terlihat konyol dan gagal. Ini membuktikan bahwa opsi B adalah fondasi utama argumen tersebut"
+          ]
         }
       ]
     },
     {
-      "id": "source-page-83",
+      "id": "lbe-14-reviewed-06",
+      "title": "",
+      "continuation": true,
+      "source_pages": [
+        82,
+        83
+      ],
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "🦆 **VECO** **TIPS** **—** **Cara** **Cepat** **&** **Trik** **Khusus**"
+        },
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Senjata** **Pamungkas** **\"UJI** **NEGASI\"** **(The** **Negation** **Test)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Kwek! Ini adalah trik paling *overpowered* di materi asumsi! Kalau kamu bingung milih antara 2 opsi jawaban, masukin kata **TIDAK** (NOT/DOES NOT) ke dalam kalimat opsi tersebut. Contoh: Opsi bunyinya *\"Vaksin* *itu* *aman\"*, kamu ubah jadi *\"Vaksin* *itu* *TIDAK* *aman\"*. Habis itu, baca kesimpulan di teks. Kalau kesimpulan teksnya jadi hancur lebur dan nggak masuk akal gara-gara tambahan kata \"TIDAK\" tadi, berarti **selamat!** Itulah jawaban Asumsi yang benar! Kalau kesimpulannya masih aman-aman aja, berarti itu opsi bohongan."
+            }
+          ]
+        },
+        {
+          "type": "tip",
+          "title": "💡**Veco** **Tips:** **Awas** **Opsi** **\"Tercetak** **Jelas\"** **(The** **Explicit** **Trap)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Bebek pinter pantang tertipu! Kalau kamu baca pilihan ganda, dan kalimat itu *sama* *persis* tertulis di dalam paragraf soal... **Coret** **detik** **itu** **juga!** Kenapa? Karena yang"
+            },
+            {
+              "type": "paragraph",
+              "text": "tertulis di teks itu namanya FAKTA (Premis), BUKAN Asumsi. Asumsi itu *invisible* (nggak kelihatan), cuma ada di dalam benaknya si penulis tapi nggak ditulis di kertas. Cari opsi yang memuat ide penghubung yang gak pernah disebutin langsung!"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lbe-14-reviewed-07",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -351,19 +426,36 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "tertulis di teks itu namanya FAKTA (Premis), BUKAN Asumsi. Asumsi itu invisible\n(nggak kelihatan), cuma ada di dalam benaknya si penulis tapi nggak ditulis di kertas.\nCari opsi yang memuat ide penghubung yang gak pernah disebutin langsung!\n⚠ Kesalahan Umum yang Sering Terjadi",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Soal tipe asumsi sering kali membuat kepala pusing karena batas antara \"fakta\" dan\n\"asumsi\" terlihat kabur. Jangan lakukan 3 kesalahan ini:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Memilih Fakta dari Teks (Premis = Asumsi): Ini adalah kesalahan nomor satu\nterbanyak. Pembuat soal pasti menaruh 1-2 opsi yang berisi rangkuman dari teks\nasli. Siswa yang tidak paham arti \"asumsi\" akan memilih opsi ini karena merasa\n\"Wah, ini bener kok ada di teks!\". Ingat: Asumsi harus tersirat (implicit).\n2. Mencampuradukkan \"Strengthen\" dengan \"Assumption\": Memang benar,\nsebuah asumsi pasti memperkuat argumen. Tapi, opsi yang memperkuat\nargumen belum tentu sebuah asumsi!\n○ Strengthen (Memperkuat) adalah info bonus: \"Kalau ada ya bagus,\nargumen makin kuat, kalau gak ada ya argumen tetep bisa jalan.\"\n○ Assumption (Asumsi) adalah nyawa: \"Kalau dibantah, argumennya\nlangsung tamat riwayatnya.\" Selalu andalkan Negation Test untuk\nmembedakannya!\n3. Terjebak Opsi Kata Ekstrem (The Extreme Generalization): Pembuat soal\nsering melebih-lebihkan asumsi. Misalnya penulis berasumsi \"Beberapa orang\nbutuh kacamata\", tapi di opsi jawaban ditulis \"Semua manusia di bumi butuh\nkacamata\". Opsi dengan kata All, Always, Never, Every biasanya adalah\ngeneralisasi yang salah dan melampaui apa yang dibutuhkan untuk menopang\nargumen penulis. Pilih asumsi yang porsinya \"pas\"!",
-          "small": true
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "tone": "warning",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Soal tipe asumsi sering kali membuat kepala pusing karena batas antara \"fakta\" dan \"asumsi\" terlihat kabur. Jangan lakukan 3 kesalahan ini:"
+            },
+            {
+              "type": "bullets",
+              "marker": "1.",
+              "items": [
+                "**Memilih** **Fakta** **dari** **Teks** **(Premis** **=** **Asumsi):** Ini adalah kesalahan nomor satu terbanyak. Pembuat soal pasti menaruh 1-2 opsi yang berisi rangkuman dari teks asli. Siswa yang tidak paham arti \"asumsi\" akan memilih opsi ini karena merasa \"Wah, ini bener kok ada di teks!\". Ingat: Asumsi *harus* tersirat (implicit)."
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "2.",
+              "items": [
+                "**Mencampuradukkan** **\"Strengthen\"** **dengan** **\"Assumption\":** Memang benar, sebuah asumsi pasti memperkuat argumen. Tapi, opsi yang memperkuat argumen *belum* *tentu* sebuah asumsi! ○ *Strengthen* (Memperkuat) adalah info bonus: \"Kalau ada ya bagus, argumen makin kuat, kalau gak ada ya argumen tetep bisa jalan.\" ○ *Assumption* (Asumsi) adalah nyawa: \"Kalau dibantah, argumennya langsung tamat riwayatnya.\" Selalu andalkan *Negation* *Test* untuk membedakannya!"
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "3.",
+              "items": [
+                "**Terjebak** **Opsi** **Kata** **Ekstrem** **(The** **Extreme** **Generalization):** Pembuat soal sering melebih-lebihkan asumsi. Misalnya penulis berasumsi \"Beberapa orang butuh kacamata\", tapi di opsi jawaban ditulis *\"Semua* *manusia* *di* *bumi* *butuh* *kacamata\"*. Opsi dengan kata *All,* *Always,* *Never,* *Every* biasanya adalah generalisasi yang salah dan melampaui apa yang dibutuhkan untuk menopang argumen penulis. Pilih asumsi yang porsinya \"pas\"!"
+              ]
+            }
+          ]
         }
       ]
     }

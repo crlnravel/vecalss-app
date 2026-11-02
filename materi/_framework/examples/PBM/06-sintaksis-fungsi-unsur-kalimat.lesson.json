@@ -9,1093 +9,193 @@
       "id": "material-06-page-01",
       "title": "MATERI 06 — Sintaksis: Fungsi & Unsur Kalimat",
       "continuation": false,
-      "source_pages": [
-        1
-      ],
+      "source_pages": [1],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Subtes: PBM · Pemahaman Bacaan & Menulis"
-        },
-        {
-          "type": "heading",
-          "text": "A. Pengertian Kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat merupakan kesatuan ujaran yang mengungkapkan suatu konsep pikiran dan"
-        },
-        {
-          "type": "paragraph",
-          "text": "perasaan yang utuh secara ketatabahasaan, serta mempunyai intonasi final. Kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "minimal terdiri dari subjek dan predikat. Kalimat minimal terdiri dari subjek dan predikat."
-        },
-        {
-          "type": "heading",
-          "text": "B. Unsur Fungsional dan Pola Kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "Berdasarkan fungsi sintaksisnya, kalimat terdiri atas beberapa unsur:"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Subjek adalah unsur kalimat yang menjadi pokok pembicaraan atau pihak yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "diterangkan oleh predikat. Dalam kalimat aktif, subjek sering berperan sebagai"
-        },
-        {
-          "type": "paragraph",
-          "text": "pelaku tindakan. Subjek biasanya dapat ditemukan dengan pertanyaan “Siapa?”"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau “Apa?”"
-        },
-        {
-          "type": "paragraph",
-          "text": "Ciri umum:"
-        }
+        {"type": "paragraph", "text": "*Subtes: PBM · Pemahaman Bacaan & Menulis*"},
+        {"type": "heading", "text": "A. Pengertian Kalimat"},
+        {"type": "paragraph", "text": "**Kalimat** merupakan kesatuan ujaran yang mengungkapkan suatu konsep pikiran dan perasaan yang utuh secara ketatabahasaan, serta mempunyai intonasi final. Kalimat minimal terdiri dari subjek dan predikat. Kalimat minimal terdiri dari subjek dan predikat."},
+        {"type": "heading", "text": "B. Unsur Fungsional dan Pola Kalimat"},
+        {"type": "paragraph", "text": "**Berdasarkan fungsi sintaksisnya, kalimat terdiri atas beberapa unsur:**"},
+        {"type": "paragraph", "text": "1. **Subjek** adalah unsur kalimat yang menjadi pokok pembicaraan atau pihak yang diterangkan oleh predikat. Dalam kalimat aktif, subjek sering berperan sebagai pelaku tindakan. Subjek biasanya dapat ditemukan dengan pertanyaan “Siapa?” atau “Apa?”"},
+        {"type": "paragraph", "text": "**Ciri umum:**"},
+        {"type": "bullets", "marker": "●", "items": ["Umumnya berupa nomina atau frasa nominal.", "Biasanya terletak sebelum predikat.", "Dapat didahului oleh kata yang dalam konstruksi tertentu.", "Dapat berupa nama orang, benda, tempat, atau sesuatu yang dibicarakan."]},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "paragraph", "text": "Mahasiswa itu sedang belajar. **Mahasiswa itu = Subjek**"},
+        {"type": "paragraph", "text": "Membaca buku dapat menambah wawasan. **Membaca buku = Subjek**"}
       ]
     },
     {
       "id": "material-06-page-02",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        1,
-        2
-      ],
+      "source_pages": [2],
       "blocks": [
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Umumnya berupa nomina atau frasa nominal."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Biasanya terletak sebelum predikat."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Dapat didahului oleh kata yang dalam konstruksi tertentu."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Dapat berupa nama orang, benda, tempat, atau sesuatu yang"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "dibicarakan."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Mahasiswa itu sedang belajar. Mahasiswa itu = Subjek"
-        },
-        {
-          "type": "paragraph",
-          "text": "Membaca buku dapat menambah wawasan. Membaca buku = Subjek"
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Predikat adalah unsur kalimat yang menerangkan tindakan, keadaan, sifat,"
-        },
-        {
-          "type": "paragraph",
-          "text": "identitas, atau kondisi subjek. Jadi, predikat tidak hanya menunjukkan"
-        },
-        {
-          "type": "paragraph",
-          "text": "tindakan. Predikat dapat ditemukan dengan menanyakan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Subjek sedang melakukan apa"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Subjek bagaimana keadaannya"
-        },
-        {
-          "type": "paragraph",
-          "text": "- Subjek itu apa/siapa"
-        },
-        {
-          "type": "paragraph",
-          "text": "Ciri umum:"
-        },
-        {
-          "type": "paragraph",
-          "text": "1) Predikat dapat berupa:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Verba → membaca, berlari, belajar"
-          ]
-        }
+        {"type": "paragraph", "text": "2. **Predikat** adalah unsur kalimat yang menerangkan tindakan, keadaan, sifat, identitas, atau kondisi subjek. **Jadi, predikat tidak hanya menunjukkan tindakan.** Predikat dapat ditemukan dengan menanyakan:"},
+        {"type": "bullets", "marker": "-", "items": ["Subjek sedang melakukan apa", "Subjek bagaimana keadaannya", "Subjek itu apa/siapa"]},
+        {"type": "paragraph", "text": "**Ciri umum:**"},
+        {"type": "paragraph", "text": "**1) Predikat dapat berupa:**"},
+        {"type": "bullets", "marker": "●", "items": ["Verba → membaca, berlari, belajar", "Adjektiva → rajin, sakit, tinggi", "Nomina → dokter, mahasiswa", "Frasa tertentu → sangat rajin, di rumah"]},
+        {"type": "paragraph", "text": "**2) Predikat juga dapat:**"},
+        {"type": "bullets", "marker": "●", "items": ["diingkarkan dengan tidak untuk verba/adjektiva,", "diingkarkan dengan bukan untuk nomina/frasa nominal,", "didahului kata aspek seperti sudah, telah, sedang, akan, belum,", "didahului modalitas seperti ingin, harus, dapat, mungkin."]},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "bullets", "marker": "●", "items": ["Rina belajar. **Belajar = predikat**", "Rina sangat rajin. **Sangat rajin = predikat**", "Rina adalah mahasiswa. **Adalah = predikat**", "Rina sedang belajar. **Sedang = predikat**"]}
       ]
     },
     {
       "id": "material-06-page-03",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        2
-      ],
+      "source_pages": [2, 3],
       "blocks": [
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Adjektiva → rajin, sakit, tinggi"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Nomina → dokter, mahasiswa"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Frasa tertentu → sangat rajin, di rumah"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "2) Predikat juga dapat:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "diingkarkan dengan tidak untuk verba/adjektiva,"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "diingkarkan dengan bukan untuk nomina/frasa nominal,"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "didahului kata aspek seperti sudah, telah, sedang, akan, belum,"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "didahului modalitas seperti ingin, harus, dapat, mungkin."
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Rina belajar. Belajar = predikat"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Rina sangat rajin. Sangat rajin = predikat"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Rina adalah mahasiswa. Adalah = predikat"
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Rina sedang belajar. Sedang = predikat"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Objek adalah unsur kalimat yang menjadi sasaran langsung dari tindakan yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "dilakukan oleh predikat. Objek umumnya muncul setelah predikat berupa"
-        },
-        {
-          "type": "paragraph",
-          "text": "verba transitif. Objek dapat ditemukan dengan menanyakan “melakukan apa”"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau “mengenai apa/siapa”."
-        }
+        {"type": "paragraph", "text": "3. **Objek** adalah unsur kalimat yang menjadi sasaran langsung dari tindakan yang dilakukan oleh predikat. **Objek umumnya muncul setelah predikat** berupa verba transitif. Objek dapat ditemukan dengan menanyakan “melakukan apa” atau “mengenai apa/siapa”."},
+        {"type": "paragraph", "text": "**Ciri umum:**"},
+        {"type": "bullets", "marker": "●", "items": ["Umumnya berupa nomina atau frasa nominal.", "Biasanya terletak setelah predikat.", "Dapat berubah menjadi subjek ketika kalimat aktif transitif diubah menjadi pasif."]},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "paragraph", "text": "Ibu memasak nasi. (**S P O**)"},
+        {"type": "paragraph", "text": "→ Bentuk pasif: Nasi dimasak oleh ibu. → **Objek berubah menjadi subjek.**"}
       ]
     },
     {
       "id": "material-06-page-04",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        3
-      ],
+      "source_pages": [3, 4],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Ciri umum:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Umumnya berupa nomina atau frasa nominal."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Biasanya terletak setelah predikat."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Dapat berubah menjadi subjek ketika kalimat aktif transitif diubah"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "menjadi pasif."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Ibu memasak nasi. (S P O)"
-        },
-        {
-          "type": "paragraph",
-          "text": "→ Bentuk pasif: Nasi dimasak oleh ibu. → Objek berubah menjadi subjek."
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Keterangan adalah unsur kalimat yang memberikan informasi tambahan"
-        },
-        {
-          "type": "paragraph",
-          "text": "mengenai keadaan suatu peristiwa atau tindakan, seperti waktu, tempat, cara,"
-        },
-        {
-          "type": "paragraph",
-          "text": "tujuan, sebab, alat, syarat, dan sebagainya. Keterangan dapat diketahui melalui"
-        },
-        {
-          "type": "paragraph",
-          "text": "pertanyaan Kapan, Di mana, Bagaimana, Mengapa, Untuk apa, Dengan apa,"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau Dalam kondisi apa."
-        },
-        {
-          "type": "paragraph",
-          "text": "Ciri umum:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Bersifat tambahan, bukan inti utama kalimat."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Letaknya cukup fleksibel: dapat berada di awal, tengah, atau akhir"
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat."
-        }
-      ]
-    },
-    {
-      "id": "material-06-page-05",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        3,
-        4,
-        5
-      ],
-      "blocks": [
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Umumnya dapat dipindahkan tanpa merusak struktur dasar kalimat."
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Rina belajar di perpustakaan. (S P K)"
-        },
-        {
-          "type": "paragraph",
-          "text": "Rina belajar dengan serius. (S P K)"
-        },
-        {
-          "type": "paragraph",
-          "text": "Setelah makan, Rina belajar. (K S P)"
-        },
-        {
-          "type": "paragraph",
-          "text": "Keterangan dapat menunjukkan:"
-        },
-        {
-          "type": "table",
-          "headers": [
-            "Jenis",
-            "Contoh"
-          ],
-          "rows": [
-            [
-              "Waktu",
-              "kemarin, setiap pagi"
-            ],
-            [
-              "Tempat",
-              "di sekolah, di rumah"
-            ],
-            [
-              "Cara",
-              "dengan cepat"
-            ],
-            [
-              "Alat",
-              "dengan komputer"
-            ],
-            [
-              "Tujuan",
-              "untuk ujian"
-            ],
-            [
-              "Sebab",
-              "karena sakit"
-            ],
-            [
-              "Syarat",
-              "jika diperlukan"
-            ]
-          ],
-          "widths": [
-            1,
-            1
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Pelengkap adalah unsur kalimat yang berfungsi melengkapi predikat agar"
-        },
-        {
-          "type": "paragraph",
-          "text": "makna kalimat menjadi lebih utuh, tetapi tidak dapat diperlakukan sebagai objek."
-        },
-        {
-          "type": "paragraph",
-          "text": "Pelengkap biasanya hadir setelah predikat tertentu dan sering menyerupai objek"
-        }
+        {"type": "paragraph", "text": "4. **Keterangan** adalah unsur kalimat yang memberikan informasi tambahan mengenai keadaan suatu peristiwa atau tindakan, seperti waktu, tempat, cara, tujuan, sebab, alat, syarat, dan sebagainya. Keterangan dapat diketahui melalui pertanyaan Kapan, Di mana, Bagaimana, Mengapa, Untuk apa, Dengan apa, atau Dalam kondisi apa."},
+        {"type": "paragraph", "text": "**Ciri umum:**"},
+        {"type": "bullets", "marker": "●", "items": ["Bersifat tambahan, bukan inti utama kalimat.", "Letaknya cukup fleksibel: dapat berada di awal, tengah, atau akhir kalimat.", "Umumnya dapat dipindahkan tanpa merusak struktur dasar kalimat."]},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "paragraph", "text": "**Rina belajar di perpustakaan. (S P K)**"},
+        {"type": "paragraph", "text": "**Rina belajar dengan serius. (S P K)**"},
+        {"type": "paragraph", "text": "**Setelah makan, Rina belajar. (K S P)**"},
+        {"type": "paragraph", "text": "**Keterangan dapat menunjukkan:**"},
+        {"type": "table", "headers": ["**Jenis**", "**Contoh**"], "rows": [["Waktu", "kemarin, setiap pagi"], ["Tempat", "di sekolah, di rumah"], ["Cara", "dengan cepat"], ["Alat", "dengan komputer"], ["Tujuan", "untuk ujian"], ["Sebab", "karena sakit"], ["Syarat", "jika diperlukan"]], "widths": [1, 1]}
       ]
     },
     {
       "id": "material-06-page-06",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        5
-      ],
+      "source_pages": [5],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "dalam bentuknya. Ingat! Pelengkap tidak selalu dapat dijawab dengan"
-        },
-        {
-          "type": "paragraph",
-          "text": "pertanyaan khusus seperti objek. Cara yang lebih aman adalah melihat"
-        },
-        {
-          "type": "paragraph",
-          "text": "hubungannya dengan predikat dan membedakannya dari objek."
-        },
-        {
-          "type": "paragraph",
-          "text": "Ciri umum:"
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Melengkapi makna predikat."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Umumnya terletak setelah predikat atau objek."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Tidak dapat menjadi subjek dalam transformasi pasif seperti objek."
-          ]
-        },
-        {
-          "type": "bullets",
-          "marker": "●",
-          "items": [
-            "Dapat berupa nomina, frasa nominal, adjektiva, atau bentuk lainnya."
-          ]
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Adik menjadi dokter. dokter = Pelengkap"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat tersebut tidak dapat diubah menjadi: Dokter dijadi oleh adik karena"
-        },
-        {
-          "type": "paragraph",
-          "text": "dokter bukan objek."
-        },
-        {
-          "type": "paragraph",
-          "text": "B.2 Pola Kalimat"
-        },
-        {
-          "type": "table",
-          "headers": [
-            "Pola Kalimat",
-            "",
-            "Contoh"
-          ],
-          "rows": [
-            [
-              "S P O K",
-              "",
-              "Ibu memasak sayur di dapur"
-            ]
-          ],
-          "widths": [
-            1,
-            1,
-            1
-          ]
-        }
+        {"type": "paragraph", "text": "5. **Pelengkap** adalah unsur kalimat yang berfungsi melengkapi predikat agar makna kalimat menjadi lebih utuh, tetapi tidak dapat diperlakukan sebagai objek. Pelengkap biasanya hadir setelah predikat tertentu dan sering menyerupai objek dalam bentuknya. **Ingat!** Pelengkap tidak selalu dapat dijawab dengan pertanyaan khusus seperti objek. Cara yang lebih aman adalah melihat hubungannya dengan predikat dan membedakannya dari objek."},
+        {"type": "paragraph", "text": "**Ciri umum:**"},
+        {"type": "bullets", "marker": "●", "items": ["Melengkapi makna predikat.", "Umumnya terletak setelah predikat atau objek.", "Tidak dapat menjadi subjek dalam transformasi pasif seperti objek.", "Dapat berupa nomina, frasa nominal, adjektiva, atau bentuk lainnya."]},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "paragraph", "text": "Adik menjadi dokter. **dokter = Pelengkap**"},
+        {"type": "paragraph", "text": "Kalimat tersebut tidak dapat diubah menjadi: *Dokter dijadi oleh adik karena* dokter bukan objek."}
       ]
     },
     {
       "id": "material-06-page-07",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        6
-      ],
+      "source_pages": [5, 6],
       "blocks": [
-        {
-          "type": "table",
-          "headers": [
-            "S P O Pel",
-            "Kakak membelikan adik buku bacaan"
-          ],
-          "rows": [
-            [
-              "S P O",
-              "- Guru mengajar murid - Ibu menyiram bunga"
-            ],
-            [
-              "S P Pel",
-              "Dia memberi semangat"
-            ],
-            [
-              "S P K",
-              "Saya membaca di perpustakaan"
-            ],
-            [
-              "S P (P: verbal)",
-              "Saya membaca"
-            ],
-            [
-              "S P (P: nominal)",
-              "Kami mahasiswa"
-            ],
-            [
-              "S P (P: Adjektiva)",
-              "Mahasiswa cerdas"
-            ]
-          ],
-          "widths": [
-            1,
-            1
-          ]
-        },
-        {
-          "type": "heading",
-          "text": "C. Kalimat Inti"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat inti merupakan kalimat yang hanya terdiri atas Subjek dan Predikat. Di"
-        },
-        {
-          "type": "paragraph",
-          "text": "samping itu, kalimat inti harus dipahami sebagai struktur dasar yang diperlukan oleh"
-        },
-        {
-          "type": "paragraph",
-          "text": "predikat, bukan selalu dua unsur saja."
-        },
-        {
-          "type": "paragraph",
-          "text": "Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Kalimat biasa → Gadis yang memakai baju berwarna merah itu pergi ke pasar."
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat inti → Gadis pergi. (Pola: S P)"
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Kalimat biasa → Lingkungan Desa Merah Putih yang terkenal dengan keindahan"
-        }
+        {"type": "heading", "text": "B.2 Pola Kalimat"},
+        {"type": "table", "headers": ["**Pola Kalimat**", "**Contoh**"], "rows": [["S P O K", "Ibu memasak sayur di dapur"], ["S P O Pel", "Kakak membelikan adik buku bacaan"], ["S P O", "- Guru mengajar murid\n- Ibu menyiram bunga"], ["S P Pel", "Dia memberi semangat"], ["S P K", "Saya membaca di perpustakaan"], ["S P (P: verbal)", "Saya membaca"], ["S P (P: nominal)", "Kami mahasiswa"], ["S P (P: Adjektiva)", "Mahasiswa cerdas"]], "widths": [1, 1]},
+        {"type": "heading", "text": "C. Kalimat Inti"},
+        {"type": "paragraph", "text": "**Kalimat inti** merupakan kalimat yang hanya terdiri atas *Subjek* dan *Predikat*. Di samping itu, kalimat inti harus dipahami sebagai **struktur dasar yang diperlukan oleh predikat**, bukan selalu dua unsur saja."},
+        {"type": "paragraph", "text": "**Contoh:**"},
+        {"type": "paragraph", "text": "1. Kalimat biasa → Gadis yang memakai baju berwarna merah itu pergi ke pasar."},
+        {"type": "paragraph", "text": "**Kalimat inti** → Gadis pergi. (**Pola: S P**)"},
+        {"type": "paragraph", "text": "2. Kalimat biasa → Lingkungan Desa Merah Putih yang terkenal dengan keindahan alamnya dan keramahan penduduknya memiliki adat yang sudah diterapkan sejak dulu."},
+        {"type": "paragraph", "text": "**Kalimat inti** → Lingkungan Desa Merah Putih memiliki adat. (**Pola: S P**)"}
       ]
     },
     {
       "id": "material-06-page-08",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        6,
-        7
-      ],
+      "source_pages": [6, 7],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "alamnya dan keramahan penduduknya memiliki adat yang sudah diterapkan sejak dulu."
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat inti → Lingkungan Desa Merah Putih memiliki adat. (Pola: S P)"
-        },
-        {
-          "type": "heading",
-          "text": "D. Strategi Mengerjakan Soal Fungsi & Unsur Kalimat UTBK"
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 1 — Temukan predikat terlebih dahulu"
-        },
-        {
-          "type": "paragraph",
-          "text": "Predikat merupakan unsur paling penting untuk membedakan fungsi unsur lainnya. Cari"
-        },
-        {
-          "type": "paragraph",
-          "text": "verba, adjektiva, nomina, atau bentuk lain yang menerangkan subjek."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 2 — Tentukan subjek"
-        },
-        {
-          "type": "paragraph",
-          "text": "Setelah menemukan predikat, tanyakan: Siapa/apa yang melakukan, mengalami,"
-        },
-        {
-          "type": "paragraph",
-          "text": "atau diterangkan oleh predikat? Jangan hanya mengandalkan posisi sebelum"
-        },
-        {
-          "type": "paragraph",
-          "text": "predikat karena subjek tidak selalu berada di awal kalimat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 3 — Cari objek"
-        },
-        {
-          "type": "paragraph",
-          "text": "Jika predikat berupa verba transitif, periksa apakah ada unsur yang menjadi sasaran"
-        },
-        {
-          "type": "paragraph",
-          "text": "tindakan. Namun, jika unsur tersebut dapat menjadi subjek dalam bentuk pasif, unsur"
-        },
-        {
-          "type": "paragraph",
-          "text": "tersebut merupakan objek."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 4 — Bedakan objek dan pelengkap"
-        },
-        {
-          "type": "paragraph",
-          "text": "Jika suatu unsur berada setelah predikat tetapi tidak dapat menjadi subjek dalam"
-        }
+        {"type": "heading", "text": "D. Strategi Mengerjakan Soal Fungsi & Unsur Kalimat UTBK"},
+        {"type": "paragraph", "text": "**Langkah 1 — Temukan predikat terlebih dahulu**"},
+        {"type": "paragraph", "text": "Predikat merupakan unsur paling penting untuk membedakan fungsi unsur lainnya. Cari verba, adjektiva, nomina, atau bentuk lain yang menerangkan subjek."},
+        {"type": "paragraph", "text": "**Langkah 2 — Tentukan subjek**"},
+        {"type": "paragraph", "text": "Setelah menemukan predikat, tanyakan: **Siapa/apa yang melakukan, mengalami, atau diterangkan oleh predikat?** Jangan hanya mengandalkan posisi sebelum predikat karena subjek tidak selalu berada di awal kalimat."},
+        {"type": "paragraph", "text": "**Langkah 3 — Cari objek**"},
+        {"type": "paragraph", "text": "Jika predikat berupa **verba transitif**, periksa apakah ada unsur yang menjadi sasaran tindakan. Namun, jika unsur tersebut dapat menjadi subjek dalam bentuk pasif, unsur tersebut merupakan **objek**."},
+        {"type": "paragraph", "text": "**Langkah 4 — Bedakan objek dan pelengkap**"},
+        {"type": "paragraph", "text": "Jika suatu unsur berada setelah predikat tetapi **tidak dapat menjadi subjek dalam transformasi pasif**, pertimbangkan bahwa unsur tersebut merupakan pelengkap."},
+        {"type": "paragraph", "text": "**Langkah 5 — Identifikasi keterangan**"},
+        {"type": "paragraph", "text": "Cari unsur yang memberikan informasi tambahan seperti waktu, tempat, cara, alat, tujuan, sebab, syarat, atau keadaan."},
+        {"type": "paragraph", "text": "**Langkah 6 — Tentukan pola kalimat**"},
+        {"type": "paragraph", "text": "Setelah fungsi setiap unsur diketahui, susun menjadi pola. Contoh:"},
+        {"type": "paragraph", "text": "Ibu (S) – memasak (P) – sayur (O) – di dapur (K) → **S-P-O-K**"},
+        {"type": "paragraph", "text": "**Langkah 7 — Jika ditanya kalimat inti, buang unsur yang bukan inti**"},
+        {"type": "paragraph", "text": "Pertahankan unsur yang membentuk struktur dasar kalimat dan hilangkan unsur pewatas, keterangan, atau rincian tambahan."}
       ]
     },
     {
       "id": "material-06-page-09",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        7,
-        8
-      ],
+      "source_pages": [7, 8],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "transformasi pasif, pertimbangkan bahwa unsur tersebut merupakan pelengkap."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 5 — Identifikasi keterangan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Cari unsur yang memberikan informasi tambahan seperti waktu, tempat, cara, alat,"
-        },
-        {
-          "type": "paragraph",
-          "text": "tujuan, sebab, syarat, atau keadaan."
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 6 — Tentukan pola kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "Setelah fungsi setiap unsur diketahui, susun menjadi pola. Contoh:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Ibu (S) – memasak (P) – sayur (O) – di dapur (K) → S-P-O-K"
-        },
-        {
-          "type": "paragraph",
-          "text": "Langkah 7 — Jika ditanya kalimat inti, buang unsur yang bukan inti"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pertahankan unsur yang membentuk struktur dasar kalimat dan hilangkan unsur"
-        },
-        {
-          "type": "paragraph",
-          "text": "pewatas, keterangan, atau rincian tambahan."
-        },
-        {
-          "type": "heading",
-          "text": "E. Contoh Soal Beserta Pembahasan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Bacalah teks berikut untuk menjawab soal nomor 1–3!"
-        },
-        {
-          "type": "paragraph",
-          "text": "(1) Pemerintah daerah menyediakan fasilitas pengolahan sampah di beberapa"
-        },
-        {
-          "type": "paragraph",
-          "text": "kecamatan. (2) Fasilitas tersebut digunakan masyarakat untuk mengurangi"
-        },
-        {
-          "type": "paragraph",
-          "text": "sampah rumah tangga yang selama ini dibuang ke sungai. (3) Petugas"
-        },
-        {
-          "type": "paragraph",
-          "text": "kebersihan secara rutin memeriksa kondisi fasilitas pengolahan sampah tersebut."
-        }
+        {"type": "heading", "text": "E. Contoh Soal Beserta Pembahasan"},
+        {"type": "paragraph", "text": "Bacalah teks berikut untuk menjawab soal nomor 1–3!"},
+        {"type": "paragraph", "text": "**(1)** Pemerintah daerah menyediakan fasilitas pengolahan sampah di beberapa kecamatan. **(2)** Fasilitas tersebut digunakan masyarakat untuk mengurangi sampah rumah tangga yang selama ini dibuang ke sungai. **(3)** Petugas kebersihan secara rutin memeriksa kondisi fasilitas pengolahan sampah tersebut. **(4)** Pemerintah berharap program itu dapat meningkatkan kesadaran masyarakat terhadap pentingnya pengelolaan sampah."},
+        {"type": "question", "id": "1", "question_label": "**1.**", "labels": "12345", "option_labels": ["1.", "2.", "3.", "4.", "5."], "prompt": "**Jika dilihat sebagai kalimat aktif, fungsi kata “masyarakat” dalam kalimat (2) adalah .... (kategori soal MUDAH)**", "options": ["**Subjek**", "Predikat", "Objek", "Pelengkap", "Keterangan"]}
       ]
     },
     {
       "id": "material-06-page-10",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        8
-      ],
+      "source_pages": [8, 9],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "(4) Pemerintah berharap program itu dapat meningkatkan kesadaran masyarakat"
-        },
-        {
-          "type": "paragraph",
-          "text": "terhadap pentingnya pengelolaan sampah."
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Jika dilihat sebagai kalimat aktif, fungsi kata “masyarakat” dalam"
-        },
-        {
-          "type": "paragraph",
-          "text": "kalimat (2) adalah .... (kategori soal MUDAH)"
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Subjek"
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Predikat"
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Objek"
-        },
-        {
-          "type": "paragraph",
-          "text": "4. Pelengkap"
-        },
-        {
-          "type": "paragraph",
-          "text": "5. Keterangan"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat (2): Fasilitas tersebut digunakan masyarakat untuk mengurangi sampah"
-        },
-        {
-          "type": "paragraph",
-          "text": "rumah tangga."
-        },
-        {
-          "type": "paragraph",
-          "text": "“Masyarakat” merupakan pihak yang melakukan tindakan digunakan dalam"
-        },
-        {
-          "type": "paragraph",
-          "text": "konstruksi pasif atau, dan secara sintaksis berperan sebagai pelaku yang"
-        },
-        {
-          "type": "paragraph",
-          "text": "diletakkan setelah predikat."
-        },
-        {
-          "type": "paragraph",
-          "text": "Di sisi lain, dalam konstruksi pasif, kata fasilitas tersebut merupakan subjek,"
-        }
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kalimat (2): *Fasilitas tersebut digunakan* **masyarakat** *untuk mengurangi sampah rumah tangga.*"},
+        {"type": "paragraph", "text": "“Masyarakat” merupakan pihak yang melakukan tindakan *digunakan* dalam konstruksi pasif atau, dan secara sintaksis berperan sebagai **pelaku** yang diletakkan setelah predikat."},
+        {"type": "paragraph", "text": "Di sisi lain, dalam konstruksi pasif, kata *fasilitas tersebut* merupakan **subjek**, *digunakan* merupakan **predikat**, sedangkan *masyarakat* merupakan **pelaku** yang secara fungsi dapat dipandang sebagai pelengkap agen, bukan subjek."},
+        {"type": "paragraph", "text": "Namun, karena soal menanyakan ketika kalimatnya dilihat sebagai kalimat aktif, maka jawaban yang tepat adalah **A. Subjek.**"},
+        {"type": "question", "id": "2", "question_label": "**2.**", "labels": "12345", "option_labels": ["1.", "2.", "3.", "4.", "5."], "prompt": "**Pola kalimat pada kalimat (3) adalah .... (kategori soal SEDANG)**", "options": ["S-P", "S-P-K", "S-P-O", "**S-P-O-K**", "S-P-Pel"]}
       ]
     },
     {
       "id": "material-06-page-11",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        8,
-        9
-      ],
+      "source_pages": [9],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "digunakan merupakan predikat, sedangkan masyarakat merupakan pelaku"
-        },
-        {
-          "type": "paragraph",
-          "text": "yang secara fungsi dapat dipandang sebagai pelengkap agen, bukan subjek."
-        },
-        {
-          "type": "paragraph",
-          "text": "Namun, karena soal menanyakan ketika kalimatnya dilihat sebagai kalimat aktif,"
-        },
-        {
-          "type": "paragraph",
-          "text": "maka jawaban yang tepat adalah A. Subjek."
-        },
-        {
-          "type": "paragraph",
-          "text": "2. Pola kalimat pada kalimat (3) adalah .... (kategori soal SEDANG)"
-        },
-        {
-          "type": "heading",
-          "text": "1. S-P"
-        },
-        {
-          "type": "heading",
-          "text": "2. S-P-K"
-        },
-        {
-          "type": "heading",
-          "text": "3. S-P-O"
-        },
-        {
-          "type": "heading",
-          "text": "4. S-P-O-K"
-        },
-        {
-          "type": "paragraph",
-          "text": "5. S-P-Pel"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat (3) dapat diuraikan menjadi:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Petugas kebersihan = S"
-        },
-        {
-          "type": "paragraph",
-          "text": "memeriksa = P"
-        }
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kalimat (3) dapat diuraikan menjadi:"},
+        {"type": "paragraph", "text": "**Petugas kebersihan** = S"},
+        {"type": "paragraph", "text": "**memeriksa** = P"},
+        {"type": "paragraph", "text": "**kondisi fasilitas pengolahan sampah tersebut** = O"},
+        {"type": "paragraph", "text": "**secara rutin** = K"},
+        {"type": "paragraph", "text": "Sehingga polanya **S-P-O-K**"},
+        {"type": "paragraph", "text": "Kata *memeriksa* merupakan verba transitif yang membutuhkan objek, yaitu *kondisi fasilitas pengolahan sampah tersebut*."},
+        {"type": "question", "id": "3", "question_label": "**3.**", "labels": "abcde", "option_labels": ["**a.**", "b.", "c.", "d.", "e."], "prompt": "**Kalimat inti dari kalimat (4) adalah ....(kategori soal SULIT)**", "options": ["**Pemerintah berharap.**", "Pemerintah meningkatkan kesadaran masyarakat.", "Program itu meningkatkan kesadaran masyarakat.", "Pemerintah berharap program itu.", "Program itu dapat meningkatkan kesadaran."]}
       ]
     },
     {
       "id": "material-06-page-12",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        9
-      ],
+      "source_pages": [9, 10],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "kondisi fasilitas pengolahan sampah tersebut = O"
-        },
-        {
-          "type": "paragraph",
-          "text": "secara rutin = K"
-        },
-        {
-          "type": "paragraph",
-          "text": "Sehingga polanya S-P-O-K"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kata memeriksa merupakan verba transitif yang membutuhkan objek, yaitu"
-        },
-        {
-          "type": "paragraph",
-          "text": "kondisi fasilitas pengolahan sampah tersebut."
-        },
-        {
-          "type": "paragraph",
-          "text": "3. Kalimat inti dari kalimat (4) adalah ....(kategori soal SULIT)"
-        },
-        {
-          "type": "paragraph",
-          "text": "a. Pemerintah berharap."
-        },
-        {
-          "type": "paragraph",
-          "text": "b. Pemerintah meningkatkan kesadaran masyarakat."
-        },
-        {
-          "type": "paragraph",
-          "text": "c. Program itu meningkatkan kesadaran masyarakat."
-        },
-        {
-          "type": "paragraph",
-          "text": "d. Pemerintah berharap program itu."
-        },
-        {
-          "type": "paragraph",
-          "text": "e. Program itu dapat meningkatkan kesadaran."
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat (4) memiliki struktur:"
-        },
-        {
-          "type": "paragraph",
-          "text": "Pemerintah = S"
-        },
-        {
-          "type": "paragraph",
-          "text": "berharap = P"
-        },
-        {
-          "type": "paragraph",
-          "text": "program itu dapat meningkatkan kesadaran masyarakat... ="
-        }
+        {"type": "paragraph", "text": "**Pembahasan:**"},
+        {"type": "paragraph", "text": "Kalimat (4) memiliki struktur:"},
+        {"type": "paragraph", "text": "**Pemerintah** = S"},
+        {"type": "paragraph", "text": "**berharap** = P"},
+        {"type": "paragraph", "text": "**program itu dapat meningkatkan kesadaran masyarakat...** = klausa yang melengkapi predikat *berharap*."},
+        {"type": "paragraph", "text": "Kalimat inti adalah bentuk paling sederhana dengan mempertahankan **unsur inti struktur kalimat** dan menghilangkan bagian pengembang atau klausa pelengkap. Saat mencari **kalimat inti**, jangan sekadar memotong kalimat menjadi lebih pendek. Pastikan **hubungan fungsi dan makna inti** tetap dipertahankan."},
+        {"type": "paragraph", "text": "Jadi jawabannya adalah **A. Pemerintah berharap.**"},
+        {"type": "paragraph", "text": "Pilihan B, C, dan E justru mengubah hubungan makna kalimat dengan mengambil bagian dari klausa yang menjadi pelengkap. Pilihan D masih menyisakan unsur yang belum membentuk struktur yang paling sederhana."}
       ]
     },
     {
-      "id": "material-06-page-13",
+      "id": "material-06-closing",
       "title": "",
       "continuation": true,
-      "source_pages": [
-        9,
-        10
-      ],
+      "source_pages": [10],
       "blocks": [
-        {
-          "type": "paragraph",
-          "text": "klausa yang melengkapi predikat berharap."
-        },
-        {
-          "type": "paragraph",
-          "text": "Kalimat inti adalah bentuk paling sederhana dengan mempertahankan unsur inti"
-        },
-        {
-          "type": "paragraph",
-          "text": "struktur kalimat dan menghilangkan bagian pengembang atau klausa"
-        },
-        {
-          "type": "paragraph",
-          "text": "pelengkap. Saat mencari kalimat inti, jangan sekadar memotong kalimat"
-        },
-        {
-          "type": "paragraph",
-          "text": "menjadi lebih pendek. Pastikan hubungan fungsi dan makna inti tetap"
-        },
-        {
-          "type": "paragraph",
-          "text": "dipertahankan."
-        },
-        {
-          "type": "paragraph",
-          "text": "Jadi jawabannya adalah A. Pemerintah berharap."
-        },
-        {
-          "type": "paragraph",
-          "text": "Pilihan B, C, dan E justru mengubah hubungan makna kalimat dengan"
-        },
-        {
-          "type": "paragraph",
-          "text": "mengambil bagian dari klausa yang menjadi pelengkap. Pilihan D masih"
-        },
-        {
-          "type": "paragraph",
-          "text": "menyisakan unsur yang belum membentuk struktur yang paling sederhana."
-        }
-      ]
-    },
-    {
-      "id": "material-06-page-14",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        10
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"
-        },
-        {
-          "type": "tip",
-          "title": "💡 Veco Tips 1: Jangan Dihafal, tapi Ditanyakan!",
-          "text": "Gunakan kata tanya kunci yang sudah disebutkan pada masing-masing unsur biar lebih\nmudah mengidentifikasi tiap unsurnya!"
-        }
-      ]
-    },
-    {
-      "id": "material-06-page-15",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        10
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "💡 Veco Tips 2: SUB-TI & PRE-TI pada Kalimat Inti",
-          "text": "Kalimat inti terdiri dari subjek inti (subti) dan predikat inti (preti), bisa ditambahkan objek\njuga jika perlu. Fokus ke tiga aspek itu!"
-        }
-      ]
-    },
-    {
-      "id": "material-06-page-16",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
-        10
-      ],
-      "blocks": [
-        {
-          "type": "tip",
-          "title": "⚠ Kesalahan Umum yang Sering Terjadi",
-          "marker": "•",
-          "items": [
-            "Mengira subjek selalu berada di awal dan keterangan selalu berada di akhir",
-            "Menganggap semua unsur setelah predikat adalah objek.",
-            "Menganggap kalimat inti selalu S-P",
-            "Mempelajari Pola dan Unsur Kalimat untuk dihafal, bukannya dipahami."
-          ],
-          "tone": "warning"
-        }
+        {"type": "heading", "text": "🦆 VECO TIPS — Cara Cepat & Trik Khusus"},
+        {"type": "tip", "title": "💡 Veco Tips 1: Jangan Dihafal, tapi Ditanyakan!", "text": "*Gunakan kata tanya kunci yang sudah disebutkan pada masing-masing unsur biar lebih mudah mengidentifikasi tiap unsurnya!*"},
+        {"type": "tip", "title": "💡 Veco Tips 2: SUB-TI & PRE-TI pada Kalimat Inti", "text": "*Kalimat inti terdiri dari subjek inti (subti) dan predikat inti (preti), bisa ditambahkan objek juga jika perlu. Fokus ke tiga aspek itu!*"},
+        {"type": "tip", "title": "⚠ Kesalahan Umum yang Sering Terjadi", "marker": "•", "items": ["Mengira subjek selalu berada di awal dan keterangan selalu berada di akhir", "Menganggap semua unsur setelah predikat adalah objek.", "Menganggap kalimat inti selalu S-P", "Mempelajari Pola dan Unsur Kalimat untuk dihafal, bukannya dipahami."], "tone": "warning"}
       ]
     }
   ]

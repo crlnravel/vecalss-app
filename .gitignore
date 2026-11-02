@@ -67,3 +67,5 @@ tmp/
 # Locally generated learning PDFs and fidelity reports
 /output/pdf/**/*.pdf
 /output/pdf/**/*-fidelity.json
+
+veraai/

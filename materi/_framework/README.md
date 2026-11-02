@@ -5,6 +5,20 @@ the **complete material verbatim**. “Rewrite” in this workflow means rebuild
 the text and layout from editable content. It does not authorize paraphrasing,
 correcting, summarizing, adding, or omitting learning content.
 
+Cross-page table cells use the exact reconstruction contract in
+`docs/materi-pdf-repair-playbook.md`. PBM05 p10–11 has one reviewed, hash-pinned
+five-fragment mapping in `repair_material_set.py`; it derives complete cell order
+without changing the independent page-first transcript. Audits record the map
+and positions. Missing, duplicated, overlapping or interleaved fragments fail.
+The map is bound to the stable review digest through rendering and promotion.
+
+Question blocks may set `prompt_bold: false` when source prompts are regular;
+inline bold/italic still comes from their source markup. The default preserves
+existing question styling. Use explicit `option_labels` to preserve answer
+marker emphasis independently of the answer body. On a source-to-lesson text
+failure, preflight records every character difference in `all_differences` so
+workers reconcile the full lesson before another guarded run.
+
 ## Copyable agent instruction
 
 > Retypeset `materi/<source>.pdf` using `docs/materi-pdf-workflow-guide.md` and
@@ -150,7 +164,9 @@ page whose visible order differs from the PDF content stream must have its
 specific visual reconstruction documented in that lesson's review note. It
 also verifies each original PDF's bytes against `source_sha256`, checks that
 captured page text still matches the live source PDF, and snapshots the lesson,
-transcript, review note and source evidence before and after preflight.
+transcript, stable semantic review fields, local recipe helpers, and each source
+page's JSON, text and PNG evidence before and after preflight. Recipe inputs also
+include the canonical lesson JSON when a composition uses it as an index aid.
 
 Stage direct trios and recipe wrappers flat in
 `tmp/pdfs/material-repair/repairs/<LBE|PBM>/` using each manifest evidence
@@ -202,19 +218,25 @@ failures across the set and writes per-lesson results into
 
 Only after all 28 preflights pass, render sequential candidate PDFs and page
 images. Start the PDF operation marker once before this first authoring/render
-command. Compare representative pages with the historical PBM 01 reference,
-then have the assigned reviewers inspect every candidate page image and update
-their review notes. Before each candidate-render invocation, the runner clears
-prior visual approvals. Reviewers must set `visual_review: passed`, record the
+command. PBM 04 renders first so its reviewer can begin as soon as that candidate
+passes its fidelity and page audit; the runner checkpoints each completed
+candidate and its digest in the manifest while the remaining PDFs render.
+Compare representative pages with the historical PBM 01 reference, then have
+the assigned reviewers inspect every candidate page image and update their
+review notes. Before each candidate-render invocation, the runner clears prior
+visual approvals. Reviewers must set `visual_review: passed`, record the
 exact output page count, and copy `visual_pdf_sha256` from that material's
 `candidate_render_audit` manifest entry after reviewing all its page images.
+After preflight, they may update those three visual signoff fields only; changing
+the source map or semantic review record invalidates candidate acceptance.
 Promotion checks the current staged lesson, independent source-order transcript,
 and candidate-PDF checksums against the audited values, so edits and rerenders
 require a new review. It also verifies the original source PDF and captured
 source evidence have not changed. The PBM 02/03 preservation audit now checks
 source-to-editable and editable-to-PDF text against the live files. The tools
 owner reviews PBM 01 from its existing master and binds that review to the same
-hashes.
+hashes. PBM 02/03 also have pinned source, lesson JSON and reviewed PDF digests,
+so earlier visual signoff cannot be reused for changed master files.
 
 ```bash
 ./_harness/resource-guard.sh status

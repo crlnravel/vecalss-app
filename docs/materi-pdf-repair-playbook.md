@@ -44,6 +44,10 @@ fidelity and resource rules.
    their original item. Use hanging indents and compact PBM 02 spacing. Preserve
    original numeric/letter markers, including their bold/italic style. Slice
    styled text using visible-character/style maps, never raw Markdown offsets.
+   Identify numbered-item boundaries from source lines and item headings, not
+   the first matching number anywhere in prose: `Penulis Teks 2.` is body text,
+   not the start of item 2. Check the number/heading association visually;
+   flattened text equality alone cannot detect this structural error.
 6. **Rebuild tables from the visible cells.** Keep native selectable rows/cells
    and sensible column widths. A header-only fragment followed by data is one
    table; a data row at the top of the next source page is not a new header.
@@ -53,6 +57,14 @@ fidelity and resource rules.
    as interleaved words. Record source pages per row/chunk. Repeated output
    headers are synthetic navigation and must be explicitly accounted for in
    fidelity; never use unordered token equality as the acceptance test.
+   Keep independent transcripts page-first even when a row continues across
+   source pages. For PBM05 p10–11, the runner uses the independently reviewed,
+   source/transcript-hash-pinned five-fragment map to derive complete cell order.
+   It requires unique exact fragments in their declared pages, no overlap or
+   interleaved text, and consumes each fragment once. All text outside that row
+   stays in order. The original transcript is unchanged; audits retain the map,
+   positions and original/derived stream digests. This map is included in the
+   stable review digest checked through candidate rendering and promotion.
 7. **Restore emphasis from original spans.** After regrouping, map each visible
    label and its body in reading order to the source style stream. Preserve bold,
    italic and combined emphasis in paragraphs, examples, table cells, prompts,
@@ -65,6 +77,11 @@ fidelity and resource rules.
    coherent question can justify its own page. Never shrink body type to force
    a page count. Keep page-anchor titles plain text; inline emphasis belongs in
    rendered content, not in the title comparison key.
+   Read the last block on every page before rendering: a section heading or a
+   bold lead-in ending in a colon must stay with its list, table or question.
+   Move that label to the following page when the complete section cannot fit.
+   Join short table-only continuation pages when the full table fits with its
+   original column headers; preserve every row/cell in source order.
 9. **Group the closing material.** Render the Veco Tips section title prominently,
    both/all consecutive tips as mint panels with yellow icons, and common
    mistakes as pale-yellow panels with dark-green icons. Put the callouts on one
@@ -85,8 +102,17 @@ fidelity and resource rules.
     flattening the staged lesson JSON. Check source-to-transcript integrity and
     complete page/row/label coverage before the exact transcript-to-lesson
     comparison. Reject unexplained wording, punctuation or coverage differences.
+    `SourceComposer` consumption methods advance a source cursor: call `take`,
+    `paragraph`, `heading`, labelled-item and split methods in source order,
+    then assemble the already-consumed blocks into semantic groups. Building
+    the final list in order does not repair earlier out-of-order method calls.
     Visual confirmation of source reading order remains mandatory; an unordered
     word count cannot establish that order.
+    Inspect every entry in the report's `all_differences`, not just the first
+    error excerpt. Verify quotation glyphs, list markers and spaces after slashes
+    against the source; preserve bold/italic separately from exact text equality.
+    For regular source question prompts use `prompt_bold: false`; mark correct
+    answer labels explicitly in `option_labels` when their source marker is bold.
 11. **Render candidates and inspect them.** Build staged PDFs in
     `tmp/pdfs/material-repair/candidates/` using the shared renderer. Fully
     justify body/explanations/passages/lists/options/callout text, with natural
@@ -94,8 +120,12 @@ fidelity and resource rules.
     alignment. Keep Learning Academy removed. Retain the green header/footer
     and yellow edge accents outside the content frame with at least 12pt
     clearance. Audit exact source → editable → rendered text and bounds/glyphs.
-    Open every final page image at readable size. Compare structure, emphasis,
-    tables, hanging indents, justification, callout grouping and page rhythm
+    Open every final page image at readable size.
+    Use the manifest's candidate-hash-specific `page_images` paths; reused render
+    work paths can show stale cached images. The runner preserves review snapshots
+    under `review-snapshots/<subject>/<filename>-<candidate-sha>/` and records PNG
+    hashes. Never sign off an image from an earlier candidate at a reused path.
+    Compare structure, emphasis, tables, hanging indents, justification, callout grouping and page rhythm
     against PBM 02/03. Review actual paragraphs; a `TA_JUSTIFY` setting alone is
     insufficient. Record concrete defects and fix compositions before promotion.
 12. **Promote only accepted lessons.** Copy each audited, visually accepted

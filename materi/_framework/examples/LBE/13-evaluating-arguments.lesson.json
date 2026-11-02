@@ -6,7 +6,7 @@
   "verbatim": true,
   "pages": [
     {
-      "id": "source-page-71",
+      "id": "lbe-13-reviewed-01",
       "title": "MATERI 13 — Evaluating Arguments",
       "continuation": false,
       "source_pages": [
@@ -15,37 +15,41 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "Subtes: LBE  · Literasi Bahasa Inggris",
-          "small": true
+          "text": "*Subtes:* *LBE* *·* *Literasi* *Bahasa* *Inggris*"
         },
         {
           "type": "heading",
-          "text": "A. PENGERTIAN & DEFINISI"
+          "text": "**A.** **PENGERTIAN** **&** **DEFINISI**"
         },
         {
           "type": "paragraph",
-          "text": "Dalam konteks ujian Literasi Bahasa Inggris SNBT, kata Argument (argumen) bukanlah\nberarti \"pertengkaran\" atau debat kusir. Argumen adalah sebuah opini atau\nkesimpulan yang didukung oleh alasan dan bukti logis. Penulis teks akademis\nsering kali menyajikan argumen untuk meyakinkan pembaca. Namun, tidak semua\nargumen diciptakan sama. Ada argumen yang sangat kuat dan kebal peluru, ada juga\nargumen yang cacat logika (flawed) karena buktinya lemah. Tipe soal Evaluating\nArguments menguji kemampuan tingkat tinggi (HOTS) kamu dalam menilai validitas\nargumen tersebut. Kamu akan diminta bertindak sebagai juri: apakah kamu bisa\nmencari informasi baru untuk memperkuat (strengthen) argumen penulis, atau justru\nmencari celah untuk mematahkan/memperlemah (weaken) argumen tersebut.",
-          "small": true
+          "text": "Dalam konteks ujian Literasi Bahasa Inggris SNBT, kata *Argument* (argumen) bukanlah berarti \"pertengkaran\" atau debat kusir. Argumen adalah **sebuah** **opini** **atau** **kesimpulan** **yang** **didukung** **oleh** **alasan** **dan** **bukti** **logis**. Penulis teks akademis sering kali menyajikan argumen untuk meyakinkan pembaca. Namun, tidak semua argumen diciptakan sama. Ada argumen yang sangat kuat dan kebal peluru, ada juga argumen yang cacat logika (*flawed*) karena buktinya lemah. Tipe soal **Evaluating** **Arguments** menguji kemampuan tingkat tinggi (HOTS) kamu dalam menilai validitas argumen tersebut. Kamu akan diminta bertindak sebagai juri: apakah kamu bisa mencari informasi baru untuk **memperkuat** (*strengthen*) argumen penulis, atau justru mencari celah untuk **mematahkan/memperlemah** (*weaken*) argumen tersebut."
+        },
+        {
+          "type": "heading",
+          "text": "**SUBMATERI:** **3** **Komponen** **Anatomi** **Argumen**"
         },
         {
           "type": "paragraph",
-          "text": "SUBMATERI: 3 Komponen Anatomi Argumen",
-          "small": true
+          "text": "Untuk bisa mengevaluasi argumen, kamu wajib membedah argumen tersebut menjadi tiga bagian tulang punggung utamanya. Jika kamu tidak bisa menemukan tiga komponen ini, kamu tidak akan bisa menjawab soal:"
         },
         {
-          "type": "paragraph",
-          "text": "Untuk bisa mengevaluasi argumen, kamu wajib membedah argumen tersebut menjadi\ntiga bagian tulang punggung utamanya. Jika kamu tidak bisa menemukan tiga\nkomponen ini, kamu tidak akan bisa menjawab soal:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Claim / Conclusion (Klaim / Kesimpulan): Ini adalah inti dari opini penulis. Apa\nyang sebenarnya ingin dia buktikan? (Sinyal: Therefore, thus, clearly, the city\nshould, it is evident that).\n2. Premise / Evidence (Premis / Bukti): Ini adalah fakta, data statistik, contoh,\natau alasan yang diberikan penulis untuk mendukung Claim-nya. (Sinyal:\nBecause, since, due to the fact that, research shows).\n3. Assumption (Asumsi Tersembunyi): Ini adalah \"jembatan gaib\" yang tidak\ntertulis di dalam teks. Asumsi adalah keyakinan mutlak yang harus benar agar\nBukti bisa nyambung dengan Kesimpulan.\n○ Contoh Logika: Bukti: Budi selalu belajar 10 jam sehari. Klaim: Budi pasti\nlolos Fakultas Kedokteran. Asumsi Gaib: Belajar 10 jam sehari adalah\njaminan pasti lolos FK (tanpa mempedulikan faktor lain seperti kualitas\nbelajar atau tingkat persaingan).",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3."
+          ],
+          "items": [
+            "**Claim** **/** **Conclusion** **(Klaim** **/** **Kesimpulan):** Ini adalah inti dari opini penulis. Apa yang sebenarnya ingin dia buktikan? (Sinyal: *Therefore,* *thus,* *clearly,* *the* *city* *should,* *it* *is* *evident* *that*).",
+            "**Premise** **/** **Evidence** **(Premis** **/** **Bukti):** Ini adalah fakta, data statistik, contoh, atau alasan yang diberikan penulis untuk mendukung *Claim*-nya. (Sinyal: *Because,* *since,* *due* *to* *the* *fact* *that,* *research* *shows*).",
+            "**Assumption** **(Asumsi** **Tersembunyi):** Ini adalah **\"jembatan** **gaib\"** yang tidak tertulis di dalam teks. Asumsi adalah keyakinan mutlak yang harus benar agar Bukti bisa nyambung dengan Kesimpulan. ○ *Contoh* *Logika:* *Bukti:* Budi selalu belajar 10 jam sehari. *Klaim:* Budi pasti lolos Fakultas Kedokteran. *Asumsi* *Gaib:* Belajar 10 jam sehari adalah jaminan pasti lolos FK (tanpa mempedulikan faktor lain seperti kualitas belajar atau tingkat persaingan)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-72",
+      "id": "lbe-13-reviewed-02",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -54,37 +58,48 @@
       "blocks": [
         {
           "type": "heading",
-          "text": "B. CIRI-CIRI & KARAKTERISTIK"
+          "text": "**B.** **CIRI-CIRI** **&** **KARAKTERISTIK**"
         },
         {
           "type": "paragraph",
-          "text": "Tipe soal ini sangat mencolok karena menggunakan frase pengandaian \"If true\" (Jika\ndianggap benar) pada kalimat pertanyaannya. Berikut variasinya:",
-          "small": true
+          "text": "Tipe soal ini sangat mencolok karena menggunakan frase pengandaian *\"If* *true\"* (Jika dianggap benar) pada kalimat pertanyaannya. Berikut variasinya:"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Pertanyaan** **Memperkuat** **(Strengthen):** *\"Which* *of* *the* *following,* ***if*** ***true****,* *would* *most* *strongly* *support* *the* *author's* *conclusion?\"* atau *\"Which* *statement* *most* *strengthens* *the* *argument?\"*",
+            "**Pertanyaan** **Memperlemah** **(Weaken):** *\"Which* *of* *the* *following,* ***if*** ***true****,* *would* *most* *seriously* *weaken* *the* *argument* *above?\"* atau *\"Which* *fact* *most* *undermines* *the* *author's* *claim?\"*",
+            "**Pertanyaan** **Asumsi** **(Assumption):** *\"The* *argument* *relies* *on* *which* *of* *the* *following* *underlying* *assumptions?\"*"
+          ]
+        },
+        {
+          "type": "heading",
+          "text": "**C.** **CARA** **MENGERJAKAN** **/** **STRATEGI** **(Metode** **C.O.R.E)**"
         },
         {
           "type": "paragraph",
-          "text": "● Pertanyaan Memperkuat (Strengthen): \"Which of the following, if true, would\nmost strongly support the author's conclusion?\" atau \"Which statement most\nstrengthens the argument?\"\n● Pertanyaan Memperlemah (Weaken): \"Which of the following, if true, would\nmost seriously weaken the argument above?\" atau \"Which fact most undermines\nthe author's claim?\"\n● Pertanyaan Asumsi (Assumption): \"The argument relies on which of the\nfollowing underlying assumptions?\"",
-          "small": true
+          "text": "Jangan pernah melihat pilihan ganda sebelum kamu tahu argumennya! Gunakan metode **C.O.R.E** untuk membedah logika penulis:"
         },
         {
-          "type": "paragraph",
-          "text": "C. CARA MENGERJAKAN / STRATEGI (Metode C.O.R.E)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Jangan pernah melihat pilihan ganda sebelum kamu tahu argumennya! Gunakan\nmetode C.O.R.E untuk membedah logika penulis:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. C - Conclusion Hunt (Buru Kesimpulannya): Baca teksnya, lalu tutup matamu.\nTanyakan: \"Penulis ini mau nyuruh aku percaya pada hal apa sih?\" Itulah\nkesimpulannya (Claim).\n2. O - Observe the Evidence (Amati Buktinya): Tanyakan lagi: \"Kenapa penulis\nbisa menyimpulkan begitu? Apa buktinya?\" Temukan data atau faktanya.\n3. R - Reveal the Assumption (Singkap Asumsinya): Cari celah logika. Apakah\nada lompatan logika dari Bukti ke Kesimpulan? Temukan \"jembatan gaib\"-nya.\n4. E - Evaluate the Goal (Evaluasi Tujuan Soal):\n○ Jika soal minta Weaken (melemahkan): Serang/hancurkan jembatan\nasumsinya! Berikan fakta alternatif yang merusak bukti.\n○ Jika soal minta Strengthen (memperkuat): Tambahkan beton pada\njembatan asumsinya! Berikan fakta baru yang mendukung",
-          "small": true
+          "type": "steps",
+          "item_labels": [
+            "1.",
+            "2.",
+            "3.",
+            "4."
+          ],
+          "items": [
+            "**C** **-** **Conclusion** **Hunt** **(Buru** **Kesimpulannya):** Baca teksnya, lalu tutup matamu. Tanyakan: *\"Penulis* *ini* *mau* *nyuruh* *aku* *percaya* *pada* *hal* *apa* *sih?\"* Itulah kesimpulannya (*Claim*).",
+            "**O** **-** **Observe** **the** **Evidence** **(Amati** **Buktinya):** Tanyakan lagi: *\"Kenapa* *penulis* *bisa* *menyimpulkan* *begitu?* *Apa* *buktinya?\"* Temukan data atau faktanya.",
+            "**R** **-** **Reveal** **the** **Assumption** **(Singkap** **Asumsinya):** Cari celah logika. Apakah ada lompatan logika dari Bukti ke Kesimpulan? Temukan \"jembatan gaib\"-nya.",
+            "**E** **-** **Evaluate** **the** **Goal** **(Evaluasi** **Tujuan** **Soal):** ○ Jika soal minta **Weaken** (melemahkan): Serang/hancurkan jembatan asumsinya! Berikan fakta alternatif yang merusak bukti. ○ Jika soal minta **Strengthen** (memperkuat): Tambahkan beton pada jembatan asumsinya! Berikan fakta baru yang mendukung"
+          ]
         }
       ]
     },
     {
-      "id": "source-page-73",
+      "id": "lbe-13-reviewed-03",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -93,217 +108,183 @@
       "blocks": [
         {
           "type": "heading",
-          "text": "D. CONTOH SOAL BESERTA PEMBAHASAN"
+          "text": "**D.** **CONTOH** **SOAL** **BESERTA** **PEMBAHASAN**"
         },
         {
           "type": "paragraph",
-          "text": "Soal 1: Tingkat Mudah (Memperlemah Argumen / Weaken)",
-          "small": true
+          "text": "**Soal** **1:** **Tingkat** **Mudah** **(Memperlemah** **Argumen** **/** **Weaken)**"
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"The city council recently installed high-intensity LED streetlights in the downtown\narea to reduce crime. According to a recent report, the crime rate in the downtown area\ndropped by 15% in the six months following the installation of the new lights. Therefore,\nthe city council concludes that the new LED lights directly caused the reduction in\ncrime.\"",
-          "small": true
+          "text": "*Teks:* \"The city council recently installed high-intensity LED streetlights in the downtown area to reduce crime. According to a recent report, the crime rate in the downtown area dropped by 15% in the six months following the installation of the new lights. Therefore, the city council concludes that the new LED lights directly caused the reduction in crime.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: Which of the following, if true, would most seriously weaken the city council's\nconclusion?",
-          "small": true
+          "text": "*Question:* Which of the following, **if** **true**, would most seriously **weaken** the city council's conclusion?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "The cost of installing the LED lights was significantly higher than initially projected."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "LED streetlights use less electricity and are more environmentally friendly than traditional bulbs."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "During the same six-month period, the downtown police department doubled its number of nighttime patrol officers."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Most residents reported feeling much safer walking downtown at night with the new lights."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "The crime rate in neighboring cities without LED lights remained completely unchanged."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "A) The cost of installing the LED lights was significantly higher than initially projected.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **1:** *Jawaban* *Benar:* ***C***"
         },
         {
           "type": "paragraph",
-          "text": "B) LED streetlights use less electricity and are more environmentally friendly than\ntraditional bulbs.",
-          "small": true
+          "text": "● **Bedah** **Argumen** **(C.O.R.E):**"
         },
         {
-          "type": "paragraph",
-          "text": "C) During the same six-month period, the downtown police department doubled its\nnumber of nighttime patrol officers.",
-          "small": true
+          "type": "bullets",
+          "marker": "○",
+          "items": [
+            "*Conclusion:* Lampu LED menurunkan angka kriminalitas.",
+            "*Evidence:* Kejahatan turun 15% setelah lampu dipasang.",
+            "*Asumsi:* Tidak ada faktor lain yang menyebabkan turunnya kejahatan selain si lampu."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "D) Most residents reported feeling much safer walking downtown at night with the new\nlights.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) The crime rate in neighboring cities without LED lights remained completely\nunchanged.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 1: Jawaban Benar: C",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Bedah Argumen (C.O.R.E):",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Conclusion: Lampu LED menurunkan angka kriminalitas.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Evidence: Kejahatan turun 15% setelah lampu dipasang.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Asumsi: Tidak ada faktor lain yang menyebabkan turunnya kejahatan\nselain si lampu.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) Cost was higher: Salah. Harga lampu mahal tidak mematahkan fakta apakah\nlampu itu sukses mencegah kejahatan atau tidak. (Irrelevan).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Eco-friendly: Salah. (Irrelevan).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) Police doubled their nighttime patrols: Benar. Ini adalah jurus\nmematahkan argumen terbaik! Ini memberikan Penyebab Alternatif\n(Alternative Cause). Kejahatan turun bukan karena lampu LED-nya, melainkan\nkarena polisi patrolinya dilipatgandakan. Argumen dewan kota hancur!",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) Residents feel safer: Salah. Ini justru Strengthen (memperkuat) argumen.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● E) Neighboring cities unchanged: Salah. Ini juga Strengthen argumen\n(membuktikan efeknya memang khusus karena kebijakan lampu di kota itu).",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **Cost** **was** **higher:** Salah. Harga lampu mahal tidak mematahkan fakta apakah lampu itu sukses mencegah kejahatan atau tidak. (Irrelevan).",
+            "**B)** **Eco-friendly:** Salah. (Irrelevan).",
+            "**C)** **Police** **doubled** **their** **nighttime** **patrols:** **Benar.** Ini adalah jurus mematahkan argumen terbaik! Ini memberikan **Penyebab** **Alternatif** **(*****Alternative*** ***Cause*****)**. Kejahatan turun bukan karena lampu LED-nya, melainkan karena polisi patrolinya dilipatgandakan. Argumen dewan kota hancur!",
+            "**D)** **Residents** **feel** **safer:** Salah. Ini justru *Strengthen* (memperkuat) argumen.",
+            "**E)** **Neighboring** **cities** **unchanged:** Salah. Ini juga *Strengthen* argumen (membuktikan efeknya memang khusus karena kebijakan lampu di kota itu)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-74",
+      "id": "lbe-13-reviewed-04",
       "title": "",
       "continuation": true,
       "source_pages": [
-        74
-      ],
-      "blocks": [
-        {
-          "type": "paragraph",
-          "text": "Soal 2: Tingkat Menengah (Memperkuat Argumen / Strengthen)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Teks: \"Health experts have long warned against the consumption of 'Energy Drink X'\ndue to its extremely high sugar content, which has been linked to obesity. In response,\nthe manufacturer recently released 'Energy Drink X Zero,' which contains absolutely\nzero sugar and uses artificial sweeteners instead. The company claims that this new\nzero-sugar version is completely safe and will not cause any health issues for\nconsumers.\"",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Question: Which of the following, if true, would most strengthen the manufacturer's\nclaim?",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "A) The artificial sweeteners used in 'Energy Drink X Zero' are cheaper to produce than\nreal sugar.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "B) Long-term clinical trials have shown that the specific artificial sweeteners used in the\ndrink have no adverse effects on human health.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "C) Sales of 'Energy Drink X Zero' have surpassed the sales of the original sugary\nversion in less than a year.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "D) Several rival companies have also started producing zero-sugar energy drinks.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "E) Consuming artificial sweeteners in massive doses can sometimes lead to mild\nheadaches.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 2: Jawaban Benar: B",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Bedah Argumen (C.O.R.E):",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Conclusion: Versi Zero Sugar sepenuhnya aman dan bebas masalah\nkesehatan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Evidence: Karena tidak pakai gula, tapi pakai pemanis buatan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Asumsi: Pemanis buatan itu sendiri aman dan tidak menimbulkan penyakit\npengganti.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Kita mencari opsi yang memperkuat asumsi bahwa pemanis buatan itu aman.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● A) Cheaper to produce: Salah. Harga murah tidak membuktikan keamanan\nkesehatan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Long-term clinical trials show no adverse effects: Benar. Fakta medis ini\nmenjadi \"beton\" yang memperkuat asumsi perusahaan bahwa pemanis buatan\npengganti gulanya memang 100% aman untuk kesehatan.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● C) Sales surpassed original: Salah. Laku keras bukan jaminan produk itu aman\nsecara medis (rokok juga laku keras).",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● D) Rival companies doing it: Salah. (Irrelevan).",
-          "small": true
-        }
-      ]
-    },
-    {
-      "id": "source-page-75",
-      "title": "",
-      "continuation": true,
-      "source_pages": [
+        74,
         75
       ],
       "blocks": [
         {
+          "type": "heading",
+          "text": "**Soal** **2:** **Tingkat** **Menengah** **(Memperkuat** **Argumen** **/** **Strengthen)**"
+        },
+        {
           "type": "paragraph",
-          "text": "● E) Can lead to mild headaches: Salah. Ini justru Weaken (memperlemah)\nargumen karena ternyata ada masalah kesehatan lain (sakit kepala).",
-          "small": true
+          "text": "*Teks:* \"Health experts have long warned against the consumption of 'Energy Drink X' due to its extremely high sugar content, which has been linked to obesity. In response, the manufacturer recently released 'Energy Drink X Zero,' which contains absolutely zero sugar and uses artificial sweeteners instead. The company claims that this new zero-sugar version is completely safe and will not cause any health issues for consumers.\""
+        },
+        {
+          "type": "paragraph",
+          "text": "*Question:* Which of the following, **if** **true**, would most **strengthen** the manufacturer's claim?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "The artificial sweeteners used in 'Energy Drink X Zero' are cheaper to produce than real sugar."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "Long-term clinical trials have shown that the specific artificial sweeteners used in the drink have no adverse effects on human health."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Sales of 'Energy Drink X Zero' have surpassed the sales of the original sugary version in less than a year."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "Several rival companies have also started producing zero-sugar energy drinks."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Consuming artificial sweeteners in massive doses can sometimes lead to mild headaches."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "**Pembahasan** **Opsi** **Soal** **2:** *Jawaban* *Benar:* ***B***"
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Bedah** **Argumen** **(C.O.R.E):**"
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "○",
+          "items": [
+            "*Conclusion:* Versi Zero Sugar sepenuhnya aman dan bebas masalah kesehatan.",
+            "*Evidence:* Karena tidak pakai gula, tapi pakai pemanis buatan.",
+            "*Asumsi:* Pemanis buatan itu sendiri aman dan tidak menimbulkan penyakit pengganti."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "Kita mencari opsi yang **memperkuat** asumsi bahwa pemanis buatan itu aman."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**A)** **Cheaper** **to** **produce:** Salah. Harga murah tidak membuktikan keamanan kesehatan.",
+            "**B)** **Long-term** **clinical** **trials** **show** **no** **adverse** **effects:** **Benar.** Fakta medis ini menjadi \"beton\" yang memperkuat asumsi perusahaan bahwa pemanis buatan pengganti gulanya memang 100% aman untuk kesehatan.",
+            "**C)** **Sales** **surpassed** **original:** Salah. Laku keras bukan jaminan produk itu aman secara medis (rokok juga laku keras).",
+            "**D)** **Rival** **companies** **doing** **it:** Salah. (Irrelevan).",
+            "**E)** **Can** **lead** **to** **mild** **headaches:** Salah. Ini justru *Weaken* (memperlemah) argumen karena ternyata ada masalah kesehatan lain (sakit kepala)."
+          ]
         }
       ]
     },
     {
-      "id": "source-page-76",
+      "id": "lbe-13-reviewed-05",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -311,89 +292,120 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "Soal 3: Tingkat Sulit (Mencari Asumsi Tersembunyi)",
-          "small": true
+          "type": "heading",
+          "text": "**Soal** **3:** **Tingkat** **Sulit** **(Mencari** **Asumsi** **Tersembunyi)**"
         },
         {
           "type": "paragraph",
-          "text": "Teks: \"To combat the spread of airborne viruses, Springfield High School has decided to\ninstall advanced HEPA air purifiers in all 50 of its classrooms. The school principal\nconfidently announced that because of this new installation, the number of students\ntaking sick leave due to viruses will drop to near zero this upcoming winter.\"",
-          "small": true
+          "text": "*Teks:* \"To combat the spread of airborne viruses, Springfield High School has decided to install advanced HEPA air purifiers in all 50 of its classrooms. The school principal confidently announced that because of this new installation, the number of students taking sick leave due to viruses will drop to near zero this upcoming winter.\""
         },
         {
           "type": "paragraph",
-          "text": "Question: The principal's conclusion relies on which of the following underlying\nassumptions?",
-          "small": true
+          "text": "*Question:* The principal's conclusion relies on which of the following underlying assumptions?"
+        },
+        {
+          "type": "bullets",
+          "marker": "A)",
+          "items": [
+            "HEPA filters are more expensive than traditional HVAC systems."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "B)",
+          "items": [
+            "The airborne viruses cannot be transmitted outside of the school classrooms, such as in the cafeteria, school buses, or at home."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "C)",
+          "items": [
+            "Winter is the season when airborne viruses are most active."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "D)",
+          "items": [
+            "The school has sufficient budget to maintain the air purifiers every month."
+          ]
+        },
+        {
+          "type": "bullets",
+          "marker": "E)",
+          "items": [
+            "Students prefer classrooms that have clean and purified air."
+          ]
         },
         {
           "type": "paragraph",
-          "text": "A) HEPA filters are more expensive than traditional HVAC systems.",
-          "small": true
+          "text": "**Pembahasan** **Opsi** **Soal** **3:** *Jawaban* *Benar:* ***B***"
         },
         {
-          "type": "paragraph",
-          "text": "B) The airborne viruses cannot be transmitted outside of the school classrooms, such\nas in the cafeteria, school buses, or at home.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Bedah** **Argumen:**"
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "C) Winter is the season when airborne viruses are most active.",
-          "small": true
+          "type": "bullets",
+          "marker": "○",
+          "items": [
+            "*Evidence:* Pasang pembersih udara di 50 RUANG KELAS.",
+            "*Conclusion:* Siswa yang izin sakit karena virus akan turun hingga nyaris nol."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "D) The school has sufficient budget to maintain the air purifiers every month.",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**Pertanyaan** **Logika:** Bagaimana jika virusnya menular saat mereka makan bareng di kantin? Atau saat desak-desakan di bus sekolah? Kalau itu terjadi, siswa tetap akan sakit, kan? Maka, agar kesimpulan kepala sekolah (*sakit* *turun* *jadi* *nol*) bisa terjadi, dia **harus** **berasumsi** **mutlak** bahwa anak-anak tidak akan tertular di tempat lain."
+          ]
         },
         {
-          "type": "paragraph",
-          "text": "E) Students prefer classrooms that have clean and purified air.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Pembahasan Opsi Soal 3: Jawaban Benar: B",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Bedah Argumen:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Evidence: Pasang pembersih udara di 50 RUANG KELAS.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "○ Conclusion: Siswa yang izin sakit karena virus akan turun hingga nyaris\nnol.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● Pertanyaan Logika: Bagaimana jika virusnya menular saat mereka makan\nbareng di kantin? Atau saat desak-desakan di bus sekolah? Kalau itu terjadi,\nsiswa tetap akan sakit, kan? Maka, agar kesimpulan kepala sekolah (sakit turun\njadi nol) bisa terjadi, dia harus berasumsi mutlak bahwa anak-anak tidak akan\ntertular di tempat lain.",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "● B) Viruses cannot be transmitted outside classrooms...: Benar. Ini adalah\n\"jembatan gaib\"-nya. Jika asumsi ini runtuh (ternyata virus nular di bus), maka\nargumen kepsek hancur. Oleh karena itu, argumennya sangat bergantung (relies\non) asumsi ini!\n🦆 VECO TIPS — Cara Cepat & Trik Khusus",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "💡 Veco Tips: Trik Mode \"Dewa Fakta\" (The \"If True\" Rule)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Kwek! Kalau soalnya bilang \"Which of the following, IF TRUE...\", kamu wajib\nmenganggap semua opsi A sampai E itu adalah fakta mutlak turun dari langit, nggak\npeduli segila apa pun kedengarannya! Jangan pernah berdebat sama opsinya.\nTugasmu cuma satu: masukin fakta gila itu ke teks, lalu lihat, \"Wah, gara-gara fakta ini,\nargumen penulis jadi makin masuk akal, atau malah jadi kelihatan bodoh?\"",
-          "small": true
+          "type": "bullets",
+          "marker": "●",
+          "items": [
+            "**B)** **Viruses** **cannot** **be** **transmitted** **outside** **classrooms...:** **Benar.** Ini adalah \"jembatan gaib\"-nya. Jika asumsi ini runtuh (ternyata virus nular di bus), maka argumen kepsek hancur. Oleh karena itu, argumennya sangat bergantung (relies on) asumsi ini!"
+          ]
         }
       ]
     },
     {
-      "id": "source-page-77",
+      "id": "lbe-13-reviewed-06",
+      "title": "🦆 VECO TIPS — Cara Cepat & Trik Khusus",
+      "continuation": false,
+      "source_pages": [
+        76,
+        77
+      ],
+      "blocks": [
+        {
+          "type": "tip",
+          "title": "💡 **Veco** **Tips:** **Trik** **Mode** **\"Dewa** **Fakta\"** **(The** **\"If** **True\"** **Rule)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Kwek! Kalau soalnya bilang *\"Which* *of* *the* *following,* *IF* *TRUE...\"*, kamu **wajib** menganggap semua opsi A sampai E itu adalah fakta mutlak turun dari langit, nggak peduli segila apa pun kedengarannya! Jangan pernah berdebat sama opsinya. Tugasmu cuma satu: masukin fakta gila itu ke teks, lalu lihat, \"Wah, gara-gara fakta ini, argumen penulis jadi makin masuk akal, atau malah jadi kelihatan bodoh?\""
+            }
+          ]
+        },
+        {
+          "type": "tip",
+          "title": "💡**Veco** **Tips:** **Jurus** **Bumerang** **(Awas** **Opsi** **Kebalikan!)**",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Hati-hati sama kelicikan pembuat soal SNBT! Di soal yang minta **WEAKEN** (Memperlemah), pembuat soal pasti sengaja naruh opsi yang sangat logis tapi fungsinya **STRENGTHEN** (Memperkuat) sebagai pengecoh utama. Begitu juga sebaliknya! Pastikan kamu melingkari gede-gede kata *Weaken/Strengthen* di kertas ujianmu biar gak amnesia di tengah jalan pas milih opsi!"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lbe-13-reviewed-07",
       "title": "",
       "continuation": true,
       "source_pages": [
@@ -401,24 +413,36 @@
       ],
       "blocks": [
         {
-          "type": "paragraph",
-          "text": "💡Veco Tips: Jurus Bumerang (Awas Opsi Kebalikan!)",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Hati-hati sama kelicikan pembuat soal SNBT! Di soal yang minta WEAKEN\n(Memperlemah), pembuat soal pasti sengaja naruh opsi yang sangat logis tapi\nfungsinya STRENGTHEN (Memperkuat) sebagai pengecoh utama. Begitu juga\nsebaliknya! Pastikan kamu melingkari gede-gede kata Weaken/Strengthen di kertas\nujianmu biar gak amnesia di tengah jalan pas milih opsi!\n⚠ Kesalahan Umum yang Sering Terjadi",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "Tipe soal evaluasi argumen adalah tempat di mana nilai peserta paling sering jeblok\nkarena sering terjadi bias. Hindari kesalahan berikut:",
-          "small": true
-        },
-        {
-          "type": "paragraph",
-          "text": "1. Membawa Opini Pribadi (Baper): Jangan pernah memakai opinimu sendiri\nuntuk mematahkan teks. Kamu mungkin tahu dari berita TV bahwa \"Lampu LED\nitu bikin silau mata\". Tapi kalau opsi itu tidak ada hubungannya dengan klaim\n\"Lampu LED menurunkan angka kriminalitas\", maka buang jauh-jauh pikiran itu.\nEvaluasi hanya berdasarkan premis di dalam teks dan fakta yang ditawarkan di\npilihan ganda!\n2. Memilih Opsi \"Fakta Relevan\" yang Tidak Menjawab Tujuan: Banyak siswa\nmemilih opsi yang memang membahas topik yang sama (misal: bahas anggaran\nlampu), tetapi fakta tersebut sama sekali tidak memperlemah atau memperkuat\nkesimpulan. Fakta tersebut berstatus Irrelevant (tidak berdampak pada logika\nutama).\n3. Gagal Melihat \"Penyebab Alternatif\" (Alternative Cause): Dalam argumen\nSebab-Akibat (A menyebabkan B), cara paling mematikan untuk memperlemah\nargumen adalah dengan menunjukkan bahwa ada hal C yang menyebabkan B.\n(Seperti pada Contoh Soal 1, di mana penyebab turunnya kejahatan ternyata\nadalah penambahan polisi patroli, bukan lampu). Siswa sering kali kurang peka\nmencari penyebab alternatif ini di pilihan ganda.",
-          "small": true
+          "type": "tip",
+          "title": "⚠ **Kesalahan** **Umum** **yang** **Sering** **Terjadi**",
+          "tone": "warning",
+          "content": [
+            {
+              "type": "paragraph",
+              "text": "Tipe soal evaluasi argumen adalah tempat di mana nilai peserta paling sering jeblok karena sering terjadi bias. Hindari kesalahan berikut:"
+            },
+            {
+              "type": "bullets",
+              "marker": "1.",
+              "items": [
+                "**Membawa** **Opini** **Pribadi** **(Baper):** Jangan pernah memakai opinimu sendiri untuk mematahkan teks. Kamu mungkin tahu dari berita TV bahwa \"Lampu LED itu bikin silau mata\". Tapi kalau opsi itu tidak ada hubungannya dengan klaim *\"Lampu* *LED* *menurunkan* *angka* *kriminalitas\"*, maka buang jauh-jauh pikiran itu. Evaluasi hanya berdasarkan premis di dalam teks dan fakta yang ditawarkan di pilihan ganda!"
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "2.",
+              "items": [
+                "**Memilih** **Opsi** **\"Fakta** **Relevan\"** **yang** **Tidak** **Menjawab** **Tujuan:** Banyak siswa memilih opsi yang memang membahas topik yang sama (misal: bahas anggaran lampu), tetapi fakta tersebut sama sekali tidak memperlemah atau memperkuat kesimpulan. Fakta tersebut berstatus *Irrelevant* (tidak berdampak pada logika utama)."
+              ]
+            },
+            {
+              "type": "bullets",
+              "marker": "3.",
+              "items": [
+                "**Gagal** **Melihat** **\"Penyebab** **Alternatif\"** **(*****Alternative*** ***Cause*****):** Dalam argumen Sebab-Akibat (A menyebabkan B), cara paling mematikan untuk memperlemah argumen adalah dengan menunjukkan bahwa **ada** **hal** **C** **yang** **menyebabkan** **B**. (Seperti pada Contoh Soal 1, di mana penyebab turunnya kejahatan ternyata adalah penambahan polisi patroli, bukan lampu). Siswa sering kali kurang peka mencari penyebab alternatif ini di pilihan ganda."
+              ]
+            }
+          ]
         }
       ]
     }

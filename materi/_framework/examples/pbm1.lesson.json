@@ -427,27 +427,7 @@
               "Saya terlambat karena macet (tanpa koma)",
               "anak2, berulang2",
               "anak-anak, berulang-ulang"
-            ]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ringkasan-lanjut",
-      "title": "",
-      "source_pages": [
-        8
-      ],
-      "blocks": [
-        {
-          "type": "table",
-          "headers": [
-            "",
-            "",
-            "",
-            ""
-          ],
-          "rows": [
+            ],
             [
               "praktek, resiko, apotik, aktifitas",
               "praktik, risiko, apotek, aktivitas",
@@ -474,8 +454,7 @@
             ]
           ]
         }
-      ],
-      "continuation": true
+      ]
     },
     {
       "id": "strategi",

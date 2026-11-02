@@ -165,6 +165,8 @@ def styles():
     result["heading"] = ParagraphStyle("heading", parent=result["body"], fontName="Jakarta-Bold",
                                       fontSize=14, leading=20, alignment=TA_LEFT, spaceBefore=12,
                                       spaceAfter=8, keepWithNext=True)
+    result["question_regular"] = ParagraphStyle("question_regular", parent=result["heading"],
+                                               fontName="Jakarta")
     result["cover"] = ParagraphStyle("cover", parent=result["title"], fontSize=43,
                                     leading=49, textColor=C["voyage-deep"])
     return result
@@ -367,6 +369,8 @@ def validate(lesson):
                                 for number, label in enumerate(labels, start)),
                             "Numbered-step labels must preserve their source sequence")
             elif kind == "question":
+                require(type(block.get("prompt_bold", True)) is bool,
+                        "Question prompt_bold must be a boolean")
                 require(block.get("id") and block.get("prompt"), "Incomplete question")
                 require(len(block.get("options", [])) == 5, "Questions require five options")
                 require(block.get("id_separator", ".") in (".", ")"), "Invalid question label separator")
@@ -468,7 +472,7 @@ def make_blocks(blocks, s):
             question_label = block.get("question_label", f"{block['id']}{id_separator}")
             items = [Paragraph(
                 f"{rich(question_label)} {rich(block['prompt'], preserve_line_breaks=preserve_breaks)}",
-                s["heading"]
+                s["heading" if block.get("prompt_bold", True) else "question_regular"]
             )]
             options = block["options"]
             for n, (letter, option) in enumerate(zip(block.get("labels", "ABCDE"), options)):
