@@ -12,6 +12,8 @@ type CheckoutEnv = Partial<Record<string, string | undefined>>;
 
 const IDEMPOTENCY_KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+/** How long a submitted quote may be reused by a retry of the same form. */
+const CHECKOUT_INTENT_TTL_MS = 30 * 60 * 1000;
 const KILL_SWITCH_OFF_VALUES = new Set(["", "0", "false", "off", "no"]);
 
 /**
@@ -40,6 +42,7 @@ type CheckoutIntentInput = {
   buyerId: string;
   entry: PricingScheduleEntry;
   idempotencyKey: string;
+  now: Date;
   plan: PricingPlanId;
   referralCode: string | null;
 };
@@ -54,22 +57,25 @@ type CheckoutIntentRecord = {
 
 type CheckoutIntentResult =
   | { intent: CheckoutIntentRecord; status: "created" | "reused" }
-  | { status: "conflict" };
+  | { status: "conflict" }
+  | { status: "expired" };
 
 /**
  * Records the buyer's checkout intent, or returns the one already stored for
  * the same buyer and key. The insert is skipped on a key collision, so two
- * concurrent submissions of one form still end up with one row. A retry keeps
- * the original quote; the same key with a different plan or referral is a
- * conflict and writes nothing.
+ * concurrent submissions of one form still end up with one row. A retry within
+ * CHECKOUT_INTENT_TTL_MS keeps the original quote; after that the key is
+ * "expired" and the buyer must confirm the current price on a fresh page. The
+ * same key with a different plan or referral is a conflict. Neither writes.
  */
 async function resolveCheckoutIntent(
-  { buyerId, entry, idempotencyKey, plan, referralCode }: CheckoutIntentInput,
+  { buyerId, entry, idempotencyKey, now, plan, referralCode }: CheckoutIntentInput,
 ): Promise<CheckoutIntentResult> {
   const { count } = await prisma.checkoutIntent.createMany({
     data: [{
       amountRupiah: getPlanPrice(entry, plan),
       buyerId,
+      expiresAt: new Date(now.getTime() + CHECKOUT_INTENT_TTL_MS),
       idempotencyKey,
       plan,
       pricingMonth: entry.month,
@@ -81,6 +87,7 @@ async function resolveCheckoutIntent(
   const stored = await prisma.checkoutIntent.findUnique({
     select: {
       amountRupiah: true,
+      expiresAt: true,
       id: true,
       plan: true,
       pricingMonth: true,
@@ -89,6 +96,7 @@ async function resolveCheckoutIntent(
     where: { buyerId_idempotencyKey: { buyerId, idempotencyKey } },
   });
   if (!stored) return { status: "conflict" };
+  if (stored.expiresAt.getTime() <= now.getTime()) return { status: "expired" };
 
   if (stored.plan !== plan || stored.referralCode !== referralCode) {
     return { status: "conflict" };
@@ -98,6 +106,7 @@ async function resolveCheckoutIntent(
 }
 
 export {
+  CHECKOUT_INTENT_TTL_MS,
   createCheckoutIdempotencyKey,
   isCheckoutPaused,
   parseCheckoutIdempotencyKey,

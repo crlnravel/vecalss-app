@@ -3261,6 +3261,9 @@ model CheckoutIntent {
   amountRupiah   Int      @map("amount_rupiah")
   referralCode   String?  @map("referral_code") @db.VarChar(40)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  /// A retry may reuse this intent (and its quote) only before this time;
+  /// afterwards the buyer must confirm the current price on a fresh page.
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz
 
   buyer User @relation(fields: [buyerId], references: [id], onDelete: Restrict)
 

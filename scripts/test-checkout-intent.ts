@@ -6,6 +6,7 @@ import { PackagePurchaseStatus, RoleName } from "../generated/prisma/client";
 import { POST as purchaseCallback } from "../app/api/internal/package-purchases/succeeded/route";
 import type { SessionContext } from "../lib/auth/types";
 import {
+  CHECKOUT_INTENT_TTL_MS,
   createCheckoutIdempotencyKey,
   isCheckoutPaused,
   parseCheckoutIdempotencyKey,
@@ -33,7 +34,8 @@ const baseEnv = {
   PRICING_PACKAGE_CODE_MONTHLY: "MONTHLY",
 } as unknown as NodeJS.ProcessEnv;
 const NOVEMBER = new Date("2026-11-20T10:00:00+07:00");
-const DECEMBER = new Date("2026-12-20T10:00:00+07:00");
+const MINUTE = 60_000;
+const afterNovember = (minutes: number) => new Date(NOVEMBER.getTime() + minutes * MINUTE);
 
 function sessionFor(userId: string, roles: RoleName[]): SessionContext {
   return {
@@ -145,6 +147,11 @@ async function main() {
     for (const origin of ["https://evil.example", "null", "http://app.example.test", `${APP_ORIGIN}.evil.example`, null]) {
       const response = await handleCheckoutPayPost(postRequest(fields, { origin }), deps());
       assert.equal(response.status, 403, String(origin));
+      assert.match(response.headers.get("content-type") ?? "", /^text\/html/u);
+      const html = await response.text();
+      assert.match(html, /href="\/pricing"/u);
+      assert.match(html, /Kembali ke halaman harga/u);
+      assert.doesNotMatch(html, /Forbidden/u);
     }
     assert.equal(sessionCalls, 0);
     assert.equal(await intentCount(), 0);
@@ -195,12 +202,15 @@ async function main() {
     assert.equal(intent.amountRupiah, 49_000);
     assert.equal(intent.referralCode, referral.referralCode);
 
-    // A retry (also a concurrent double submit) reuses the intent, and keeps its quote across a price change.
+    assert.equal(intent.expiresAt.getTime(), NOVEMBER.getTime() + CHECKOUT_INTENT_TTL_MS);
+    assert.equal(CHECKOUT_INTENT_TTL_MS, 30 * MINUTE);
+
+    // Retries inside the validity window (also a concurrent double submit) reuse the intent.
     const retry = { ...fields, ref: referral.referralCode };
     const retries = await Promise.all([
       handleCheckoutPayPost(postRequest(retry), deps()),
       handleCheckoutPayPost(postRequest(retry), deps()),
-      handleCheckoutPayPost(postRequest(retry), deps({ now: () => DECEMBER })),
+      handleCheckoutPayPost(postRequest(retry), deps({ now: () => afterNovember(29) })),
     ]);
     for (const response of retries) {
       assert.equal(location(response).href, createdTarget.href);
@@ -220,13 +230,47 @@ async function main() {
     assert.equal(unchanged.plan, "monthly");
     assert.equal(unchanged.referralCode, referral.referralCode);
 
+    // A window that spans a price change still honours the quote the buyer was shown.
+    const lateNovember = new Date("2026-11-30T23:50:00+07:00");
+    const earlyDecember = new Date("2026-12-01T00:10:00+07:00");
+    const spanning = { key: createCheckoutIdempotencyKey(), plan: "monthly" };
+    const quotedNovember = await handleCheckoutPayPost(postRequest(spanning), deps({ now: () => lateNovember }));
+    assert.equal(location(quotedNovember).searchParams.get("amount"), "49000");
+    const retriedDecember = await handleCheckoutPayPost(postRequest(spanning), deps({ now: () => earlyDecember }));
+    assert.equal(location(retriedDecember).searchParams.get("amount"), "49000");
+    assert.equal(await intentCount(), 2);
+
+    // An expired key writes nothing: it returns to the checkout page, and a fresh key gets the current price.
+    const expiredKey = createCheckoutIdempotencyKey();
+    await handleCheckoutPayPost(postRequest({ key: expiredKey, plan: "monthly" }), deps());
+    assert.equal(await intentCount(), 3);
+    const stored = await prisma.checkoutIntent.findFirstOrThrow({ where: { buyerId: alice.id, idempotencyKey: expiredKey } });
+    for (const minutes of [30, 31, 24 * 60]) {
+      const expired = location(await handleCheckoutPayPost(
+        postRequest({ key: expiredKey, plan: "monthly" }),
+        deps({ now: () => afterNovember(minutes) }),
+      ));
+      assert.equal(expired.origin, APP_ORIGIN, `${minutes} min`);
+      assert.equal(expired.pathname, "/pricing/checkout");
+      assert.equal(expired.searchParams.get("notice"), "checkout-expired");
+    }
+    assert.equal(await intentCount(), 3);
+    const afterExpiry = await prisma.checkoutIntent.findUniqueOrThrow({ where: { id: stored.id } });
+    assert.equal(afterExpiry.expiresAt.getTime(), stored.expiresAt.getTime());
+    const december = new Date("2026-12-20T10:00:00+07:00");
+    const fresh = await handleCheckoutPayPost(
+      postRequest({ key: createCheckoutIdempotencyKey(), plan: "monthly" }),
+      deps({ now: () => december }),
+    );
+    assert.equal(location(fresh).searchParams.get("amount"), "59000");
+    assert.equal(await intentCount(), 4);
+
     // Another buyer cannot ride on the same key; a fresh key for the same buyer is a new intent.
     session = sessionFor(bob.id, [RoleName.student]);
     await handleCheckoutPayPost(postRequest({ key: first, plan: "full" }), deps());
     session = sessionFor(alice.id, [RoleName.student]);
-    await handleCheckoutPayPost(postRequest({ key: createCheckoutIdempotencyKey(), plan: "full" }), deps());
-    assert.equal(await intentCount(), 3);
     assert.equal(await prisma.checkoutIntent.count({ where: { buyerId: bob.id } }), 1);
+    assert.equal(await intentCount(), 5);
 
     // Kill switch: no new intent (and no redirect to the payment service); config parsing fails closed.
     for (const [value, paused] of [["", false], ["0", false], ["false", false], ["OFF", false], ["1", true], ["on", true], ["yes please", true]] as const) {

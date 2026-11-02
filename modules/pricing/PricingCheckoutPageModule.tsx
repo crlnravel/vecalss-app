@@ -16,11 +16,17 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 import { PLAN_COPY } from "./plan-copy";
 
-type CheckoutNotice = "checkout-changed" | "checkout-paused" | "checkout-unavailable";
+type CheckoutNotice =
+  | "checkout-changed"
+  | "checkout-expired"
+  | "checkout-paused"
+  | "checkout-unavailable";
 
 const NOTICE_COPY: Record<CheckoutNotice, string> = {
   "checkout-changed":
     "Pilihan di halaman ini sempat berubah. Periksa lagi paket dan kode referralmu, lalu lanjut ke pembayaran.",
+  "checkout-expired":
+    "Sudah cukup lama sejak halaman ini dibuka, jadi harganya bisa saja sudah berubah. Periksa lagi totalnya, lalu lanjut ke pembayaran.",
   "checkout-paused":
     "Pembelian paket sedang dijeda sementara. Coba lagi beberapa saat lagi, atau hubungi tim Vecalss kalau butuh bantuan.",
   "checkout-unavailable":

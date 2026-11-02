@@ -20,6 +20,24 @@ import {
 const MAX_FORM_BYTES = 4 * 1024;
 const NO_STORE_HEADERS = { "Cache-Control": "no-store, max-age=0" };
 
+const REJECTED_PAGE = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Permintaan belum bisa diproses | Vecalss</title>
+<style>body{font-family:system-ui,sans-serif;line-height:1.6;margin:0;padding:4rem 1.25rem;color:#14231d}main{max-width:32rem;margin:0 auto}a{color:#014c38;font-weight:600}</style>
+</head>
+<body>
+<main>
+<h1>Permintaan belum bisa diproses</h1>
+<p>Kami tidak bisa memastikan permintaan ini datang dari halaman checkout Vecalss. Buka lagi halaman harga, pilih paketmu, lalu coba sekali lagi.</p>
+<p><a href="/pricing">Kembali ke halaman harga</a></p>
+</main>
+</body>
+</html>`;
+
 type CheckoutPayDeps = {
   env: NodeJS.ProcessEnv;
   getSession: () => Promise<SessionContext | null>;
@@ -92,7 +110,14 @@ function handleCheckoutPayRedirect(
 
 async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = defaultDeps) {
   if (!isSameOrigin(request, deps.env)) {
-    return new Response("Forbidden", { headers: NO_STORE_HEADERS, status: 403 });
+    return new Response(REJECTED_PAGE, {
+      headers: {
+        ...NO_STORE_HEADERS,
+        "Content-Type": "text/html; charset=utf-8",
+        "Referrer-Policy": "no-referrer",
+      },
+      status: 403,
+    });
   }
 
   const base = getAppBaseUrl(deps.env);
@@ -128,19 +153,22 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
     if (!referralCode) return checkoutPage();
   }
 
-  const { entry } = resolvePricing(deps.now());
+  const now = deps.now();
+  const { entry } = resolvePricing(now);
   if (!entry) return redirectTo("/pricing", base);
 
   const result = await resolveCheckoutIntent({
     buyerId: session.user.id,
     entry,
     idempotencyKey,
+    now,
     plan,
     referralCode,
   });
+  if (result.status === "expired") return checkoutPage({ notice: "checkout-expired" });
   if (result.status === "conflict") return checkoutPage({ notice: "checkout-changed" });
 
-  // A retry keeps the quote it was first given, even across a price change.
+  // A retry within the validity window keeps the quote it was first given.
   const quotedEntry = PRICING_SCHEDULE.find((item) => item.month === result.intent.pricingMonth);
   const checkoutUrl = quotedEntry
     ? buildCheckoutUrl({ entry: quotedEntry, plan, referralCode, studentId: session.user.id }, deps.env)

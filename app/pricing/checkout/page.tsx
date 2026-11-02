@@ -65,7 +65,9 @@ export default async function PricingCheckoutPage({
   const requestedNotice = firstValue(params.notice);
   const notice: CheckoutNotice | null = paused
     ? "checkout-paused"
-    : requestedNotice === "checkout-unavailable" || requestedNotice === "checkout-changed"
+    : requestedNotice === "checkout-unavailable"
+      || requestedNotice === "checkout-changed"
+      || requestedNotice === "checkout-expired"
       ? requestedNotice
       : null;
 
