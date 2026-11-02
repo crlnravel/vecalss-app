@@ -27,6 +27,7 @@ import {
 } from "./crypto";
 import { assertPasswordPolicy } from "./password-policy.mjs";
 import { getRequestMetadata } from "./request";
+import { isMfaRequiredRole } from "./mfa/state";
 import { createSessionIfUserStateMatches } from "./session";
 import type { AuthenticatedUser, LoginAudience } from "./types";
 import {
@@ -112,13 +113,19 @@ function mapAuthenticatedUser(user: {
   status: UserStatus;
   studentProfile?: { onboardingStatus: AuthenticatedUser["onboardingStatus"] } | null;
 }): AuthenticatedUser {
+  const roles = user.roleAssignments.filter((assignment) => assignment.revokedAt === null).map((assignment) => assignment.role);
+  const privileged = roles.some(isMfaRequiredRole);
+
   return {
     email: user.email,
     fullName: user.fullName,
     id: user.id,
+    // A password alone never makes a session privileged: the session that was
+    // just created has no verification yet, so it starts at the challenge.
+    mfaStatus: privileged ? "challenge" : "not_required",
     mustChangePassword: user.mustChangePassword,
     onboardingStatus: user.studentProfile?.onboardingStatus ?? null,
-    roles: user.roleAssignments.filter((assignment) => assignment.revokedAt === null).map((assignment) => assignment.role),
+    roles: privileged ? roles.filter((role) => !isMfaRequiredRole(role)) : roles,
     status: user.status,
   };
 }

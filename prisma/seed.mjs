@@ -6,6 +6,7 @@ import { seedMateriCatalogue } from "./materi-seed.mjs";
 import { seedAssessmentDemo } from "./seed-assessment.mjs";
 import { seedStaging } from "./seed-staging.mjs";
 import { seedPassword } from "./seed-password-policy.mjs";
+import { ensureSeedMfaFactor } from "./seed-mfa.mjs";
 
 const { Client } = pg;
 
@@ -1186,6 +1187,7 @@ async function main() {
       userId: adminUserId,
     });
     await ensureNotificationPreference(client, adminUserId);
+    await ensureSeedMfaFactor(client, adminUserId);
 
     const developerUserId = await upsertUser(client, {
       email: DEFAULT_DEVELOPER.email,
@@ -1201,6 +1203,7 @@ async function main() {
       userId: developerUserId,
     });
     await ensureNotificationPreference(client, developerUserId);
+    await ensureSeedMfaFactor(client, developerUserId);
 
     await ensureAdminStudentPreviewFixture(client, { adminUserId });
 

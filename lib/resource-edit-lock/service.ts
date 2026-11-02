@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { Prisma } from "@/generated/prisma/client";
+import { kaptenOrAdminRoleSql } from "@/lib/auth/mfa/data-layer";
 import { acquireBannerMediaMutationLock } from "@/lib/banner/media-safety";
 import { prisma } from "@/lib/prisma";
 import {
@@ -221,7 +222,7 @@ function activeKaptenOrAdminHolder(holderUserId?: string) {
     FROM "role_assignments" AS ra
     JOIN "users" AS u ON u."id" = ra."user_id"
     WHERE ra."user_id" = ${holderUserId}::uuid
-      AND ra."role" IN ('tutor', 'admin')
+      AND ${kaptenOrAdminRoleSql()}
       AND ra."revoked_at" IS NULL
       AND u."status" = 'active'
       AND u."soft_deleted_at" IS NULL

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { seedPassword } from "./seed-password-policy.mjs";
+import { ensureSeedMfaFactor } from "./seed-mfa.mjs";
 
 export function normalizeSeedReferralCode(value) {
   const normalized = value?.trim().toUpperCase() || "";
@@ -533,6 +534,7 @@ export async function seedCoreAccounts(client) {
     userId: adminUserId,
   });
   await ensureNotificationPreference(client, adminUserId);
+  await ensureSeedMfaFactor(client, adminUserId);
 
   const developerUserId = await upsertUser(client, {
     email: DEFAULT_DEVELOPER.email,
@@ -548,6 +550,7 @@ export async function seedCoreAccounts(client) {
     userId: developerUserId,
   });
   await ensureNotificationPreference(client, developerUserId);
+  await ensureSeedMfaFactor(client, developerUserId);
 
   const previewUserId = await ensureAdminStudentPreviewFixture(client, { adminUserId });
 
