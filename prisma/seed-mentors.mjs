@@ -3,10 +3,14 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 
+import { assertSeedPasswordCompliant } from "./seed-password-policy.mjs";
+
 const { Client } = pg;
 
-export const FIRST_LOGIN_TUTOR_PASSWORD =
-  process.env.SEED_FIRST_LOGIN_TUTOR_PASSWORD?.trim() || "TempTutor123!";
+export const FIRST_LOGIN_TUTOR_PASSWORD = assertSeedPasswordCompliant(
+  "SEED_FIRST_LOGIN_TUTOR_PASSWORD",
+  process.env.SEED_FIRST_LOGIN_TUTOR_PASSWORD?.trim() || "TempTutor123!",
+);
 
 export const FIRST_LOGIN_TUTORS = [
   { email: "davinaadindaui@gmail.com", fullName: "Davina" },

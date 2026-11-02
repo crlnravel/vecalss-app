@@ -19,6 +19,7 @@ import {
   generateTemporaryPassword,
   hashPassword,
   hashToken,
+  hashUnusableCredential,
   normalizeEmail,
   validatePassword,
 } from "@/lib/auth/crypto";
@@ -305,11 +306,9 @@ async function createEnrollmentHandoffResult({
   const rawSecret = handoffMethod === EnrollmentHandoffMethod.invite_link
     ? createOpaqueToken()
     : generateTemporaryPassword();
-  const passwordHash = await hashPassword(
-    handoffMethod === EnrollmentHandoffMethod.temporary_password
-      ? rawSecret
-      : createOpaqueToken(24),
-  );
+  const passwordHash = handoffMethod === EnrollmentHandoffMethod.temporary_password
+    ? await hashPassword(rawSecret)
+    : await hashUnusableCredential(createOpaqueToken(24));
   if (handoffMethod === EnrollmentHandoffMethod.invite_link) {
     // Validate the trusted origin before creating the account. The released
     // token is still rebuilt only after the handoff CAS succeeds below.

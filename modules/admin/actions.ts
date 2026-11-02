@@ -4,7 +4,6 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { EnrollmentHandoffMethod, UserStatus } from "@/generated/prisma/client";
-import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import { requireAdminSession } from "@/lib/auth/access";
 import { serverLogger } from "@/lib/server-logger";
 import { ADMIN_STUDENT_DIRECTORY_CACHE_TAG } from "@/lib/admin/operations/directory-cache";
@@ -32,6 +31,7 @@ import {
   updateStudentEnrollment,
 } from "@/lib/admin/enrollment";
 import type { FormState } from "@/modules/auth/form-state";
+import { describePasswordProblem } from "@/modules/auth/password-copy";
 
 function readTextField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -651,6 +651,11 @@ async function changeStudentEnrollmentPasswordAction(
     );
   }
 
+  const passwordProblem = describePasswordProblem(password, "siswa");
+  if (passwordProblem) {
+    return withFieldError({}, passwordProblem, { password: passwordProblem });
+  }
+
   try {
     await changeStudentEnrollmentPassword({
       actorUserId: session.user.id,
@@ -660,7 +665,7 @@ async function changeStudentEnrollmentPasswordAction(
   } catch (error) {
     const message = error instanceof EnrollmentServiceError
       ? error.code === "invalid_field"
-        ? `Kata sandi harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter dan memuat huruf besar, huruf kecil, serta angka.`
+        ? "Kata sandi belum memenuhi syarat. Gunakan huruf besar, huruf kecil, angka, dan satu simbol."
         : error.code === "not_found"
           ? "Akun siswa tidak ditemukan. Segarkan halaman lalu coba lagi."
           : "Kata sandi siswa belum berhasil diperbarui. Coba lagi."

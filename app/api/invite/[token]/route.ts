@@ -5,6 +5,7 @@ import {
 } from "@/lib/admin/handoffs/rate-limit";
 import { completeEnrollmentInvite } from "@/lib/auth/service";
 import { hashToken } from "@/lib/auth/crypto";
+import { PasswordPolicyError } from "@/lib/auth/password-policy.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -121,7 +122,17 @@ export async function POST(
       { loginAudience: result.loginAudience, ok: true },
       { headers: inviteHeaders() },
     );
-  } catch {
+  } catch (error) {
+    // A weak password is checked before the invite is looked at, so naming the
+    // broken rule says nothing about the invite itself. The reply never echoes
+    // the password.
+    if (error instanceof PasswordPolicyError) {
+      return Response.json(
+        { error: "password_policy", violation: error.violation },
+        { headers: inviteHeaders(), status: 422 },
+      );
+    }
+
     // Invalid, expired, disabled, and already-consumed invites deliberately
     // share one response shape and never include bearer-token diagnostics.
     return invalidInviteResponse();

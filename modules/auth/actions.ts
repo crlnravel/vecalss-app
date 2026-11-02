@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 
-import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import { serverLogger } from "@/lib/server-logger";
 import {
   getDefaultHomePath,
@@ -21,6 +20,7 @@ import { revokeCurrentSession } from "@/lib/auth/session";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import type { FormState } from "./form-state";
+import { describePasswordViolation, isPasswordPolicyError } from "./password-copy";
 
 function readTextField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -50,12 +50,8 @@ function readAudience(formData: FormData): LoginAudience {
 }
 
 function getChangePasswordErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message === "Password must include uppercase, lowercase, and number characters.") {
-    return "Kata sandi baru harus memuat huruf besar, huruf kecil, dan angka.";
-  }
-
-  if (error instanceof Error && error.message === `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`) {
-    return `Kata sandi baru harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+  if (isPasswordPolicyError(error)) {
+    return describePasswordViolation(error.violation);
   }
 
   return "Kata sandi belum berhasil diperbarui. Coba lagi beberapa saat lagi.";
@@ -70,10 +66,9 @@ function getResetPasswordErrorMessage(error: unknown) {
 }
 
 function isExpectedPasswordActionError(error: unknown) {
+  if (isPasswordPolicyError(error)) return true;
   if (!(error instanceof Error)) return false;
-  return error.message === "This reset link is invalid or has already expired."
-    || error.message === "Password must include uppercase, lowercase, and number characters."
-    || error.message === `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`;
+  return error.message === "This reset link is invalid or has already expired.";
 }
 
 async function handleLoginAction(
