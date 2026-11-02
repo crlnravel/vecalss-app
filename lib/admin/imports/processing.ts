@@ -1842,6 +1842,7 @@ export {
   isRetryBodyShape,
   claimImportRows,
   cleanupEnrollmentImports,
+  createImportedAccount,
   deriveImportRowCounts,
   failImportGeneration,
   finalizeImportGeneration,

@@ -14,7 +14,10 @@ import {
   createStudentEnrollment,
   EnrollmentServiceError,
 } from "../lib/admin/enrollment/service";
+import { POST as invitePost } from "../app/api/invite/[token]/route";
+import { getTrustedAppBaseUrl } from "../lib/admin/handoffs/envelope";
 import { reissueEnrollmentHandoff } from "../lib/admin/handoffs/service";
+import { createImportedAccount } from "../lib/admin/imports/processing";
 import {
   PASSWORD_MAX_BYTES,
   PASSWORD_MIN_LENGTH,
@@ -431,6 +434,170 @@ async function checkInviteAndEnrollment(adminId: string) {
   );
 }
 
+async function checkInviteRoute(adminId: string) {
+  const origin = getTrustedAppBaseUrl();
+  const post = (token: string, password: string, confirmPassword = password) =>
+    invitePost(
+      new Request(`${origin}/api/invite/${token}`, {
+        body: JSON.stringify({ confirmPassword, password }),
+        headers: { "content-type": "application/json", origin },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ token }) },
+    );
+  const readBody = async (response: Response) => ({ status: response.status, text: await response.text() });
+
+  const invited = await createStudentEnrollment({
+    actorUserId: adminId,
+    email: `password-policy-route-${runId}@vecalss.local`,
+    fullName: "Password Policy Route",
+    handoffMethod: EnrollmentHandoffMethod.invite_link,
+  });
+  createdUserIds.push(invited.userId);
+  assert.ok(invited.inviteUrl);
+  const inviteToken = decodeURIComponent(new URL(invited.inviteUrl).pathname.split("/").pop() ?? "");
+  const before = await prisma.user.findUniqueOrThrow({ where: { id: invited.userId } });
+  const handoffBefore = await prisma.enrollmentHandoff.findFirstOrThrow({ where: { userId: invited.userId } });
+
+  const expectedBodies = {
+    missing_class: { error: "password_policy", violation: "missing_class" },
+    too_long: { error: "password_policy", violation: "too_long" },
+    too_short: { error: "password_policy", violation: "too_short" },
+  } as const;
+  const weakCases: Array<[string, keyof typeof expectedBodies]> = [
+    ["Abcdefg123", "missing_class"],
+    ["Ab1!xyz", "too_short"],
+    [`Aa1!${"x".repeat(69)}`, "too_long"],
+  ];
+
+  for (const [weak, violationCode] of weakCases) {
+    secretsSeen.push(weak);
+    const real = await readBody(await post(inviteToken, weak));
+    assert.equal(real.status, 422, violationCode);
+    assert.deepEqual(JSON.parse(real.text), expectedBodies[violationCode]);
+    assert.ok(!real.text.includes(weak), "the reply never echoes the password");
+
+    // An unknown token gets the identical reply, so it says nothing about the invite.
+    const unknown = await readBody(await post(createOpaqueToken(), weak));
+    assert.deepEqual(unknown, real, `unknown token, ${violationCode}`);
+  }
+
+  // The invite survived every rejection untouched.
+  const after = await prisma.user.findUniqueOrThrow({ where: { id: invited.userId } });
+  assert.equal(after.passwordHash, before.passwordHash);
+  assert.equal(after.mustChangePassword, true);
+  const handoffAfter = await prisma.enrollmentHandoff.findFirstOrThrow({ where: { userId: invited.userId } });
+  assert.equal(handoffAfter.status, handoffBefore.status);
+  assert.equal(handoffAfter.completedAt, null, "the invite is not consumed");
+
+  // An unknown token with a compliant password is still just an invalid invite.
+  const unknownOk = await readBody(await post(createOpaqueToken(), "Compliant-1pass"));
+  assert.equal(unknownOk.status, 400);
+  assert.deepEqual(JSON.parse(unknownOk.text), { error: "invalid_invite" });
+
+  // Mismatched confirmation is not a policy answer either.
+  const mismatch = await readBody(await post(inviteToken, "Compliant-1pass", "Different-1pass"));
+  assert.deepEqual(JSON.parse(mismatch.text), { error: "invalid_invite" });
+
+  // The still-valid invite works with a compliant password.
+  const good = await post(inviteToken, "Route-Invite1pass");
+  assert.equal(good.status, 200);
+  secretsSeen.push("Route-Invite1pass");
+  const accepted = await prisma.user.findUniqueOrThrow({ where: { id: invited.userId } });
+  assert.equal(await verifyPassword("Route-Invite1pass", accepted.passwordHash), true);
+  assert.equal(accepted.mustChangePassword, false);
+}
+
+async function checkImportedAccounts(adminId: string) {
+  const importRow = await prisma.enrollmentImport.create({
+    data: {
+      contentHash: `password-policy-${runId}`,
+      createdByUserId: adminId,
+      confirmedByUserId: adminId,
+      handoffMethod: EnrollmentHandoffMethod.temporary_password,
+      role: "student",
+      rowCount: 2,
+      sourceFilename: "password-policy.csv",
+      status: "queued",
+      templateVersion: "students.v1",
+    },
+    select: { id: true },
+  });
+  try {
+    const rows = [] as Array<{ id: string; email: string }>;
+    for (const [index, kind] of ["temp", "invite"].entries()) {
+      const email = `password-policy-import-${kind}-${runId}@vecalss.local`;
+      const row = await prisma.enrollmentImportRow.create({
+        data: { importId: importRow.id, inputJson: { email, full_name: `Import ${kind}` }, normalizedEmail: email, operation: "create", rowNumber: index + 1, status: "processing" },
+        select: { id: true },
+      });
+      rows.push({ email, id: row.id });
+    }
+
+    const run = (method: EnrollmentHandoffMethod, row: { id: string; email: string }) =>
+      prisma.$transaction((tx) =>
+        createImportedAccount(
+          tx,
+          {
+            attemptCount: 1,
+            claimExpiresAt: new Date(Date.now() + 60_000),
+            claimToken: crypto.randomUUID(),
+            claimedBy: "password-policy-test",
+            confirmedByUserId: adminId,
+            createdByUserId: adminId,
+            generation: 1,
+            handoffMethod: method,
+            id: row.id,
+            importId: importRow.id,
+            importStatus: "queued",
+            inputJson: { email: row.email, full_name: "Import" },
+            matchedUserId: null,
+            matchedUserUpdatedAt: null,
+            normalizedEmail: row.email,
+            operation: "create",
+            role: "student",
+            rowNumber: 1,
+            status: "processing",
+          } as never,
+          { email: row.email, fullName: "Import", targetExamEventId: null },
+        ),
+      );
+
+    // Temporary-password import: the stored password is the generated, compliant one.
+    const temp = await run(EnrollmentHandoffMethod.temporary_password, rows[0]);
+    createdUserIds.push(temp.userId);
+    const tempUser = await prisma.user.findUniqueOrThrow({ where: { id: temp.userId } });
+    assert.equal(tempUser.mustChangePassword, true);
+    const released = await openHandoffSecret(temp.handoffId, temp.userId);
+    assert.equal(violation(released), null, "the generated import password complies");
+    assert.equal(await verifyPassword(released, tempUser.passwordHash), true, "and it is what is stored");
+
+    // Invite import: succeeds (an opaque token would fail the password rule) and stores nothing usable.
+    const invite = await run(EnrollmentHandoffMethod.invite_link, rows[1]);
+    createdUserIds.push(invite.userId);
+    const inviteUser = await prisma.user.findUniqueOrThrow({ where: { id: invite.userId } });
+    assert.equal(inviteUser.mustChangePassword, true);
+    const inviteHandoff = await prisma.enrollmentHandoff.findUniqueOrThrow({ where: { id: invite.handoffId } });
+    assert.ok(inviteHandoff.tokenHash, "the invite carries its token hash");
+    assert.equal(await verifyPassword("", inviteUser.passwordHash), false);
+    assert.equal(await verifyPassword(inviteHandoff.tokenHash, inviteUser.passwordHash), false);
+  } finally {
+    await prisma.enrollmentHandoff.deleteMany({ where: { sourceImportRowId: { not: null }, userId: { in: createdUserIds } } });
+    await prisma.enrollmentImport.delete({ where: { id: importRow.id } }).catch(() => undefined);
+  }
+}
+
+/** Opens the sealed temporary password of a pending handoff, the way the release step does. */
+async function openHandoffSecret(handoffId: string, userId: string) {
+  const { openEnrollmentHandoffSecret } = await import("../lib/admin/handoffs/envelope");
+  const handoff = await prisma.enrollmentHandoff.findUniqueOrThrow({ where: { id: handoffId } });
+  return openEnrollmentHandoffSecret(handoff.secretEnvelope as never, {
+    handoffId,
+    method: handoff.method,
+    userId,
+  });
+}
+
 async function checkMigration() {
   const sql = readFileSync(
     resolve(process.cwd(), "prisma/migrations/20261102150000_force_password_change_for_composition_rule/migration.sql"),
@@ -487,6 +654,8 @@ async function main() {
     await checkChangePassword();
     await checkPasswordReset();
     await checkInviteAndEnrollment(admin.id);
+    await checkInviteRoute(admin.id);
+    await checkImportedAccounts(admin.id);
     await checkMigration();
 
     // No password was written to the audit trail.
