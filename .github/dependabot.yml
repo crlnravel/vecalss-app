@@ -1,0 +1,63 @@
+# Dependabot: weekly dependency and GitHub Actions updates.
+#
+# Security updates (pull requests Dependabot opens for a known advisory) are
+# grouped per ecosystem so one review covers them. Ordinary version updates are
+# grouped into one minor/patch pull request per ecosystem; each major version
+# bump stays its own pull request so it gets its own review.
+#
+# The 7-day cooldown matches `minimumReleaseAge` in pnpm-workspace.yaml (10080
+# minutes): a release must be at least a week old before it is proposed.
+#
+# Response deadlines for findings are in the patch register
+# (Traycer artifact merchant-security-plan/policies/register-patch-review-akses).
+version: 2
+
+updates:
+  - package-ecosystem: "npm" # also covers pnpm: Dependabot reads pnpm-lock.yaml
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      actions-all:
+        applies-to: version-updates
+        patterns:
+          - "*"
