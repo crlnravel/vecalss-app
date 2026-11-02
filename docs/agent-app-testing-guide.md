@@ -123,6 +123,18 @@ For isolated integration test suites (such as Vera AI tests), use the dedicated 
 
 ---
 
+## Email (password reset)
+
+`/forgot-password` sends the reset link by email through Resend (`lib/email/`). Outside production the link is also shown on screen, as before, so you never need an inbox to test a reset.
+
+- Variables (see `.env.example`): `RESEND_API_KEY` (send-only), `EMAIL_FROM`, optional `EMAIL_REPLY_TO`, and for local work `EMAIL_DEV_REDIRECT`.
+- Outside production nothing is sent unless `EMAIL_DEV_REDIRECT` is set. When it is, every message goes to that address instead of the real recipient and the subject names the intended one (`[Uji untuk student@vecalss.local] ...`). Seeded `@vecalss.local` accounts can therefore be tested without mailing anyone. Use `delivered@resend.dev` with the default `onboarding@resend.dev` sender; that sender cannot deliver anywhere else.
+- Without `RESEND_API_KEY` or `EMAIL_FROM` the request still works; the email is skipped and one log line says why.
+- Requests are limited to 3 per email address and 10 per client address in 15 minutes (kept in Postgres). Over the limit, the page shows the same message and sends nothing. To reset while testing: `DELETE FROM password_reset_requests;`.
+- The page shows the same message for registered and unregistered addresses. Tests stub `fetch` (`pnpm test:password-reset-email`); they never call Resend.
+
+---
+
 ## 4. How to Test the Application
 
 ### Step 1: Ensure Local Services Are Running
