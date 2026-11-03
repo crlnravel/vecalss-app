@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import type { EmailMessage, MailResult } from "@/lib/email/mailer";
+import type { PaymentMaintenanceResult } from "@/lib/payments/maintenance";
 import { serverLogger } from "@/lib/server-logger";
 
 import { checkDependencies, defaultProbes, isReady, type DependencyProbes, type Readiness } from "./readiness";
@@ -15,12 +16,19 @@ import {
 
 type Db = Parameters<typeof purgeSecurityLogs>[0];
 
-export type MaintenanceFailure = "database" | "redis" | "security_log_cleanup" | "stale_state_check";
+export type MaintenanceFailure =
+  | "database"
+  | "payment_maintenance"
+  | "redis"
+  | "security_log_cleanup"
+  | "stale_state_check";
 
 export type MaintenanceDeps = {
   alertTo: string | null;
   db: Db;
   now?: Date;
+  /** Payment step: resolves orders open past expiry and drains the payment outbox. */
+  payments?: () => Promise<PaymentMaintenanceResult>;
   probes?: DependencyProbes;
   sendAlert: (message: EmailMessage) => Promise<MailResult>;
 };
@@ -29,12 +37,15 @@ export type MaintenanceResult = {
   cleanup: Record<SecurityLogTable, TableCleanupResult> | null;
   failures: MaintenanceFailure[];
   ok: boolean;
+  /** Absent when the run was given no payment step. */
+  payments?: PaymentMaintenanceResult | null;
   readiness: Readiness;
   staleEditLeases: number | null;
 };
 
 const failureLabels: Record<MaintenanceFailure, string> = {
   database: "basis data",
+  payment_maintenance: "pemeriksaan dan antrean pembayaran",
   redis: "Redis",
   security_log_cleanup: "pembersihan log keamanan",
   stale_state_check: "pemeriksaan status tertinggal",
@@ -109,6 +120,15 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     failures.push("stale_state_check");
   }
 
+  let payments: PaymentMaintenanceResult | null = null;
+  if (deps.payments) {
+    try {
+      payments = await deps.payments();
+    } catch {
+      failures.push("payment_maintenance");
+    }
+  }
+
   if (failures.length > 0) {
     serverLogger.error("maintenance.daily.failed", new Error("A daily maintenance step failed."), {
       area: "maintenance",
@@ -121,6 +141,7 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     cleanup,
     failures,
     ok: failures.length === 0 && isReady(readiness),
+    payments,
     readiness,
     staleEditLeases,
   };
@@ -150,6 +171,7 @@ export async function handleDailyMaintenanceRequest(request: Request, deps: Cron
       cleanup: result.cleanup,
       failures: result.failures,
       ok: result.ok,
+      payments: result.payments,
       readiness: result.readiness,
       staleEditLeases: result.staleEditLeases,
     },

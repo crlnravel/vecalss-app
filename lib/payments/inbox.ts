@@ -1,0 +1,314 @@
+import "server-only";
+
+import { createHash } from "node:crypto";
+
+import { prisma } from "@/lib/prisma";
+
+import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
+import { writePaymentAudit } from "./audit";
+import { enqueueOutbox } from "./outbox";
+
+type OrderState = "pending" | "paid" | "failed" | "expired" | "review";
+type EventOutcome = "accepted" | "declined" | "expired" | "review" | "quarantined" | "ignored";
+type EventSource = "webhook" | "reconciliation";
+
+/** The columns of an order that a decision needs. */
+type OrderForDecision = {
+  amountRupiah: number;
+  buyerId: string;
+  currency: string;
+  id: string;
+  packageCode: string;
+  provider: string;
+  providerAccount: string;
+  providerEnvironment: string;
+  providerReference: string | null;
+  status: OrderState;
+};
+
+type Decision = {
+  /** What the order becomes, if it changes. */
+  orderTo: "paid" | "failed" | "expired" | "review" | null;
+  outcome: EventOutcome;
+  reason: string | null;
+};
+
+/**
+ * Compares a verified event with the server's own order. Any difference is a
+ * mismatch and the event is quarantined: it is stored and alerted, and the
+ * order is left exactly as it was.
+ */
+function findMismatches(
+  order: OrderForDecision | null,
+  event: VerifiedPaymentEvent,
+  adapter: PaymentProviderAdapter,
+) {
+  if (!order) return ["unknown_order"];
+
+  const mismatches: string[] = [];
+  if (
+    event.merchantAccount !== adapter.merchantAccount
+    || event.environment !== adapter.environment
+    || order.provider !== adapter.id
+    || order.providerAccount !== event.merchantAccount
+    || order.providerEnvironment !== event.environment
+  ) mismatches.push("merchant");
+  if (event.amountRupiah !== order.amountRupiah) mismatches.push("amount");
+  if (event.currency !== order.currency) mismatches.push("currency");
+  if (event.buyerId !== order.buyerId) mismatches.push("buyer");
+  if (event.packageCode !== order.packageCode) mismatches.push("package");
+  if (
+    (event.kind === "payment.succeeded" && !event.providerPaymentId)
+    || (event.providerPaymentId && order.providerReference !== null && order.providerReference !== event.providerPaymentId)
+  ) mismatches.push("payment");
+
+  return mismatches;
+}
+
+/**
+ * Pure decision for one event against one order's current state.
+ *
+ * - success on a pending order is accepted;
+ * - success on a failed or expired order is never accepted automatically: the
+ *   money is real, so the order goes to review;
+ * - a second success for the same payment is a duplicate, and one for a
+ *   different payment is an unexpected second capture, recorded for review;
+ * - failure and expiry only move a pending order, and are ignored otherwise,
+ *   so a reordered event cannot undo a payment.
+ */
+function decidePaymentEvent(
+  order: OrderForDecision | null,
+  event: VerifiedPaymentEvent,
+  adapter: PaymentProviderAdapter,
+): Decision {
+  const mismatches = findMismatches(order, event, adapter);
+
+  // Everything matches except the payment id, and the order is already settled:
+  // a second, genuine capture. The money moved, so it is kept and reviewed
+  // rather than discarded as a duplicate or merged into the first payment.
+  if (
+    order
+    && event.kind === "payment.succeeded"
+    && (order.status === "paid" || order.status === "review")
+    && mismatches.length === 1
+    && mismatches[0] === "payment"
+  ) {
+    return { orderTo: null, outcome: "review", reason: "second_capture" };
+  }
+
+  if (mismatches.length > 0 || !order) {
+    return { orderTo: null, outcome: "quarantined", reason: mismatches.join(",") };
+  }
+
+  if (event.kind === "payment.succeeded") {
+    switch (order.status) {
+      case "pending":
+        return { orderTo: "paid", outcome: "accepted", reason: null };
+      case "failed":
+      case "expired":
+        return { orderTo: "review", outcome: "review", reason: `late_success_after_${order.status}` };
+      case "paid":
+      case "review":
+        // Same payment id (a different payment id was handled above).
+        return { orderTo: null, outcome: "ignored", reason: "duplicate_capture" };
+    }
+  }
+
+  if (order.status !== "pending") return { orderTo: null, outcome: "ignored", reason: `order_${order.status}` };
+
+  return event.kind === "payment.failed"
+    ? { orderTo: "failed", outcome: "declined", reason: null }
+    : { orderTo: "expired", outcome: "expired", reason: null };
+}
+
+type ProcessInput = {
+  adapter: PaymentProviderAdapter;
+  bodySha256?: string | null;
+  callerIp?: string | null;
+  event: VerifiedPaymentEvent;
+  source: EventSource;
+};
+
+type ProcessResult =
+  | { orderId: string | null; outcome: EventOutcome; reason: string | null; status: "processed" }
+  | { status: "duplicate" };
+
+const KIND_TO_TYPE = {
+  "payment.expired": "expired",
+  "payment.failed": "failed",
+  "payment.succeeded": "succeeded",
+} as const;
+
+/**
+ * Applies one verified event in a single transaction: the event row (with its
+ * decision), the order transition, the purchase summary, the audit event and
+ * the outbox jobs commit together or not at all. The order row is locked first,
+ * so two deliveries for one order are decided one after the other, and the
+ * event identity is unique, so a repeated delivery changes nothing.
+ */
+async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> {
+  const { adapter, event } = input;
+
+  return prisma.$transaction(async (tx) => {
+    const [order = null] = await tx.$queryRaw<OrderForDecision[]>`
+      SELECT id, buyer_id AS "buyerId", amount_rupiah AS "amountRupiah", currency,
+             package_code AS "packageCode", provider, provider_account AS "providerAccount",
+             provider_environment AS "providerEnvironment", provider_reference AS "providerReference",
+             status
+      FROM payment_orders
+      WHERE reference = ${event.merchantReference}
+      FOR UPDATE
+    `;
+
+    const decision = decidePaymentEvent(order, event, adapter);
+
+    const [recorded] = await tx.$queryRaw<Array<{ id: string }>>`
+      INSERT INTO payment_events (
+        provider, provider_environment, provider_account, event_id, type, source,
+        provider_payment_id, merchant_reference, order_id, amount_rupiah, currency,
+        buyer_id, package_code, outcome, reason, body_sha256, caller_ip, provider_occurred_at
+      )
+      VALUES (
+        ${adapter.id}, ${event.environment}, ${event.merchantAccount}, ${event.eventId},
+        ${KIND_TO_TYPE[event.kind]}::payment_event_type, ${input.source}::payment_event_source,
+        ${event.providerPaymentId}, ${event.merchantReference}, ${order?.id ?? null}::uuid,
+        ${event.amountRupiah}, ${event.currency}, ${event.buyerId}, ${event.packageCode},
+        ${decision.outcome}::payment_event_outcome, ${decision.reason},
+        ${input.bodySha256 ?? null}, ${input.callerIp ?? null}::inet, ${event.occurredAt}
+      )
+      ON CONFLICT (provider, provider_environment, provider_account, event_id) DO NOTHING
+      RETURNING id
+    `;
+    // A delivery we have already decided on: nothing else may happen.
+    if (!recorded) return { status: "duplicate" as const };
+
+    const audit = (action: string, extra: Record<string, unknown> = {}) =>
+      writePaymentAudit(tx, {
+        action,
+        ipAddress: input.callerIp ?? null,
+        metadata: {
+          amountRupiah: event.amountRupiah,
+          eventId: event.eventId,
+          paymentEventId: recorded.id,
+          providerPaymentId: event.providerPaymentId,
+          reason: decision.reason,
+          source: input.source,
+          ...extra,
+        },
+        targetId: order?.id ?? recorded.id,
+        targetType: order ? "payment_order" : "payment_event",
+      });
+
+    if (decision.outcome === "quarantined") {
+      await audit("payment.event.quarantined");
+      await enqueueOutbox(tx, {
+        dedupeKey: `alert:event:${recorded.id}`,
+        kind: "critical_alert",
+        orderId: order?.id ?? null,
+        payload: { kind: "quarantined", paymentEventId: recorded.id, reason: decision.reason },
+      });
+    } else if (order && decision.orderTo === "paid") {
+      // MS-08: grant the paid access here, in this same transaction, by calling
+      // the MS-04 grant with source `payment` and the idempotency key
+      // `order:<order id>`. Paid, summarised and granted must commit together
+      // or not at all. (MS-04's grant opens its own transaction today; MS-08
+      // adds a variant that takes this one.)
+      const [purchase] = await tx.$queryRaw<Array<{ id: string }>>`
+        INSERT INTO package_purchases (
+          student_id, package_code, package_name, status, affiliator_profile_id,
+          referral_code_snapshot, provider_reference, completed_at, provenance
+        )
+        SELECT o.buyer_id, o.package_code, o.package_name, 'succeeded'::package_purchase_status,
+               o.affiliator_profile_id, o.referral_code, 'order:' || o.id::text, now(),
+               'order'::package_purchase_provenance
+        FROM payment_orders o
+        WHERE o.id = ${order.id}::uuid
+        RETURNING id
+      `;
+      await tx.$executeRaw`
+        UPDATE payment_orders
+        SET status = 'paid', status_changed_at = now(), paid_at = now(),
+            provider_reference = COALESCE(provider_reference, ${event.providerPaymentId}),
+            package_purchase_id = ${purchase.id}::uuid, updated_at = now()
+        WHERE id = ${order.id}::uuid
+      `;
+      await audit("payment.order.paid", { packagePurchaseId: purchase.id });
+      await enqueueOutbox(tx, {
+        dedupeKey: `receipt:${order.id}`,
+        kind: "receipt_email",
+        orderId: order.id,
+        payload: { orderId: order.id },
+      });
+    } else if (order && decision.orderTo) {
+      const reasonColumn = decision.orderTo === "review" ? decision.reason : null;
+      await tx.$executeRaw`
+        UPDATE payment_orders
+        SET status = ${decision.orderTo}::payment_order_status, status_changed_at = now(),
+            status_reason = ${reasonColumn},
+            provider_reference = COALESCE(provider_reference, ${event.providerPaymentId}),
+            updated_at = now()
+        WHERE id = ${order.id}::uuid
+      `;
+      await audit(`payment.order.${decision.orderTo}`);
+      if (decision.orderTo === "review") {
+        await enqueueOutbox(tx, {
+          dedupeKey: `alert:event:${recorded.id}`,
+          kind: "critical_alert",
+          orderId: order.id,
+          payload: { kind: "review", paymentEventId: recorded.id, reason: decision.reason },
+        });
+      }
+    } else if (order && decision.outcome === "review") {
+      // A second capture on an order that is already settled: keep the evidence.
+      await audit("payment.event.review");
+      await enqueueOutbox(tx, {
+        dedupeKey: `alert:event:${recorded.id}`,
+        kind: "critical_alert",
+        orderId: order.id,
+        payload: { kind: "review", paymentEventId: recorded.id, reason: decision.reason },
+      });
+    }
+
+    return {
+      orderId: order?.id ?? null,
+      outcome: decision.outcome,
+      reason: decision.reason,
+      status: "processed" as const,
+    };
+  });
+}
+
+type ReceiveInput = {
+  adapter: PaymentProviderAdapter;
+  callerIp: string | null;
+  headers: Headers;
+  rawBody: Uint8Array;
+};
+
+type ReceiveResult =
+  | { result: ProcessResult; status: "received" }
+  | { reason: "bad_signature" | "malformed" | "stale"; status: "refused" };
+
+/**
+ * The inbox entry point. The signature and freshness are checked on the raw
+ * bytes against database time before anything is parsed or written; a refused
+ * request leaves no trace in the tables.
+ */
+async function receivePaymentEvent(input: ReceiveInput): Promise<ReceiveResult> {
+  const [{ now }] = await prisma.$queryRaw<Array<{ now: Date }>>`SELECT now() AS now`;
+  const verified = input.adapter.verifyAndParseEvent({ headers: input.headers, now, rawBody: input.rawBody });
+  if (!verified.ok) return { reason: verified.reason, status: "refused" };
+
+  const result = await processPaymentEvent({
+    adapter: input.adapter,
+    bodySha256: createHash("sha256").update(input.rawBody).digest("hex"),
+    callerIp: input.callerIp,
+    event: verified.event,
+    source: "webhook",
+  });
+
+  return { result, status: "received" };
+}
+
+export { decidePaymentEvent, findMismatches, processPaymentEvent, receivePaymentEvent };
+export type { Decision, OrderForDecision, ProcessInput, ProcessResult, ReceiveResult };

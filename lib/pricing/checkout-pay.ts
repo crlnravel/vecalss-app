@@ -1,11 +1,15 @@
 import { readRequestBytesAtMost } from "@/lib/admin/imports/request";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { RoleName } from "@/generated/prisma/client";
+import { getTrustedProxyCount, resolveClientIpAddress } from "@/lib/auth/request";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import type { SessionContext } from "@/lib/auth/types";
 import { getAppBaseUrl } from "@/lib/config";
+import type { PaymentProviderAdapter } from "@/lib/payments/adapter";
+import { createOrderFromIntent, ensurePaymentSession } from "@/lib/payments/orders";
+import { getPaymentProvider } from "@/lib/payments/provider";
 
-import { buildCheckoutUrl } from "./checkout";
+import { getPackageCode } from "./checkout";
 import {
   isCheckoutPaused,
   parseCheckoutIdempotencyKey,
@@ -42,10 +46,13 @@ type CheckoutPayDeps = {
   env: NodeJS.ProcessEnv;
   getSession: () => Promise<SessionContext | null>;
   now: () => Date;
+  /** The payment provider; null means none is configured and checkout stays closed. */
+  getProvider?: (env: NodeJS.ProcessEnv) => PaymentProviderAdapter | null;
 };
 
 const defaultDeps: CheckoutPayDeps = {
   env: process.env,
+  getProvider: (env) => getPaymentProvider(env),
   getSession: getSessionContext,
   now: () => new Date(),
 };
@@ -144,6 +151,11 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
 
   if (isCheckoutPaused(deps.env)) return checkoutPage();
 
+  // With no payment provider there is nothing to pay through, so checkout stays
+  // closed and nothing is written: the page shows the same paused notice.
+  const provider = (deps.getProvider ?? defaultDeps.getProvider!)(deps.env);
+  if (!provider) return checkoutPage();
+
   const idempotencyKey = parseCheckoutIdempotencyKey(form.get("key"));
   if (!idempotencyKey) return checkoutPage({ notice: "checkout-changed" });
 
@@ -170,12 +182,28 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
 
   // A retry within the validity window keeps the quote it was first given.
   const quotedEntry = PRICING_SCHEDULE.find((item) => item.month === result.intent.pricingMonth);
-  const checkoutUrl = quotedEntry
-    ? buildCheckoutUrl({ entry: quotedEntry, plan, referralCode, studentId: session.user.id }, deps.env)
-    : null;
-  if (!checkoutUrl) return checkoutPage({ notice: "checkout-unavailable" });
+  const packageCode = quotedEntry ? getPackageCode(plan, quotedEntry, deps.env) : null;
+  if (!packageCode) return checkoutPage({ notice: "checkout-unavailable" });
 
-  return redirectTo(checkoutUrl, checkoutUrl);
+  const trustedProxyCount = getTrustedProxyCount(deps.env);
+  const buyerIp = resolveClientIpAddress(request.headers.get("x-forwarded-for"), trustedProxyCount);
+  const order = await createOrderFromIntent({
+    buyerId: session.user.id,
+    buyerIp,
+    buyerIpSource: buyerIp ? `trusted-proxy:${trustedProxyCount}` : "unavailable",
+    intent: result.intent,
+    packageCode,
+    provider,
+  });
+  if (!order) return checkoutPage({ notice: "checkout-unavailable" });
+
+  const statusPage = redirectTo(`/pricing/checkout/status/${order.reference}`, base);
+  const payment = await ensurePaymentSession(order, provider, base);
+  if (!payment.ok) {
+    return payment.reason === "closed" ? statusPage : checkoutPage({ notice: "checkout-unavailable" });
+  }
+
+  return redirectTo(payment.checkoutUrl, base);
 }
 
 export { handleCheckoutPayPost, handleCheckoutPayRedirect };

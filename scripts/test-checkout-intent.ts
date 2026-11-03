@@ -16,6 +16,7 @@ import {
   handleCheckoutPayRedirect,
   type CheckoutPayDeps,
 } from "../lib/pricing/checkout-pay";
+import type { PaymentProviderAdapter } from "../lib/payments/adapter";
 import { prisma } from "../lib/prisma";
 
 // These checks write rows, so they only run against the disposable local dev database.
@@ -25,13 +26,25 @@ if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
 
 const APP_ORIGIN = "https://app.example.test";
 const PAY_URL = `${APP_ORIGIN}/pricing/checkout/pay`;
+/** A payment provider that accepts any session, so these checks stay about the intent. */
+const stubProvider: PaymentProviderAdapter = {
+  createSession: async (request) => ({
+    checkoutUrl: `https://pay.example.test/stub/${request.merchantReference}`,
+    providerPaymentId: `stub-${request.merchantReference}`,
+  }),
+  environment: "test",
+  getStatus: async () => ({ found: false }),
+  id: "stub",
+  merchantAccount: "stub-account",
+  verifyAndParseEvent: () => ({ ok: false, reason: "bad_signature" }),
+};
+// Filled in once the seeded package is known.
 const baseEnv = {
   APP_BASE_URL: APP_ORIGIN,
-  CHECKOUT_BASE_URL: "https://pay.example.test/checkout",
   NODE_ENV: "test",
-  PRICING_PACKAGE_CODE_FULL_MANDIRI: "FULL-MANDIRI",
-  PRICING_PACKAGE_CODE_FULL_UTBK: "FULL-UTBK",
-  PRICING_PACKAGE_CODE_MONTHLY: "MONTHLY",
+  PRICING_PACKAGE_CODE_FULL_MANDIRI: "",
+  PRICING_PACKAGE_CODE_FULL_UTBK: "",
+  PRICING_PACKAGE_CODE_MONTHLY: "",
 } as unknown as NodeJS.ProcessEnv;
 const NOVEMBER = new Date("2026-11-20T10:00:00+07:00");
 const MINUTE = 60_000;
@@ -98,6 +111,19 @@ async function main() {
     where: { status: "published" },
   });
   assert.ok(publishedPackage, "The dev database needs a published tryout package (run pnpm db:seed).");
+  Object.assign(baseEnv, {
+    PRICING_PACKAGE_CODE_FULL_MANDIRI: publishedPackage.code,
+    PRICING_PACKAGE_CODE_FULL_UTBK: publishedPackage.code,
+    PRICING_PACKAGE_CODE_MONTHLY: publishedPackage.code,
+  });
+  const orderOf = async (buyerId: string, idempotencyKey: string) => {
+    const intent = await prisma.checkoutIntent.findUniqueOrThrow({
+      select: { order: true },
+      where: { buyerId_idempotencyKey: { buyerId, idempotencyKey } },
+    });
+    assert.ok(intent.order, "the intent has an order");
+    return intent.order;
+  };
   const seededStudent = await prisma.user.findFirstOrThrow({
     select: { id: true },
     where: { email: "student@vecalss.local" },
@@ -107,6 +133,7 @@ async function main() {
   let session: SessionContext | null = sessionFor(alice.id, [RoleName.student]);
   const deps = (overrides: Partial<CheckoutPayDeps> = {}): CheckoutPayDeps => ({
     env: baseEnv,
+    getProvider: () => stubProvider,
     getSession: async () => {
       sessionCalls += 1;
       return session;
@@ -183,17 +210,22 @@ async function main() {
       assert.equal(await intentCount(), 0, label);
     }
 
-    // A same-origin POST creates one intent and goes to the provisional checkout redirect.
+    // With no payment provider configured, checkout stays closed and writes nothing.
+    const noProvider = location(
+      await handleCheckoutPayPost(postRequest({ ...fields, ref: referral.referralCode }), deps({ getProvider: () => null })),
+    );
+    assert.equal(noProvider.origin, APP_ORIGIN);
+    assert.equal(noProvider.pathname, "/pricing/checkout");
+    assert.equal(await intentCount(), 0);
+
+    // A same-origin POST creates one intent, one order and goes to the provider's payment page.
     const created = await handleCheckoutPayPost(
       postRequest({ ...fields, ref: ` ${referral.referralCode.toLowerCase()} ` }),
       deps(),
     );
     const createdTarget = location(created);
     assert.equal(createdTarget.origin, "https://pay.example.test");
-    assert.equal(createdTarget.searchParams.get("package"), "MONTHLY");
-    assert.equal(createdTarget.searchParams.get("amount"), "49000");
-    assert.equal(createdTarget.searchParams.get("student"), alice.id);
-    assert.equal(createdTarget.searchParams.get("ref"), referral.referralCode);
+    assert.equal(createdTarget.searchParams.size, 0, "nothing the browser could edit is in the redirect");
     const [intent] = await prisma.checkoutIntent.findMany({ where: { buyerId: alice.id } });
     assert.equal(await intentCount(), 1);
     assert.equal(intent.idempotencyKey, first);
@@ -201,6 +233,12 @@ async function main() {
     assert.equal(intent.pricingMonth, "2026-11");
     assert.equal(intent.amountRupiah, 49_000);
     assert.equal(intent.referralCode, referral.referralCode);
+    const order = await orderOf(alice.id, first);
+    assert.equal(order.amountRupiah, 49_000);
+    assert.equal(order.packageCode, publishedPackage.code);
+    assert.equal(order.referralCode, referral.referralCode);
+    assert.equal(order.buyerId, alice.id);
+    assert.equal(createdTarget.pathname, `/stub/${order.reference}`);
 
     assert.equal(intent.expiresAt.getTime(), NOVEMBER.getTime() + CHECKOUT_INTENT_TTL_MS);
     assert.equal(CHECKOUT_INTENT_TTL_MS, 30 * MINUTE);
@@ -217,6 +255,7 @@ async function main() {
     }
     assert.equal(await intentCount(), 1);
     assert.equal((await prisma.checkoutIntent.findFirstOrThrow({ where: { buyerId: alice.id } })).id, intent.id);
+    assert.equal(await prisma.paymentOrder.count({ where: { intentId: intent.id } }), 1, "retries reuse the one order");
 
     // The same key with a different plan or referral is rejected and writes nothing.
     for (const changed of [{ ...retry, plan: "full" }, { key: first, plan: "monthly" }]) {
@@ -235,9 +274,11 @@ async function main() {
     const earlyDecember = new Date("2026-12-01T00:10:00+07:00");
     const spanning = { key: createCheckoutIdempotencyKey(), plan: "monthly" };
     const quotedNovember = await handleCheckoutPayPost(postRequest(spanning), deps({ now: () => lateNovember }));
-    assert.equal(location(quotedNovember).searchParams.get("amount"), "49000");
+    assert.equal(location(quotedNovember).origin, "https://pay.example.test");
+    assert.equal((await orderOf(alice.id, spanning.key)).amountRupiah, 49_000);
     const retriedDecember = await handleCheckoutPayPost(postRequest(spanning), deps({ now: () => earlyDecember }));
-    assert.equal(location(retriedDecember).searchParams.get("amount"), "49000");
+    assert.equal(location(retriedDecember).href, location(quotedNovember).href);
+    assert.equal((await orderOf(alice.id, spanning.key)).amountRupiah, 49_000);
     assert.equal(await intentCount(), 2);
 
     // An expired key writes nothing: it returns to the checkout page, and a fresh key gets the current price.
@@ -258,11 +299,13 @@ async function main() {
     const afterExpiry = await prisma.checkoutIntent.findUniqueOrThrow({ where: { id: stored.id } });
     assert.equal(afterExpiry.expiresAt.getTime(), stored.expiresAt.getTime());
     const december = new Date("2026-12-20T10:00:00+07:00");
+    const freshKey = createCheckoutIdempotencyKey();
     const fresh = await handleCheckoutPayPost(
-      postRequest({ key: createCheckoutIdempotencyKey(), plan: "monthly" }),
+      postRequest({ key: freshKey, plan: "monthly" }),
       deps({ now: () => december }),
     );
-    assert.equal(location(fresh).searchParams.get("amount"), "59000");
+    assert.equal(location(fresh).origin, "https://pay.example.test");
+    assert.equal((await orderOf(alice.id, freshKey)).amountRupiah, 59_000);
     assert.equal(await intentCount(), 4);
 
     // Another buyer cannot ride on the same key; a fresh key for the same buyer is a new intent.
@@ -318,8 +361,9 @@ async function main() {
     console.log("Checkout intent boundary checks passed.");
   } finally {
     await prisma.packagePurchase.deleteMany({ where: { providerReference } });
-    await prisma.checkoutIntent.deleteMany({ where: { buyerId: { in: buyerIds } } });
-    await prisma.user.deleteMany({ where: { id: { in: buyerIds } } });
+    // Orders are never deleted, so intents and buyers that have one stay behind.
+    await prisma.checkoutIntent.deleteMany({ where: { buyerId: { in: buyerIds }, order: null } });
+    await prisma.user.deleteMany({ where: { id: { in: buyerIds }, checkoutIntents: { none: {} } } });
     await prisma.$disconnect();
   }
 }

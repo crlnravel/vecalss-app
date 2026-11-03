@@ -752,6 +752,7 @@ model User {
   affiliatorProfile                      AffiliatorProfile?
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
   checkoutIntents                        CheckoutIntent[]
+  paymentOrders                          PaymentOrder[]                       @relation("PaymentOrderBuyer")
   mfaFactor                              UserMfaFactor?                       @relation("UserMfaFactor")
   mfaSetupCodes                          MfaSetupCode[]                       @relation("UserMfaSetupCodes")
   mfaFailedAttempts                      MfaFailedAttempt[]                   @relation("UserMfaFailedAttempts")
@@ -3357,6 +3358,7 @@ model AffiliatorProfile {
 
   user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   packagePurchases PackagePurchase[]
+  paymentOrders    PaymentOrder[]
 
   @@index([isActive, referralCode])
   @@map("affiliator_profiles")
@@ -3372,23 +3374,35 @@ enum PackagePurchaseStatus {
   @@map("package_purchase_status")
 }
 
+/// Where a purchase summary came from. `incomplete` rows predate trusted
+/// orders (or arrive through the provisional callback): they carry no amount,
+/// currency, buyer IP or provider evidence, and none is back-filled.
+enum PackagePurchaseProvenance {
+  incomplete
+  order
+
+  @@map("package_purchase_provenance")
+}
+
 /// First-party package purchase evidence. Package fields and the referral
 /// code are snapshots because catalogues and codes can change later.
 model PackagePurchase {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId            String                @map("student_id") @db.Uuid
-  packageCode          String                @map("package_code") @db.VarChar(80)
-  packageName          String                @map("package_name") @db.VarChar(220)
-  status               PackagePurchaseStatus @default(pending)
-  affiliatorProfileId  String?               @map("affiliator_profile_id") @db.Uuid
-  referralCodeSnapshot String?               @map("referral_code_snapshot") @db.VarChar(40)
-  providerReference    String                @unique @map("provider_reference") @db.VarChar(160)
-  completedAt          DateTime?             @map("completed_at") @db.Timestamptz
-  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String                    @map("student_id") @db.Uuid
+  packageCode          String                    @map("package_code") @db.VarChar(80)
+  packageName          String                    @map("package_name") @db.VarChar(220)
+  status               PackagePurchaseStatus     @default(pending)
+  affiliatorProfileId  String?                   @map("affiliator_profile_id") @db.Uuid
+  referralCodeSnapshot String?                   @map("referral_code_snapshot") @db.VarChar(40)
+  providerReference    String                    @unique @map("provider_reference") @db.VarChar(160)
+  completedAt          DateTime?                 @map("completed_at") @db.Timestamptz
+  provenance           PackagePurchaseProvenance @default(incomplete)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   student           User               @relation("PackagePurchaseStudent", fields: [studentId], references: [id], onDelete: Restrict)
   affiliatorProfile AffiliatorProfile? @relation(fields: [affiliatorProfileId], references: [id], onDelete: SetNull)
+  paymentOrder      PaymentOrder?
 
   @@index([studentId, createdAt])
   @@index([affiliatorProfileId, status, completedAt])
@@ -3415,11 +3429,195 @@ model CheckoutIntent {
   /// afterwards the buyer must confirm the current price on a fresh page.
   expiresAt      DateTime @map("expires_at") @db.Timestamptz
 
-  buyer User @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  buyer User          @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  order PaymentOrder?
 
   @@unique([buyerId, idempotencyKey])
   @@index([buyerId, createdAt])
   @@map("checkout_intents")
+}
+
+enum PaymentOrderStatus {
+  pending
+  paid
+  failed
+  expired
+  review
+
+  @@map("payment_order_status")
+}
+
+enum PaymentEventType {
+  succeeded
+  failed
+  expired
+
+  @@map("payment_event_type")
+}
+
+enum PaymentEventSource {
+  webhook
+  reconciliation
+
+  @@map("payment_event_source")
+}
+
+enum PaymentEventOutcome {
+  accepted
+  declined
+  expired
+  review
+  quarantined
+  ignored
+
+  @@map("payment_event_outcome")
+}
+
+enum PaymentOutboxKind {
+  receipt_email
+  critical_alert
+
+  @@map("payment_outbox_kind")
+}
+
+enum PaymentOutboxStatus {
+  pending
+  done
+  dead
+
+  @@map("payment_outbox_status")
+}
+
+/// The trusted record of one checkout: a snapshot of the quote taken from the
+/// buyer's intent, plus the payment state. Everything except the columns that
+/// move with the payment is frozen, and `status` only follows the transitions
+/// the database trigger allows (pending to paid, failed or expired; failed or
+/// expired to review). Rows are never deleted. One intent leads to at most one
+/// order, and an order has at most one payable provider session.
+model PaymentOrder {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  intentId            String   @unique @map("intent_id") @db.Uuid
+  buyerId             String   @map("buyer_id") @db.Uuid
+  /// Opaque token shared with the provider (its idempotency key for session
+  /// creation) and used in the browser's status link. Not the order id.
+  reference           String   @unique @db.VarChar(64)
+  plan                String   @db.VarChar(20)
+  pricingMonth        String   @map("pricing_month") @db.VarChar(7)
+  quoteVersion        Int      @default(1) @map("quote_version")
+  packageCode         String   @map("package_code") @db.VarChar(80)
+  packageName         String   @map("package_name") @db.VarChar(220)
+  amountRupiah        Int      @map("amount_rupiah")
+  currency            String   @default("IDR") @db.VarChar(3)
+  referralCode        String?  @map("referral_code") @db.VarChar(40)
+  affiliatorProfileId String?  @map("affiliator_profile_id") @db.Uuid
+  buyerIp             String?  @map("buyer_ip") @db.Inet
+  /// How `buyerIp` was obtained, for example `trusted-proxy:1` or `unavailable`.
+  buyerIpSource       String   @map("buyer_ip_source") @db.VarChar(40)
+  provider            String   @db.VarChar(40)
+  providerEnvironment String   @map("provider_environment") @db.VarChar(40)
+  providerAccount     String   @map("provider_account") @db.VarChar(80)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt           DateTime @map("expires_at") @db.Timestamptz
+
+  status             PaymentOrderStatus @default(pending)
+  statusChangedAt    DateTime           @default(now()) @map("status_changed_at") @db.Timestamptz
+  statusReason       String?            @map("status_reason") @db.VarChar(120)
+  paidAt             DateTime?          @map("paid_at") @db.Timestamptz
+  /// The provider's own payment id. Set once, from the session or an early event.
+  providerReference  String?            @map("provider_reference") @db.VarChar(160)
+  sessionUrl         String?            @map("session_url") @db.Text
+  sessionAttempts    Int                @default(0) @map("session_attempts")
+  sessionRequestedAt DateTime?          @map("session_requested_at") @db.Timestamptz
+  packagePurchaseId  String?            @unique @map("package_purchase_id") @db.Uuid
+  updatedAt          DateTime           @default(now()) @map("updated_at") @db.Timestamptz
+
+  intent          CheckoutIntent     @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  buyer           User               @relation("PaymentOrderBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  affiliator      AffiliatorProfile? @relation(fields: [affiliatorProfileId], references: [id], onDelete: Restrict)
+  packagePurchase PackagePurchase?   @relation(fields: [packagePurchaseId], references: [id], onDelete: Restrict)
+  events          PaymentEvent[]
+
+  @@unique([provider, providerEnvironment, providerAccount, providerReference])
+  @@index([status, expiresAt])
+  @@index([buyerId, createdAt])
+  @@map("payment_orders")
+}
+
+/// Every verified provider event or reconciled status, with the decision taken.
+/// Append-only: the outcome is decided before the row is written. Events that
+/// fail signature or freshness checks never reach this table.
+model PaymentEvent {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider            String              @db.VarChar(40)
+  providerEnvironment String              @map("provider_environment") @db.VarChar(40)
+  providerAccount     String              @map("provider_account") @db.VarChar(80)
+  eventId             String              @map("event_id") @db.VarChar(160)
+  type                PaymentEventType
+  source              PaymentEventSource
+  providerPaymentId   String?             @map("provider_payment_id") @db.VarChar(160)
+  merchantReference   String              @map("merchant_reference") @db.VarChar(120)
+  orderId             String?             @map("order_id") @db.Uuid
+  amountRupiah        Int?                @map("amount_rupiah")
+  currency            String?             @db.VarChar(3)
+  buyerId             String?             @map("buyer_id") @db.VarChar(80)
+  packageCode         String?             @map("package_code") @db.VarChar(80)
+  outcome             PaymentEventOutcome
+  reason              String?             @db.VarChar(160)
+  bodySha256          String?             @map("body_sha256") @db.VarChar(64)
+  callerIp            String?             @map("caller_ip") @db.Inet
+  providerOccurredAt  DateTime            @map("provider_occurred_at") @db.Timestamptz
+  receivedAt          DateTime            @default(now()) @map("received_at") @db.Timestamptz
+
+  order PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEnvironment, providerAccount, eventId])
+  @@index([orderId, receivedAt])
+  @@index([outcome, receivedAt])
+  @@map("payment_events")
+}
+
+/// Work to do after a payment decision commits (receipt email, critical alert).
+/// Rows are enqueued inside the same transaction as the decision, claimed with
+/// a lease, retried with backoff, and drained after the request and by the
+/// daily maintenance job.
+model PaymentOutbox {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind        PaymentOutboxKind
+  /// One job per business fact, so a repeated decision enqueues nothing new.
+  dedupeKey   String              @unique @map("dedupe_key") @db.VarChar(200)
+  orderId     String?             @map("order_id") @db.Uuid
+  payload     Json                @default("{}") @db.JsonB
+  status      PaymentOutboxStatus @default(pending)
+  attempts    Int                 @default(0)
+  maxAttempts Int                 @default(8) @map("max_attempts")
+  nextRunAt   DateTime            @default(now()) @map("next_run_at") @db.Timestamptz
+  leasedUntil DateTime?           @map("leased_until") @db.Timestamptz
+  leaseOwner  String?             @map("lease_owner") @db.VarChar(64)
+  lastError   String?             @map("last_error") @db.VarChar(200)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  completedAt DateTime?           @map("completed_at") @db.Timestamptz
+
+  @@index([status, nextRunAt])
+  @@map("payment_outbox")
+}
+
+/// The dev-only stand-in provider's own payment state, kept apart from our
+/// orders so status lookups and reconciliation talk to a separate source of
+/// truth. It is only written when the stand-in is enabled (local database).
+model StandInPayment {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference         String    @unique @db.VarChar(120)
+  providerPaymentId String    @unique @map("provider_payment_id") @db.VarChar(64)
+  amountRupiah      Int       @map("amount_rupiah")
+  currency          String    @db.VarChar(3)
+  metadata          Json      @default("{}") @db.JsonB
+  /// pending, succeeded, failed or expired.
+  state             String    @default("pending") @db.VarChar(12)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  settledAt         DateTime? @map("settled_at") @db.Timestamptz
+
+  @@map("stand_in_payments")
 }
 
 model SystemConfig {

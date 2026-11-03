@@ -66,15 +66,23 @@ providerReference, referralCode?, completedAt? }` with
   `sha256=<hex-digest>` in `x-vecalss-purchase-signature`; the server resolves
   the active student and published package before recording a conversion.
 
-- `CHECKOUT_BASE_URL`, `PRICING_PACKAGE_CODE_MONTHLY`,
-  `PRICING_PACKAGE_CODE_FULL_UTBK`, `PRICING_PACKAGE_CODE_FULL_MANDIRI`:
-  Optional until the payment gateway is wired. `/pricing` renders the
-  month-based prices without them. A plan opens `/pricing/checkout` (sign-in
-  required, students only), which holds the order summary and the referral
-  code field (`/pricing?ref=CODE` links prefill it). "Lanjut ke pembayaran"
-  goes through `/pricing/checkout/pay`, which redirects to `CHECKOUT_BASE_URL`
-  with the plan's package code, price, student id, and the validated
-  affiliator code. Purchase stays disabled until these variables are set.
+- `PRICING_PACKAGE_CODE_MONTHLY`, `PRICING_PACKAGE_CODE_FULL_UTBK`,
+  `PRICING_PACKAGE_CODE_FULL_MANDIRI`: Optional until the payment provider is
+  wired. `/pricing` renders the month-based prices without them. A plan opens
+  `/pricing/checkout` (sign-in required, students only), which holds the order
+  summary and the referral code field (`/pricing?ref=CODE` links prefill it).
+  "Lanjut ke pembayaran" posts to `/pricing/checkout/pay`, which records the
+  checkout intent, creates a server-side order (amount, package and referral
+  are snapshots; payment expires after 15 minutes), opens one payment session
+  at the provider and sends the buyer there. Nothing in the browser can change
+  the amount or package.
+- `PAYMENT_PROVIDER`: selects the payment provider. Empty means none, and
+  checkout stays closed with the paused notice. `stand-in` is a dev-only fake
+  provider (`/pay/stand-in/<reference>`) that works only with
+  `NODE_ENV` other than production and a local `DATABASE_URL`; otherwise it
+  counts as no provider. Provider events arrive at
+  `POST /api/payments/events/<provider>`, are verified on the raw body, and are
+  matched against the order before anything is paid. See `docs/payments.md`.
 
 For local role testing, you can set `DEBUG=true` in `.env`. The avatar menu will
 then show a development-only account switcher for active seeded accounts. It

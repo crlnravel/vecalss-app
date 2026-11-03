@@ -5,10 +5,7 @@ import {
   getSafePricingReturnPath,
 } from "../lib/auth/paths";
 import {
-  buildCheckoutUrl,
-  getCheckoutBaseUrl,
   getPackageCode,
-  isCheckoutConfigured,
 } from "../lib/pricing/checkout";
 import {
   PRICING_SCHEDULE,
@@ -62,50 +59,19 @@ assert.equal(formatPricingMonth("2027-04"), "April 2027");
 assert.equal(isPricingPlanId("full"), true);
 assert.equal(isPricingPlanId("gold"), false);
 
-// Checkout needs a base URL and package codes; nothing is defaulted.
-const noEnv = {};
-assert.equal(getCheckoutBaseUrl(noEnv), null);
-assert.equal(isCheckoutConfigured(march, noEnv), false);
-assert.equal(
-  buildCheckoutUrl({ entry: march, plan: "full", referralCode: null, studentId: "s1" }, noEnv),
-  null,
-);
-
+// Package codes come from configuration; nothing is defaulted. The editable
+// checkout redirect is retired, so there is no URL to build here any more.
 const env = {
-  CHECKOUT_BASE_URL: "https://pay.example.test/checkout",
   PRICING_PACKAGE_CODE_FULL_MANDIRI: "FULL-MANDIRI",
   PRICING_PACKAGE_CODE_FULL_UTBK: "FULL-UTBK",
   PRICING_PACKAGE_CODE_MONTHLY: "MONTHLY",
 };
-assert.equal(isCheckoutConfigured(march, env), true);
+assert.equal(getPackageCode("full", march, {}), null);
+assert.equal(getPackageCode("monthly", march, {}), null);
 assert.equal(getPackageCode("full", march, env), "FULL-UTBK");
 assert.equal(getPackageCode("full", april, env), "FULL-MANDIRI");
 assert.equal(getPackageCode("monthly", april, env), "MONTHLY");
-assert.equal(
-  isCheckoutConfigured(march, { ...env, PRICING_PACKAGE_CODE_MONTHLY: " " }),
-  false,
-);
-assert.equal(getCheckoutBaseUrl({ ...env, CHECKOUT_BASE_URL: "not a url" }), null);
-assert.equal(
-  getCheckoutBaseUrl({ CHECKOUT_BASE_URL: "http://pay.example.test", NODE_ENV: "production" }),
-  null,
-);
-
-const url = buildCheckoutUrl(
-  { entry: march, plan: "full", referralCode: "SALSA2027", studentId: "student-1" },
-  env,
-);
-assert.equal(url?.origin, "https://pay.example.test");
-assert.equal(url?.searchParams.get("package"), "FULL-UTBK");
-assert.equal(url?.searchParams.get("amount"), "150000");
-assert.equal(url?.searchParams.get("student"), "student-1");
-assert.equal(url?.searchParams.get("ref"), "SALSA2027");
-const withoutRef = buildCheckoutUrl(
-  { entry: april, plan: "monthly", referralCode: null, studentId: "student-1" },
-  env,
-);
-assert.equal(withoutRef?.searchParams.get("package"), "MONTHLY");
-assert.equal(withoutRef?.searchParams.has("ref"), false);
+assert.equal(getPackageCode("monthly", april, { ...env, PRICING_PACKAGE_CODE_MONTHLY: " " }), null);
 
 // Login may only return to admin or pricing paths.
 assert.equal(getSafePricingReturnPath("/pricing"), "/pricing");

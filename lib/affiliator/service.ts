@@ -539,19 +539,30 @@ async function recordSuccessfulPackagePurchase({
  * so a code accepted here is not rejected when the purchase is recorded.
  */
 async function findActiveReferralCode(value: unknown) {
-  const referralCode = normalizeReferralCode(value);
-  if (!referralCode) return null;
-
-  const profile = await prisma.affiliatorProfile.findFirst({
-    select: { referralCode: true },
-    where: activeAffiliatorProfileWhere(referralCode),
-  });
-
+  const profile = await findActiveAffiliatorProfile(value);
   return profile?.referralCode ?? null;
 }
 
+/** The active affiliator profile (id and canonical code) behind a referral code, if any. */
+async function findActiveAffiliatorProfile(value: unknown) {
+  const referralCode = normalizeReferralCode(value);
+  if (!referralCode) return null;
+
+  return prisma.affiliatorProfile.findFirst({
+    select: affiliatorProfileSelect,
+    where: activeAffiliatorProfileWhere(referralCode),
+  });
+}
+
+/** The title of the one published package with this code; throws when there is none or more than one. */
+async function findPublishedPackageName(packageCode: string) {
+  return resolvePublishedPackage(prisma, packageCode);
+}
+
 export {
+  findActiveAffiliatorProfile,
   findActiveReferralCode,
+  findPublishedPackageName,
   getAffiliatorConversionLog,
   getAffiliatorDashboard,
   recordSuccessfulPackagePurchase,

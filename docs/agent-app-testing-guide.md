@@ -73,6 +73,10 @@ Students can be required to hold a running package before they use the learning 
 - To try the denial locally, start the app with `PAID_ACCESS_ENFORCED=1` and revoke the seeded student's access from the admin page. The history rows stay (they are append-only); restore the account with an `UPDATE billing_accounts ...` back to the seed values.
 - Full Access plans need `FULL_ACCESS_ENDS_ON_UTBK` / `FULL_ACCESS_ENDS_ON_MANDIRI` (YYYY-MM-DD). They are not defaulted; the admin form disables those plans until they are set.
 
+### Payments (stand-in provider)
+
+Checkout needs a payment provider; with none configured it stays closed and shows the paused notice. For local testing set `PAYMENT_PROVIDER=stand-in` (it only works on a local `DATABASE_URL`) and the three `PRICING_PACKAGE_CODE_*` variables to a published package code, then check out as the seeded student from `/pricing`. The test pay page lets you pay, fail or expire the payment. Orders and payment events cannot be deleted, so test checkouts stay in the dev database until it is reseeded. See `docs/payments.md`.
+
 ### Additional Cohort Students (Multi-User & Leaderboard Tests)
 
 For testing multi-student scenarios, batch rankings, cohorts, and tryout participant states, the following students are also pre-seeded with password `Student12345!`:
