@@ -24,7 +24,9 @@ async function readJson(url, options = {}) {
 }
 
 async function readHealth(baseUrl) {
-  const body = await readJson(`${baseUrl}/api/health`);
+  const body = await readJson(`${baseUrl}/api/scalability/instance`, {
+    headers: { "x-scalability-secret": simulationSecret },
+  });
   assert.equal(typeof body?.instanceId, "string");
   assert.equal(typeof body?.pid, "number");
   return body;
