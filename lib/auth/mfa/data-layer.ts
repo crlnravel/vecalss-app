@@ -1,6 +1,6 @@
-import { Prisma, RoleName, SessionStatus } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
-import { MFA_REVERIFY_SECONDS } from "./constants";
+import { MFA_REQUIRED_ROLES, MFA_REVERIFY_SECONDS } from "./constants";
 
 /**
  * Data-layer repeats of the admin check (see lib/auth/kapten-access.ts) look an
@@ -8,29 +8,13 @@ import { MFA_REVERIFY_SECONDS } from "./constants";
  * withholds the admin role from an unverified session, so these are a second
  * line: an admin counts only while the account has a live session that is
  * currently verified under the factor that is still enrolled.
+ *
+ * Every time comparison here runs in SQL on the database clock. A Prisma `where`
+ * would take `new Date()` from the application clock, and `mfa_verified_at` is
+ * written by the database, so the two would disagree by milliseconds.
  */
-function verifiedPrivilegedSessionWhere(now = new Date()): Prisma.AuthSessionWhereInput {
-  return {
-    expiresAt: { gt: now },
-    mfaFactorId: { not: null },
-    mfaVerifiedAt: { gt: new Date(now.getTime() - MFA_REVERIFY_SECONDS * 1000), lte: now },
-    revokedAt: null,
-    status: SessionStatus.active,
-  };
-}
 
-/** Active tutor assignment, or an admin assignment backed by a verified session. */
-function kaptenOrAdminAssignmentWhere(now = new Date()): Prisma.RoleAssignmentWhereInput {
-  return {
-    OR: [
-      { role: RoleName.tutor },
-      { role: RoleName.admin, user: { authSessions: { some: verifiedPrivilegedSessionWhere(now) } } },
-    ],
-    revokedAt: null,
-  };
-}
-
-/** The same rule as raw SQL, on database time, for queries that already join `role_assignments` as `ra` and `users` as `u`. */
+/** The admin rule as SQL, for queries that already join `role_assignments` as `ra` and `users` as `u`. */
 function kaptenOrAdminRoleSql() {
   return Prisma.sql`(
     ra."role" = 'tutor'
@@ -52,4 +36,19 @@ function kaptenOrAdminRoleSql() {
   )`;
 }
 
-export { kaptenOrAdminAssignmentWhere, kaptenOrAdminRoleSql, verifiedPrivilegedSessionWhere };
+/**
+ * True when a privileged role was granted after the session was verified, so the
+ * session needs a new check. For queries that select from `auth_sessions` as `s`.
+ */
+function privilegedRoleGrantedAfterVerificationSql() {
+  return Prisma.sql`EXISTS (
+    SELECT 1
+    FROM "role_assignments" AS g
+    WHERE g."user_id" = s."user_id"
+      AND g."revoked_at" IS NULL
+      AND g."role" = ANY(${[...MFA_REQUIRED_ROLES]}::role_name[])
+      AND g."assigned_at" > s."mfa_verified_at"
+  )`;
+}
+
+export { kaptenOrAdminRoleSql, privilegedRoleGrantedAfterVerificationSql };

@@ -61,11 +61,12 @@ async function makeUser(label: string, roles: RoleName[], extra: { mustChangePas
       fullName: `MFA Test ${label}`,
       mustChangePassword: extra.mustChangePassword ?? false,
       passwordHash: "not-a-real-hash",
-      // Granted long ago, so only a role granted later (see below) forces a new check.
-      roleAssignments: { create: roles.map((role) => ({ assignedAt: new Date(Date.now() - 30 * 86_400_000), role })) },
+      roleAssignments: { create: roles.map((role) => ({ role })) },
     },
     select: { email: true, id: true },
   });
+  // Granted long ago on database time, so only a role granted later (see below) forces a new check.
+  await prisma.$executeRaw`UPDATE role_assignments SET assigned_at = now() - make_interval(days => 30) WHERE user_id = ${user.id}::uuid`;
   createdUserIds.push(user.id);
   return user;
 }
@@ -394,7 +395,8 @@ async function main() {
   {
     const adminSecret = await secretOf(admin.id);
     const { id: sessionId, token } = await makeSession(admin.id);
-    await markVerified(sessionId, adminSecret.factorId, 0);
+    // Verified a second ago on database time, so the grant below is strictly later on the same clock.
+    await markVerified(sessionId, adminSecret.factorId, 1);
     assert.equal((await contextOf(token)).user.mfaStatus, "verified");
     // A privileged role granted after the verification needs a fresh check.
     await prisma.roleAssignment.create({ data: { role: RoleName.developer, userId: admin.id } });
