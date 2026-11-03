@@ -31,11 +31,13 @@ async function makeUser(label: string, roles: RoleName[], mustChangePassword = f
       fullName: `MFA HTTP ${label}`,
       mustChangePassword,
       passwordHash: "not-a-real-hash",
-      roleAssignments: { create: roles.map((role) => ({ assignedAt: new Date(Date.now() - 30 * 86_400_000), role })) },
+      roleAssignments: { create: roles.map((role) => ({ role })) },
       ...(roles.includes(RoleName.student) ? { studentProfile: { create: { displayName: label, onboardingStatus: "completed" } } } : {}),
     },
     select: { id: true },
   });
+  // Granted long ago on database time, so only a later grant forces a new check.
+  await prisma.$executeRaw`UPDATE role_assignments SET assigned_at = now() - make_interval(days => 30) WHERE user_id = ${user.id}::uuid`;
   userIds.push(user.id);
   return user.id;
 }

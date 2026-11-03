@@ -23,7 +23,7 @@ const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
   },
   "lib/auth/mfa/constants.ts": { count: 1, how: "the policy: which roles need the factor" },
   "lib/auth/mfa/data-layer.ts": {
-    count: 2,
+    count: 1,
     how: "database-side admin check that requires a live verified session",
   },
   "lib/auth/paths.ts": {
@@ -101,7 +101,7 @@ assert.deepEqual(
 
 // Data-layer lookups that accept an admin by account id use the verified-session rule.
 for (const file of ["lib/auth/kapten-access.ts", "lib/tryout/invitation-picker.ts", "lib/resource-edit-lock/service.ts"]) {
-  assert.match(readFileSync(file, "utf8"), /kaptenOrAdmin(?:AssignmentWhere|RoleSql)\(/u, `${file} must use lib/auth/mfa/data-layer`);
+  assert.match(readFileSync(file, "utf8"), /kaptenOrAdminRoleSql\(|isActiveKaptenOrAdmin\(/u, `${file} must use lib/auth/mfa/data-layer`);
 }
 
 // The two session readers must both apply the second-factor rule.

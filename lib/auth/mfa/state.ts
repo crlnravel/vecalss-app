@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 
 import type { MfaStatus } from "../types";
 import { MFA_REQUIRED_ROLES, MFA_REVERIFY_SECONDS } from "./constants";
+import { privilegedRoleGrantedAfterVerificationSql } from "./data-layer";
 import { loadMfaKeyRing, openMfaSecret } from "./secret-envelope.mjs";
 
-type RoleAssignmentLike = { assignedAt: Date; revokedAt: Date | null; role: RoleName };
+type RoleAssignmentLike = { revokedAt: Date | null; role: RoleName };
 
 function isMfaRequiredRole(role: RoleName) {
   return MFA_REQUIRED_ROLES.includes(role);
@@ -15,6 +16,7 @@ type FactorRow = {
   confirmed_at: Date | null;
   factor_id: string | null;
   fresh: boolean | null;
+  granted_after_verification: boolean;
   secret_envelope: unknown;
   verified_at: Date | null;
 };
@@ -27,7 +29,8 @@ type FactorRow = {
  * cookie nor the application server's clock can extend it. A session counts as
  * verified only when it was verified under the factor that is still enrolled,
  * within MFA_REVERIFY_SECONDS, and after the newest privileged role was
- * granted. Anything else leaves it signed in but unprivileged.
+ * granted (also a database-clock comparison). Anything else leaves it signed in
+ * but unprivileged.
  *
  * Fails closed: an unusable key ring, or a secret that does not open under it,
  * is "unavailable" and withholds the roles.
@@ -68,7 +71,8 @@ async function resolveMfaRoles({
         AND s.mfa_verified_at IS NOT NULL
         AND s.mfa_verified_at <= now()
         AND s.mfa_verified_at > now() - make_interval(secs => ${MFA_REVERIFY_SECONDS})
-      ) AS fresh
+      ) AS fresh,
+      ${privilegedRoleGrantedAfterVerificationSql()} AS granted_after_verification
     FROM auth_sessions AS s
     LEFT JOIN user_mfa_factors AS f
       ON f.user_id = s.user_id AND f.confirmed_at IS NOT NULL
@@ -85,11 +89,7 @@ async function resolveMfaRoles({
   }
 
   if (!row.fresh || !row.verified_at) return pending("challenge");
-
-  const verifiedAt = row.verified_at.getTime();
-  if (privileged.some((assignment) => assignment.assignedAt.getTime() > verifiedAt)) {
-    return pending("challenge");
-  }
+  if (row.granted_after_verification) return pending("challenge");
 
   return { roles, status: "verified" };
 }
