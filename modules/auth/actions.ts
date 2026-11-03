@@ -150,9 +150,8 @@ async function forgotPasswordAction(
 
     return {
       fields: { email: "" },
-      message: result.deliveredResetUrl
-        ? "Tautan pengaturan ulang kata sandi sudah siap. Buka tautan di bawah untuk melanjutkan."
-        : "Tautan pengaturan ulang belum tersedia di halaman ini. Hubungi admin PTN Pro untuk meminta bantuan.",
+      // The same message whether or not the address belongs to an account.
+      message: "Kalau email itu terdaftar, kami sudah mengirim tautan untuk mengatur ulang kata sandi. Periksa kotak masuk dan folder spam. Tautannya berlaku 15 menit.",
       resetUrl: result.deliveredResetUrl ?? undefined,
       status: "success",
     };

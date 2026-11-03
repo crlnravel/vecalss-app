@@ -22,15 +22,19 @@ function ForgotPasswordForm({
   defaultEmail?: string;
 }) {
   const [state, formAction] = useActionState(forgotPasswordAction, EMPTY_FORM_STATE);
-  const keepMessageInline = useActionToast(state);
+  // The confirmation tells people to check their inbox, so it stays on the page instead of fading away as a toast.
+  const keepMessageInline = useActionToast(
+    state.status === "success" ? { ...state, message: undefined } : state,
+  );
 
   return (
     <form action={formAction} className="space-y-5">
       <input name="audience" type="hidden" value={audience} />
 
-      {state.message && keepMessageInline ? (
+      {state.message && (keepMessageInline || state.status === "success") ? (
         <FormNotice
-          tone={state.status === "error" ? "danger" : state.resetUrl ? "success" : "neutral"}
+          label={state.status === "success" ? "Periksa email" : undefined}
+          tone={state.status === "error" ? "danger" : "success"}
         >
           {state.message}
         </FormNotice>
