@@ -9,6 +9,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
 } from "./constants";
 import { createOpaqueToken, hashToken } from "./crypto";
+import { resolveMfaRoles } from "./mfa/state";
 import type { SessionContext } from "./types";
 
 async function setSessionCookie(token: string) {
@@ -266,6 +267,11 @@ async function getSessionContext() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
+  return getSessionContextForToken(sessionToken ?? "");
+}
+
+/** The session context for a raw session token; getSessionContext reads it from the cookie. */
+async function getSessionContextForToken(sessionToken: string) {
   if (!sessionToken) {
     return null;
   }
@@ -323,6 +329,15 @@ async function getSessionContext() {
     });
   }
 
+  // Privileged roles (admin, developer) are part of the context only while
+  // this session holds a current second-factor verification. Every guard and
+  // every direct role check reads this list, so they all inherit the rule.
+  const effective = await resolveMfaRoles({
+    assignments: session.user.roleAssignments,
+    sessionId: session.id,
+    userId: session.user.id,
+  });
+
   const mapped: SessionContext = {
     expiresAt: session.expiresAt,
     sessionId: session.id,
@@ -331,11 +346,10 @@ async function getSessionContext() {
       email: session.user.email,
       fullName: session.user.fullName,
       id: session.user.id,
+      mfaStatus: effective.status,
       mustChangePassword: session.user.mustChangePassword,
       onboardingStatus: session.user.studentProfile?.onboardingStatus ?? null,
-      roles: session.user.roleAssignments
-        .filter((assignment) => assignment.revokedAt === null)
-        .map((assignment) => assignment.role),
+      roles: effective.roles,
       status: session.user.status,
     },
   };
@@ -438,6 +452,13 @@ async function getReadOnlySessionContextForToken(sessionToken: string) {
     return null;
   }
 
+  // Same rule as getSessionContext; this read path must not be a way around it.
+  const effective = await resolveMfaRoles({
+    assignments: session.user.roleAssignments,
+    sessionId: session.id,
+    userId: session.user.id,
+  });
+
   return {
     expiresAt: session.expiresAt,
     sessionId: session.id,
@@ -446,11 +467,10 @@ async function getReadOnlySessionContextForToken(sessionToken: string) {
       email: session.user.email,
       fullName: session.user.fullName,
       id: session.user.id,
+      mfaStatus: effective.status,
       mustChangePassword: session.user.mustChangePassword,
       onboardingStatus: session.user.studentProfile?.onboardingStatus ?? null,
-      roles: session.user.roleAssignments
-        .filter((assignment) => assignment.revokedAt === null)
-        .map((assignment) => assignment.role),
+      roles: effective.roles,
       status: session.user.status,
     },
   } satisfies SessionContext;
@@ -472,6 +492,7 @@ export {
   createSession,
   createSessionIfUserStateMatches,
   getSessionContext,
+  getSessionContextForToken,
   getReadOnlySessionContext,
   getReadOnlySessionContextForToken,
   hasRole,

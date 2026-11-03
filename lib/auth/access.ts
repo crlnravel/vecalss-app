@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
@@ -9,8 +10,11 @@ import {
 } from "@/lib/admin/student-preview";
 
 import {
+  MFA_RETURN_PATH_HEADER,
   getDefaultHomePath,
   getLoginPathForAudience,
+  getMfaGatePath,
+  isMfaPending,
 } from "./paths";
 import { getReadOnlySessionContext, getSessionContext, hasRole } from "./session";
 import type { AuthenticatedUser, SessionContext } from "./types";
@@ -25,11 +29,35 @@ async function requireSession(loginPath = getLoginPathForAudience("student")) {
   return session;
 }
 
+/**
+ * An admin or developer who has not passed the second factor is signed in but
+ * unprivileged: their context carries neither role. Send them to the
+ * verification screen (a forced password change still comes first), remembering
+ * the page they were on when the request carries it.
+ */
+async function redirectIfMfaPending(session: SessionContext, allowMustChangePassword = false) {
+  if (!isMfaPending(session.user)) return;
+
+  let returnTo: string | null = null;
+  try {
+    returnTo = (await headers()).get(MFA_RETURN_PATH_HEADER);
+  } catch {
+    // No request scope (for example a unit test): fall back to the home page.
+  }
+
+  const target = getMfaGatePath(
+    allowMustChangePassword ? { ...session.user, mustChangePassword: false } : session.user,
+    returnTo,
+  );
+  redirect(target);
+}
+
 async function requireAdminSession(
   loginPath = getLoginPathForAudience("admin"),
   { allowMustChangePassword = false }: { allowMustChangePassword?: boolean } = {},
 ) {
   const session = await requireSession(loginPath);
+  await redirectIfMfaPending(session, allowMustChangePassword);
 
   if (!hasRole(session, RoleName.admin)) {
     // Permission contract: an authenticated non-admin returns to their authorized home.
@@ -51,6 +79,8 @@ async function requireAdminReadOnlySession() {
   if (!session) {
     redirect(getLoginPathForAudience("admin"));
   }
+
+  await redirectIfMfaPending(session);
 
   if (!hasRole(session, RoleName.admin)) {
     redirect(getDefaultHomePath(session.user));
@@ -155,6 +185,7 @@ async function requireDeveloperSession({
   allowMustChangePassword?: boolean;
 } = {}) {
   const session = await requireSession(getLoginPathForAudience("developer"));
+  await redirectIfMfaPending(session, allowMustChangePassword);
 
   if (!hasRole(session, RoleName.developer)) {
     redirect(getDefaultHomePath(session.user));
