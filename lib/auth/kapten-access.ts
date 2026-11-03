@@ -1,5 +1,7 @@
 import { RoleName, UserStatus, type Prisma } from "@/generated/prisma/client";
 
+import { kaptenOrAdminAssignmentWhere } from "./mfa/data-layer";
+
 /**
  * Kapten content (Tryouts, reusable packages, assemblies, materi, Kuis and Bank
  * Soal) is shared: any active Kapten or admin may read and edit any of it.
@@ -21,9 +23,8 @@ async function isActiveKaptenOrAdmin(db: UserLookup, userId: string) {
     where: {
       id: userId,
       previewPurpose: null,
-      roleAssignments: {
-        some: { revokedAt: null, role: { in: [RoleName.tutor, RoleName.admin] } },
-      },
+      // An admin counts only with a verified second factor (see lib/auth/mfa).
+      roleAssignments: { some: kaptenOrAdminAssignmentWhere() },
       softDeletedAt: null,
       status: UserStatus.active,
     },

@@ -1,0 +1,46 @@
+# Dependency Audit — fails when a production dependency has a known advisory of
+# high or critical severity.
+#
+# Runs on every pull request and once a week (a new advisory can appear without
+# any change to the lockfile). `pnpm audit` reads pnpm-lock.yaml only, so there
+# is no install step. Response deadlines and the scan receipts are kept in the
+# patch register (Traycer artifact merchant-security-plan/policies/register-patch-review-akses).
+#
+# Third-party actions are pinned to full commit SHAs; the comment names the
+# version. Dependabot's github-actions ecosystem proposes updates to them.
+
+name: Dependency Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # Mondays 02:00 UTC (09:00 WIB).
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The pnpm version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high

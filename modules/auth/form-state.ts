@@ -6,7 +6,11 @@ type FormState = {
   inviteUrl?: string;
   handoffMethod?: "invite_link" | "temporary_password";
   message?: string;
+  /** Where to go after the one-time recovery codes have been saved. */
+  nextPath?: string;
   published?: boolean;
+  /** Shown once, straight after enrollment; never stored in readable form. */
+  recoveryCodes?: string[];
   resetUrl?: string;
   status: "error" | "idle" | "success";
   temporaryPassword?: string;

@@ -7,7 +7,11 @@ import {
   SessionStatus,
   UserStatus,
 } from "@/generated/prisma/client";
+import { after } from "next/server";
+
 import { getAppBaseUrl, isProduction } from "@/lib/config";
+import { sendEmail } from "@/lib/email/mailer";
+import { buildPasswordResetEmail } from "@/lib/email/password-reset-email";
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 
@@ -26,7 +30,9 @@ import {
   verifyPassword,
 } from "./crypto";
 import { assertPasswordPolicy } from "./password-policy.mjs";
+import { consumePasswordResetRequest } from "./password-reset-throttle";
 import { getRequestMetadata } from "./request";
+import { isMfaRequiredRole } from "./mfa/state";
 import { createSessionIfUserStateMatches } from "./session";
 import type { AuthenticatedUser, LoginAudience } from "./types";
 import {
@@ -112,13 +118,19 @@ function mapAuthenticatedUser(user: {
   status: UserStatus;
   studentProfile?: { onboardingStatus: AuthenticatedUser["onboardingStatus"] } | null;
 }): AuthenticatedUser {
+  const roles = user.roleAssignments.filter((assignment) => assignment.revokedAt === null).map((assignment) => assignment.role);
+  const privileged = roles.some(isMfaRequiredRole);
+
   return {
     email: user.email,
     fullName: user.fullName,
     id: user.id,
+    // A password alone never makes a session privileged: the session that was
+    // just created has no verification yet, so it starts at the challenge.
+    mfaStatus: privileged ? "challenge" : "not_required",
     mustChangePassword: user.mustChangePassword,
     onboardingStatus: user.studentProfile?.onboardingStatus ?? null,
-    roles: user.roleAssignments.filter((assignment) => assignment.revokedAt === null).map((assignment) => assignment.role),
+    roles: privileged ? roles.filter((role) => !isMfaRequiredRole(role)) : roles,
     status: user.status,
   };
 }
@@ -401,11 +413,40 @@ async function authenticateUser(
   }
 }
 
+type PasswordResetDeps = {
+  /** The caller's trusted client address. Defaults to the request's; tests supply their own. */
+  getMetadata?: () => Promise<{ ipAddress: string | null }>;
+  mailer?: typeof sendEmail;
+  /** Runs work after the response. Defaults to Next's after(); tests pass their own to observe it. */
+  schedule?: (task: () => Promise<void>) => void;
+};
+
+/**
+ * Starts a password reset. Every outcome (unknown, disabled or preview
+ * account, a throttled request, a valid account) returns the same shape after
+ * the same kind of database work, and the email is sent by after(), once the
+ * transaction has committed and the response is on its way. The reset link
+ * leaves this function in two places only: the email and, outside production,
+ * the on-screen link.
+ */
 async function requestPasswordReset(
   email: string,
   audience: LoginAudience = "student",
+  deps: PasswordResetDeps = {},
 ): Promise<PasswordResetRequestResult> {
+  const schedule = deps.schedule ?? ((task) => after(task));
+  const mailer = deps.mailer ?? sendEmail;
+  const neutral: PasswordResetRequestResult = { deliveredResetUrl: null };
+
   const normalizedEmail = normalizeEmail(email);
+  const { ipAddress } = await (deps.getMetadata ?? getRequestMetadata)();
+
+  // Throttle first, for every address alike, so the limit says nothing about whether an account exists.
+  if (!(await consumePasswordResetRequest({ ipAddress, normalizedEmail }))) {
+    schedule(async () => {});
+    return neutral;
+  }
+
   const user = await prisma.user.findUnique({
     where: {
       email: normalizedEmail,
@@ -419,18 +460,18 @@ async function requestPasswordReset(
     || user.softDeletedAt
     || user.previewPurpose !== null
   ) {
-    return {
-      deliveredResetUrl: null,
-    };
+    // The same two statements a real request runs, so the response takes about as long.
+    await prisma.$transaction([prisma.$queryRaw`SELECT 1`, prisma.$queryRaw`SELECT 1`]);
+    schedule(async () => {});
+    return neutral;
   }
 
   const rawToken = createOpaqueToken();
   const tokenHash = hashToken(rawToken);
-  const { ipAddress } = await getRequestMetadata();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + PASSWORD_RESET_WINDOW_MINUTES * 60 * 1000);
 
-  await prisma.$transaction([
+  const [, createdToken] = await prisma.$transaction([
     prisma.passwordResetToken.updateMany({
       data: {
         usedAt: now,
@@ -447,6 +488,7 @@ async function requestPasswordReset(
         tokenHash,
         userId: user.id,
       },
+      select: { id: true },
     }),
   ]);
 
@@ -457,10 +499,27 @@ async function requestPasswordReset(
       : audience === "affiliator"
         ? "?audience=affiliator"
       : "";
-  const deliveredResetUrl = `${getAppBaseUrl()}/reset-password/${rawToken}${query}`;
+  const resetUrl = `${getAppBaseUrl()}/reset-password/${rawToken}${query}`;
+
+  schedule(async () => {
+    try {
+      await mailer(buildPasswordResetEmail({
+        fullName: user.fullName,
+        idempotencyKey: `password-reset-${createdToken.id}`,
+        resetUrl,
+        to: user.email,
+      }));
+    } catch (error) {
+      // sendEmail does not throw; this only guards the callback itself.
+      serverLogger.error("auth.password_reset.email.failed", error, {
+        area: "auth",
+        operation: "password_reset_email",
+      });
+    }
+  });
 
   return {
-    deliveredResetUrl: isProduction ? null : deliveredResetUrl,
+    deliveredResetUrl: isProduction ? null : resetUrl,
   };
 }
 

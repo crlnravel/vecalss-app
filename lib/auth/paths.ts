@@ -75,7 +75,48 @@ function getDeveloperHomePath(user: AuthenticatedUser) {
   return "/developer/reports";
 }
 
+/** Sign-in and re-verification screen for admin and developer accounts. */
+const MFA_PATH = "/mfa";
+
+/** Set by proxy.ts on admin and developer pages so a guard can remember where the person was. */
+const MFA_RETURN_PATH_HEADER = "x-vecalss-return-path";
+
+function isMfaPending(user: AuthenticatedUser) {
+  return user.mfaStatus === "enroll" || user.mfaStatus === "challenge" || user.mfaStatus === "unavailable";
+}
+
+/**
+ * Where a guard sends a signed-in account whose privileged roles are withheld.
+ * A forced password change still comes first, then the second factor.
+ */
+function getMfaGatePath(user: AuthenticatedUser, returnTo?: string | null) {
+  if (user.mustChangePassword) return "/change-password";
+  const safeReturn = getSafeMfaReturnPath(returnTo);
+  return safeReturn ? `${MFA_PATH}?${new URLSearchParams({ returnTo: safeReturn })}` : MFA_PATH;
+}
+
+/**
+ * Pages an admin or developer may be returned to after verifying. Anything
+ * else (other hosts, other areas, the verification screen itself) is dropped.
+ */
+function getSafeMfaReturnPath(value: unknown) {
+  if (typeof value !== "string") return null;
+  const path = value.trim();
+  if (
+    !/^\/(?:admin|developer)(?:[/?][^\s\\]*)?$/u.test(path)
+    || path.startsWith("//")
+    || path.includes("\\")
+  ) {
+    return null;
+  }
+  return path;
+}
+
 function getDefaultHomePath(user: AuthenticatedUser) {
+  if (isMfaPending(user)) {
+    return getMfaGatePath(user);
+  }
+
   if (user.roles.includes(RoleName.admin)) {
     return "/admin";
   }
@@ -100,12 +141,17 @@ function getDefaultHomePath(user: AuthenticatedUser) {
 }
 
 export {
+  MFA_PATH,
+  MFA_RETURN_PATH_HEADER,
   getDefaultHomePath,
+  isMfaPending,
   getAffiliatorHomePath,
   getDeveloperHomePath,
   getLoginPathForAudience,
+  getMfaGatePath,
   getSafeAdminReturnPath,
   getSafeLoginReturnPath,
+  getSafeMfaReturnPath,
   getSafePricingReturnPath,
   getStudentHomePath,
   getTutorHomePath,

@@ -730,6 +730,9 @@ model User {
   affiliatorProfile                      AffiliatorProfile?
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
   checkoutIntents                        CheckoutIntent[]
+  mfaFactor                              UserMfaFactor?                       @relation("UserMfaFactor")
+  mfaSetupCodes                          MfaSetupCode[]                       @relation("UserMfaSetupCodes")
+  mfaFailedAttempts                      MfaFailedAttempt[]                   @relation("UserMfaFailedAttempts")
   updatedSystemConfigs                   SystemConfig[]                       @relation("SystemConfigUpdatedBy")
   draftUpdatedSystemConfigs              SystemConfig[]                       @relation("SystemConfigDraftUpdatedBy")
   publishedSystemConfigs                 SystemConfig[]                       @relation("SystemConfigPublishedBy")
@@ -762,12 +765,91 @@ model AuthSession {
   lastSeenAt       DateTime?     @map("last_seen_at") @db.Timestamptz
   ipAddress        String?       @map("ip_address") @db.Inet
   userAgent        String?       @map("user_agent") @db.Text
+  /// Set from database time when this session last passed a second-factor
+  /// check. Privileged roles count only while it is recent and was recorded
+  /// under the factor that is still enrolled (see lib/auth/mfa).
+  mfaVerifiedAt    DateTime?     @map("mfa_verified_at") @db.Timestamptz
+  mfaFactorId      String?       @map("mfa_factor_id") @db.Uuid
 
-  user User @relation(fields: [userId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
+  mfaFactor UserMfaFactor? @relation(fields: [mfaFactorId], references: [id], onDelete: SetNull)
 
   @@unique([refreshTokenHash])
   @@index([userId])
+  @@index([mfaFactorId])
   @@map("auth_sessions")
+}
+
+/// One authenticator-app factor per privileged account (admin, developer). The
+/// secret is stored only as an AES-256-GCM envelope bound to the owner. A row
+/// with no `confirmedAt` is an enrollment in progress and never authorizes
+/// anything; it belongs to the session that presented the setup code.
+model UserMfaFactor {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @unique @map("user_id") @db.Uuid
+  secretEnvelope   Json      @map("secret_envelope") @db.JsonB
+  confirmedAt      DateTime? @map("confirmed_at") @db.Timestamptz
+  /// Last accepted 30-second step. A code is accepted only for a later step,
+  /// and the update is atomic, so one code can never pass twice.
+  lastAcceptedStep Int?      @map("last_accepted_step")
+  pendingSessionId String?   @map("pending_session_id") @db.Uuid
+  setupCodeId      String?   @unique @map("setup_code_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user          User              @relation("UserMfaFactor", fields: [userId], references: [id], onDelete: Cascade)
+  setupCode     MfaSetupCode?     @relation(fields: [setupCodeId], references: [id], onDelete: SetNull)
+  recoveryCodes MfaRecoveryCode[]
+  sessions      AuthSession[]
+
+  @@map("user_mfa_factors")
+}
+
+/// One-use recovery code, stored as a SHA-256 hash and consumed atomically.
+model MfaRecoveryCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  factorId  String    @map("factor_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(64)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  factor UserMfaFactor @relation(fields: [factorId], references: [id], onDelete: Cascade)
+
+  @@unique([factorId, codeHash])
+  @@map("mfa_recovery_codes")
+}
+
+/// Short-lived, one-use code issued by the operator script (never by a web
+/// route). Enrollment of a factor requires it, so a stolen password alone
+/// cannot enroll one.
+model MfaSetupCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @unique @map("code_hash") @db.VarChar(64)
+  issuedBy  String    @map("issued_by") @db.VarChar(160)
+  reason    String    @db.VarChar(500)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user   User           @relation("UserMfaSetupCodes", fields: [userId], references: [id], onDelete: Cascade)
+  factor UserMfaFactor?
+
+  @@index([userId, createdAt])
+  @@map("mfa_setup_codes")
+}
+
+/// Failed challenge, recovery-code and setup-code attempts, counted per
+/// account in Postgres so the limit holds even when Redis is unavailable.
+model MfaFailedAttempt {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  kind       String   @db.VarChar(20)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  user User @relation("UserMfaFailedAttempts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, occurredAt])
+  @@map("mfa_failed_attempts")
 }
 
 model EditLease {
@@ -803,6 +885,20 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id])
 
   @@map("password_reset_tokens")
+}
+
+/// One row per password reset request that was let through. It feeds the
+/// per-email and per-address limits; the email is kept only as a hash.
+model PasswordResetRequest {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emailHash   String   @map("email_hash") @db.VarChar(64)
+  ipAddress   String?  @map("ip_address") @db.Inet
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz
+
+  @@index([emailHash, requestedAt])
+  @@index([ipAddress, requestedAt])
+  @@index([requestedAt])
+  @@map("password_reset_requests")
 }
 
 model LoginAttempt {
