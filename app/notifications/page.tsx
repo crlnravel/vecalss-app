@@ -25,7 +25,7 @@ export default async function NotificationsPage({
 }: {
   searchParams: Promise<Record<string, NavigationQueryValue>>;
 }) {
-  const session = await requireStudentSession();
+  const session = await requireStudentSession({ allowUnpaid: true });
   const query = await searchParams;
   const notificationId = Array.isArray(query.notification) ? query.notification[0] : query.notification;
   const notification = notificationId

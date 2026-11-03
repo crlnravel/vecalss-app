@@ -5,6 +5,7 @@ import { OnboardingPageModule } from "@/modules/student/OnboardingPageModule";
 export default async function OnboardingPage() {
   const session = await requireStudentSession({
     allowIncompleteOnboarding: true,
+    allowUnpaid: true,
   });
 
   redirectIfOnboardingAlreadyComplete(session);

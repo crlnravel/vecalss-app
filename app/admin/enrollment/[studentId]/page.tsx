@@ -3,10 +3,21 @@ import { notFound } from "next/navigation";
 import { Prisma, RoleName } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
 import { buildDirectoryQuery, parseDirectoryQuery, parseUuid } from "@/lib/admin/operations/validation";
+import { isPaidAccessEnforced } from "@/lib/billing/enforcement";
+import { ACCESS_PLANS, accessPlanLabel, getFullAccessEndsAt } from "@/lib/billing/plans";
+import { getAccessState, listAccessHistory } from "@/lib/billing/service";
 import { prisma } from "@/lib/prisma";
+import { ACCESS_EVENT_LABEL } from "@/modules/admin/billing-copy";
 import { StudentDetailPageModule } from "@/modules/admin/StudentDetailPageModule";
 
 export const dynamic = "force-dynamic";
+
+function dateTimeLabel(value: Date | null) {
+  if (!value) return null;
+  const date = value.toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta", year: "numeric" });
+  const time = value.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).replace(":", ".");
+  return `${date}, ${time} WIB`;
+}
 
 function safeBackHref(value: unknown) {
   if (typeof value !== "string" || !value.startsWith("?") || value.length > 320) {
@@ -114,8 +125,35 @@ export default async function StudentDetailPage({
     notFound();
   }
 
+  const [accessState, accessHistory] = await Promise.all([
+    getAccessState(student.id),
+    listAccessHistory(student.id),
+  ]);
+  const fullPlansReady = {
+    full_mandiri: getFullAccessEndsAt(ACCESS_PLANS.full_mandiri.fullTarget ?? "mandiri") !== null,
+    full_utbk: getFullAccessEndsAt(ACCESS_PLANS.full_utbk.fullTarget ?? "utbk") !== null,
+  };
+
   return (
     <StudentDetailPageModule
+      access={{
+        endsAtLabel: dateTimeLabel(accessState.endsAt),
+        enforced: isPaidAccessEnforced(),
+        fullPlansReady,
+        history: accessHistory.map((event) => ({
+          actorName: event.actorName,
+          endsAtLabel: dateTimeLabel(event.endsAt),
+          id: event.id,
+          label: ACCESS_EVENT_LABEL[event.kind],
+          occurredAtLabel: dateTimeLabel(event.occurredAt) ?? "",
+          planLabel: event.planCode ? accessPlanLabel(event.planCode) : null,
+          reason: event.reason,
+        })),
+        idempotencyKey: crypto.randomUUID(),
+        planLabel: accessState.planCode ? accessPlanLabel(accessState.planCode) : null,
+        status: accessState.status,
+        studentId: student.id,
+      }}
       backHref={safeBackHref(resolvedSearchParams.from)}
       error={typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : null}
       examEvents={examEvents}

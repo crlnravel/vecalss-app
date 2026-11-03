@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import {
@@ -45,6 +46,8 @@ export async function POST(
         { headers: responseHeaders, status: 403 },
       );
     }
+    const paidDenial = await paidAccessDenial(session);
+    if (paidDenial) return paidDenial;
 
     const payload = await request.json().catch(() => null) as { action?: unknown } | null;
     const action = payload?.action;

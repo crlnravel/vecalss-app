@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { z } from "zod";
 
 import { RoleName } from "@/generated/prisma/client";
@@ -33,6 +34,8 @@ export async function GET(request: Request) {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const parsed = querySchema.safeParse({ archived: new URL(request.url).searchParams.get("archived") ?? "0" });
   if (!parsed.success) {
@@ -69,6 +72,8 @@ export async function POST() {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   try {
     const id = await createConversation(session.user.id);

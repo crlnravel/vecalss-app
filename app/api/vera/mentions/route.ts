@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { z } from "zod";
 
 import { RoleName } from "@/generated/prisma/client";
@@ -32,6 +33,8 @@ export async function GET(request: Request) {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const parsed = querySchema.safeParse({ q: new URL(request.url).searchParams.get("q") ?? "" });
   if (!parsed.success) {

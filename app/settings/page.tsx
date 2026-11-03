@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const session = await requireStudentSession();
+  const session = await requireStudentSession({ allowUnpaid: true });
   const [query, profile, examEvents, universities, majors, notificationFeed] = await Promise.all([
     searchParams,
     prisma.studentProfile.findUnique({

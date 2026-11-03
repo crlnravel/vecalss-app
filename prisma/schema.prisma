@@ -540,6 +540,26 @@ enum AnalyticsEventType {
   @@map("analytics_event_type")
 }
 
+/// What a row in `billing_access_events` records. `grant` starts access,
+/// `extend` adds time, `revoke` ends it (a full refund), `pause` and `resume`
+/// hold it during an open dispute.
+enum BillingAccessEventKind {
+  grant
+  extend
+  revoke
+  pause
+  resume
+
+  @@map("billing_access_event_kind")
+}
+
+enum BillingAccessSource {
+  admin
+  payment
+
+  @@map("billing_access_source")
+}
+
 enum BillingStatus {
   trial
   active
@@ -727,6 +747,8 @@ model User {
   notificationsReceived                  Notification[]
   billingAccounts                        BillingAccount[]                     @relation("StudentBilling")
   extendedBillingAccounts                BillingAccount[]                     @relation("BillingExtendedBy")
+  billingAccessEventsAsStudent           BillingAccessEvent[]                 @relation("BillingAccessEventStudent")
+  billingAccessEventsAsActor             BillingAccessEvent[]                 @relation("BillingAccessEventActor")
   affiliatorProfile                      AffiliatorProfile?
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
   checkoutIntents                        CheckoutIntent[]
@@ -3284,10 +3306,40 @@ model BillingAccount {
   extendedByUserId String?       @map("extended_by_user_id") @db.Uuid
   updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz
 
-  student    User  @relation("StudentBilling", fields: [studentId], references: [id])
-  extendedBy User? @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
+  student    User                 @relation("StudentBilling", fields: [studentId], references: [id])
+  extendedBy User?                @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
+  events     BillingAccessEvent[]
 
   @@map("billing_accounts")
+}
+
+/// Append-only history of every change to a student's paid access. The row in
+/// `billing_accounts` is the current state; this table says how it got there.
+/// Updates and deletes are rejected by a trigger, like `audit_logs`.
+model BillingAccessEvent {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId String                 @map("billing_account_id") @db.Uuid
+  studentId        String                 @map("student_id") @db.Uuid
+  kind             BillingAccessEventKind
+  source           BillingAccessSource
+  /// Null only for a payment source (MS-08), which names its payment in `idempotencyKey`.
+  actorUserId      String?                @map("actor_user_id") @db.Uuid
+  reason           String                 @db.VarChar(500)
+  planCode         String?                @map("plan_code") @db.VarChar(80)
+  /// The access window and status the account had right after this event.
+  startsAt         DateTime?              @map("starts_at") @db.Timestamptz
+  endsAt           DateTime?              @map("ends_at") @db.Timestamptz
+  resultingStatus  BillingStatus          @map("resulting_status")
+  /// Repeating an operation with the same key is a no-op.
+  idempotencyKey   String                 @unique @map("idempotency_key") @db.VarChar(120)
+  occurredAt       DateTime               @default(now()) @map("occurred_at") @db.Timestamptz
+
+  account BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  student User           @relation("BillingAccessEventStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  actor   User?          @relation("BillingAccessEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([studentId, occurredAt])
+  @@map("billing_access_events")
 }
 
 /// One admin-assigned referral identity for an affiliator. The code may be
