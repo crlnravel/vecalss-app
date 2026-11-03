@@ -18,17 +18,26 @@ import { PLAN_COPY } from "./plan-copy";
 
 type CheckoutNotice =
   | "checkout-changed"
+  | "checkout-daily-limit"
   | "checkout-expired"
+  | "checkout-open-payment"
   | "checkout-paused"
+  | "checkout-too-many"
   | "checkout-unavailable";
 
 const NOTICE_COPY: Record<CheckoutNotice, string> = {
   "checkout-changed":
     "Pilihan di halaman ini sempat berubah. Periksa lagi paket dan kode referralmu, lalu lanjut ke pembayaran.",
+  "checkout-daily-limit":
+    "Kamu sudah mencapai batas pembelian untuk hari ini. Coba lagi besok.",
   "checkout-expired":
     "Sudah cukup lama sejak halaman ini dibuka, jadi harganya bisa saja sudah berubah. Periksa lagi totalnya, lalu lanjut ke pembayaran.",
+  "checkout-open-payment":
+    "Kamu masih punya pembayaran yang belum selesai. Selesaikan dulu pembayaran itu, atau tunggu sampai waktunya habis, lalu coba lagi.",
   "checkout-paused":
     "Pembelian paket sedang dijeda sementara. Coba lagi beberapa saat lagi, atau hubungi tim Vecalss kalau butuh bantuan.",
+  "checkout-too-many":
+    "Kamu sudah beberapa kali memulai pembayaran dalam waktu singkat. Tunggu sebentar, lalu coba lagi.",
   "checkout-unavailable":
     "Pembayaran belum bisa dibuka saat ini. Coba lagi nanti atau hubungi tim Vecalss.",
 };
@@ -39,6 +48,8 @@ type PricingCheckoutPageModuleProps = {
   entry: PricingScheduleEntry;
   intentKey: string;
   notice: CheckoutNotice | null;
+  /** Where to resume an unfinished payment, shown with the open-payment notice. */
+  openPaymentHref: string | null;
   plan: PricingPlanId;
   referralCode: string;
   referralStatus: ReferralStatus;
@@ -98,6 +109,7 @@ export default function PricingCheckoutPageModule({
   entry,
   intentKey,
   notice,
+  openPaymentHref,
   plan,
   referralCode,
   referralStatus,
@@ -124,7 +136,20 @@ export default function PricingCheckoutPageModule({
             role="status"
           >
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            {NOTICE_COPY[notice]}
+            <span>
+              {NOTICE_COPY[notice]}
+              {notice === "checkout-open-payment" && openPaymentHref ? (
+                <>
+                  {" "}
+                  <Link
+                    className="font-semibold text-voyage-deep underline underline-offset-4"
+                    href={openPaymentHref}
+                  >
+                    Lihat pembayaranmu
+                  </Link>
+                </>
+              ) : null}
+            </span>
           </p>
         ) : null}
 

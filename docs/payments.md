@@ -1,6 +1,6 @@
-# Payments: orders, the payment inbox and the outbox
+# Payments: orders, the payment inbox, the outbox and purchase limits
 
-Phase A of MS-05. Everything provider-independent is built against a dev-only
+Phase A of MS-05 and MS-06. Everything provider-independent is built against a dev-only
 stand-in provider. The E2Pay adapter (phase B) plugs in behind the same three
 adapter methods. No real payment can be taken yet: with no provider configured,
 checkout stays closed.
@@ -85,10 +85,71 @@ parked as `dead` after 8 attempts. Receipt emails are a stub until MS-08.
   `PRICING_PACKAGE_CODE_*` values to a published package code, leave
   `CHECKOUT_KILL_SWITCH` off, sign in as the seeded student and use `/pricing`.
 
+## Purchase limits (MS-06 phase A)
+
+Every new checkout passes `lib/payments/risk` inside the order-creation
+transaction. Nothing is counted in Redis; the code does not name a cache at all.
+
+**Policy.** `risk_policy_versions` holds the numbers and `risk_policy_activations`
+says which version is in force (the newest row). Both are append-only: a change
+is a new version plus a new activation, never an edit. An activation with no
+version withdraws the policy; with none in force, new checkouts are refused (the
+checkout page shows the paused notice) while the inbox, reconciliation and the
+outbox keep running. Version 1 is seeded by the migration with the G2 values:
+
+| Rule | Value |
+| --- | --- |
+| New or unverified, per Asia/Jakarta day | 1 purchase, Rp250.000 |
+| Verified, per day | 2 purchases, Rp500.000 |
+| Verified means | account at least 7 days old **and** a paid order that stands |
+| Open unpaid payments per account | 1 |
+| Unpaid checkouts per account per hour | 5 |
+| Checkout starts per IP per hour | 20 |
+
+Structural rules, not numbers: a guest has no checkout, and the order amount
+must equal the server quote for the intent's plan and pricing month.
+
+**Tier.** `risk_account_tiers` keeps the tier and the facts it was decided from
+(account age, the qualifying order, the policy version). A tier change is
+audited. Refunds and disputes do not exist yet; `findStandingPaidOrder` in
+`risk/tier.ts` is the one seam MS-09 extends so that an order with a refund or
+dispute no longer verifies an account.
+
+**Reservation.** The account's tier row is locked first (`FOR UPDATE`), then the
+day bucket row; per-IP starts also take an advisory lock on the address. The
+checks run in this order: policy, amount, buyer IP, open payment, unpaid per
+hour, starts per IP, then the day's count and rupiah. `risk_reservations` holds
+one row per order on the day the checkout started (Asia/Jakarta, from database
+time, via `risk_jakarta_day`). A database trigger keeps `risk_day_buckets` equal
+to the sum of the reservations that count.
+
+| Order moves to | Reservation | Counted |
+| --- | --- | --- |
+| created (pending) | pending | yes |
+| paid | paid | yes |
+| failed or expired (confirmed by the provider) | released | no, on its original day |
+| review (a payment arrived after that) | review | yes again, even past the cap |
+| refund (MS-09) | unchanged | refunds never give the allowance back |
+
+The move happens in the same transaction as the order transition in
+`processPaymentEvent`. The next Asia/Jakarta day starts with an empty bucket, so
+no cron is involved. Retrying the same intent finds its order again under the
+account lock and reuses its reservation.
+
+**Refusals** write only an audit event (`payment.checkout.refused`: reason code,
+policy version, tier, intent id and the buyer IP that orders already keep). No
+order, reservation, payment session or job is created. The buyer sees a calm
+Indonesian message that never names the rule behind it.
+
+**Buyer IP.** A new order needs a trusted buyer IP or an exemption reason. Only
+the dev stand-in on a local database is exempt (`stand-in-local-no-trusted-proxy`
+is stored on the order); everything else without an IP is refused. A trigger
+enforces this on insert.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
-`test:payment-provider`, `test:payment-reconcile`, plus `test:checkout-intent`,
+`test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`, plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`. The
 payment suites only run against the local database. Orders and payment events
 cannot be deleted, so every run leaves its own rows behind there; reseed

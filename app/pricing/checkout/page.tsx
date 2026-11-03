@@ -5,6 +5,8 @@ import { RoleName } from "@/generated/prisma/client";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import { getPaymentProvider } from "@/lib/payments/provider";
+import { isPolicyInForce } from "@/lib/payments/risk/policy";
+import { prisma } from "@/lib/prisma";
 import { getPackageCode } from "@/lib/pricing/checkout";
 import { createCheckoutIdempotencyKey, isCheckoutPaused } from "@/lib/pricing/checkout-intent";
 import { isPricingPlanId, resolvePricing } from "@/lib/pricing/schedule";
@@ -62,7 +64,9 @@ export default async function PricingCheckoutPage({
   const referral = await resolveReferral(rawReferral);
   // No payment provider means nothing to pay through, which looks the same to
   // the buyer as a paused checkout: the notice shows and the button is off.
-  const paused = isCheckoutPaused() || getPaymentProvider() === null;
+  // The same goes for a missing purchase-limit policy: nothing is accepted
+  // until one is in force.
+  const paused = isCheckoutPaused() || getPaymentProvider() === null || !(await isPolicyInForce());
   const checkoutReady = !paused && getPackageCode(plan, entry) !== null;
   const requestedNotice = firstValue(params.notice);
   const notice: CheckoutNotice | null = paused
@@ -70,8 +74,20 @@ export default async function PricingCheckoutPage({
     : requestedNotice === "checkout-unavailable"
       || requestedNotice === "checkout-changed"
       || requestedNotice === "checkout-expired"
+      || requestedNotice === "checkout-daily-limit"
+      || requestedNotice === "checkout-open-payment"
+      || requestedNotice === "checkout-too-many"
       ? requestedNotice
       : null;
+
+  // A buyer told about an unfinished payment can go straight back to it.
+  const openPayment = notice === "checkout-open-payment"
+    ? await prisma.paymentOrder.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { reference: true },
+        where: { buyerId: session.user.id, status: "pending" },
+      })
+    : null;
 
   return (
     <PricingCheckoutPageModule
@@ -79,6 +95,7 @@ export default async function PricingCheckoutPage({
       entry={entry}
       intentKey={createCheckoutIdempotencyKey()}
       notice={notice}
+      openPaymentHref={openPayment ? `/pricing/checkout/status/${openPayment.reference}` : null}
       plan={plan}
       referralCode={referral.code}
       referralStatus={referral.status}

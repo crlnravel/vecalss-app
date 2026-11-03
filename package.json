@@ -105,6 +105,7 @@
     "test:payment-outbox": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-outbox.ts",
     "test:payment-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-provider.ts",
     "test:payment-reconcile": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-reconcile.ts",
+    "test:risk-limits": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-risk-limits.ts",
     "test:tryout-package-invariants": "node scripts/test-tryout-package-invariants.mjs",
     "test:tryout-release-invariants": "node scripts/test-tryout-release-invariants.mjs",
     "test:assessment-release-invariants": "node scripts/test-assessment-release-invariants.mjs",

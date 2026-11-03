@@ -8,7 +8,7 @@ type PaymentAudit = {
   ipAddress?: string | null;
   metadata?: Record<string, unknown>;
   targetId: string | null;
-  targetType: "payment_order" | "payment_event";
+  targetType: "checkout_intent" | "payment_event" | "payment_order" | "user";
 };
 
 /**
