@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { PaymentProviderAdapter } from "../lib/payments/adapter";
 import { PAYMENT_EXPIRY_MINUTES } from "../lib/payments/constants";
 import { createOrderFromIntent, ensurePaymentSession } from "../lib/payments/orders";
+import { STAND_IN_NO_PROXY_EXEMPTION } from "../lib/payments/risk/buyer-ip";
 import { handleCheckoutPayPost, type CheckoutPayDeps } from "../lib/pricing/checkout-pay";
 import type { SessionContext } from "../lib/auth/types";
 import {
@@ -62,13 +63,13 @@ async function main() {
   // ---- Order from an intent -----------------------------------------------
   {
     assert.equal(PAYMENT_EXPIRY_MINUTES, 15);
-    const order = await makeOrder({ amountRupiah: 59_000, referral: true });
-    assert.equal(order.amountRupiah, 59_000, "the amount is the intent's stored quote");
+    const order = await makeOrder({ amountRupiah: 49_000, referral: true });
+    assert.equal(order.amountRupiah, 49_000, "the amount is the intent's stored quote");
     assert.equal(order.currency, "IDR");
     assert.equal(order.plan, "monthly");
     assert.equal(order.pricingMonth, "2026-11");
     assert.equal(order.quoteVersion, 1);
-    assert.equal(order.buyerIp, "203.0.113.7");
+    assert.ok(order.buyerIp, "the buyer address is recorded");
     assert.equal(order.buyerIpSource, "trusted-proxy:1");
     assert.equal(order.provider, "stand-in");
     assert.equal(order.providerAccount, provider.merchantAccount);
@@ -89,10 +90,10 @@ async function main() {
 
     const created = await prisma.auditLog.findMany({ where: { action: "payment.order.created", targetId: order.id } });
     assert.equal(created.length, 1);
-    assert.equal(created[0].ipAddress, "203.0.113.7");
+    assert.equal(created[0].ipAddress, order.buyerIp);
 
     // The stored order is still the quote after the catalogue moves on.
-    assert.equal((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: order.id } })).amountRupiah, 59_000);
+    assert.equal((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: order.id } })).amountRupiah, 49_000);
   }
 
   // ---- One intent, at most one order ----------------------------------------
@@ -109,21 +110,32 @@ async function main() {
         pricingMonth: "2026-11",
       },
     });
-    const input = { buyerId, buyerIp: null, buyerIpSource: "unavailable", intent, packageCode, provider };
-    const orders = await Promise.all(Array.from({ length: 8 }, () => createOrderFromIntent(input)));
+    const input = {
+      buyerId,
+      buyerIp: null,
+      buyerIpExemption: STAND_IN_NO_PROXY_EXEMPTION,
+      buyerIpSource: "unavailable",
+      intent,
+      packageCode,
+      provider,
+    };
+    const results = await Promise.all(Array.from({ length: 8 }, () => createOrderFromIntent(input)));
+    const orders = results.map((result) => (result.ok ? result.order : null));
     assert.ok(orders.every((order) => order?.id === orders[0]?.id), "every caller gets the same order");
+    assert.equal(results.filter((result) => result.ok && result.created).length, 1, "only one caller creates it");
     assert.equal(await prisma.paymentOrder.count({ where: { intentId: intent.id } }), 1);
     assert.equal(await prisma.auditLog.count({ where: { action: "payment.order.created", targetId: orders[0]?.id } }), 1);
     const stored = await prisma.paymentOrder.findUniqueOrThrow({ where: { intentId: intent.id } });
     assert.equal(stored.buyerIp, null);
     assert.equal(stored.buyerIpSource, "unavailable", "a missing address is recorded as missing, not invented");
+    assert.equal(stored.buyerIpExemption, STAND_IN_NO_PROXY_EXEMPTION, "and the reason it was allowed is recorded");
 
     await assert.rejects(
       () => prisma.$executeRaw`
         INSERT INTO payment_orders (intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
-          amount_rupiah, buyer_ip_source, provider, provider_environment, provider_account, expires_at)
+          amount_rupiah, buyer_ip_source, buyer_ip_exemption, provider, provider_environment, provider_account, expires_at)
         VALUES (${intent.id}::uuid, ${buyerId}::uuid, ${randomUUID()}, 'monthly', '2026-11', ${packageCode}, 'x',
-          49000, 'unavailable', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
+          49000, 'unavailable', 'test-fixture', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
       /unique|intent_id/iu,
     );
 
@@ -138,7 +150,10 @@ async function main() {
         pricingMonth: "2026-11",
       },
     });
-    assert.equal(await createOrderFromIntent({ ...input, intent: other, packageCode: "NO-SUCH-PACKAGE" }), null);
+    assert.deepEqual(
+      await createOrderFromIntent({ ...input, intent: other, packageCode: "NO-SUCH-PACKAGE" }),
+      { ok: false, reason: "package_unavailable" },
+    );
     assert.equal(await prisma.paymentOrder.count({ where: { intentId: other.id } }), 0);
   }
 
@@ -238,6 +253,8 @@ async function main() {
     const packageCode = await getPackageCode();
     const env = {
       APP_BASE_URL: APP_ORIGIN,
+      // The suite only runs on the local database, which is what lets the stand-in run without a proxy.
+      DATABASE_URL: process.env.DATABASE_URL,
       NODE_ENV: "test",
       PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode,
       PRICING_PACKAGE_CODE_FULL_UTBK: packageCode,
@@ -287,9 +304,15 @@ async function main() {
     assert.equal(await standInCount(intent.order.reference), 1, "and one payable session");
     assert.equal(intent.order.buyerIp, null, "no trusted proxy configured: the forwarded header is not believed");
     assert.equal(intent.order.buyerIpSource, "unavailable");
+    assert.equal(intent.order.buyerIpExemption, STAND_IN_NO_PROXY_EXEMPTION);
 
     // Behind a trusted proxy the address is taken from the right place and its source recorded.
-    const proxied = { ...deps, env: { ...env, TRUSTED_PROXY_COUNT: "1" } as NodeJS.ProcessEnv };
+    const proxiedBuyerId = await makeBuyer();
+    const proxied = {
+      ...deps,
+      env: { ...env, TRUSTED_PROXY_COUNT: "1" } as NodeJS.ProcessEnv,
+      getSession: async () => ({ ...session, user: { ...session.user, id: proxiedBuyerId } }),
+    };
     const secondKey = randomUUID();
     const proxiedResponse = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
@@ -300,9 +323,12 @@ async function main() {
       proxied,
     );
     assert.equal(proxiedResponse.status, 303);
-    const proxiedOrder = await prisma.paymentOrder.findFirstOrThrow({ where: { intent: { buyerId, idempotencyKey: secondKey } } });
+    const proxiedOrder = await prisma.paymentOrder.findFirstOrThrow({
+      where: { intent: { buyerId: proxiedBuyerId, idempotencyKey: secondKey } },
+    });
     assert.equal(proxiedOrder.buyerIp, "192.0.2.55");
     assert.equal(proxiedOrder.buyerIpSource, "trusted-proxy:1");
+    assert.equal(proxiedOrder.buyerIpExemption, null, "an address was found, so no exemption is needed");
 
     // Once the payment is final, the same form lands on the status page instead of a payment page.
     const order = intent.order;

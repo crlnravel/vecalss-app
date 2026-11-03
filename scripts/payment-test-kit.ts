@@ -57,6 +57,12 @@ async function makeBuyer(label = "buyer") {
   return user.id;
 }
 
+/** A different address for every order, so the per-IP hourly limit never trips on fixtures. */
+function randomBuyerIp() {
+  const octet = () => Math.floor(Math.random() * 254) + 1;
+  return `10.${octet()}.${octet()}.${octet()}`;
+}
+
 type MakeOrderOptions = {
   amountRupiah?: number;
   buyerId?: string;
@@ -94,11 +100,11 @@ async function makeOrder(options: MakeOrderOptions = {}) {
     await prisma.$executeRaw`
       INSERT INTO payment_orders (
         intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
-        amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip_source,
+        amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip_source, buyer_ip_exemption,
         provider, provider_environment, provider_account, created_at, expires_at
       ) VALUES (
         ${intent.id}::uuid, ${buyerId}::uuid, ${reference}, 'monthly', '2026-11', ${packageCode}, ${packageName},
-        ${intent.amountRupiah}, 'IDR', ${intent.referralCode}, ${referral?.id ?? null}::uuid, 'unavailable',
+        ${intent.amountRupiah}, 'IDR', ${intent.referralCode}, ${referral?.id ?? null}::uuid, 'unavailable', 'test-fixture',
         ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
         now() - interval '20 minutes', now() - interval '5 minutes'
       )
@@ -124,18 +130,19 @@ async function makeOrder(options: MakeOrderOptions = {}) {
 
   const created = await createOrderFromIntent({
     buyerId,
-    buyerIp: "203.0.113.7",
+    buyerIp: randomBuyerIp(),
+    buyerIpExemption: null,
     buyerIpSource: "trusted-proxy:1",
     intent,
     packageCode,
     provider,
   });
-  if (!created) throw new Error("The order was not created.");
+  if (!created.ok) throw new Error(`The order was not created (${created.reason}).`);
   if (options.session !== false) {
-    const session = await ensurePaymentSession(created, provider, APP_ORIGIN);
+    const session = await ensurePaymentSession(created.order, provider, APP_ORIGIN);
     if (!session.ok) throw new Error("The session was not created.");
   }
-  return prisma.paymentOrder.findUniqueOrThrow({ where: { id: created.id } });
+  return prisma.paymentOrder.findUniqueOrThrow({ where: { id: created.order.id } });
 }
 
 type OrderLike = {
@@ -212,7 +219,9 @@ export {
   getPackageCode,
   getReferral,
   makeBuyer,
+  makeIntent,
   makeOrder,
+  randomBuyerIp,
   prisma,
   provider,
   runId,

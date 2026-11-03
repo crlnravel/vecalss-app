@@ -42,6 +42,7 @@ const stubProvider: PaymentProviderAdapter = {
 const baseEnv = {
   APP_BASE_URL: APP_ORIGIN,
   NODE_ENV: "test",
+  TRUSTED_PROXY_COUNT: "1",
   PRICING_PACKAGE_CODE_FULL_MANDIRI: "",
   PRICING_PACKAGE_CODE_FULL_UTBK: "",
   PRICING_PACKAGE_CODE_MONTHLY: "",
@@ -70,7 +71,7 @@ function postRequest(
   fields: Record<string, string>,
   { contentType = "application/x-www-form-urlencoded", origin = APP_ORIGIN as string | null } = {},
 ) {
-  const headers: Record<string, string> = { "content-type": contentType };
+  const headers: Record<string, string> = { "content-type": contentType, "x-forwarded-for": "192.0.2.10" };
   if (origin !== null) headers.origin = origin;
   return new Request(PAY_URL, {
     body: new URLSearchParams(fields).toString(),
@@ -128,6 +129,22 @@ async function main() {
     select: { id: true },
     where: { email: "student@vecalss.local" },
   });
+
+  // This suite is about the intent boundary, so the purchase limits get out of its way: a
+  // wide policy version is put in force, and version 1 is put back at the end.
+  const [{ id: versionOneId }] = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM risk_policy_versions WHERE version = 1`;
+  const [{ id: roomyId }] = await prisma.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO risk_policy_versions (
+      version, unverified_daily_purchases, unverified_daily_rupiah, verified_daily_purchases, verified_daily_rupiah,
+      verified_min_account_age_days, max_open_payments, max_unpaid_per_account_hour, max_starts_per_ip_hour, note
+    ) VALUES (
+      (SELECT max(version) + 1 FROM risk_policy_versions), 100, 100000000, 100, 100000000, 7, 100, 100, 10000,
+      'test-checkout-intent: wide limits'
+    ) RETURNING id
+  `;
+  const activatePolicy = (id: string, reason: string) =>
+    prisma.$executeRaw`INSERT INTO risk_policy_activations (policy_version_id, reason) VALUES (${id}::uuid, ${reason})`;
+  await activatePolicy(roomyId, "test-checkout-intent: wide limits");
 
   let sessionCalls = 0;
   let session: SessionContext | null = sessionFor(alice.id, [RoleName.student]);
@@ -240,7 +257,15 @@ async function main() {
     assert.equal(order.buyerId, alice.id);
     assert.equal(createdTarget.pathname, `/stub/${order.reference}`);
 
-    assert.equal(intent.expiresAt.getTime(), NOVEMBER.getTime() + CHECKOUT_INTENT_TTL_MS);
+    // The window is database time plus 30 minutes, whatever the application's clock says.
+    const [window] = await prisma.$queryRaw<Array<{ drift: number; minutes: number }>>`
+      SELECT extract(epoch FROM (expires_at - created_at)) / 60 AS minutes,
+             abs(extract(epoch FROM (created_at - now()))) AS drift
+      FROM checkout_intents WHERE id = ${intent.id}::uuid
+    `;
+    assert.equal(Number(window.minutes), 30);
+    assert.ok(Number(window.drift) < 60, "set from the database clock");
+    assert.notEqual(intent.expiresAt.getTime(), NOVEMBER.getTime() + CHECKOUT_INTENT_TTL_MS, "not from the application clock");
     assert.equal(CHECKOUT_INTENT_TTL_MS, 30 * MINUTE);
 
     // Retries inside the validity window (also a concurrent double submit) reuse the intent.
@@ -248,7 +273,8 @@ async function main() {
     const retries = await Promise.all([
       handleCheckoutPayPost(postRequest(retry), deps()),
       handleCheckoutPayPost(postRequest(retry), deps()),
-      handleCheckoutPayPost(postRequest(retry), deps({ now: () => afterNovember(29) })),
+      // The application's own clock is far ahead; the database says the window is still open.
+      handleCheckoutPayPost(postRequest(retry), deps({ now: () => afterNovember(24 * 60 * 30) })),
     ]);
     for (const response of retries) {
       assert.equal(location(response).href, createdTarget.href);
@@ -286,18 +312,31 @@ async function main() {
     await handleCheckoutPayPost(postRequest({ key: expiredKey, plan: "monthly" }), deps());
     assert.equal(await intentCount(), 3);
     const stored = await prisma.checkoutIntent.findFirstOrThrow({ where: { buyerId: alice.id, idempotencyKey: expiredKey } });
-    for (const minutes of [30, 31, 24 * 60]) {
-      const expired = location(await handleCheckoutPayPost(
-        postRequest({ key: expiredKey, plan: "monthly" }),
-        deps({ now: () => afterNovember(minutes) }),
-      ));
-      assert.equal(expired.origin, APP_ORIGIN, `${minutes} min`);
-      assert.equal(expired.pathname, "/pricing/checkout");
-      assert.equal(expired.searchParams.get("notice"), "checkout-expired");
+    // The window is judged on the database clock: the stored expiry is moved into the past (a
+    // test-only fixture), and the application's own clock, however it reads, changes nothing.
+    for (const interval of ["0 seconds", "1 minute", "1 day"]) {
+      await prisma.$executeRaw`UPDATE checkout_intents SET expires_at = now() - ${interval}::interval WHERE id = ${stored.id}::uuid`;
+      const expiredAt = (await prisma.checkoutIntent.findUniqueOrThrow({ where: { id: stored.id } })).expiresAt;
+      for (const appNow of [NOVEMBER, afterNovember(31)]) {
+        const expired = location(await handleCheckoutPayPost(
+          postRequest({ key: expiredKey, plan: "monthly" }),
+          deps({ now: () => appNow }),
+        ));
+        assert.equal(expired.origin, APP_ORIGIN, interval);
+        assert.equal(expired.pathname, "/pricing/checkout");
+        assert.equal(expired.searchParams.get("notice"), "checkout-expired", interval);
+      }
+      assert.equal((await prisma.checkoutIntent.findUniqueOrThrow({ where: { id: stored.id } })).expiresAt.getTime(), expiredAt.getTime());
     }
     assert.equal(await intentCount(), 3);
-    const afterExpiry = await prisma.checkoutIntent.findUniqueOrThrow({ where: { id: stored.id } });
-    assert.equal(afterExpiry.expiresAt.getTime(), stored.expiresAt.getTime());
+    // One second left on the database clock: still valid, even with the application clock a month ahead.
+    await prisma.$executeRaw`UPDATE checkout_intents SET expires_at = now() + interval '1 minute' WHERE id = ${stored.id}::uuid`;
+    const stillOpen = location(await handleCheckoutPayPost(
+      postRequest({ key: expiredKey, plan: "monthly" }),
+      deps({ now: () => afterNovember(24 * 60 * 30) }),
+    ));
+    assert.notEqual(stillOpen.searchParams.get("notice"), "checkout-expired");
+    assert.equal(await intentCount(), 3);
     const december = new Date("2026-12-20T10:00:00+07:00");
     const freshKey = createCheckoutIdempotencyKey();
     const fresh = await handleCheckoutPayPost(
@@ -360,10 +399,17 @@ async function main() {
 
     console.log("Checkout intent boundary checks passed.");
   } finally {
+    await activatePolicy(versionOneId, "test-checkout-intent: back to version 1");
     await prisma.packagePurchase.deleteMany({ where: { providerReference } });
-    // Orders are never deleted, so intents and buyers that have one stay behind.
+    // Orders and audit rows are never deleted, so intents and buyers that have one stay behind.
     await prisma.checkoutIntent.deleteMany({ where: { buyerId: { in: buyerIds }, order: null } });
-    await prisma.user.deleteMany({ where: { id: { in: buyerIds }, checkoutIntents: { none: {} } } });
+    await prisma.$executeRaw`
+      DELETE FROM users u
+      WHERE u.id = ANY(${buyerIds}::uuid[])
+        AND NOT EXISTS (SELECT 1 FROM checkout_intents i WHERE i.buyer_id = u.id)
+        AND NOT EXISTS (SELECT 1 FROM audit_logs a WHERE a.actor_user_id = u.id)
+        AND NOT EXISTS (SELECT 1 FROM risk_account_tiers t WHERE t.user_id = u.id)
+    `;
     await prisma.$disconnect();
   }
 }
