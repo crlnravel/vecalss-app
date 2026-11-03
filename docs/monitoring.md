@@ -21,11 +21,12 @@ Set up the uptime account yourself. The app does not create it.
 
 Vercel runs the job at 19:00 UTC, which is 02:00 WIB. Hobby allows one cron run per day.
 
-Each run does three things:
+Each run does four things:
 
 1. Checks the database and Redis, with the same up/down results as the readiness route.
 2. Deletes security logs older than 90 days: login attempts, password-reset requests, MFA failed attempts, and sessions that ended or expired. It works in bounded batches and never touches `audit_logs`.
 3. Counts edit leases that expired more than a day ago and were never released. The count is only reported.
+4. Payments: resolves orders still open past their 15-minute payment window by asking the payment provider for the payment's status, then works through the payment outbox (alerts and receipts that did not go out right after the request). Both steps are safe to repeat. If this step fails, the owner is emailed like any other failure.
 
 If any step fails, the owner gets one email per day and failure set. The email lists the failed steps and contains no error text. Outside production the mailer's `EMAIL_DEV_REDIRECT` rule applies.
 

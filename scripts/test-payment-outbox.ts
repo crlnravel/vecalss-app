@@ -1,0 +1,298 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+
+import type { EmailMessage, MailResult } from "../lib/email/mailer";
+import { runDailyMaintenance } from "../lib/maintenance/daily";
+import {
+  claimOutboxJobs,
+  completeOutboxJob,
+  drainOutbox,
+  enqueueOutbox,
+  type OutboxHandlers,
+} from "../lib/payments/outbox";
+import { createPaymentOutboxHandlers, describeReason } from "../lib/payments/outbox-handlers";
+import { runPaymentMaintenance } from "../lib/payments/maintenance";
+import { deliver, makeOrder, prisma, provider, signedEventFor } from "./payment-test-kit";
+
+/**
+ * The payment outbox: leases, retries with backoff, dead jobs, the alert and
+ * receipt handlers, and the idempotent step in the daily maintenance job.
+ */
+
+const prefix = `suite-${randomUUID().slice(0, 8)}:`;
+const filter = { dedupeKeyPrefix: prefix };
+let counter = 0;
+
+async function job(overrides: { maxAttempts?: number; payload?: Record<string, unknown>; kind?: "critical_alert" | "receipt_email"; orderId?: string } = {}) {
+  counter += 1;
+  const dedupeKey = `${prefix}${counter}`;
+  await enqueueOutbox(prisma, {
+    dedupeKey,
+    kind: overrides.kind ?? "critical_alert",
+    orderId: overrides.orderId ?? null,
+    payload: overrides.payload ?? {},
+  });
+  if (overrides.maxAttempts) {
+    await prisma.$executeRaw`UPDATE payment_outbox SET max_attempts = ${overrides.maxAttempts} WHERE dedupe_key = ${dedupeKey}`;
+  }
+  return prisma.paymentOutbox.findUniqueOrThrow({ where: { dedupeKey } });
+}
+
+const reload = (id: string) => prisma.paymentOutbox.findUniqueOrThrow({ where: { id } });
+const secondsUntilNextRun = async (id: string) => {
+  const [row] = await prisma.$queryRaw<Array<{ seconds: number }>>`
+    SELECT extract(epoch FROM (next_run_at - now())) AS seconds FROM payment_outbox WHERE id = ${id}::uuid`;
+  return Number(row.seconds);
+};
+const makeDue = (id: string) => prisma.$executeRaw`UPDATE payment_outbox SET next_run_at = now() - interval '1 second' WHERE id = ${id}::uuid`;
+
+const noop: OutboxHandlers = { critical_alert: async () => {}, receipt_email: async () => {} };
+
+async function main() {
+  // ---- Queueing is idempotent per business fact ---------------------------------
+  {
+    const first = await job();
+    await enqueueOutbox(prisma, { dedupeKey: first.dedupeKey, kind: "critical_alert" });
+    await enqueueOutbox(prisma, { dedupeKey: first.dedupeKey, kind: "receipt_email" });
+    assert.equal(await prisma.paymentOutbox.count({ where: { dedupeKey: first.dedupeKey } }), 1);
+    assert.equal(first.status, "pending");
+    assert.equal(first.attempts, 0);
+    await drainOutbox(noop, { filter });
+  }
+
+  // ---- Leases: one worker per job, a dead worker's job comes back --------------------
+  {
+    const jobs = await Promise.all(Array.from({ length: 6 }, () => job()));
+    const ids = new Set(jobs.map((item) => item.id));
+    const [a, b] = await Promise.all([
+      claimOutboxJobs(prisma, "worker-a", 4, filter),
+      claimOutboxJobs(prisma, "worker-b", 4, filter),
+    ]);
+    const claimed = [...a, ...b].map((item) => item.id);
+    assert.equal(new Set(claimed).size, claimed.length, "no job is claimed by two workers");
+    assert.equal(claimed.length, 6, "together they take every due job");
+    assert.ok(claimed.every((id) => ids.has(id)));
+    assert.ok([...a, ...b].every((item) => item.attempts === 1), "the claim counts as an attempt");
+
+    // While the leases are live, nobody else can take them.
+    assert.deepEqual(await claimOutboxJobs(prisma, "worker-c", 10, filter), []);
+
+    // A worker that vanished: once its lease has run out, another takes over and the attempt is spent.
+    const abandoned = a[0];
+    await prisma.$executeRaw`UPDATE payment_outbox SET leased_until = now() - interval '1 second' WHERE id = ${abandoned.id}::uuid`;
+    const takeover = await claimOutboxJobs(prisma, "worker-c", 10, filter);
+    assert.deepEqual(takeover.map((item) => item.id), [abandoned.id]);
+    assert.equal(takeover[0].attempts, 2);
+    assert.equal((await reload(abandoned.id)).leaseOwner, "worker-c");
+
+    // The old holder can no longer finish it.
+    await completeOutboxJob(prisma, abandoned.id, "worker-a");
+    assert.equal((await reload(abandoned.id)).status, "pending");
+    await completeOutboxJob(prisma, abandoned.id, "worker-c");
+    assert.equal((await reload(abandoned.id)).status, "done");
+
+    for (const item of [...a, ...b]) {
+      if (item.id !== abandoned.id) await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${item.id}::uuid`;
+    }
+  }
+
+  // ---- Retry with backoff, and a job that gives up ---------------------------------------
+  {
+    const item = await job();
+    let calls = 0;
+    const failing: OutboxHandlers = {
+      ...noop,
+      critical_alert: async () => {
+        calls += 1;
+        throw new Error("mail server unreachable");
+      },
+    };
+    assert.deepEqual(await drainOutbox(failing, { filter }), { dead: 0, done: 0, failed: 1 });
+    let state = await reload(item.id);
+    assert.equal(state.status, "pending");
+    assert.equal(state.attempts, 1);
+    assert.equal(state.lastError, "mail server unreachable");
+    assert.equal(state.leaseOwner, null);
+    const first = await secondsUntilNextRun(item.id);
+    assert.ok(first > 50 && first <= 60, `first retry in about a minute (${first}s)`);
+
+    // Not due yet: a drain right now does nothing.
+    assert.deepEqual(await drainOutbox(failing, { filter }), { dead: 0, done: 0, failed: 0 });
+    assert.equal(calls, 1);
+
+    await makeDue(item.id);
+    await drainOutbox(failing, { filter });
+    state = await reload(item.id);
+    assert.equal(state.attempts, 2);
+    const second = await secondsUntilNextRun(item.id);
+    assert.ok(second > 110 && second <= 120, `then two minutes (${second}s)`);
+
+    // Eventually it works, once, and is never run again.
+    await makeDue(item.id);
+    let sent = 0;
+    const recovered: OutboxHandlers = { ...noop, critical_alert: async () => { sent += 1; } };
+    assert.deepEqual(await drainOutbox(recovered, { filter }), { dead: 0, done: 1, failed: 0 });
+    state = await reload(item.id);
+    assert.equal(state.status, "done");
+    assert.equal(state.lastError, null);
+    assert.ok(state.completedAt);
+    assert.deepEqual(await drainOutbox(recovered, { filter }), { dead: 0, done: 0, failed: 0 });
+    assert.equal(sent, 1);
+  }
+  {
+    const item = await job({ maxAttempts: 2 });
+    const failing: OutboxHandlers = { ...noop, critical_alert: async () => { throw new Error("still down"); } };
+    await drainOutbox(failing, { filter });
+    await makeDue(item.id);
+    assert.deepEqual(await drainOutbox(failing, { filter }), { dead: 1, done: 0, failed: 0 });
+    const state = await reload(item.id);
+    assert.equal(state.status, "dead", "parked after its last attempt");
+    assert.equal(state.lastError, "still down");
+    await makeDue(item.id);
+    assert.deepEqual(await drainOutbox(failing, { filter }), { dead: 0, done: 0, failed: 0 }, "a dead job is not retried");
+
+    // One failing job does not hold up the rest of the batch.
+    const bad = await job({ payload: { bad: true } });
+    const good = await job();
+    const mixed: OutboxHandlers = {
+      ...noop,
+      critical_alert: async (queued) => {
+        if (queued.payload.bad) throw new Error("boom");
+      },
+    };
+    assert.deepEqual(await drainOutbox(mixed, { filter }), { dead: 0, done: 1, failed: 1 });
+    assert.equal((await reload(good.id)).status, "done");
+    assert.equal((await reload(bad.id)).status, "pending");
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${bad.id}::uuid`;
+  }
+
+  // ---- Handlers -----------------------------------------------------------------------------
+  {
+    const sent: EmailMessage[] = [];
+    let result: MailResult = { id: "m1", ok: true, redirected: false };
+    const handlers = createPaymentOutboxHandlers({
+      alertTo: "owner@vecalss.test",
+      sendEmail: async (message) => {
+        sent.push(message);
+        return result;
+      },
+    });
+
+    // A real mismatch becomes a real alert.
+    const order = await makeOrder();
+    await deliver(signedEventFor(order, "payment.succeeded", { amountRupiah: 1_000, buyerId: "someone" }));
+    const alert = await prisma.paymentOutbox.findFirstOrThrow({ where: { kind: "critical_alert", orderId: order.id } });
+
+    result = { ok: false, reason: "network" };
+    const outcome = await drainOutbox(handlers, { filter: { dedupeKeyPrefix: alert.dedupeKey } });
+    assert.deepEqual(outcome, { dead: 0, done: 0, failed: 1 });
+    assert.match((await reload(alert.id)).lastError ?? "", /not sent \(network\)/u);
+    await makeDue(alert.id);
+    result = { id: "m2", ok: true, redirected: false };
+    assert.deepEqual(await drainOutbox(handlers, { filter: { dedupeKeyPrefix: alert.dedupeKey } }), { dead: 0, done: 1, failed: 0 });
+    assert.equal(sent.length, 2);
+    assert.equal(sent[0].idempotencyKey, `payment-outbox:${alert.id}`);
+    assert.equal(sent[1].idempotencyKey, sent[0].idempotencyKey, "a retried send is the same message to the mailer");
+    assert.equal(sent[1].to, "owner@vecalss.test");
+    assert.match(sent[1].subject, /pembayaran perlu diperiksa/u);
+    assert.match(sent[1].text, new RegExp(order.id, "u"));
+    assert.match(sent[1].text, /nominal, pembeli/u);
+    assert.doesNotMatch(sent[1].text, /sip_|secret|buyer_id/iu, "no internals in the email");
+
+    // No address configured: the job waits and retries instead of vanishing.
+    const noAddress = createPaymentOutboxHandlers({ alertTo: null, sendEmail: async () => result });
+    const stuck = await job();
+    assert.deepEqual(await drainOutbox(noAddress, { filter }), { dead: 0, done: 0, failed: 1 });
+    assert.match((await reload(stuck.id)).lastError ?? "", /No alert address/u);
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${stuck.id}::uuid`;
+
+    assert.equal(describeReason("amount,buyer"), "nominal, pembeli");
+    assert.equal(describeReason("late_success_after_expired"), "late success after expired");
+    assert.equal(describeReason(null), "alasan tidak tercatat");
+
+    // The receipt is a stub: it completes for a paid order and refuses an unpaid one.
+    const paid = await makeOrder();
+    await deliver(signedEventFor(paid, "payment.succeeded"));
+    const receipt = await prisma.paymentOutbox.findFirstOrThrow({ where: { kind: "receipt_email", orderId: paid.id } });
+    assert.deepEqual(
+      await drainOutbox(handlers, { filter: { dedupeKeyPrefix: receipt.dedupeKey } }),
+      { dead: 0, done: 1, failed: 0 },
+    );
+    assert.equal(sent.length, 2, "nothing is emailed until MS-08 builds receipts");
+    const unpaid = await makeOrder();
+    const premature = await job({ kind: "receipt_email", orderId: unpaid.id });
+    assert.deepEqual(await drainOutbox(handlers, { filter }), { dead: 0, done: 0, failed: 1 });
+    assert.match((await reload(premature.id)).lastError ?? "", /not paid/u);
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${premature.id}::uuid`;
+  }
+
+  // ---- The daily maintenance job drains the outbox, and is safe to repeat -------------------
+  {
+    const order = await makeOrder();
+    await deliver(signedEventFor(order, "payment.succeeded"));
+    const receipt = await prisma.paymentOutbox.findFirstOrThrow({ where: { kind: "receipt_email", orderId: order.id } });
+    assert.equal(receipt.status, "pending");
+
+    const handled: string[] = [];
+    const handlers: OutboxHandlers = {
+      critical_alert: async () => {},
+      receipt_email: async (queued) => {
+        handled.push(queued.id);
+      },
+    };
+    const emails: EmailMessage[] = [];
+    const fakeDb = { $executeRaw: async () => 0, $queryRaw: async () => [{ count: 0n }] } as unknown as Parameters<typeof runDailyMaintenance>[0]["db"];
+    const ok = async () => {};
+    const run = (payments?: () => ReturnType<typeof runPaymentMaintenance>) =>
+      runDailyMaintenance({
+        alertTo: "owner@vecalss.test",
+        db: fakeDb,
+        now: new Date("2026-11-04T19:00:00Z"),
+        payments,
+        probes: { database: ok, redis: ok },
+        sendAlert: async (message) => {
+          emails.push(message);
+          return { id: "x", ok: true, redirected: false };
+        },
+      });
+
+    const first = await run(() => runPaymentMaintenance({ handlers, provider }));
+    assert.equal(first.ok, true);
+    assert.ok(first.payments && first.payments.outbox.done >= 1);
+    assert.ok(handled.includes(receipt.id), "the daily job delivered the waiting receipt job");
+    assert.equal((await reload(receipt.id)).status, "done");
+
+    const before = handled.length;
+    const second = await run(() => runPaymentMaintenance({ handlers, provider }));
+    assert.equal(second.ok, true);
+    assert.equal(handled.length, before, "a second run finds nothing left to do");
+    assert.equal(emails.length, 0, "a healthy run sends no email");
+
+    // Without a configured provider the outbox still drains and reconciliation is skipped.
+    const noProvider = await runPaymentMaintenance({ handlers, provider: null });
+    assert.equal(noProvider.reconciliation, null);
+
+    // A broken payment step is reported without hiding the rest of the run.
+    const broken = await run(async () => {
+      throw new Error("database exploded");
+    });
+    assert.equal(broken.ok, false);
+    assert.deepEqual(broken.failures, ["payment_maintenance"]);
+    assert.equal(emails.length, 1);
+    assert.match(emails[0].text, /pemeriksaan dan antrean pembayaran/u);
+    assert.doesNotMatch(emails[0].text, /exploded/u, "no error text in the email");
+
+    // Runs that are given no payment step behave as before.
+    const plain = await run();
+    assert.equal(plain.payments, null);
+  }
+
+  console.log("Payment outbox checks passed.");
+}
+
+main()
+  .catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());
