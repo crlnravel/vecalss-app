@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import { isAdminStudentPreviewEnabled } from "@/lib/config";
+import { studentMayUsePaidSurfaces } from "@/lib/billing/enforcement";
 import {
   AdminStudentPreviewUnavailableError,
   createAdminStudentPreviewContext,
@@ -116,12 +117,24 @@ async function requireAdminStudentPreviewContext() {
   return createAdminStudentPreviewContext({ session, subject });
 }
 
+/** Where a student without paid access is sent from every paid surface. */
+const PAID_ACCESS_PATH = "/akses-paket";
+
+/**
+ * Every student surface is a paid one unless it says otherwise, so a new page or
+ * action is covered by default. `allowUnpaid` is for the few places a student
+ * needs whatever their package: onboarding, account settings, notifications and
+ * the page that explains the missing package. The check only applies once
+ * PAID_ACCESS_ENFORCED is on; until then nothing changes for students.
+ */
 async function requireStudentSession({
   allowIncompleteOnboarding = false,
   allowMustChangePassword = false,
+  allowUnpaid = false,
 }: {
   allowIncompleteOnboarding?: boolean;
   allowMustChangePassword?: boolean;
+  allowUnpaid?: boolean;
 } = {}) {
   const session = await requireSession();
 
@@ -138,6 +151,10 @@ async function requireStudentSession({
     && (session.user.onboardingStatus === OnboardingStatus.not_started || session.user.onboardingStatus === null)
   ) {
     redirect("/onboarding");
+  }
+
+  if (!allowUnpaid && !(await studentMayUsePaidSurfaces(session.user.id))) {
+    redirect(PAID_ACCESS_PATH);
   }
 
   return session;
@@ -216,6 +233,7 @@ function redirectIfOnboardingAlreadyComplete(session: SessionContext) {
 }
 
 export {
+  PAID_ACCESS_PATH,
   getDefaultHomePath,
   getLoginPathForAudience,
   assertAdminStudentPreviewEnabled,

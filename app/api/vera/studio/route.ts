@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { serverLogger } from "@/lib/server-logger";
@@ -32,6 +33,8 @@ export async function GET() {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   try {
     const documents = await listStudioDocuments({ studentId: session.user.id });
@@ -60,6 +63,8 @@ export async function POST(request: Request) {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const body = await request.json().catch(() => null);
   const parsed = studioRequestSchema.safeParse(body);

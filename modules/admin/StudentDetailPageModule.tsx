@@ -25,6 +25,7 @@ import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 import { CopyValueButton } from "./components/copy-value-button";
+import { StudentAccessPanel, type StudentAccessPanelProps } from "./components/student-access-panel";
 import { StudentAccountActions } from "./components/student-account-actions";
 import { StudentDetailForm } from "./components/student-detail-form";
 
@@ -281,6 +282,7 @@ function StudentDetailFormBody({
 }
 
 function StudentDetailPageModule({
+  access,
   backHref,
   error,
   examEvents,
@@ -289,6 +291,7 @@ function StudentDetailPageModule({
   session,
   student,
 }: {
+  access: StudentAccessPanelProps;
   backHref: string;
   error?: string | null;
   examEvents: ExamEvent[];
@@ -346,6 +349,10 @@ function StudentDetailPageModule({
 
         <div className="min-w-0 max-w-5xl space-y-6">
           <StudentAccountSummary student={student} />
+
+          <DetailSection title="Paket belajar">
+            <StudentAccessPanel {...access} />
+          </DetailSection>
 
           <StudentDetailFormBody
             examEvents={examEvents}

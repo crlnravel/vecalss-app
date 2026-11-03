@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { serverLogger } from "@/lib/server-logger";
@@ -36,6 +37,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const { id } = await params;
   try {
@@ -65,6 +68,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const { id } = await params;
   try {

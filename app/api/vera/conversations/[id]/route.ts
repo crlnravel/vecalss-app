@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { z } from "zod";
 
 import { RoleName } from "@/generated/prisma/client";
@@ -48,6 +49,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const { id } = await params;
   if (!idSchema.safeParse(id).success) return notFound();
@@ -88,6 +91,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const { id } = await params;
   if (!idSchema.safeParse(id).success) return notFound();

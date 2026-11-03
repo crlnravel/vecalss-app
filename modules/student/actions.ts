@@ -36,6 +36,7 @@ async function saveOnboardingAction(
 ): Promise<FormState> {
   const session = await requireStudentSession({
     allowIncompleteOnboarding: true,
+    allowUnpaid: true,
   });
   const targetExamEventId = readOptionalId(formData, "targetExamEventId");
   let targetUniversityId = readOptionalId(formData, "targetUniversityId");
@@ -121,7 +122,7 @@ async function saveProfileAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const session = await requireStudentSession();
+  const session = await requireStudentSession({ allowUnpaid: true });
   const fullName = readOptionalText(formData, "fullName");
   const targetExamEventId = readOptionalId(formData, "targetExamEventId");
   let targetUniversityId = readOptionalId(formData, "targetUniversityId");
@@ -207,6 +208,7 @@ async function saveProfileAction(
 async function skipOnboardingAction() {
   const session = await requireStudentSession({
     allowIncompleteOnboarding: true,
+    allowUnpaid: true,
   });
 
   await prisma.studentProfile.update({
@@ -222,7 +224,7 @@ async function skipOnboardingAction() {
 }
 
 async function markAllNotificationsReadAction() {
-  const session = await requireStudentSession();
+  const session = await requireStudentSession({ allowUnpaid: true });
   await markAllStudentNotificationsRead(session.user.id);
   revalidatePath("/notifications");
   revalidatePath("/notifications/[notificationId]", "page");

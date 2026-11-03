@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import { serverLogger } from "@/lib/server-logger";
@@ -58,6 +59,8 @@ export async function GET(
         403,
       );
     }
+    const paidDenial = await paidAccessDenial(session);
+    if (paidDenial) return paidDenial;
 
     const { lessonId, slug } = await context.params;
     const url = new URL(request.url);

@@ -65,6 +65,14 @@ To enroll or reset a factor (for example to test first-time enrollment), run the
 
 This removes the account's factor and recovery codes and signs it out everywhere. Run `pnpm db:seed` afterwards to restore the standard test factor.
 
+### Paid access (built, switched off)
+
+Students can be required to hold a running package before they use the learning pages, actions and Vera. That is controlled by `PAID_ACCESS_ENFORCED` and is **off unless it is set to `1`, `true`, `on` or `yes`**, so nothing changes for students by default. Admins grant, extend, pause, resume and revoke access from the student detail page (`/admin/enrollment/<student id>`, section "Paket belajar"); every change needs a written reason, is recorded in an append-only history and the audit log, and uses database time.
+
+- `student@vecalss.local` is seeded with a running package (`SNBT-INTENSIF-2027`, until 28 Jun 2027), so it keeps access with the switch on. The other seeded students have no package, so with the switch on they land on `/akses-paket`.
+- To try the denial locally, start the app with `PAID_ACCESS_ENFORCED=1` and revoke the seeded student's access from the admin page. The history rows stay (they are append-only); restore the account with an `UPDATE billing_accounts ...` back to the seed values.
+- Full Access plans need `FULL_ACCESS_ENDS_ON_UTBK` / `FULL_ACCESS_ENDS_ON_MANDIRI` (YYYY-MM-DD). They are not defaulted; the admin form disables those plans until they are set.
+
 ### Additional Cohort Students (Multi-User & Leaderboard Tests)
 
 For testing multi-student scenarios, batch rankings, cohorts, and tryout participant states, the following students are also pre-seeded with password `Student12345!`:

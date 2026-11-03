@@ -9,7 +9,7 @@ export default async function NotificationDetailPage({
 }: {
   params: Promise<{ notificationId: string }>;
 }) {
-  await requireStudentSession();
+  await requireStudentSession({ allowUnpaid: true });
   const { notificationId } = await params;
   redirect(`/notifications?notification=${encodeURIComponent(notificationId)}`);
 }

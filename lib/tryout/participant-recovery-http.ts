@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantRecoveryScope, ParticipantRecoverySnapshot } from "@/lib/tryout/participant-action-recovery";
 
@@ -34,6 +35,8 @@ export async function serveParticipantRecoveryRequest(request: Request, dependen
     const session = await dependencies.getSession();
     if (!session || session.expiresAt <= new Date()) return unavailable(401);
     if (!session.user.roles.includes("student") || session.user.status !== "active" || session.user.mustChangePassword || session.user.onboardingStatus === null || session.user.onboardingStatus === "not_started") return unavailable(403);
+    // A student without paid access gets the same answer as any other refusal (inert unless PAID_ACCESS_ENFORCED).
+    if (await paidAccessDenial(session)) return unavailable(403);
     const scope = recoveryScope(request);
     if (!scope) return unavailable(400);
     return Response.json({ ok: true, snapshot: await dependencies.read(scope, session.user.id) }, { headers: responseHeaders });

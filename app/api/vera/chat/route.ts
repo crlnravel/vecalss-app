@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { runVeraChat, veraChatRequestSchema } from "@/lib/vera/chat";
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   const body = await request.json().catch(() => null);
   const parsed = veraChatRequestSchema.safeParse(body);

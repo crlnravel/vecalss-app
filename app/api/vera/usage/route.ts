@@ -1,3 +1,4 @@
+import { paidAccessDenial } from "@/lib/billing/enforcement";
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { serverLogger } from "@/lib/server-logger";
@@ -27,6 +28,8 @@ export async function GET() {
       { headers: responseHeaders, status: 403 },
     );
   }
+  const paidDenial = await paidAccessDenial(session);
+  if (paidDenial) return paidDenial;
 
   try {
     const snapshot = await getVeraUsageSnapshot({ studentId: session.user.id });
