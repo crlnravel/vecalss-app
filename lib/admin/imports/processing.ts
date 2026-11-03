@@ -20,6 +20,7 @@ import {
 import {
   generateTemporaryPassword,
   hashPassword,
+  hashUnusableCredential,
   hashToken,
   createOpaqueToken,
 } from "@/lib/auth/crypto";
@@ -1068,11 +1069,9 @@ async function createImportedAccount(
   const rawSecret = row.handoffMethod === EnrollmentHandoffMethod.invite_link
     ? createOpaqueToken()
     : generateTemporaryPassword();
-  const passwordHash = await hashPassword(
-    row.handoffMethod === EnrollmentHandoffMethod.temporary_password
-      ? rawSecret
-      : createOpaqueToken(24),
-  );
+  const passwordHash = row.handoffMethod === EnrollmentHandoffMethod.temporary_password
+    ? await hashPassword(rawSecret)
+    : await hashUnusableCredential(createOpaqueToken(24));
   const role = row.role === EnrollmentImportRole.student ? RoleName.student : RoleName.tutor;
   const created = await tx.user.create({
     data: {
@@ -1843,6 +1842,7 @@ export {
   isRetryBodyShape,
   claimImportRows,
   cleanupEnrollmentImports,
+  createImportedAccount,
   deriveImportRowCounts,
   failImportGeneration,
   finalizeImportGeneration,

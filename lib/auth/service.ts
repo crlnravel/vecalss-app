@@ -23,9 +23,9 @@ import {
   hashPassword,
   hashToken,
   normalizeEmail,
-  validatePassword,
   verifyPassword,
 } from "./crypto";
+import { assertPasswordPolicy } from "./password-policy.mjs";
 import { getRequestMetadata } from "./request";
 import { createSessionIfUserStateMatches } from "./session";
 import type { AuthenticatedUser, LoginAudience } from "./types";
@@ -481,11 +481,7 @@ async function getValidPasswordResetRecord(rawToken: string) {
 }
 
 async function completePasswordReset(rawToken: string, nextPassword: string) {
-  const validationError = validatePassword(nextPassword);
-
-  if (validationError) {
-    throw new Error(validationError);
-  }
+  assertPasswordPolicy(nextPassword);
 
   const tokenHash = hashToken(rawToken);
 
@@ -605,11 +601,7 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
 }
 
 async function changePasswordForUser(userId: string, sessionId: string, nextPassword: string) {
-  const validationError = validatePassword(nextPassword);
-
-  if (validationError) {
-    throw new Error(validationError);
-  }
+  assertPasswordPolicy(nextPassword);
 
   const passwordHash = await hashPassword(nextPassword);
   const now = new Date();
@@ -690,6 +682,20 @@ async function changePasswordForUser(userId: string, sessionId: string, nextPass
 
     await completeEnrollmentHandoffsForUser(tx, userId);
 
+    // The session that made this change stays signed in; any other session
+    // was opened with the credential being replaced and must not survive it.
+    await tx.authSession.updateMany({
+      data: {
+        revokedAt: now,
+        status: SessionStatus.revoked,
+      },
+      where: {
+        id: { not: sessionId },
+        status: SessionStatus.active,
+        userId,
+      },
+    });
+
     await tx.auditLog.create({
       data: {
         action: "first_login_password_changed",
@@ -709,11 +715,7 @@ async function changePasswordForUser(userId: string, sessionId: string, nextPass
  * setup in the same transaction as the handoff transition.
  */
 async function completeEnrollmentInvite(rawToken: string, nextPassword: string) {
-  const validationError = validatePassword(nextPassword);
-
-  if (validationError) {
-    throw new Error(validationError);
-  }
+  assertPasswordPolicy(nextPassword);
 
   const tokenHash = hashToken(rawToken);
   const now = new Date();

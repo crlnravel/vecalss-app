@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { changeStudentEnrollmentPasswordAction } from "@/modules/admin/actions";
+import { PASSWORD_REQUIREMENTS_COPY } from "@/modules/auth/password-copy";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 
@@ -56,6 +57,7 @@ function StudentPasswordForm({
             required
             type="password"
           />
+          <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
           <FieldError error={state.fieldErrors?.password} id="student-new-password-error" />
         </Field>
 

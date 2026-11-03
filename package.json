@@ -37,6 +37,7 @@
     "admin:imports-worker:check": "pnpm exec tsc --noEmit -p tsconfig.worker.json",
     "admin:imports-worker:smoke": "tsx scripts/admin-import-worker-smoke.ts",
     "test:writer-registry": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-writer-registry.ts",
+    "test:password-policy": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-password-policy.ts",
     "test:auth-hardening": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-auth-hardening.ts",
     "test:authoring-lock-family": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-authoring-lock-family.ts",
     "test:resource-edit-lock": "tsx scripts/test-resource-edit-lock.ts",

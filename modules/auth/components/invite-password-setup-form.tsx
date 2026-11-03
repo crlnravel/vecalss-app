@@ -8,7 +8,7 @@ import { showToast } from "@/components/ui/toast";
 import { usePageStatusToast } from "@/components/ui/use-page-status-toast";
 
 import { FormNotice } from "./form-notice";
-import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
+import { PASSWORD_REQUIREMENTS_COPY, describePasswordProblem, describePasswordViolation } from "../password-copy";
 
 function InvitePasswordSetupForm({ token }: { token: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,6 +31,12 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
       return;
     }
 
+    const passwordProblem = describePasswordProblem(password);
+    if (passwordProblem) {
+      setMessage(passwordProblem);
+      return;
+    }
+
     setMessage(null);
     setSubmitting(true);
 
@@ -43,6 +49,16 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
         method: "POST",
         referrerPolicy: "no-referrer",
       });
+
+      if (response.status === 422) {
+        // The server is the authority on the rule; show what it says.
+        const body: unknown = await response.json().catch(() => null);
+        const violation = typeof body === "object" && body !== null && "violation" in body ? body.violation : null;
+        if (violation === "too_short" || violation === "too_long" || violation === "missing_class") {
+          setMessage(describePasswordViolation(violation));
+          return;
+        }
+      }
 
       if (!response.ok) {
         showToast("Undangan belum berhasil diproses.", {

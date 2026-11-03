@@ -6,6 +6,8 @@
  * accounts anyone could sign in to.
  */
 
+import { PASSWORD_VIOLATION_MESSAGES, getPasswordViolation } from "../lib/auth/password-policy.mjs";
+
 const LOCAL_DATABASE_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -45,15 +47,29 @@ export function assertDefaultSeedPasswordsAllowed(
 }
 
 /**
+ * Seeded accounts follow the same password rule as every other account, so a
+ * seed can never create a login the application would refuse. The message names
+ * the setting and the rule, never the value.
+ */
+export function assertSeedPasswordCompliant(envName, password) {
+  const violation = getPasswordViolation(password);
+  if (violation) {
+    throw new Error(`${envName} does not meet the password rule. ${PASSWORD_VIOLATION_MESSAGES[violation]}`);
+  }
+
+  return password;
+}
+
+/**
  * Resolve a seed account password. An explicit environment value always wins;
  * the well-known fallback is only returned for a local database.
  */
 export function seedPassword(envName, fallback, env = process.env) {
   const configured = env[envName]?.trim();
   if (configured) {
-    return configured;
+    return assertSeedPasswordCompliant(envName, configured);
   }
 
   assertDefaultSeedPasswordsAllowed(envName, env);
-  return fallback;
+  return assertSeedPasswordCompliant(envName, fallback);
 }
