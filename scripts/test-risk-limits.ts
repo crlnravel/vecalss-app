@@ -693,7 +693,7 @@ async function main() {
 
       // 20 checkout starts per IP per hour, across accounts: with the limit at 3, the 4th start is refused.
       await putInForce({ ...ROOMY, maxStartsPerIpHour: 3 });
-      const ip = `203.0.113.${100 + Math.floor(Math.random() * 100)}`;
+      const ip = randomBuyerIp();
       const sharers = await Promise.all(Array.from({ length: 4 }, async () => track(await makeBuyer("shared-ip"))));
       for (const sharer of sharers.slice(0, 3)) {
         const order = await open(sharer, { ip });
@@ -704,14 +704,14 @@ async function main() {
       assert.deepEqual(await footprint(sharers[3]), { orders: 0, outbox: 0, reservations: 0, sessions: 0 });
       await open(sharers[3], { ip: randomBuyerIp() });
       // Starts older than an hour fall out of the window.
-      const quietIp = `203.0.113.${Math.floor(Math.random() * 90) + 1}`;
+      const quietIp = randomBuyerIp();
       const quietBuyers = await Promise.all(Array.from({ length: 4 }, async () => track(await makeBuyer("old-ip"))));
       for (const quiet of quietBuyers.slice(0, 3)) await insertOldOrder(quiet, quietIp, 2);
       await open(quietBuyers[3], { ip: quietIp });
 
       // The real limit is 20 starts: 20 are accepted from one address and the 21st is not.
       await putInForce({ ...ROOMY, maxStartsPerIpHour: 20 });
-      const crowdIp = `198.18.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`;
+      const crowdIp = randomBuyerIp();
       const crowd = await Promise.all(Array.from({ length: 21 }, async () => track(await makeBuyer("crowd"))));
       const crowdResults = [];
       for (const member of crowd) crowdResults.push(await start(member, { ip: crowdIp }));
@@ -720,7 +720,7 @@ async function main() {
 
       // Concurrent starts from one address cannot overshoot the limit.
       await putInForce({ ...ROOMY, maxStartsPerIpHour: 3 });
-      const raceIp = `198.19.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`;
+      const raceIp = randomBuyerIp();
       const racers = await Promise.all(Array.from({ length: 6 }, async () => track(await makeBuyer("race"))));
       const raced = await Promise.all(racers.map((racer) => start(racer, { ip: raceIp })));
       assert.equal(raced.filter((result) => result.ok).length, 3, "exactly the 3 starts the address is allowed");
@@ -849,7 +849,7 @@ async function main() {
       assert.equal(await prisma.paymentOrder.count({ where: { buyerId: buyer } }), 1, "refused attempts wrote no order");
 
       await putInForce({ ...ROOMY, maxStartsPerIpHour: 1 });
-      const crowdIp = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+      const crowdIp = randomBuyerIp();
       const one = await postThroughHandler(track(await makeBuyer("form-ip")), { forwardedFor: crowdIp, trustedProxies: "1" });
       assert.match(new URL(one.headers.get("location") ?? "").pathname, /^\/pay\/stand-in\//u);
       const two = await postThroughHandler(track(await makeBuyer("form-ip")), { forwardedFor: crowdIp, trustedProxies: "1" });
