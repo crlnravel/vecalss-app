@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email/mailer";
 import { handleDailyMaintenanceRequest, runDailyMaintenance } from "@/lib/maintenance/daily";
 import { defaultProbes } from "@/lib/maintenance/readiness";
+import { defaultHandlers } from "@/lib/payments/drain";
+import { runPaymentMaintenance } from "@/lib/payments/maintenance";
+import { getPaymentProvider } from "@/lib/payments/provider";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,6 +16,7 @@ export async function GET(request: Request) {
       runDailyMaintenance({
         alertTo: process.env.MAINTENANCE_ALERT_EMAIL?.trim() || null,
         db: prisma,
+        payments: () => runPaymentMaintenance({ handlers: defaultHandlers(), provider: getPaymentProvider() }),
         probes: defaultProbes,
         sendAlert: (message) => sendEmail(message),
       }),

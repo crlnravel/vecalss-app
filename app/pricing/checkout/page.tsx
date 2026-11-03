@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { RoleName } from "@/generated/prisma/client";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
-import { getCheckoutBaseUrl, getPackageCode } from "@/lib/pricing/checkout";
+import { getPaymentProvider } from "@/lib/payments/provider";
+import { getPackageCode } from "@/lib/pricing/checkout";
 import { createCheckoutIdempotencyKey, isCheckoutPaused } from "@/lib/pricing/checkout-intent";
 import { isPricingPlanId, resolvePricing } from "@/lib/pricing/schedule";
 import PricingCheckoutPageModule, {
@@ -59,9 +60,10 @@ export default async function PricingCheckoutPage({
   if (!entry) redirect("/pricing");
 
   const referral = await resolveReferral(rawReferral);
-  const paused = isCheckoutPaused();
-  const checkoutReady =
-    !paused && getCheckoutBaseUrl() !== null && getPackageCode(plan, entry) !== null;
+  // No payment provider means nothing to pay through, which looks the same to
+  // the buyer as a paused checkout: the notice shows and the button is off.
+  const paused = isCheckoutPaused() || getPaymentProvider() === null;
+  const checkoutReady = !paused && getPackageCode(plan, entry) !== null;
   const requestedNotice = firstValue(params.notice);
   const notice: CheckoutNotice | null = paused
     ? "checkout-paused"
