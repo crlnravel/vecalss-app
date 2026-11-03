@@ -241,6 +241,8 @@ async function transition(
         endsAt: change.endsAt,
         idempotencyKey: input.idempotencyKey,
         kind,
+        // Prisma fills a defaulted timestamp from the application clock, so say it explicitly.
+        occurredAt: now,
         planCode: change.planCode,
         reason,
         resultingStatus: change.status,

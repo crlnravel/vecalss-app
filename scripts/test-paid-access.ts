@@ -264,22 +264,31 @@ async function main() {
   assert.equal((await listAccessHistory(refunded, 5)).length, 3);
 
   // ---- Expiry needs no job: it is read from the clock -------------------
+  // The window is set relative to the database clock in SQL, so nothing here waits on real time.
   const clock = await makeUser("clock", RoleName.student);
-  await grantAccess({ ...base(clock, { now: new Date() }), plan: "monthly" });
-  await prisma.$executeRaw`UPDATE billing_accounts SET access_expires_at = now() + interval '2 seconds' WHERE student_id = ${clock}::uuid`;
+  await grantAccess({ ...base(clock), plan: "monthly" });
+  const setWindow = (studentId: string, starts: string, ends: string) => prisma.$executeRaw`
+    UPDATE billing_accounts
+    SET access_starts_at = now() + ${starts}::interval, access_expires_at = now() + ${ends}::interval
+    WHERE student_id = ${studentId}::uuid`;
+  await setWindow(clock, "-1 day", "1 hour");
   assert.equal(await hasPaidAccess(clock), true, "running");
-  await new Promise((resolve) => setTimeout(resolve, 2600));
+  assert.equal((await getAccessState(clock)).status, "active");
+  await setWindow(clock, "-1 day", "-1 second");
   assert.equal(await hasPaidAccess(clock), false, "ended on its own");
   assert.equal((await getAccessState(clock)).status, "expired");
+  await setWindow(clock, "1 hour", "1 day");
+  assert.equal(await hasPaidAccess(clock), false, "not started yet");
+  assert.equal((await getAccessState(clock)).status, "none");
+  await setWindow(clock, "-1 day", "1 hour");
+  assert.equal(await hasPaidAccess(clock), true, "running again once the window covers now");
   assert.equal((await prisma.billingAccount.findUniqueOrThrow({ where: { studentId: clock } })).status, "active", "the stored status was never touched");
 
   // ---- Database time, not the application's ----------------------------
+  // One transaction, one database clock: the event time and the access start are the same instant.
   const dbTime = await makeUser("dbtime", RoleName.student);
   const dbGrant = await grantAccess({ ...base(dbTime), plan: "monthly" });
-  const [{ drift }] = await prisma.$queryRaw<Array<{ drift: number }>>`
-    SELECT abs(extract(epoch FROM (${dbGrant.event?.occurredAt}::timestamptz - ${dbGrant.state.startsAt}::timestamptz)))::float8 AS drift
-  `;
-  assert.ok(drift < 2, `start follows the database clock (${drift}s)`);
+  assert.equal(dbGrant.event?.occurredAt.getTime(), dbGrant.state.startsAt?.getTime(), "start follows the database clock");
 
   // ---- Who and what ----------------------------------------------------
   await rejects("student_not_found", () => grantAccess({ ...base(tutor), plan: "monthly" }), "a tutor");
@@ -344,7 +353,7 @@ async function main() {
     { code: "paid_access_required" },
   );
   const entitled = await makeUser("entitled", RoleName.student);
-  await grantAccess({ ...base(entitled, { now: new Date() }), plan: "monthly" });
+  await grantAccess({ ...base(entitled), plan: "monthly" });
   assert.equal(await studentMayUsePaidSurfaces(entitled, on), true, "on: running access");
   assert.equal(await paidAccessDenial({ user: { id: entitled } }, on), null);
   await pauseAccess(base(entitled));
