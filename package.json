@@ -41,6 +41,7 @@
     "test:admin-mfa": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-admin-mfa.ts",
     "test:admin-mfa-role-checks": "tsx scripts/test-admin-mfa-role-checks.ts",
     "test:admin-mfa-http": "tsx scripts/test-admin-mfa-http.ts",
+    "test:password-reset-email": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-password-reset-email.ts && NODE_ENV=production NODE_OPTIONS=--conditions=react-server tsx scripts/test-password-reset-email.ts production",
     "test:auth-hardening": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-auth-hardening.ts",
     "test:authoring-lock-family": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-authoring-lock-family.ts",
     "test:resource-edit-lock": "tsx scripts/test-resource-edit-lock.ts",

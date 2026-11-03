@@ -886,6 +886,20 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+/// One row per password reset request that was let through. It feeds the
+/// per-email and per-address limits; the email is kept only as a hash.
+model PasswordResetRequest {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emailHash   String   @map("email_hash") @db.VarChar(64)
+  ipAddress   String?  @map("ip_address") @db.Inet
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz
+
+  @@index([emailHash, requestedAt])
+  @@index([ipAddress, requestedAt])
+  @@index([requestedAt])
+  @@map("password_reset_requests")
+}
+
 model LoginAttempt {
   id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email         String             @db.Text // Note: maps logically to citext compatibility
