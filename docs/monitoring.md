@@ -1,0 +1,35 @@
+# Monitoring
+
+Vecalss has three internal checks. An external uptime service watches the production readiness route.
+
+| Route | Who calls it | What it returns |
+| --- | --- | --- |
+| `/api/health` | Container health checks | `{ "ok": true }`. Fast, with no instance details. |
+| `/api/health/ready` | External uptime service | `{ "database": "up" \| "down", "redis": "up" \| "down" }`. HTTP 200 when both are up, 503 otherwise. Each check waits at most 2 seconds. |
+| `/api/cron/daily-maintenance` | Vercel cron, once a day | The daily job (see below). It needs `Authorization: Bearer <CRON_SECRET>`. |
+
+### External uptime service settings
+
+- **URL to watch:** `https://<production-domain>/api/health/ready`
+- **Interval:** every 1 to 5 minutes.
+- **Alert:** email to the owner's address, which is the same address as `MAINTENANCE_ALERT_EMAIL`.
+- **Expected response:** HTTP 200. Anything else counts as down.
+
+Set up the uptime account yourself. The app does not create it.
+
+### Daily maintenance job
+
+Vercel runs the job at 19:00 UTC, which is 02:00 WIB. Hobby allows one cron run per day.
+
+Each run does three things:
+
+1. Checks the database and Redis, with the same up/down results as the readiness route.
+2. Deletes security logs older than 90 days: login attempts, password-reset requests, MFA failed attempts, and sessions that ended or expired. It works in bounded batches and never touches `audit_logs`.
+3. Counts edit leases that expired more than a day ago and were never released. The count is only reported.
+
+If any step fails, the owner gets one email per day and failure set. The email lists the failed steps and contains no error text. Outside production the mailer's `EMAIL_DEV_REDIRECT` rule applies.
+
+### Environment variables
+
+- `CRON_SECRET`: the bearer token Vercel sends to the cron route. If it is unset, the route refuses every request.
+- `MAINTENANCE_ALERT_EMAIL`: the owner's address for failure emails.
