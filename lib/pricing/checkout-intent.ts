@@ -42,7 +42,6 @@ type CheckoutIntentInput = {
   buyerId: string;
   entry: PricingScheduleEntry;
   idempotencyKey: string;
-  now: Date;
   plan: PricingPlanId;
   referralCode: string | null;
 };
@@ -67,42 +66,48 @@ type CheckoutIntentResult =
  * CHECKOUT_INTENT_TTL_MS keeps the original quote; after that the key is
  * "expired" and the buyer must confirm the current price on a fresh page. The
  * same key with a different plan or referral is a conflict. Neither writes.
+ *
+ * The validity window is judged on the database clock, both when it is set and
+ * when it is checked, so a server with a skewed clock cannot extend or cut it.
  */
 async function resolveCheckoutIntent(
-  { buyerId, entry, idempotencyKey, now, plan, referralCode }: CheckoutIntentInput,
+  { buyerId, entry, idempotencyKey, plan, referralCode }: CheckoutIntentInput,
 ): Promise<CheckoutIntentResult> {
-  const { count } = await prisma.checkoutIntent.createMany({
-    data: [{
-      amountRupiah: getPlanPrice(entry, plan),
-      buyerId,
-      expiresAt: new Date(now.getTime() + CHECKOUT_INTENT_TTL_MS),
-      idempotencyKey,
-      plan,
-      pricingMonth: entry.month,
-      referralCode,
-    }],
-    skipDuplicates: true,
-  });
+  const inserted = await prisma.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO checkout_intents (
+      buyer_id, idempotency_key, plan, pricing_month, amount_rupiah, referral_code, expires_at
+    )
+    VALUES (
+      ${buyerId}::uuid, ${idempotencyKey}, ${plan}, ${entry.month}, ${getPlanPrice(entry, plan)},
+      ${referralCode}, now() + make_interval(secs => ${CHECKOUT_INTENT_TTL_MS / 1000}::double precision)
+    )
+    ON CONFLICT (buyer_id, idempotency_key) DO NOTHING
+    RETURNING id
+  `;
 
-  const stored = await prisma.checkoutIntent.findUnique({
-    select: {
-      amountRupiah: true,
-      expiresAt: true,
-      id: true,
-      plan: true,
-      pricingMonth: true,
-      referralCode: true,
-    },
-    where: { buyerId_idempotencyKey: { buyerId, idempotencyKey } },
-  });
+  const [stored] = await prisma.$queryRaw<Array<CheckoutIntentRecord & { expired: boolean }>>`
+    SELECT id, plan, pricing_month AS "pricingMonth", amount_rupiah AS "amountRupiah",
+           referral_code AS "referralCode", expires_at <= now() AS expired
+    FROM checkout_intents
+    WHERE buyer_id = ${buyerId}::uuid AND idempotency_key = ${idempotencyKey}
+  `;
   if (!stored) return { status: "conflict" };
-  if (stored.expiresAt.getTime() <= now.getTime()) return { status: "expired" };
+  if (stored.expired) return { status: "expired" };
 
   if (stored.plan !== plan || stored.referralCode !== referralCode) {
     return { status: "conflict" };
   }
 
-  return { intent: stored, status: count === 1 ? "created" : "reused" };
+  return {
+    intent: {
+      amountRupiah: stored.amountRupiah,
+      id: stored.id,
+      plan: stored.plan,
+      pricingMonth: stored.pricingMonth,
+      referralCode: stored.referralCode,
+    },
+    status: inserted.length === 1 ? "created" : "reused",
+  };
 }
 
 export {

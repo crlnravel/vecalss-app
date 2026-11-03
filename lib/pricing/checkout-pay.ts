@@ -8,6 +8,8 @@ import { getAppBaseUrl } from "@/lib/config";
 import type { PaymentProviderAdapter } from "@/lib/payments/adapter";
 import { createOrderFromIntent, ensurePaymentSession } from "@/lib/payments/orders";
 import { getPaymentProvider } from "@/lib/payments/provider";
+import { resolveBuyerIpExemption } from "@/lib/payments/risk/buyer-ip";
+import type { RefusalReason } from "@/lib/payments/risk/reserve";
 
 import { getPackageCode } from "./checkout";
 import {
@@ -41,6 +43,21 @@ const REJECTED_PAGE = `<!doctype html>
 </main>
 </body>
 </html>`;
+
+/**
+ * What a buyer is told when the limits refuse a new checkout. Several rules can
+ * share a notice, so the exact rule is never revealed. With no policy in force
+ * the checkout page itself shows the "paused" notice.
+ */
+const REFUSAL_NOTICES: Record<Exclude<RefusalReason, "no_policy"> | "package_unavailable", string> = {
+  amount_mismatch: "checkout-unavailable",
+  daily_limit: "checkout-daily-limit",
+  hourly_attempts: "checkout-too-many",
+  ip_attempts: "checkout-too-many",
+  missing_ip: "checkout-unavailable",
+  open_payment: "checkout-open-payment",
+  package_unavailable: "checkout-unavailable",
+};
 
 type CheckoutPayDeps = {
   env: NodeJS.ProcessEnv;
@@ -173,7 +190,6 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
     buyerId: session.user.id,
     entry,
     idempotencyKey,
-    now,
     plan,
     referralCode,
   });
@@ -187,15 +203,21 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
 
   const trustedProxyCount = getTrustedProxyCount(deps.env);
   const buyerIp = resolveClientIpAddress(request.headers.get("x-forwarded-for"), trustedProxyCount);
-  const order = await createOrderFromIntent({
+  const created = await createOrderFromIntent({
     buyerId: session.user.id,
     buyerIp,
+    buyerIpExemption: resolveBuyerIpExemption(provider, deps.env),
     buyerIpSource: buyerIp ? `trusted-proxy:${trustedProxyCount}` : "unavailable",
     intent: result.intent,
     packageCode,
     provider,
   });
-  if (!order) return checkoutPage({ notice: "checkout-unavailable" });
+  if (!created.ok) {
+    return created.reason === "no_policy"
+      ? checkoutPage()
+      : checkoutPage({ notice: REFUSAL_NOTICES[created.reason] });
+  }
+  const { order } = created;
 
   const statusPage = redirectTo(`/pricing/checkout/status/${order.reference}`, base);
   const payment = await ensurePaymentSession(order, provider, base);

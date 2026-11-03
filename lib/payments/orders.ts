@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { findActiveAffiliatorProfile, findPublishedPackageName } from "@/lib/affiliator/service";
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
@@ -9,6 +10,14 @@ import { serverLogger } from "@/lib/server-logger";
 import type { PaymentProviderAdapter } from "./adapter";
 import { writePaymentAudit } from "./audit";
 import { PAYMENT_CURRENCY, PAYMENT_EXPIRY_MINUTES } from "./constants";
+import {
+  checkCheckoutAllowed,
+  lockAccount,
+  recordCheckoutRefusal,
+  takeReservation,
+  type CheckoutRequest,
+  type RefusalReason,
+} from "./risk/reserve";
 
 type OrderIntent = {
   amountRupiah: number;
@@ -21,6 +30,8 @@ type OrderIntent = {
 type CreateOrderInput = {
   buyerId: string;
   buyerIp: string | null;
+  /** Why this checkout may go ahead without a buyer IP, or null when it may not. */
+  buyerIpExemption: string | null;
   /** How the IP was obtained, for example `trusted-proxy:1`, or `unavailable`. */
   buyerIpSource: string;
   intent: OrderIntent;
@@ -43,6 +54,16 @@ const orderSelect = {
   status: true,
 } as const;
 
+type OrderRow = Prisma.PaymentOrderGetPayload<{ select: typeof orderSelect }>;
+
+type CreateOrderResult =
+  /** `created` is false when the intent already had its order (a retry). */
+  | { created: boolean; ok: true; order: OrderRow }
+  /** The plan's package is not published; nothing was written. */
+  | { ok: false; reason: "package_unavailable" }
+  /** The checkout is not allowed under the limits; only an audit event was written. */
+  | { ok: false; reason: RefusalReason };
+
 /** A fresh opaque token: 32 random bytes, URL-safe. */
 function newOrderReference() {
   return randomBytes(32).toString("base64url");
@@ -55,67 +76,106 @@ function newOrderReference() {
  * affiliator are snapshotted here, and later archival or deactivation never
  * rewrites them. Expiry is database time plus the payment window.
  *
- * Returns null when the plan's package is not published (nothing is created).
+ * A new order is created only if the limits allow it (lib/payments/risk), and
+ * its reservation is taken in the same transaction, under the account's row
+ * lock. A retry of the same intent finds its order again, under that lock, and
+ * reuses its reservation instead of being counted twice. A refused checkout
+ * writes no order, no reservation and no payable session, only an audit event.
  */
-async function createOrderFromIntent(input: CreateOrderInput) {
+async function createOrderFromIntent(input: CreateOrderInput): Promise<CreateOrderResult> {
   const existing = await prisma.paymentOrder.findUnique({
     select: orderSelect,
     where: { intentId: input.intent.id },
   });
-  if (existing) return existing;
+  if (existing) return { created: false, ok: true, order: existing };
 
   let packageName: string;
   try {
     packageName = await findPublishedPackageName(input.packageCode);
   } catch {
-    return null;
+    return { ok: false, reason: "package_unavailable" };
   }
   const affiliator = input.intent.referralCode
     ? await findActiveAffiliatorProfile(input.intent.referralCode)
     : null;
 
-  await prisma.$transaction(async (tx) => {
-    const inserted = await tx.$queryRaw<Array<{ id: string }>>`
+  const request: CheckoutRequest = {
+    amountRupiah: input.intent.amountRupiah,
+    buyerId: input.buyerId,
+    buyerIp: input.buyerIp,
+    buyerIpExemption: input.buyerIp ? null : input.buyerIpExemption,
+    intentId: input.intent.id,
+    packageCode: input.packageCode,
+    plan: input.intent.plan,
+    pricingMonth: input.intent.pricingMonth,
+  };
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockAccount(tx, input.buyerId);
+
+    // A concurrent retry of this intent may have created the order while we waited.
+    const concurrent = await tx.paymentOrder.findUnique({
+      select: orderSelect,
+      where: { intentId: input.intent.id },
+    });
+    if (concurrent) return { created: false, ok: true as const, order: concurrent };
+
+    const checked = await checkCheckoutAllowed(tx, request);
+    if (!checked.ok) {
+      await recordCheckoutRefusal(tx, request, checked.refused, input.buyerIpSource);
+      return { ok: false as const, reason: checked.refused.reason };
+    }
+
+    const [inserted] = await tx.$queryRaw<Array<{ id: string }>>`
       INSERT INTO payment_orders (
         intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
         amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip, buyer_ip_source,
-        provider, provider_environment, provider_account, expires_at
+        buyer_ip_exemption, provider, provider_environment, provider_account, expires_at
       )
       VALUES (
         ${input.intent.id}::uuid, ${input.buyerId}::uuid, ${newOrderReference()}, ${input.intent.plan},
         ${input.intent.pricingMonth}, ${input.packageCode}, ${packageName},
         ${input.intent.amountRupiah}, ${PAYMENT_CURRENCY}, ${input.intent.referralCode},
         ${affiliator?.id ?? null}::uuid, ${input.buyerIp}::inet, ${input.buyerIpSource},
+        ${request.buyerIpExemption},
         ${input.provider.id}, ${input.provider.environment}, ${input.provider.merchantAccount},
         now() + make_interval(mins => ${PAYMENT_EXPIRY_MINUTES}::int)
       )
-      ON CONFLICT (intent_id) DO NOTHING
       RETURNING id
     `;
 
-    if (inserted[0]) {
-      await writePaymentAudit(tx, {
-        action: "payment.order.created",
-        actorUserId: input.buyerId,
-        ipAddress: input.buyerIp,
-        metadata: {
-          amountRupiah: input.intent.amountRupiah,
-          buyerIpSource: input.buyerIpSource,
-          currency: PAYMENT_CURRENCY,
-          intentId: input.intent.id,
-          packageCode: input.packageCode,
-          provider: input.provider.id,
-        },
-        targetId: inserted[0].id,
-        targetType: "payment_order",
-      });
-    }
-  });
+    await takeReservation(tx, {
+      allowed: checked.allowed,
+      amountRupiah: input.intent.amountRupiah,
+      buyerId: input.buyerId,
+      orderId: inserted.id,
+    });
 
-  return prisma.paymentOrder.findUnique({ select: orderSelect, where: { intentId: input.intent.id } });
+    await writePaymentAudit(tx, {
+      action: "payment.order.created",
+      actorUserId: input.buyerId,
+      ipAddress: input.buyerIp,
+      metadata: {
+        amountRupiah: input.intent.amountRupiah,
+        buyerIpExemption: request.buyerIpExemption,
+        buyerIpSource: input.buyerIpSource,
+        bucketDate: checked.allowed.bucketDate,
+        currency: PAYMENT_CURRENCY,
+        intentId: input.intent.id,
+        packageCode: input.packageCode,
+        policyVersion: checked.allowed.policy.version,
+        provider: input.provider.id,
+        tier: checked.allowed.tier,
+      },
+      targetId: inserted.id,
+      targetType: "payment_order",
+    });
+
+    return { created: true, ok: true as const, order: await tx.paymentOrder.findUniqueOrThrow({ select: orderSelect, where: { id: inserted.id } }) };
+  }, { maxWait: 10_000, timeout: 20_000 });
+
+  return outcome;
 }
-
-type OrderRow = NonNullable<Awaited<ReturnType<typeof createOrderFromIntent>>>;
 
 type SessionResult =
   | { checkoutUrl: string; ok: true }
@@ -202,4 +262,4 @@ async function ensurePaymentSession(
 }
 
 export { createOrderFromIntent, ensurePaymentSession, newOrderReference };
-export type { CreateOrderInput, OrderIntent, OrderRow, SessionResult };
+export type { CreateOrderInput, CreateOrderResult, OrderIntent, OrderRow, SessionResult };

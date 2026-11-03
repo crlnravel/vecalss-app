@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
 import { writePaymentAudit } from "./audit";
 import { enqueueOutbox } from "./outbox";
+import { moveReservation } from "./risk/reserve";
 
 type OrderState = "pending" | "paid" | "failed" | "expired" | "review";
 type EventOutcome = "accepted" | "declined" | "expired" | "review" | "quarantined" | "ignored";
@@ -232,7 +233,8 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
             package_purchase_id = ${purchase.id}::uuid, updated_at = now()
         WHERE id = ${order.id}::uuid
       `;
-      await audit("payment.order.paid", { packagePurchaseId: purchase.id });
+      const reserved = await moveReservation(tx, order.id, "paid", null);
+      await audit("payment.order.paid", { packagePurchaseId: purchase.id, reservation: reserved ? "paid" : null });
       await enqueueOutbox(tx, {
         dedupeKey: `receipt:${order.id}`,
         kind: "receipt_email",
@@ -249,7 +251,17 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
             updated_at = now()
         WHERE id = ${order.id}::uuid
       `;
-      await audit(`payment.order.${decision.orderTo}`);
+      // The limits follow the order, in this same transaction: a confirmed
+      // failure or expiry frees the exposure, and a payment that arrives after
+      // one holds it again. This never reads the risk policy.
+      const reservation = decision.orderTo === "review" ? "review" : "released";
+      const reserved = await moveReservation(
+        tx,
+        order.id,
+        reservation,
+        decision.orderTo === "review" ? decision.reason : decision.orderTo,
+      );
+      await audit(`payment.order.${decision.orderTo}`, { reservation: reserved ? reservation : null });
       if (decision.orderTo === "review") {
         await enqueueOutbox(tx, {
           dedupeKey: `alert:event:${recorded.id}`,

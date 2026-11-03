@@ -753,6 +753,9 @@ model User {
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
   checkoutIntents                        CheckoutIntent[]
   paymentOrders                          PaymentOrder[]                       @relation("PaymentOrderBuyer")
+  riskAccountTier                        RiskAccountTier?
+  riskDayBuckets                         RiskDayBucket[]
+  riskReservations                       RiskReservation[]
   mfaFactor                              UserMfaFactor?                       @relation("UserMfaFactor")
   mfaSetupCodes                          MfaSetupCode[]                       @relation("UserMfaSetupCodes")
   mfaFailedAttempts                      MfaFailedAttempt[]                   @relation("UserMfaFailedAttempts")
@@ -3511,6 +3514,10 @@ model PaymentOrder {
   buyerIp             String?  @map("buyer_ip") @db.Inet
   /// How `buyerIp` was obtained, for example `trusted-proxy:1` or `unavailable`.
   buyerIpSource       String   @map("buyer_ip_source") @db.VarChar(40)
+  /// Why an order exists without a buyer IP (the local stand-in has no trusted
+  /// proxy). Null on every order that carries an IP; the database refuses a new
+  /// order that has neither.
+  buyerIpExemption    String?  @map("buyer_ip_exemption") @db.VarChar(60)
   provider            String   @db.VarChar(40)
   providerEnvironment String   @map("provider_environment") @db.VarChar(40)
   providerAccount     String   @map("provider_account") @db.VarChar(80)
@@ -3534,10 +3541,12 @@ model PaymentOrder {
   affiliator      AffiliatorProfile? @relation(fields: [affiliatorProfileId], references: [id], onDelete: Restrict)
   packagePurchase PackagePurchase?   @relation(fields: [packagePurchaseId], references: [id], onDelete: Restrict)
   events          PaymentEvent[]
+  reservation     RiskReservation?
 
   @@unique([provider, providerEnvironment, providerAccount, providerReference])
   @@index([status, expiresAt])
   @@index([buyerId, createdAt])
+  @@index([buyerIp, createdAt])
   @@map("payment_orders")
 }
 
@@ -3616,6 +3625,118 @@ model StandInPayment {
   settledAt         DateTime? @map("settled_at") @db.Timestamptz
 
   @@map("stand_in_payments")
+}
+
+enum RiskTier {
+  unverified
+  verified
+
+  @@map("risk_tier")
+}
+
+enum RiskReservationState {
+  /// Counted: the order is open and may still be paid.
+  pending
+  /// Counted: the order was paid.
+  paid
+  /// Counted: a payment arrived after a confirmed failure or expiry. The money
+  /// exists, so the exposure is held again until the case is resolved.
+  review
+  /// Not counted: the order failed or expired, and the provider confirmed it.
+  released
+
+  @@map("risk_reservation_state")
+}
+
+/// One version of the purchase limits. Append-only: a change is a new version,
+/// never an edit. Which version applies is decided by `RiskPolicyActivation`.
+model RiskPolicyVersion {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version                   Int      @unique
+  /// New or unverified accounts, per Asia/Jakarta day.
+  unverifiedDailyPurchases  Int      @map("unverified_daily_purchases")
+  unverifiedDailyRupiah     Int      @map("unverified_daily_rupiah")
+  /// Verified accounts, per Asia/Jakarta day.
+  verifiedDailyPurchases    Int      @map("verified_daily_purchases")
+  verifiedDailyRupiah       Int      @map("verified_daily_rupiah")
+  /// A verified account is at least this old (and has a clean paid order).
+  verifiedMinAccountAgeDays Int      @map("verified_min_account_age_days")
+  maxOpenPayments           Int      @map("max_open_payments")
+  maxUnpaidPerAccountHour   Int      @map("max_unpaid_per_account_hour")
+  maxStartsPerIpHour        Int      @map("max_starts_per_ip_hour")
+  note                      String   @db.Text
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  activations RiskPolicyActivation[]
+
+  @@map("risk_policy_versions")
+}
+
+/// Which policy version is in force. Append-only: the newest row decides, and a
+/// row with no version withdraws the policy (new checkouts are then refused).
+model RiskPolicyActivation {
+  id              BigInt   @id @default(autoincrement())
+  policyVersionId String?  @map("policy_version_id") @db.Uuid
+  reason          String   @db.VarChar(200)
+  activatedAt     DateTime @default(now()) @map("activated_at") @db.Timestamptz
+
+  policyVersion RiskPolicyVersion? @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+
+  @@map("risk_policy_activations")
+}
+
+/// An account's risk tier and what it was based on. The row is also the lock
+/// that serialises every limit check for the account.
+model RiskAccountTier {
+  userId      String   @id @map("user_id") @db.Uuid
+  tier        RiskTier @default(unverified)
+  /// The facts behind the tier at the last evaluation.
+  basis       Json     @default("{}") @db.JsonB
+  evaluatedAt DateTime @default(now()) @map("evaluated_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("risk_account_tiers")
+}
+
+/// Exposure counted against one account on one Asia/Jakarta day. Maintained by
+/// the database from the reservations, so the two cannot drift apart.
+model RiskDayBucket {
+  userId        String   @map("user_id") @db.Uuid
+  bucketDate    DateTime @map("bucket_date") @db.Date
+  purchaseCount Int      @default(0) @map("purchase_count")
+  amountRupiah  Int      @default(0) @map("amount_rupiah")
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([userId, bucketDate])
+  @@map("risk_day_buckets")
+}
+
+/// The exposure one order holds against its start day. It stays on that day
+/// whatever happens later. One order has at most one reservation.
+model RiskReservation {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String               @unique @map("order_id") @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  bucketDate     DateTime             @map("bucket_date") @db.Date
+  amountRupiah   Int                  @map("amount_rupiah")
+  tier           RiskTier
+  /// The facts behind the tier when the reservation was taken.
+  tierBasis      Json                 @default("{}") @map("tier_basis") @db.JsonB
+  policyVersion  Int                  @map("policy_version")
+  state          RiskReservationState @default(pending)
+  stateReason    String?              @map("state_reason") @db.VarChar(80)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  stateChangedAt DateTime             @default(now()) @map("state_changed_at") @db.Timestamptz
+
+  order PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, bucketDate])
+  @@map("risk_reservations")
 }
 
 model SystemConfig {
