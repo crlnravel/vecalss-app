@@ -1,18 +1,16 @@
 import "server-only";
 
 import { RoleName, UserStatus } from "@/generated/prisma/client";
-import { kaptenOrAdminAssignmentWhere } from "@/lib/auth/mfa/data-layer";
+import { isActiveKaptenOrAdmin } from "@/lib/auth/kapten-access";
 import { prisma } from "@/lib/prisma";
 import { mentorParticipantIdentity } from "@/lib/tryout/mentor-participant-identity";
 
 class TryoutInvitationPickerError extends Error {}
 
 async function assertManageableTryout(tryoutId: string, actorId: string) {
-  const actor = await prisma.user.findFirst({
-    select: { id: true },
-    where: { id: actorId, status: UserStatus.active, softDeletedAt: null, roleAssignments: { some: kaptenOrAdminAssignmentWhere() } },
-  });
-  if (!actor) throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
+  if (!(await isActiveKaptenOrAdmin(prisma, actorId))) {
+    throw new TryoutInvitationPickerError("Anda tidak dapat mengakses daftar siswa.");
+  }
   const tryout = await prisma.tryoutPackage.findFirst({
     select: { id: true },
     where: { id: tryoutId },

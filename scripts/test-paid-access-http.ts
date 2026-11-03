@@ -38,11 +38,13 @@ async function makeUser(label: string, role: RoleName) {
       email: `paid-http-${label}-${runId}@vecalss.local`,
       fullName: `Paid HTTP ${label}`,
       passwordHash: "not-a-real-hash",
-      roleAssignments: { create: [{ assignedAt: new Date(Date.now() - 30 * 86_400_000), role }] },
+      roleAssignments: { create: [{ role }] },
       ...(role === RoleName.student ? { studentProfile: { create: { displayName: label, onboardingStatus: "completed" } } } : {}),
     },
     select: { id: true },
   });
+  // Granted long ago on database time, like every other role assignment fixture.
+  await prisma.$executeRaw`UPDATE role_assignments SET assigned_at = now() - make_interval(days => 30) WHERE user_id = ${user.id}::uuid`;
   userIds.push(user.id);
   return user.id;
 }

@@ -946,7 +946,9 @@ model RoleAssignment {
   userId           String    @map("user_id") @db.Uuid
   role             RoleName
   assignedByUserId String?   @map("assigned_by_user_id") @db.Uuid
-  assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
+  /// Set by the database clock. `auth_sessions.mfa_verified_at` is too, so the two
+  /// compare on one clock; a client-side default would drift by milliseconds.
+  assignedAt       DateTime  @default(dbgenerated("now()")) @map("assigned_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
 
   user       User  @relation("UserRoles", fields: [userId], references: [id])

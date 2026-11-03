@@ -1,6 +1,6 @@
 import { RoleName, UserStatus, type Prisma } from "@/generated/prisma/client";
 
-import { kaptenOrAdminAssignmentWhere } from "./mfa/data-layer";
+import { kaptenOrAdminRoleSql } from "./mfa/data-layer";
 
 /**
  * Kapten content (Tryouts, reusable packages, assemblies, materi, Kuis and Bank
@@ -12,25 +12,28 @@ import { kaptenOrAdminAssignmentWhere } from "./mfa/data-layer";
  * These helpers repeat the rule at the data layer, so a caller that forgets the
  * check still cannot expose Kapten content to a student or a deactivated account.
  */
-type UserLookup = Pick<Prisma.TransactionClient, "user">;
+type UserLookup = Pick<Prisma.TransactionClient, "$queryRaw" | "user">;
 
 /** Matches no real row: `created_by_user_id` is a foreign key to a real user. */
 const NO_ACCESS_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 async function isActiveKaptenOrAdmin(db: UserLookup, userId: string) {
-  const actor = await db.user.findFirst({
-    select: { id: true },
-    where: {
-      id: userId,
-      previewPurpose: null,
-      // An admin counts only with a verified second factor (see lib/auth/mfa).
-      roleAssignments: { some: kaptenOrAdminAssignmentWhere() },
-      softDeletedAt: null,
-      status: UserStatus.active,
-    },
-  });
+  // Raw SQL so the admin's verified-session check runs on the database clock.
+  const rows = await db.$queryRaw<Array<{ allowed: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM "role_assignments" AS ra
+      JOIN "users" AS u ON u."id" = ra."user_id"
+      WHERE ra."user_id" = ${userId}::uuid
+        AND ra."revoked_at" IS NULL
+        AND u."status" = 'active'
+        AND u."soft_deleted_at" IS NULL
+        AND u."preview_purpose" IS NULL
+        AND ${kaptenOrAdminRoleSql()}
+    ) AS allowed
+  `;
 
-  return actor !== null;
+  return rows[0]?.allowed === true;
 }
 
 /**
