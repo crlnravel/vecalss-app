@@ -729,6 +729,7 @@ model User {
   extendedBillingAccounts                BillingAccount[]                     @relation("BillingExtendedBy")
   affiliatorProfile                      AffiliatorProfile?
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
+  checkoutIntents                        CheckoutIntent[]
   updatedSystemConfigs                   SystemConfig[]                       @relation("SystemConfigUpdatedBy")
   draftUpdatedSystemConfigs              SystemConfig[]                       @relation("SystemConfigDraftUpdatedBy")
   publishedSystemConfigs                 SystemConfig[]                       @relation("SystemConfigPublishedBy")
@@ -3243,6 +3244,32 @@ model PackagePurchase {
   @@index([affiliatorProfileId, status, completedAt])
   @@index([status, completedAt])
   @@map("package_purchases")
+}
+
+/// A buyer's server-recorded request to start checkout. The quote (month and
+/// rupiah amount) is a snapshot taken at submission, and the referral is the
+/// normalized active code. `idempotencyKey` is minted when the checkout page
+/// renders, so a retried submission reuses one row. Rendering and GET/HEAD
+/// never write here. It is not an order: it holds no reservation and no
+/// provider session.
+model CheckoutIntent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId        String   @map("buyer_id") @db.Uuid
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(64)
+  plan           String   @db.VarChar(20)
+  pricingMonth   String   @map("pricing_month") @db.VarChar(7)
+  amountRupiah   Int      @map("amount_rupiah")
+  referralCode   String?  @map("referral_code") @db.VarChar(40)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  /// A retry may reuse this intent (and its quote) only before this time;
+  /// afterwards the buyer must confirm the current price on a fresh page.
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz
+
+  buyer User @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+
+  @@unique([buyerId, idempotencyKey])
+  @@index([buyerId, createdAt])
+  @@map("checkout_intents")
 }
 
 model SystemConfig {
