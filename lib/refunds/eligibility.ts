@@ -24,6 +24,8 @@ type Eligibility = {
   reasonCode: RefundReasonCode;
   rule: EligibilityRule;
   usageRows: number;
+  /** Days a paid use could not be recorded (a failed write), which count as use. */
+  usageGaps: number;
   windowDays: number;
   windowEndsAt: string | null;
   withinWindow: boolean;
@@ -50,7 +52,8 @@ type EvaluateInput = {
  * - authority order (a regulator, acquirer or court ordered it): always
  *   eligible, whatever the age or use of the order;
  * - change of mind: eligible only when requested within 3 days of payment AND no
- *   `fulfillment_usage_events` row exists for the order.
+ *   `fulfillment_usage_events` row exists for the order AND no usage evidence gap
+ *   (a failed usage write, `fulfillment_usage_gaps`) for the buyer since the payment.
  *
  * The window is inclusive: a request exactly 3 days after payment still counts.
  * An order held in review has no `paid_at`; the time its payment arrived (the
@@ -63,6 +66,7 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
     asOf: Date;
     evaluatedAt: Date;
     paidAt: Date | null;
+    usageGaps: number;
     usageRows: number;
     windowEndsAt: Date | null;
     withinWindow: boolean | null;
@@ -74,7 +78,8 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
           WHERE e.order_id = o.id AND e.type::text = 'succeeded' AND e.outcome::text IN ('accepted', 'review')
         )) AS paid_at,
         COALESCE(${input.asOf ?? null}::timestamptz, clock_timestamp()) AS as_of,
-        o.id AS order_id
+        o.id AS order_id,
+        o.buyer_id AS buyer_id
       FROM payment_orders o WHERE o.id = ${input.orderId}::uuid
     )
     SELECT base.paid_at AS "paidAt",
@@ -82,7 +87,8 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
            clock_timestamp() AS "evaluatedAt",
            (base.paid_at + make_interval(days => ${CHANGE_OF_MIND_WINDOW_DAYS}::int)) AS "windowEndsAt",
            (base.as_of <= base.paid_at + make_interval(days => ${CHANGE_OF_MIND_WINDOW_DAYS}::int)) AS "withinWindow",
-           (SELECT count(*)::int FROM fulfillment_usage_events u WHERE u.order_id = base.order_id) AS "usageRows"
+           (SELECT count(*)::int FROM fulfillment_usage_events u WHERE u.order_id = base.order_id) AS "usageRows",
+           (SELECT count(*)::int FROM fulfillment_usage_gaps g WHERE g.student_id = base.buyer_id AND g.occurred_at >= base.paid_at) AS "usageGaps"
     FROM base
   `;
   if (!row) throw new Error("The order was not found.");
@@ -96,12 +102,13 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
   } else if (category === "our_fault") {
     rule = "our_fault";
     eligible = true;
-  } else if (withinWindow && row.usageRows === 0) {
+  } else if (withinWindow && row.usageRows === 0 && row.usageGaps === 0) {
     rule = "change_of_mind_ok";
     eligible = true;
   } else {
     eligible = false;
-    rule = !withinWindow && row.usageRows > 0
+    const used = row.usageRows > 0 || row.usageGaps > 0;
+    rule = !withinWindow && used
       ? "change_of_mind_window_and_used"
       : !withinWindow ? "change_of_mind_window_passed" : "change_of_mind_used";
   }
@@ -114,6 +121,7 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
     paidAt: row.paidAt?.toISOString() ?? null,
     reasonCode: input.reasonCode,
     rule,
+    usageGaps: row.usageGaps,
     usageRows: row.usageRows,
     windowDays: CHANGE_OF_MIND_WINDOW_DAYS,
     windowEndsAt: row.windowEndsAt?.toISOString() ?? null,

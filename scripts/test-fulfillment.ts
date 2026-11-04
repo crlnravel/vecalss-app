@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 import { RoleName } from "../generated/prisma/client";
@@ -8,7 +9,7 @@ import { grantAccess, pauseAccess, resumeAccess, revokeAccess } from "../lib/bil
 import { addCalendarMonths } from "../lib/billing/plans";
 import { retryFulfillment } from "../lib/fulfillment/grant";
 import { flagStalledFulfillments, runFulfillmentMaintenance } from "../lib/fulfillment/stalled";
-import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
+import { PURCHASE_TERMS, termsOpenForCheckout } from "../lib/fulfillment/terms";
 import { recordPaidUse } from "../lib/fulfillment/usage";
 import { createManualBlock } from "../lib/fraud/blocks";
 import { requireOwner } from "../lib/fraud/authority";
@@ -510,6 +511,27 @@ async function main() {
     const order = await prisma.paymentOrder.findFirstOrThrow({ where: { buyerId } });
     assert.equal(intent.termsVersion, PURCHASE_TERMS.version);
     assert.equal(order.termsVersion, PURCHASE_TERMS.version, "the order stores the version");
+
+    // MS-19 M-05: terms still marked draft cannot be accepted with a real provider. The stand-in is the only exception.
+    assert.equal(PURCHASE_TERMS.status, "draft", "the terms are still a draft in this build");
+    const before = await footprint();
+    const realProvider = Object.create(provider, { id: { value: "e2pay" } }) as typeof provider;
+    const draftRefused = await handleCheckoutPayPost(
+      new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
+        body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": randomBuyerIp() },
+        method: "POST",
+      }),
+      { ...deps, getProvider: () => realProvider },
+    );
+    assert.doesNotMatch(draftRefused.headers.get("location") ?? "", /\/pay\//u, "draft terms do not reach a payment page with a real provider");
+    assert.match(draftRefused.headers.get("location") ?? "", /\/pricing\/checkout/u, "the buyer is sent back to the checkout page");
+    assert.deepEqual(await footprint(), before, "…and nothing is written");
+    assert.equal(termsOpenForCheckout("e2pay"), false, "draft terms close checkout for a real provider");
+    assert.equal(termsOpenForCheckout("stand-in"), true, "the local stand-in may use draft terms");
+    assert.equal(termsOpenForCheckout(null), false);
+    assert.equal(termsOpenForCheckout("e2pay", { ...PURCHASE_TERMS, status: "approved" }), true, "approved terms open checkout for a real provider");
+    assert.match(readFileSync(new URL("../app/pricing/checkout/page.tsx", import.meta.url), "utf8"), /!termsOpenForCheckout\(provider\.id\)/u, "the checkout page closes on draft terms too");
 
     // The database repeats the rule for every other writer.
     const noTerms = await makeIntent(await makeBuyer("noterms"), 49_000, null, { termsVersion: null });

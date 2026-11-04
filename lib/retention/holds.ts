@@ -46,7 +46,9 @@ function requireReasonOrRetentionError(value: unknown) {
  * comes from `requireOwner`, which needs the verified second factor), with a
  * written reason, and re-checked against the database inside the transaction.
  * The hold row and its audit event are written together. While a hold is open,
- * the maintenance functions neither scrub nor delete what it covers.
+ * the maintenance functions neither scrub nor delete what it covers. The app
+ * cannot release a hold: that is `pnpm retention:release-hold`, on the owner's
+ * database login (MS-19 C-01).
  */
 async function placeLegalHold(owner: OwnerContext, input: PlaceHoldInput) {
   const reason = requireReasonOrRetentionError(input.reason);
@@ -88,38 +90,5 @@ async function placeLegalHold(owner: OwnerContext, input: PlaceHoldInput) {
   });
 }
 
-/** Releases a hold once, with a written reason. Same authority as placing it. */
-async function releaseLegalHold(
-  owner: OwnerContext,
-  input: { env?: Partial<Record<string, string | undefined>>; holdId: string; reason: unknown },
-) {
-  const reason = requireReasonOrRetentionError(input.reason);
-  if (!UUID.test(input.holdId)) throw new RetentionError("not_found", "Hold not found.");
-
-  return prisma.$transaction(async (tx) => {
-    await assertStillOwner(tx, owner, input.env);
-    const [hold = null] = await tx.$queryRaw<Array<{ caseKind: string | null; releasedAt: Date | null; scope: string; subjectId: string }>>`
-      SELECT scope, case_kind AS "caseKind", subject_id AS "subjectId", released_at AS "releasedAt"
-      FROM legal_holds WHERE id = ${input.holdId}::uuid FOR UPDATE
-    `;
-    if (!hold) throw new RetentionError("not_found", "Hold not found.");
-    if (hold.releasedAt) throw new RetentionError("already_released", "Hold already released.");
-
-    await tx.$executeRaw`
-      UPDATE legal_holds
-      SET released_at = now(), released_by_user_id = ${owner.userId}::uuid, release_reason = ${reason}
-      WHERE id = ${input.holdId}::uuid
-    `;
-    await tx.$executeRaw`
-      INSERT INTO audit_logs (action, actor_user_id, target_type, target_id, metadata)
-      VALUES (
-        'retention.hold.released', ${owner.userId}::uuid, ${AUDIT_TARGETS[hold.caseKind ?? hold.scope]}, ${hold.subjectId}::uuid,
-        ${JSON.stringify({ caseKind: hold.caseKind, holdId: input.holdId, scope: hold.scope })}::jsonb
-      )
-    `;
-    return { holdId: input.holdId };
-  });
-}
-
-export { CASE_KINDS, placeLegalHold, releaseLegalHold, SCOPES };
+export { CASE_KINDS, placeLegalHold, SCOPES };
 export type { CaseKind, HoldScope, PlaceHoldInput };

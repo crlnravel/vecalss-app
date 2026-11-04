@@ -42,7 +42,25 @@ async function main() {
   const withStep = await runDailyMaintenance(baseDeps({ retention: async () => ({ ...emptyRetention, scrub: [{ class: "buyer_ip_device", complete: true, counts: { payment_orders: 2 } }] }) }));
   assert.equal(withStep.ok, true);
   assert.equal(withStep.retention?.scrub[0].counts.payment_orders, 2, "the step's counts are in the result");
-  assert.equal(sent.length, 0, "a healthy retention step sends nothing");
+  assert.equal(sent.length, 1, "a retention run that scrubbed something tells the owner");
+  assert.equal(sent[0].to, "owner@vecalss.test");
+  assert.match(sent[0].text, /payment_orders 2/u, "the notice carries the counts");
+  assert.equal(/[0-9a-f]{8}-[0-9a-f]{4}-/u.test(sent[0].text), false, "…and no record ids");
+  sent.length = 0;
+
+  // MS-19 C-01: nothing changed, nothing sent; deleting counts too; a missing address or a failing send never fails the run.
+  await runDailyMaintenance(baseDeps({ retention: async () => ({ ...emptyRetention, scrub: [{ class: "buyer_ip_device", complete: true, counts: { payment_orders: 0 } }] }) }));
+  assert.equal(sent.length, 0, "a run that changed nothing sends nothing");
+  const deleted = await runDailyMaintenance(baseDeps({ retention: async () => ({ ...emptyRetention, delete: [{ class: "order_family", complete: true, counts: { payment_orders: 1, payment_events: 4 } }] }) }));
+  assert.equal(deleted.ok, true);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /order_family \(dihapus\): payment_orders 1, payment_events 4/u);
+  sent.length = 0;
+  const unaddressed = await runDailyMaintenance(baseDeps({ alertTo: null, retention: async () => ({ ...emptyRetention, scrub: [{ class: "buyer_ip_device", complete: true, counts: { payment_orders: 2 } }] }) }));
+  assert.equal(unaddressed.ok, true, "no alert address does not fail the run");
+  const brokenSend = await runDailyMaintenance(baseDeps({ retention: async () => ({ ...emptyRetention, scrub: [{ class: "buyer_ip_device", complete: true, counts: { payment_orders: 2 } }] }), sendAlert: async () => { throw new Error("mail down"); } }));
+  assert.equal(brokenSend.ok, true, "a send that throws does not fail the run");
+  assert.equal(sent.length, 0);
 
   const without = await runDailyMaintenance(baseDeps());
   assert.equal(without.retention, null, "a run given no retention step reports none");

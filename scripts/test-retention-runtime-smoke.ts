@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { createRuntimeLogin, ownerQuery } from "./retention-test-kit";
+import { createRuntimeLogin, ownerQuery, releaseHold } from "./retention-test-kit";
 
 /**
  * MS-10 phase A, the runtime-role smoke suite. The real application code paths
@@ -46,7 +46,7 @@ async function main() {
     const { fileAppeal, decideAppeal } = await import("../lib/fraud/appeals");
     const { runFraudMaintenance } = await import("../lib/fraud/maintenance");
     const { runRetentionMaintenance, checkRuntimeRole } = await import("../lib/retention/maintenance");
-    const { placeLegalHold, releaseLegalHold } = await import("../lib/retention/holds");
+    const { placeLegalHold } = await import("../lib/retention/holds");
     const { getOrderRetention } = await import("../lib/retention/status");
 
     // ---- The client really is the restricted login ------------------------------------------------------------
@@ -206,7 +206,7 @@ async function main() {
     const hold = await placeLegalHold(owner, { env: ENV, reason: "Pemeriksaan sengketa dengan penyedia pembayaran", scope: "order", subjectId: disputeOrder.id });
     const held = await getOrderRetention(disputeOrder.id);
     assert.ok(held && held.kind === "present" && held.held && held.holds.length === 1);
-    await releaseLegalHold(owner, { env: ENV, holdId: hold.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
+    await releaseHold(hold.holdId, "Pemeriksaan selesai tanpa temuan");
     const released = await getOrderRetention(disputeOrder.id);
     assert.ok(released && released.kind === "present" && !released.held);
     const result = await runRetentionMaintenance();

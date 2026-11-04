@@ -41,6 +41,44 @@ function sameFacts(row: RefundCaseRow, status: Extract<ProviderRefundStatus, { f
     && status.environment === provider.environment;
 }
 
+/**
+ * Stores what the provider's status lookup said as a `payment_events` row (type
+ * refund_succeeded, source reconciliation, accepted), the same shape a signed
+ * webhook leaves, and returns its id. The identity is fixed per refund, so asking
+ * twice stores it once.
+ */
+async function recordRefundStatusEvent(
+  tx: Tx,
+  row: RefundCaseRow,
+  status: Extract<ProviderRefundStatus, { found: true }>,
+  provider: PaymentProviderAdapter,
+) {
+  const [order] = await tx.$queryRaw<Array<{ reference: string }>>`SELECT reference FROM payment_orders WHERE id = ${row.orderId}::uuid`;
+  const eventKey = `status:${row.reference}:${status.providerRefundId}`;
+  const [inserted = null] = await tx.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO payment_events (
+      provider, provider_environment, provider_account, event_id, type, source, provider_payment_id,
+      merchant_reference, order_id, amount_rupiah, currency, buyer_id, refund_reference, provider_refund_id,
+      outcome, provider_occurred_at
+    )
+    VALUES (
+      ${provider.id}, ${status.environment}, ${status.merchantAccount}, ${eventKey}, 'refund_succeeded'::payment_event_type,
+      'reconciliation'::payment_event_source, ${status.providerPaymentId}, ${order.reference}, ${row.orderId}::uuid,
+      ${status.amountRupiah}, ${status.currency}, ${row.buyerId}, ${row.reference}, ${status.providerRefundId},
+      'accepted'::payment_event_outcome, ${status.occurredAt}
+    )
+    ON CONFLICT (provider, provider_environment, provider_account, event_id) DO NOTHING
+    RETURNING id
+  `;
+  if (inserted) return inserted.id;
+  const [existing] = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM payment_events
+    WHERE provider = ${provider.id} AND provider_environment = ${status.environment}
+      AND provider_account = ${status.merchantAccount} AND event_id = ${eventKey}
+  `;
+  return existing.id;
+}
+
 async function executeProviderRefund(
   owner: OwnerContext,
   input: { caseId: string; expectedVersion: number },
@@ -219,7 +257,10 @@ async function reconcileRefund(
     }
 
     if (status.state === "succeeded") {
-      await completeRefund(tx, row, { actor, eventId: null, source: "provider_status" }, status.providerRefundId);
+      // The completion points at a stored event for this refund (the database requires it), so the
+      // status answer is recorded first, as a reconciliation event, once per refund.
+      const eventId = await recordRefundStatusEvent(tx, row, status, deps.provider);
+      await completeRefund(tx, row, { actor, eventId, source: "provider_status" }, status.providerRefundId);
       return { result: "completed" };
     }
     if (status.state === "failed") {

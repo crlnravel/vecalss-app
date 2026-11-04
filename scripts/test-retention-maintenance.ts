@@ -3,14 +3,14 @@ import { randomUUID } from "node:crypto";
 
 import { verifyPacketFile } from "../lib/disputes/canonical";
 import { claimDisputeExport, createDisputeExport } from "../lib/disputes/export";
-import { placeLegalHold, releaseLegalHold } from "../lib/retention/holds";
+import { placeLegalHold } from "../lib/retention/holds";
 import { getOrderRetention } from "../lib/retention/status";
 import { recordDisputeNotice, resolveDispute } from "../lib/refunds/disputes";
 import { approveRefund, cancelRefund, prepareRefund } from "../lib/refunds/cases";
 import { recordPaidUse } from "../lib/fulfillment/usage";
 import { openFraudCase } from "../lib/fraud/cases";
 import { createManualBlock, liftBlock } from "../lib/fraud/blocks";
-import { createRuntimeLogin, ownerQuery, setupSql, shiftOrderBack } from "./retention-test-kit";
+import { createRuntimeLogin, ownerQuery, releaseHold, setupSql, shiftOrderBack } from "./retention-test-kit";
 import { deliver, makeOrder, prisma, provider, randomBuyerIp, signedEventFor } from "./payment-test-kit";
 import { ENV, FULL_REASON, cleanUp, refundCase, setupAuthority } from "./refund-test-kit";
 
@@ -167,8 +167,8 @@ async function main() {
   assert.ok((withHolds.heldSkipped ?? 0) >= 2, "held orders are counted as skipped");
   assert.equal((await ipState(heldOrder.id)).ip, true, "an order hold stops the scrub");
   assert.equal((await ipState(heldBuyer.id)).ip, true, "a buyer hold stops the scrub of the buyer's orders");
-  await releaseLegalHold(owner, { env: ENV, holdId: orderHold.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
-  await releaseLegalHold(owner, { env: ENV, holdId: buyerHold.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
+  await releaseHold(orderHold.holdId, "Pemeriksaan selesai tanpa temuan");
+  await releaseHold(buyerHold.holdId, "Pemeriksaan selesai tanpa temuan");
   await scrubAll();
   assert.equal((await ipState(heldOrder.id)).ip, false, "released, the next run scrubs");
   assert.equal((await ipState(heldBuyer.id)).ip, false);
@@ -307,7 +307,7 @@ async function main() {
     assert.equal((await getOrderRetention(full.id) as { held: boolean }).held, true);
 
     // A refund case closed recently extends the family past ten years.
-    await releaseLegalHold(owner, { env: ENV, holdId: hold.holdId, reason: "Pemeriksaan pajak selesai" });
+    await releaseHold(hold.holdId, "Pemeriksaan pajak selesai");
     await setupSql("UPDATE refund_cases SET closed_at = now() - interval '1 year' WHERE order_id = $1", [full.id]);
     const caseRun = await deleteAll();
     assert.ok((classOf(caseRun, "order_family")?.caseSkipped ?? 0) >= 1, "an order waiting on a case is counted as such");
@@ -428,7 +428,7 @@ async function main() {
     assert.equal((await ownerQuery("SELECT 1 FROM risk_policy_versions WHERE id = $1", [spare.id])).length, 0, "an old, unreferenced policy version is deleted");
     assert.equal((await ownerQuery("SELECT 1 FROM risk_policy_versions WHERE id = $1", [referenced.id])).length, 1, "an old policy version a retained case still points at is kept");
     assert.ok((await ownerQuery("SELECT 1 FROM risk_policy_versions WHERE version = (SELECT max(version) FROM risk_policy_versions)")).length === 1, "the newest policy version is never deleted");
-    await releaseLegalHold(owner, { env: ENV, holdId: hold.holdId, reason: "Penahanan seluruh data pembeli ini dilepas" });
+    await releaseHold(hold.holdId, "Penahanan seluruh data pembeli ini dilepas");
     await deleteAll();
     assert.equal((await ownerQuery("SELECT 1 FROM risk_day_buckets WHERE user_id = $1 AND bucket_date < now() - interval '10 years'", [buyer.buyerId])).length, 0);
     pass("blocks (two years after they ended), intents with no order (30 days), old policy versions and daily counters are deleted on their own periods, and holds and references stop them");

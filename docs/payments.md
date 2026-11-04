@@ -483,6 +483,17 @@ Won: access resumes (only if this dispute paused it and no other open dispute
 holds it). Lost: access is revoked and the amount counts against the balance.
 A resolved dispute is final; a contradicting event is kept for review.
 
+**What the database checks on a completion (MS-19).** A provider refund completes
+only when `confirmation_event_id` names a stored `payment_events` row for the same
+order: type `refund_succeeded`, outcome `accepted`, with the case's refund
+reference, provider refund id, payment id, amount and currency, and the source that
+matches (`webhook` for a signed event, `reconciliation` for a status lookup). The
+status lookup stores its answer as that reconciliation event before completing.
+This is defense in depth: whoever can insert an event row can write one, so the
+database cannot prove what the provider said. A **manual-transfer** completion is
+**owner-attested by design**: the owner records the destination, reference and
+proof note, and nothing else can confirm a bank transfer.
+
 **The refund-versus-dispute rule.** The order row is locked by every step, so
 one happens strictly before the other.
 
@@ -615,14 +626,35 @@ delete evidence. A failure in either step never stops the others.
 ### Holds
 
 `legal_holds` covers one order, one buyer, or one case (refund, dispute or
-fraud). Placed and released only by the owner (`FRAUD_OWNER_EMAIL`, verified
-second factor, written reason of 10 to 500 characters, re-checked against the
-database) on `/admin/fraud/orders/[orderId]`, with an audit event each. A hold
+fraud). Placed by the owner (`FRAUD_OWNER_EMAIL`, verified second factor, written
+reason of 10 to 500 characters, re-checked against the database) on
+`/admin/fraud/orders/[orderId]`, with an audit event. **Released only by the owner
+on the owner's database login**, with `pnpm retention:release-hold -- --hold <id>
+--reason "…"` (MS-19): the app's runtime login has no UPDATE on the release
+columns, so a compromised app cannot lift a hold and then run the cleanup. A hold
 is stored once and released once on the same row; both timestamps are the
 database's; nothing is deleted. The existing `evidence_hold` flags on refund
-cases and disputes hold the order as well. The database cannot tell who the
-owner is, so owner-only is enforced in the library, as for the other owner
-actions.
+cases and disputes hold the order as well. A compromised app can place holds and
+run the cleanup on records already past their period; it cannot release a hold.
+The daily job emails the owner (counts only) whenever a run scrubs or deletes
+anything.
+
+### Fixes from the independent code review (MS-19, section B)
+
+- **Usage evidence gap (M-01).** If recording a paid use fails, the student's page
+  still loads, but a `fulfillment_usage_gaps` row is written (once per Jakarta day).
+  Change-of-mind eligibility, in the app and in the database's recheck at approval,
+  treats a gap after the payment as use. Gaps are append-only and are not pruned.
+- **Dispute pause (M-03).** `payment_disputes.pause_caused` is true only when the
+  dispute's own pause changed the account. A won dispute resumes access only then;
+  an admin's earlier pause stays. Of two open disputes on one buyer, the pause
+  passes to the one still open. A dispute opened before this change does not own the
+  pause, so winning it leaves access as it is (an admin resumes it by hand).
+- **Draft terms (M-05).** Checkout needs approved terms. With draft terms the page
+  shows the paused notice and the server action writes nothing, unless the provider
+  is the local stand-in. Approving the terms stays a go-live action for the owner.
+- **Buyer email (M-02).** The order page shows the full email to the owner only;
+  other admins see the masked address.
 
 ### Restricted views and logs
 

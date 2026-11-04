@@ -14,7 +14,14 @@
  *   2. Creates the login role (or sets a new password on it) and makes it a
  *      member of vecalss_runtime. It gets no other privilege: it is not a
  *      superuser, owns nothing, and cannot create objects.
- *   3. Prints the connection string with the password left out. Put the
+ *      A login that already exists is checked first (MS-19): if it is a member
+ *      of any other role (above all vecalss_retention) or owns anything, the
+ *      script lists that and changes nothing. --revoke-extra removes extra
+ *      role memberships; it never moves ownership.
+ *   3. Connects as the login and runs retention_role_check(); the script
+ *      reports success only when that passes (before the migration exists the
+ *      check cannot run, and it says so: run it again after migrating).
+ *   4. Prints the connection string with the password left out. Put the
  *      password into Vercel's DATABASE_URL yourself.
  *
  * The password is read only from RUNTIME_DB_PASSWORD, never from the command
@@ -24,9 +31,7 @@
  */
 import "dotenv/config";
 
-import pg from "pg";
-
-const { Client } = pg;
+import { provisionRuntimeLogin, SetupError } from "../lib/retention/runtime-login.mjs";
 
 const LOGIN_PATTERN = /^[a-z][a-z0-9_]{2,40}$/u;
 const RESERVED = new Set(["vecalss_retention", "vecalss_runtime", "postgres"]);
@@ -36,9 +41,10 @@ function parseArguments(argv) {
   const flags = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (argument === "--") continue;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument: ${argument}`);
     const name = argument.slice(2);
-    if (name === "yes") {
+    if (name === "yes" || name === "revoke-extra") {
       flags.add(name);
       continue;
     }
@@ -54,7 +60,7 @@ async function main() {
   const { flags, values } = parseArguments(process.argv.slice(2));
   const login = values.login ?? "vecalss_app";
   if (!LOGIN_PATTERN.test(login) || RESERVED.has(login)) {
-    throw new Error("--login must be a new lowercase role name (letters, digits and underscores), not one of the reserved roles.");
+    throw new Error("--login must be a lowercase role name (letters, digits and underscores), not one of the reserved roles.");
   }
 
   const ownerUrl = (process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL || "").trim();
@@ -74,41 +80,17 @@ async function main() {
     return;
   }
 
-  const client = new Client({ connectionString: ownerUrl });
-  await client.connect();
-  try {
-    await client.query("BEGIN");
-    for (const role of ["vecalss_retention", "vecalss_runtime"]) {
-      const exists = await client.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [role]);
-      if (exists.rowCount === 0) {
-        await client.query(`CREATE ROLE ${client.escapeIdentifier(role)} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
-        console.log(`Created NOLOGIN role ${role}.`);
-      }
-    }
-
-    const quotedLogin = client.escapeIdentifier(login);
-    const literal = client.escapeLiteral(password);
-    const existing = await client.query("SELECT rolsuper, rolcreaterole, rolcreatedb FROM pg_roles WHERE rolname = $1", [login]);
-    if (existing.rowCount === 0) {
-      await client.query(
-        `CREATE ROLE ${quotedLogin} LOGIN PASSWORD ${literal} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS IN ROLE vecalss_runtime`,
-      );
-      console.log(`Created login role ${login}.`);
-    } else {
-      const [row] = existing.rows;
-      if (row.rolsuper || row.rolcreaterole || row.rolcreatedb) {
-        throw new Error(`${login} already exists with extra privileges. Pick another name or fix the role first.`);
-      }
-      await client.query(`ALTER ROLE ${quotedLogin} LOGIN PASSWORD ${literal} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);
-      await client.query(`GRANT vecalss_runtime TO ${quotedLogin}`);
-      console.log(`Updated the password of ${login}.`);
-    }
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally {
-    await client.end();
+  const result = await provisionRuntimeLogin({
+    log: (line) => console.log(line),
+    login,
+    ownerUrl,
+    password,
+    revokeExtra: flags.has("revoke-extra"),
+  });
+  if (result.check.pending) {
+    console.log("The runtime-role check does not exist yet (the migrations are not applied). Apply them, then run this again to confirm the login passes.");
+  } else {
+    console.log("The runtime-role check passed for this login.");
   }
 
   const runtimeUrl = new URL(ownerUrl);
@@ -123,5 +105,6 @@ async function main() {
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : "Unknown error.");
+  if (error instanceof SetupError) for (const finding of error.findings) console.error(`  - ${finding}`);
   process.exitCode = 1;
 });

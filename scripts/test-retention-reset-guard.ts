@@ -7,6 +7,13 @@ import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
+import {
+  assertNotMerchantEnvironment,
+  decideReset,
+  isLoopbackHost,
+  MerchantEnvironmentError,
+  MissingMarkTableError,
+} from "../lib/retention/environment-guard.mjs";
 import { deleteStudentEnrollment } from "../lib/admin/enrollment/service";
 import { createRuntimeLogin, ownerClient, ownerQuery, ownerUrl } from "./retention-test-kit";
 import { cleanUp, paidOrder, prisma, setupAuthority } from "./refund-test-kit";
@@ -83,6 +90,43 @@ async function main() {
     assert.equal(devCheck.status, 0, "the local dev database is not marked, so the normal local flow is unchanged");
     assert.equal((await ownerQuery("SELECT 1 FROM environment_marks")).length, 0, "and this suite never marked it");
     pass("an unmarked database, one without the table yet, and one that does not exist all let the reset start; the local dev database is unmarked");
+
+    // ---- MS-19 H-02: a missing mark table is not an unmarked database, unless the database is on this machine ------------------------------------------
+    const remote = "postgresql://owner:pw@ep-merchant-pooler.example.neon.tech/neondb?sslmode=require";
+    for (const host of ["127.0.0.1", "localhost", "[::1]", "LOCALHOST"]) assert.equal(isLoopbackHost(`postgresql://u:p@${host}:5432/db`), true, host);
+    for (const host of ["ep-x.neon.tech", "10.0.0.5", "127.0.0.1.example.com", "db.internal"]) assert.equal(isLoopbackHost(`postgresql://u:p@${host}/db`), false, host);
+    assert.equal(isLoopbackHost("not a url"), false);
+    assert.deepEqual(decideReset({ connectionString: urlFor("anything"), env: {}, state: "no_table" }), { allow: true }, "a loopback database with no mark table still resets");
+    assert.deepEqual(decideReset({ connectionString: remote, env: {}, state: "unmarked" }), { allow: true }, "a remote database with the table and no row is unmarked");
+    assert.deepEqual(decideReset({ connectionString: remote, env: {}, state: "no_database" }), { allow: true }, "a database that does not exist holds nothing");
+    assert.equal(decideReset({ connectionString: remote, env: {}, state: "marked" }).allow, false, "a marked database refuses");
+    assert.equal(decideReset({ connectionString: urlFor("anything"), env: {}, state: "marked" }).allow, false, "…on this machine too");
+    const noTable = decideReset({ connectionString: remote, env: {}, state: "no_table" });
+    assert.equal(noTable.allow, false, "a remote database with no mark table refuses");
+    assert.equal(noTable.reason, "no_mark_table");
+    for (const override of ["", "other_db", "NEONDB", "neondb ", undefined]) {
+      const wrong = decideReset({ connectionString: remote, env: { ALLOW_RESET_WITHOUT_MARK: override }, state: "no_table" });
+      assert.equal(wrong.allow, override === "neondb ", `override ${JSON.stringify(override)} ${override === "neondb " ? "(trimmed) names the database" : "does not name the database"}`);
+    }
+    assert.equal(decideReset({ connectionString: remote, env: { ALLOW_RESET_WITHOUT_MARK: "neondb" }, state: "no_table" }).allow, true, "the explicit override that names the database works");
+    assert.equal(decideReset({ connectionString: remote, env: { ALLOW_RESET_WITHOUT_MARK: "neondb" }, state: "marked" }).allow, false, "the override never beats a mark");
+    // Through the guard itself, with a stand-in reader instead of a connection.
+    const readAs = (state: string) => async () => ({ mark: state === "marked" ? { environment: "merchant" } : null, state });
+    await assert.rejects(assertNotMerchantEnvironment("db:reset", { DATABASE_URL: remote }, { read: readAs("no_table") }), (error: unknown) => error instanceof MissingMarkTableError && error.message.includes("ALLOW_RESET_WITHOUT_MARK=neondb") && !error.message.includes("pw@"));
+    await assertNotMerchantEnvironment("db:reset", { ALLOW_RESET_WITHOUT_MARK: "neondb", DATABASE_URL: remote }, { read: readAs("no_table") });
+    await assertNotMerchantEnvironment("db:reset", { DATABASE_URL: urlFor("anything") }, { read: readAs("no_table") });
+    await assert.rejects(assertNotMerchantEnvironment("db:reset", { ALLOW_RESET_WITHOUT_MARK: "neondb", DATABASE_URL: remote }, { read: readAs("marked") }), MerchantEnvironmentError);
+    // Either connection string is checked, and the override must name each database that lacks the table.
+    await assert.rejects(
+      assertNotMerchantEnvironment("db:reset", { ALLOW_RESET_WITHOUT_MARK: "neondb", DATABASE_URL: urlFor("local_one"), MIGRATE_DATABASE_URL: remote.replace("/neondb", "/other") }, { read: readAs("no_table") }),
+      MissingMarkTableError,
+    );
+    await assert.rejects(assertNotMerchantEnvironment("db:reset", { DATABASE_URL: remote }, { read: async () => { throw new Error("boom"); } }), /could not be read/u, "still fails closed when the read fails");
+    // Driven through the script with a database that cannot be reached: it refuses and never prints the connection string.
+    const fake = runNode(["scripts/check-environment-mark.mjs", "db:reset"], "postgresql://owner:fakepassword@127.0.0.1:1/neondb");
+    assert.notEqual(fake.status, 0);
+    assert.equal(fake.output.includes("fakepassword"), false);
+    pass("a missing mark table resets on this machine only; elsewhere it refuses unless the override names the database, a mark always refuses, and a failed read still refuses");
 
     // ---- The mark script ---------------------------------------------------------------------------------------------------------------------------
     const markUrl = urlFor(unmarkedWithTable);

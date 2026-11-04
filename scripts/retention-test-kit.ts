@@ -4,6 +4,8 @@ import { randomBytes } from "node:crypto";
 
 import pg from "pg";
 
+import { releaseHoldAsOwner } from "../lib/retention/release-hold.mjs";
+
 /**
  * Shared fixtures for the retention suites (MS-10). Local database only: the
  * suites create login roles, backdate evidence with the replication role (which
@@ -12,8 +14,11 @@ import pg from "pg";
 
 const LOCAL_URL = /@(127\.0\.0\.1|localhost):55432\//u;
 
+// Read once, when the kit loads: the runtime smoke suite later points DATABASE_URL at the restricted login.
+const OWNER_DATABASE_URL = process.env.DATABASE_URL ?? "";
+
 function ownerUrl() {
-  const url = process.env.DATABASE_URL ?? "";
+  const url = OWNER_DATABASE_URL;
   if (!LOCAL_URL.test(url)) throw new Error("The retention suites only run against the local dev database on 127.0.0.1:55432.");
   return url;
 }
@@ -169,5 +174,20 @@ async function ownerQuery<T extends pg.QueryResultRow = pg.QueryResultRow>(sql: 
   }
 }
 
-export { createRuntimeLogin, failureOf, ownerClient, ownerQuery, ownerUrl, setupSql, shiftOrderBack };
+/**
+ * Releases a hold the way the owner does: `pnpm retention:release-hold`, on the
+ * owner's database login (here the local superuser). The app has no release path.
+ */
+async function releaseHold(holdId: string, reason: string, ownerEmail?: string) {
+  // Loaded here, not at the top: the runtime smoke suite must set DATABASE_URL before anything loads the Prisma client.
+  const email = ownerEmail ?? (await import("./refund-test-kit")).OWNER_EMAIL;
+  const client = await ownerClient();
+  try {
+    return await releaseHoldAsOwner(client, { holdId, ownerEmail: email, reason });
+  } finally {
+    await client.end();
+  }
+}
+
+export { createRuntimeLogin, releaseHold, failureOf, ownerClient, ownerQuery, ownerUrl, setupSql, shiftOrderBack };
 export type { RuntimeLogin };

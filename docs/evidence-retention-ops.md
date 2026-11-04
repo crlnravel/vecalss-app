@@ -33,6 +33,15 @@ in a migration, in git, or in chat.
 
    Without `--yes` it only says what it would do. It never prints the password,
    and it prints the connection string with the password left out.
+
+   Reusing a login that already exists is checked first. If it is a member of any
+   role other than `vecalss_runtime` (above all `vecalss_retention`), or owns any
+   table or other object, the script lists that and changes nothing, not even the
+   password. `--revoke-extra` removes extra role memberships; it never moves
+   ownership, so a login that owns something needs a new name. At the end the
+   script connects as the login and runs `retention_role_check()`; it reports
+   success only when that passes. Before the migrations exist the check cannot
+   run, and the script says so: run it again after migrating.
 3. Build the app's connection string from that output, put the password in, and
    set it as `DATABASE_URL` in Vercel (Production). Use Neon's pooled host for the
    app, as before. Set `MIGRATE_DATABASE_URL` to the owner's direct connection
@@ -61,13 +70,29 @@ scripts refuse to run there. The mark is a single append-only row: nothing in th
 product can change or remove it, and only a deliberate owner act in SQL (disabling
 its trigger) can. Do not mark staging or local databases.
 
+A database that has no `environment_marks` table at all is **not** treated as
+unmarked, because a merchant database whose table was dropped would look the same.
+On this machine (a loopback host) such a database can still be reset. Anywhere else
+the reset refuses, unless the owner is sure it is a throwaway database and says so,
+naming it: `ALLOW_RESET_WITHOUT_MARK=<database name> pnpm db:reset`. The override
+never beats a mark.
+
 ## Adding a table later
 
-A new table works for the app straight away. If it holds evidence, add it to
-`evidence_tables` in the same migration (with the columns the runtime may
-UPDATE) and finish with `SELECT public.retention_apply_runtime_grants();`.
-`pnpm test:retention-roles` fails when a table with an immutability trigger or a
-payment-evidence name is missing from the registry.
+A new table starts with **no access for the app's role**: there are no default
+privileges for future tables (MS-19). The migration that creates it must finish
+with `SELECT public.retention_apply_runtime_grants();`, which gives an ordinary
+table full read and write, and an evidence table only what its registry row allows.
+If the table holds evidence, add it to `evidence_tables` in the same migration
+first, with the columns the runtime may UPDATE.
+
+The helper refuses to run while a table whose name starts with `payment_`,
+`refund_`, `risk_`, `fraud_`, `retention_`, `receipt_`, `fulfillment_`, `dispute_`,
+`billing_`, `legal_`, `environment_` or `checkout_` is neither in `evidence_tables`
+nor on its short reviewed list of ordinary tables (`billing_accounts`,
+`risk_flags`). So a forgotten registration stops the migration instead of opening
+the table. `pnpm test:retention-roles` enforces the same rule for every table in
+the schema and the database.
 
 ## Changing a period
 
@@ -79,15 +104,39 @@ data change.
 
 ## Holds
 
-Place and release holds on the order page (`/admin/fraud/orders/<id>`), as the
-owner with the second factor and a written reason. A hold on an order, a buyer or
-a case stops the scrub and the delete until released.
+Place a hold on the order page (`/admin/fraud/orders/<id>`), as the owner with the
+second factor and a written reason. A hold on an order, a buyer or a case stops
+the scrub and the delete until it is released.
+
+The app cannot release a hold. Only the owner can, on the owner's database login,
+from the owner's computer:
+
+```sh
+pnpm retention:release-hold -- --hold <hold id> --reason "<why, 10 to 500 characters>"
+```
+
+The command connects with `MIGRATE_DATABASE_URL` (else `DATABASE_URL`), records
+the `FRAUD_OWNER_EMAIL` account as the one who released it, writes an audit row,
+and refuses to run if the connected role is the app's runtime login. A release is
+one-way; to hold the same thing again, place a new hold. The order page lists each
+open hold with the hold id and this command.
+
+Whenever a retention run scrubs or deletes anything, the daily job emails
+`MAINTENANCE_ALERT_EMAIL` with the counts per class (never record contents), so an
+unexpected deletion is noticed the day it happens.
 
 ## Things to know
 
-- The database cannot tell who the owner is. Anything connected as the app's role
-  could write a hold row directly; the owner-only rule is enforced in the
-  application, like the other owner actions.
+- What a compromised app can and cannot do (the threat model). The app's runtime
+  login can **place** holds, and it can call the cleanup functions, which only act
+  on records already past their period (12 months for IP and device data, 2 years
+  for cases, 10 years for financial records) and not under a hold. It **cannot
+  release a hold**, because it has no UPDATE on the release columns, so it cannot
+  defeat a hold the owner placed. Placing a hold needs no database proof of who
+  the owner is; the owner-only rule for placing is enforced in the application,
+  like the other owner actions, so a compromised app can place holds that the
+  owner then has to release. The owner's own login can do everything the
+  migration role can, and is not restricted by this design.
 - The delete path also removes the `package_purchases` summary and the checkout
   intent of an expired order family, and nothing else outside it: users, the
   access ledger and `audit_logs` stay.

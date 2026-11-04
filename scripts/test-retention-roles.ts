@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import type pg from "pg";
 
@@ -95,16 +96,18 @@ async function main() {
     assert.equal((await runtime.query("SELECT has_table_privilege('public._prisma_migrations', 'SELECT') AS ok")).rows[0].ok, false, "the migration history is not the runtime's");
     pass(`ordinary tables (${ordinary.length}) keep read and write for the runtime role, without TRUNCATE or TRIGGER`);
 
-    // A table created later still works for the app until it is classified (default privileges).
+    // A table created later gives the app nothing until the grant helper runs (MS-19 M-04: no default privileges).
     const owner = await ownerClient();
     try {
       await owner.query("CREATE TABLE zz_retention_probe (id int primary key)");
+      assert.equal((await runtime.query("SELECT has_table_privilege('public.zz_retention_probe', 'SELECT') AS ok")).rows[0].ok, false);
+      await owner.query("SELECT public.retention_apply_runtime_grants()");
       assert.equal((await runtime.query("SELECT has_table_privilege('public.zz_retention_probe', 'SELECT,INSERT,UPDATE,DELETE') AS ok")).rows[0].ok, true);
     } finally {
       await owner.query("DROP TABLE IF EXISTS zz_retention_probe");
       await owner.end();
     }
-    pass("a table added by a later migration is usable by the app straight away (default privileges)");
+    pass("a table added by a later migration has no runtime access until the grant helper runs, then works like the other ordinary tables");
 
     // ---- No DDL, no trigger changes, no role changes, no replication-role switch -----------------------------
     for (const sql of [
@@ -276,6 +279,67 @@ async function main() {
     // risk_flags is the older cohort-risk flag list, not payment evidence.
     for (const { relname } of prefixed.filter((row) => row.relname !== "risk_flags")) assert.ok(registered.has(relname), `${relname} looks like payment evidence and must be classified`);
     pass("every table with an immutability trigger, and every payment-evidence table by name, is in the evidence registry");
+
+    // ---- MS-19 M-04: no broad default, and an unregistered merchant-evidence table stops the grant helper ---------------------------------
+    const MERCHANT_PREFIX = /^(payment_|refund_|risk_|fraud_|retention_|receipt_|fulfillment_|dispute_|billing_|legal_|environment_|checkout_)/u;
+    const REVIEWED_ORDINARY = new Set(["billing_accounts", "risk_flags"]);
+    // Only models are tables (enums carry @@map too).
+    const schemaTables = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8")
+      .split(/^model /mu)
+      .slice(1)
+      .map((block) => /@@map\("([^"]+)"\)/u.exec(block.split(/^\}/mu)[0])?.[1])
+      .filter((name): name is string => Boolean(name));
+    const liveTables = (await ownerQuery<{ relname: string }>("SELECT relname FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r', 'p')")).map((row) => row.relname);
+    for (const table of new Set([...schemaTables, ...liveTables])) {
+      if (!MERCHANT_PREFIX.test(table) || REVIEWED_ORDINARY.has(table)) continue;
+      assert.ok(registered.has(table), `${table} has a merchant-evidence name prefix, so it must be in evidence_tables (or reviewed as ordinary in retention_apply_runtime_grants)`);
+    }
+    for (const table of schemaTables) {
+      assert.equal(
+        (await ownerQuery<{ ok: boolean }>("SELECT has_table_privilege($1, to_regclass($2), 'SELECT') AS ok", [login.role, `public.${table}`]))[0].ok,
+        true,
+        `${table} is readable by the runtime role after the grant helper ran`,
+      );
+    }
+    assert.equal(
+      Number((await ownerQuery<{ n: string }>("SELECT count(*) AS n FROM pg_default_acl d WHERE d.defaclnamespace = 'public'::regnamespace AND d.defaclacl::text LIKE '%vecalss_runtime%'"))[0].n),
+      0,
+      "the runtime role has no default privileges on future tables or sequences",
+    );
+    const probe = await ownerClient();
+    try {
+      // A table created later starts with nothing for the runtime role.
+      await probe.query("BEGIN");
+      await probe.query("CREATE TABLE public.zz_plain_probe (id int)");
+      await probe.query("CREATE SEQUENCE public.zz_plain_probe_seq");
+      for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE"]) {
+        assert.equal((await probe.query("SELECT has_table_privilege($1, 'public.zz_plain_probe', $2) AS ok", [login.role, privilege])).rows[0].ok, false, `a new table gives the runtime role no ${privilege}`);
+      }
+      assert.equal((await probe.query("SELECT has_sequence_privilege($1, 'public.zz_plain_probe_seq', 'USAGE') AS ok", [login.role])).rows[0].ok, false, "…nor a new sequence");
+      // The helper then grants an ordinary table what the app needs.
+      await probe.query("SELECT public.retention_apply_runtime_grants()");
+      assert.equal((await probe.query("SELECT has_table_privilege($1, 'public.zz_plain_probe', 'DELETE') AS ok", [login.role])).rows[0].ok, true);
+      await probe.query("ROLLBACK");
+
+      // A merchant-prefixed table that is not registered stops the helper, and nothing is granted.
+      for (const name of ["payment_zz_probe", "checkout_zz_probe", "legal_zz_probe", "billing_zz_probe"]) {
+        await probe.query("BEGIN");
+        await probe.query(`CREATE TABLE public.${name} (id int)`);
+        await assert.rejects(probe.query("SELECT public.retention_apply_runtime_grants()"), (error: unknown) => (error as { code?: string; message?: string }).code === "55000" && String((error as Error).message).includes(name), name);
+        await probe.query("ROLLBACK");
+        await probe.query("BEGIN");
+        await probe.query(`CREATE TABLE public.${name} (id int)`);
+        await probe.query("INSERT INTO evidence_tables (table_name, record_class, update_columns, runtime_insert, note) VALUES ($1, 'order_family', ARRAY[]::text[], true, 'uji')", [name]);
+        await probe.query("SELECT public.retention_apply_runtime_grants()");
+        const granted = await probe.query("SELECT has_table_privilege($1, $2, 'SELECT') AS s, has_table_privilege($1, $2, 'INSERT') AS i, has_table_privilege($1, $2, 'UPDATE') AS u, has_table_privilege($1, $2, 'DELETE') AS d", [login.role, `public.${name}`]);
+        assert.deepEqual(granted.rows[0], { d: false, i: true, s: true, u: false }, `${name}: once registered it gets only the registry's rights`);
+        await probe.query("ROLLBACK");
+      }
+    } finally {
+      await probe.query("ROLLBACK").catch(() => undefined);
+      await probe.end();
+    }
+    pass("no default privileges for the runtime role; a new table starts with none; the grant helper refuses an unregistered merchant-evidence table and grants a registered one only its registry rights; every such table is registered");
 
     // ---- The production readiness check ------------------------------------------------------------------------
     const clean = (await runtime.query("SELECT retention_role_check() AS r")).rows[0].r as { findings: string[]; ok: boolean };

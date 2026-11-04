@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { getAccessState, hasPaidAccess } from "../lib/billing/service";
+import { getAccessState, hasPaidAccess, pauseAccess } from "../lib/billing/service";
 import { sealPacket, verifyPacketFile } from "../lib/disputes/canonical";
 import { claimDisputeExport, createDisputeExport } from "../lib/disputes/export";
 import { FraudAuthorityError } from "../lib/fraud/errors";
@@ -24,6 +24,7 @@ import {
   provider,
   refundCase,
   setupAuthority,
+  withTriggersOff,
 } from "./refund-test-kit";
 
 /**
@@ -123,6 +124,59 @@ async function main() {
     await refundError(() => prepare(order.id), "balance_exceeded");
     assert.ok(await prisma.auditLog.count({ where: { action: { in: ["dispute.opened", "dispute.won", "dispute.lost"] }, targetId: order.id } }) >= 4);
     pass("owner notice: opens, pauses, holds evidence; won resumes; lost revokes");
+  }
+
+  // ---- MS-19 M-03: a win lifts only a pause the dispute itself caused ---------------------------------------------
+  {
+    // An admin paused this buyer for another reason first. A dispute opens and is won: the admin's pause stays.
+    const order = await paidOrder();
+    await pauseAccess({ actorUserId: authority.ownerId, idempotencyKey: `admin-pause:${order.id}`, reason: "Dijeda admin karena alasan lain", source: "admin", studentId: order.buyerId });
+    assert.equal((await getAccessState(order.buyerId)).status, "paused");
+    const opened = await dispute(order.id);
+    const heldRow = await disputeRow(opened.disputeId);
+    assert.equal(heldRow.accessPaused, true, "the dispute holds access while it is open");
+    assert.equal(heldRow.pauseCaused, false, "…but it did not cause the pause");
+    assert.equal(heldRow.accessEffect, "already_paused");
+    await resolve(opened.disputeId, "won");
+    const wonRow = await disputeRow(opened.disputeId);
+    assert.equal(wonRow.accessEffect, "pause_not_from_dispute");
+    assert.equal((await getAccessState(order.buyerId)).status, "paused", "winning does not undo the admin's pause");
+
+    // A dispute that did cause the pause still resumes it when won.
+    const own = await paidOrder();
+    const ownDispute = await dispute(own.id);
+    assert.equal((await disputeRow(ownDispute.disputeId)).pauseCaused, true);
+    await resolve(ownDispute.disputeId, "won");
+    assert.equal((await disputeRow(ownDispute.disputeId)).accessEffect, "resumed");
+    assert.equal((await getAccessState(own.buyerId)).status, "active");
+
+    // Two open disputes: the first caused the pause, the second joined it. Winning the first leaves the
+    // pause with the second, and winning the second then lifts it.
+    const chain = await paidOrder();
+    // The day's purchase counter would refuse a second order for this buyer, so it is cleared for the fixture.
+    await prisma.$executeRaw`UPDATE risk_day_buckets SET purchase_count = 0, amount_rupiah = 0 WHERE user_id = ${chain.buyerId}::uuid`;
+    const chainSecond = await paidOrder({ buyerId: chain.buyerId });
+    const first = await dispute(chain.id);
+    const secondOpen = await dispute(chainSecond.id);
+    assert.equal((await disputeRow(first.disputeId)).pauseCaused, true);
+    assert.equal((await disputeRow(secondOpen.disputeId)).pauseCaused, false);
+    await resolve(first.disputeId, "won");
+    assert.equal((await disputeRow(first.disputeId)).accessEffect, "still_paused_other_dispute");
+    assert.equal((await disputeRow(secondOpen.disputeId)).pauseCaused, true, "the pause passed to the dispute still open");
+    assert.equal((await getAccessState(chain.buyerId)).status, "paused");
+    await resolve(secondOpen.disputeId, "won");
+    assert.equal((await getAccessState(chain.buyerId)).status, "active", "the last win lifts the pause the disputes caused");
+
+    // A dispute that was already open before this change does not own the pause: winning it leaves access alone.
+    const legacy = await paidOrder();
+    const old = await dispute(legacy.id);
+    // While a dispute is open the flag only moves one way (the database refuses clearing it); the fixture clears it with triggers off.
+    await assert.rejects(() => prisma.$executeRaw`UPDATE payment_disputes SET pause_caused = false WHERE id = ${old.disputeId}::uuid`, /only gains access and refund notes/u);
+    await withTriggersOff("payment_disputes", (tx) => tx.$executeRaw`UPDATE payment_disputes SET pause_caused = false WHERE id = ${old.disputeId}::uuid`);
+    await resolve(old.disputeId, "won");
+    assert.equal((await disputeRow(old.disputeId)).accessEffect, "pause_not_from_dispute");
+    assert.equal((await getAccessState(legacy.buyerId)).status, "paused");
+    pass("a won dispute lifts only a pause it caused: an admin's earlier pause stays, a chain of disputes hands the pause on, an older dispute leaves access alone");
   }
 
   // ---- A stand-in dispute event does the same, through the inbox ---------------------------------------------------

@@ -755,6 +755,7 @@ model User {
   paymentOrders                          PaymentOrder[]                       @relation("PaymentOrderBuyer")
   paymentReceipts                        PaymentReceipt[]                     @relation("PaymentReceiptBuyer")
   fulfillmentUsageEvents                 FulfillmentUsageEvent[]              @relation("FulfillmentUsageStudent")
+  fulfillmentUsageGaps                   FulfillmentUsageGap[]                @relation("FulfillmentUsageGapStudent")
   disputeExportsRequested                DisputeExport[]                      @relation("DisputeExportRequester")
   refundCasesAsBuyer                     RefundCase[]                         @relation("RefundCaseBuyer")
   refundCasesPrepared                    RefundCase[]                         @relation("RefundCasePreparer")
@@ -4275,6 +4276,21 @@ model FulfillmentUsageEvent {
   @@map("fulfillment_usage_events")
 }
 
+/// MS-19 M-01: written when recording a paid use failed, so that "no usage row"
+/// is never read as "not used". Student-level and append-only; change-of-mind
+/// eligibility treats a gap after the payment as use.
+model FulfillmentUsageGap {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  jakartaDay DateTime @default(dbgenerated("risk_jakarta_day(now())")) @map("jakarta_day") @db.Date
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  student User @relation("FulfillmentUsageGapStudent", fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, jakartaDay])
+  @@map("fulfillment_usage_gaps")
+}
+
 /// The log of every dispute export, and the short-lived packet behind its
 /// one-use link. The packet is dropped when the link is used or expires; the
 /// row, its reason and its digest stay. Rows are never deleted.
@@ -4460,6 +4476,8 @@ model PaymentDispute {
   paymentEventId    String?             @map("payment_event_id") @db.Uuid
   /// Whether opening this dispute paused the buyer's access (so a win resumes only what it paused).
   accessPaused      Boolean             @default(false) @map("access_paused")
+  /// MS-19 M-03: true only when this dispute's own pause changed the account (or took over from one that did). A win resumes access only then.
+  pauseCaused       Boolean             @default(false) @map("pause_caused")
   /// A refund was on its way or done when the dispute arrived.
   refundInFlight    Boolean             @default(false) @map("refund_in_flight")
   resolvedAt        DateTime?           @map("resolved_at") @db.Timestamptz
