@@ -64,6 +64,12 @@ async function canConnect(role: string, password: string) {
 const membersOf = (role: string) =>
   owner(async (client) => (await client.query("SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = $1 ORDER BY 1", [role])).rows.map((row) => row.rolname as string));
 
+const hasRuntimeAdminOption = (role: string) =>
+  owner(async (client) => (await client.query(
+    "SELECT m.admin_option FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = $1 AND r.rolname = 'vecalss_runtime'",
+    [role],
+  )).rows[0]?.admin_option === true);
+
 async function refused(work: Promise<unknown>) {
   try {
     await work;
@@ -94,6 +100,24 @@ async function main() {
     assert.equal(freshResult.check.ok, true);
     assert.deepEqual(await membersOf(fresh), ["vecalss_runtime"]);
     pass("a clean existing login and a new login are provisioned, and each passes its own role check");
+
+    // ---- ADMIN OPTION on the reused runtime membership is refused and removed only on request -------------------------------------------
+    const adminOptionOld = secret();
+    const adminOptionLogin = await makeLogin("adminopt", adminOptionOld, ["GRANT vecalss_runtime TO {role} WITH ADMIN OPTION"]);
+    const adminOptionNew = secret();
+    const adminOptionFailure = await refused(provisionRuntimeLogin({ login: adminOptionLogin, ownerUrl: ownerUrl(), password: adminOptionNew }));
+    assert.ok(adminOptionFailure.findings.some((line: string) => line.includes("ADMIN OPTION") && line.includes("vecalss_runtime")));
+    assert.deepEqual(await membersOf(adminOptionLogin), ["vecalss_runtime"], "the membership is untouched on refusal");
+    assert.equal(await hasRuntimeAdminOption(adminOptionLogin), true);
+    assert.equal(await canConnect(adminOptionLogin, adminOptionOld), true, "the password stays unchanged on refusal");
+    assert.equal(await canConnect(adminOptionLogin, adminOptionNew), false);
+
+    const adminOptionFixed = await provisionRuntimeLogin({ login: adminOptionLogin, ownerUrl: ownerUrl(), password: adminOptionNew, revokeExtra: true });
+    assert.deepEqual(adminOptionFixed.revoked, ["ADMIN OPTION ON vecalss_runtime"]);
+    assert.equal(adminOptionFixed.check.ok, true, "the real login passes its own role check after revocation");
+    assert.deepEqual(await membersOf(adminOptionLogin), ["vecalss_runtime"], "revoking the option preserves ordinary runtime membership");
+    assert.equal(await hasRuntimeAdminOption(adminOptionLogin), false);
+    pass("a reused login with ADMIN OPTION on vecalss_runtime is refused without changes; --revoke-extra removes only the option and passes the real login check");
 
     // ---- A login that is already a member of vecalss_retention ---------------------------------------------------------------------------
     const retentionOld = secret();
