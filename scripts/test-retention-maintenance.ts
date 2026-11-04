@@ -333,7 +333,7 @@ async function main() {
     // Closed three years ago: the case goes first, then the family, in one run.
     await setupSql("UPDATE fraud_cases SET closed_at = now() - interval '3 years' WHERE id = $1", [opened.id]);
     const run = await deleteAll();
-    assert.equal(classOf(run, "fraud_case")?.counts.fraud_cases >= 1, true);
+    assert.equal((classOf(run, "fraud_case")?.counts.fraud_cases ?? 0) >= 1, true);
     assert.equal((await ownerQuery("SELECT 1 FROM fraud_cases WHERE id = $1", [opened.id])).length, 0, "the fraud case was deleted");
     assert.equal((await ownerQuery("SELECT 1 FROM fraud_case_events WHERE case_id = $1", [opened.id])).length, 0, "…with its events");
     assert.equal((await family(target.id)).orders, 0, "and the family followed once nothing retained needed it");

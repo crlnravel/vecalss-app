@@ -18,7 +18,7 @@ type Register = { rules: RegisterRule[]; version: number };
 
 /** The newest register version and its rules. The maintenance functions read the same rows. */
 async function getActiveRegister(db: Db = prisma): Promise<Register> {
-  const rules = await db.$queryRaw<Array<RegisterRule & { version: number }>>`
+  const rows = await db.$queryRaw<Array<RegisterRule & { version: number }>>`
     SELECT r.version, r.record_class AS "recordClass", r.label, r.financial,
            r.period_months AS "periodMonths", r.period_days AS "periodDays",
            r.start_rule AS "startRule", r.action_after AS "actionAfter"
@@ -26,8 +26,17 @@ async function getActiveRegister(db: Db = prisma): Promise<Register> {
     WHERE r.version = retention_active_version()
     ORDER BY r.record_class
   `;
-  const version = rules[0]?.version ?? 0;
-  return { rules: rules.map(({ version: _version, ...rule }) => rule), version };
+  const version = rows[0]?.version ?? 0;
+  const rules: RegisterRule[] = rows.map((row) => ({
+    actionAfter: row.actionAfter,
+    financial: row.financial,
+    label: row.label,
+    periodDays: row.periodDays,
+    periodMonths: row.periodMonths,
+    recordClass: row.recordClass,
+    startRule: row.startRule,
+  }));
+  return { rules, version };
 }
 
 /**
