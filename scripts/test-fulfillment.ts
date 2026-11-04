@@ -4,7 +4,12 @@ import { randomUUID } from "node:crypto";
 
 import { RoleName } from "../generated/prisma/client";
 import type { SessionContext } from "../lib/auth/types";
-import { enterPaidSurface } from "../lib/billing/enforcement";
+import {
+  PAID_USE_RETRY_MESSAGE,
+  PaidUseEvidenceUnavailableError,
+  enterPaidSurface,
+  paidAccessDenial,
+} from "../lib/billing/enforcement";
 import { grantAccess, pauseAccess, resumeAccess, revokeAccess } from "../lib/billing/service";
 import { addCalendarMonths } from "../lib/billing/plans";
 import { retryFulfillment } from "../lib/fulfillment/grant";
@@ -262,7 +267,8 @@ async function main() {
     // Through the checkout form it comes back as a calm notice and nothing is written.
     const packageCode = await getPackageCode();
     const env = {
-      APP_BASE_URL: APP_ORIGIN, DATABASE_URL: process.env.DATABASE_URL, NODE_ENV: "test",
+      APP_BASE_URL: APP_ORIGIN, DATABASE_URL: process.env.DATABASE_URL, FRAUD_LOOKUP_SECRET: process.env.FRAUD_LOOKUP_SECRET,
+      NODE_ENV: "test", PAYMENT_STAND_IN_LOCAL: "1", TRUSTED_PROXY_COUNT: "1",
       PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode, PRICING_PACKAGE_CODE_FULL_UTBK: packageCode, PRICING_PACKAGE_CODE_MONTHLY: packageCode,
     } as unknown as NodeJS.ProcessEnv;
     const session: SessionContext = {
@@ -273,7 +279,7 @@ async function main() {
     const response = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
         body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
-        headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN },
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": randomBuyerIp() },
         method: "POST",
       }),
       deps,
@@ -472,7 +478,8 @@ async function main() {
     const buyerId = await makeBuyer("terms");
     const packageCode = await getPackageCode();
     const env = {
-      APP_BASE_URL: APP_ORIGIN, DATABASE_URL: process.env.DATABASE_URL, NODE_ENV: "test",
+      APP_BASE_URL: APP_ORIGIN, DATABASE_URL: process.env.DATABASE_URL, FRAUD_LOOKUP_SECRET: process.env.FRAUD_LOOKUP_SECRET,
+      NODE_ENV: "test", PAYMENT_STAND_IN_LOCAL: "1", TRUSTED_PROXY_COUNT: "1",
       PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode, PRICING_PACKAGE_CODE_FULL_UTBK: packageCode, PRICING_PACKAGE_CODE_MONTHLY: packageCode,
     } as unknown as NodeJS.ProcessEnv;
     const session: SessionContext = {
@@ -642,6 +649,55 @@ async function main() {
     await enterPaidSurface(revoked.order.buyerId, {});
     await enterPaidSurface(revoked.order.buyerId, { PAID_ACCESS_ENFORCED: "1" });
     assert.equal(await rowsFor(revoked.order.id), 0, "revoked access records nothing");
+
+    // A single evidence-write failure falls back to a durable gap and still serves the surface.
+    let singleFailureAttempts = 0;
+    const singleFailureLogs: string[] = [];
+    const singleFailureDb = {
+      $executeRaw: async (sql: TemplateStringsArray) => {
+        singleFailureAttempts += 1;
+        const statement = sql.join(" ");
+        if (singleFailureAttempts === 1) {
+          assert.match(statement, /fulfillment_usage_events/u);
+          throw new Error("event write unavailable");
+        }
+        assert.match(statement, /fulfillment_usage_gaps/u);
+        return 1;
+      },
+    } as unknown as Parameters<typeof recordPaidUse>[1];
+    const testLogger = {
+      error: (event: string) => { singleFailureLogs.push(event); },
+    } as Parameters<typeof recordPaidUse>[2];
+    const singleFailureRecorder = (studentId: string) => recordPaidUse(studentId, singleFailureDb, testLogger);
+    assert.equal(await singleFailureRecorder(surface.order.buyerId), true);
+    assert.equal(singleFailureAttempts, 2, "the fallback gap is written after the event write fails");
+    assert.deepEqual(singleFailureLogs, ["fulfillment.usage.record_failed"]);
+    assert.equal(await enterPaidSurface(surface.order.buyerId, {}, singleFailureRecorder), true, "one failed write still serves the paid surface");
+
+    // If both writes fail, log both, block the paid surface, and return calm retry copy to student APIs.
+    let doubleFailureAttempts = 0;
+    const doubleFailureLogs: string[] = [];
+    const doubleFailureDb = {
+      $executeRaw: async () => {
+        doubleFailureAttempts += 1;
+        throw new Error("usage evidence unavailable");
+      },
+    } as unknown as Parameters<typeof recordPaidUse>[1];
+    const doubleFailureLogger = {
+      error: (event: string) => { doubleFailureLogs.push(event); },
+    } as Parameters<typeof recordPaidUse>[2];
+    const doubleFailureRecorder = (studentId: string) => recordPaidUse(studentId, doubleFailureDb, doubleFailureLogger);
+    const failedEntry = enterPaidSurface(surface.order.buyerId, {}, doubleFailureRecorder);
+    await assert.rejects(failedEntry, (error: unknown) => error instanceof PaidUseEvidenceUnavailableError);
+    assert.equal(doubleFailureAttempts, 2, "both the event and fallback writes were attempted");
+    assert.deepEqual(doubleFailureLogs, ["fulfillment.usage.record_failed", "fulfillment.usage.gap_failed"]);
+    const unavailable = await paidAccessDenial(
+      { user: { id: surface.order.buyerId } },
+      {},
+      (studentId, env) => enterPaidSurface(studentId, env, doubleFailureRecorder),
+    );
+    assert.equal(unavailable?.status, 503);
+    assert.deepEqual(await unavailable?.json(), { code: "paid_use_unavailable", message: PAID_USE_RETRY_MESSAGE });
     pass("usage evidence once per grant per day, never synthesized");
   }
 
