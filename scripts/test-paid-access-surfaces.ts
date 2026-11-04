@@ -77,7 +77,7 @@ function sourceFiles() {
       if (name === "node_modules" || name === ".next") continue;
       const full = join(path, name);
       if (statSync(full).isDirectory()) walk(full);
-      else if (/\.(?:ts|tsx)$/u.test(full)) files.push(relative(process.cwd(), full));
+      else if (/\.(?:[cm]?js|[cm]?jsx|tsx?)$/u.test(full)) files.push(relative(process.cwd(), full));
     }
   };
   ROOTS.forEach(walk);
@@ -131,7 +131,7 @@ assert.deepEqual(
 // The guard itself is gated by default and only skips the check when asked.
 const access = readFileSync("lib/auth/access.ts", "utf8");
 assert.match(access, /allowUnpaid\s*=\s*false/u, "requireStudentSession is a paid surface unless the caller opts out");
-assert.match(access, /!allowUnpaid\s*&&\s*!\(await (?:studentMayUsePaidSurfaces|enterPaidSurface)/u);
+assert.match(access, /if\s*\(!allowUnpaid\)\s*\{\s*try\s*\{\s*if\s*\(!\(await enterPaidSurface/u);
 
 // ---------------------------------------------------------------------------
 // Every exported server action has an explicit class and the guard that class needs.
@@ -295,6 +295,7 @@ const STAFF_GUARDS = new Set([
   "requireAdminSession",
   "requireAdminStudentPreviewContext",
   "requireAffiliatorSession",
+  "handleBannerMakerDestinationAction",
   "requireDeveloperSession",
   "requireOwner",
   "requireTutorSession",
@@ -317,7 +318,7 @@ const PASSWORD_SETTLED_GUARDS = new Set([
   "runAdmin",
   "runOwner",
 ]);
-const ACCOUNT_GUARDS = new Set(["getPendingSession", "requireSession", "revokeCurrentSession"]);
+const ACCOUNT_GUARDS = new Set(["getPendingSession", "getSessionContext", "requireSession", "revokeCurrentSession"]);
 /** Capabilities a student holds. Everything else in lib/tryout/capabilities.ts is management only. */
 const STUDENT_CAPABILITIES = new Set(["tryout.admission.register", "tryout.attempt.execute"]);
 
@@ -359,7 +360,9 @@ function collectFacts(root: ts.Node, declarations: Map<string, ts.Node>) {
 }
 
 function calleeName(call: ts.CallExpression) {
-  return ts.isIdentifier(call.expression) ? call.expression.text : null;
+  if (ts.isIdentifier(call.expression)) return call.expression.text;
+  if (ts.isPropertyAccessExpression(call.expression)) return call.expression.name.text;
+  return null;
 }
 
 function studentSessionCalls(facts: Facts) {
@@ -424,6 +427,174 @@ function guardProblem(actionClass: ActionClass, facts: Facts): string | null {
   }
 }
 
+type AwaitFlow = { first: ts.Expression[]; continues: boolean };
+
+function actionFunctionBody(root: ts.Node): ts.ConciseBody | ts.Block | null {
+  if (ts.isFunctionDeclaration(root) || ts.isFunctionExpression(root) || ts.isArrowFunction(root) || ts.isMethodDeclaration(root)) {
+    return root.body ?? null;
+  }
+  if (ts.isVariableDeclaration(root) && root.initializer && (ts.isArrowFunction(root.initializer) || ts.isFunctionExpression(root.initializer))) {
+    return root.initializer.body;
+  }
+  return null;
+}
+
+/** The first awaited expression in an expression's evaluation tree. */
+function firstAwaitIn(node: ts.Node): ts.Expression | null {
+  let found: ts.Expression | null = null;
+  const visit = (child: ts.Node) => {
+    if (found) return;
+    if (ts.isFunctionLike(child)) return;
+    if (ts.isAwaitExpression(child)) {
+      found = child.expression;
+      return;
+    }
+    ts.forEachChild(child, visit);
+  };
+  visit(node);
+  return found;
+}
+
+function staticBoolean(expression: ts.Expression): boolean | null {
+  if (expression.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (expression.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isPrefixUnaryExpression(expression) && expression.operator === ts.SyntaxKind.ExclamationToken) {
+    const value = staticBoolean(expression.operand);
+    return value === null ? null : !value;
+  }
+  return null;
+}
+
+/** Finds the first awaited expression on every reachable branch, skipping dead code. */
+function awaitFlow(statement: ts.Statement | ts.Expression): AwaitFlow {
+  if (ts.isBlock(statement)) {
+    let first: ts.Expression[] = [];
+    let continues = true;
+    for (const child of statement.statements) {
+      if (!continues) break;
+      const next = awaitFlow(child);
+      first = [...first, ...next.first];
+      continues = next.continues;
+    }
+    return { continues, first };
+  }
+
+  if (ts.isIfStatement(statement)) {
+    const conditionAwait = firstAwaitIn(statement.expression);
+    if (conditionAwait) return { continues: false, first: [conditionAwait] };
+
+    const known = staticBoolean(statement.expression);
+    if (known === true) return awaitFlow(statement.thenStatement);
+    if (known === false) return statement.elseStatement ? awaitFlow(statement.elseStatement) : { continues: true, first: [] };
+
+    const yes = awaitFlow(statement.thenStatement);
+    const no = statement.elseStatement ? awaitFlow(statement.elseStatement) : { continues: true, first: [] };
+    return { continues: yes.continues || no.continues, first: [...yes.first, ...no.first] };
+  }
+
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+    const awaited = statement.expression ? firstAwaitIn(statement.expression) : null;
+    return { continues: false, first: awaited ? [awaited] : [] };
+  }
+
+  if (ts.isBreakStatement(statement) || ts.isContinueStatement(statement)) return { continues: false, first: [] };
+
+  if (ts.isWhileStatement(statement) || ts.isDoStatement(statement) || ts.isForStatement(statement)) {
+    const prelude = ts.isForStatement(statement) ? statement.initializer : undefined;
+    const preludeAwait = prelude ? firstAwaitIn(prelude) : null;
+    if (preludeAwait) return { continues: false, first: [preludeAwait] };
+    const condition = ts.isForStatement(statement) ? statement.condition : statement.expression;
+    const conditionAwait = condition ? firstAwaitIn(condition) : null;
+    if (conditionAwait) return { continues: false, first: [conditionAwait] };
+    // A loop may execute zero times, so its body cannot be the guaranteed first guard.
+    return { continues: true, first: [] };
+  }
+
+  if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) return { continues: true, first: [] };
+
+  const awaited = firstAwaitIn(statement);
+  return {
+    continues: !awaited && !ts.isReturnStatement(statement) && !ts.isThrowStatement(statement),
+    first: awaited ? [awaited] : [],
+  };
+}
+
+function firstAwaitedExpressions(root: ts.Node): ts.Expression[] {
+  const body = actionFunctionBody(root);
+  if (!body) return [];
+  const flow = ts.isBlock(body) ? awaitFlow(body) : awaitFlow(body);
+  return flow.first;
+}
+
+function directGuardCall(actionClass: ActionClass, expression: ts.Expression): boolean {
+  if (!ts.isCallExpression(expression)) return false;
+  const name = calleeName(expression);
+  if (!name) return false;
+
+  if (actionClass === "student" || actionClass === "unpaid") {
+    if (name === "requireStudentSession") {
+      const options = expression.arguments[0];
+      const isTrue = (propertyName: string) => !!options && ts.isObjectLiteralExpression(options) && options.properties.some(
+        (property) => ts.isPropertyAssignment(property)
+          && property.name.getText() === propertyName
+          && property.initializer.kind === ts.SyntaxKind.TrueKeyword,
+      );
+      if (isTrue("allowMustChangePassword")) return false;
+      return actionClass === "unpaid" ? isTrue("allowUnpaid") : !isTrue("allowUnpaid");
+    }
+    return actionClass === "unpaid" && ["getSessionContext", "requireSession"].includes(name);
+  }
+
+  if (actionClass === "staff") return STAFF_GUARDS.has(name) || PASSWORD_SETTLED_GUARDS.has(name) || name === "getSessionContext";
+  if (actionClass === "account") return ACCOUNT_GUARDS.has(name);
+  return true;
+}
+
+/** A local helper can be the action's first awaited guard only when it is itself guarded first. */
+function firstAwaitGuardProblem(
+  actionClass: ActionClass,
+  root: ts.Node,
+  declarations: Map<string, ts.Node>,
+  visited = new Set<ts.Node>(),
+): string | null {
+  if (visited.has(root)) return "has a cyclic guard wrapper";
+  visited.add(root);
+  const rootFacts = collectFacts(root, declarations);
+  const roleCheckAfterSession = actionClass === "staff"
+    && (managementCapabilityChecked(rootFacts) || rootFacts.names.has("hasTutorReportSubmissionAccess"));
+  const first = firstAwaitedExpressions(root);
+  if (first.length === 0) return "has no reachable awaited guard";
+
+  for (const expression of first) {
+    if (!ts.isCallExpression(expression)) return "does not put a guard call first in its awaited work";
+    const name = calleeName(expression);
+    if (!name) return "does not put a recognized guard first in its awaited work";
+
+    if (roleCheckAfterSession && ["getSessionContext", "requirePasswordSettledSession", "requireSession"].includes(name)) continue;
+
+    const helper = declarations.get(name);
+    if (!helper) {
+      if (!directGuardCall(actionClass, expression)) return `first awaits ${name} before its guard`;
+      continue;
+    }
+
+    const helperFacts = collectFacts(helper, declarations);
+    const semanticProblem = guardProblem(actionClass, helperFacts);
+    if (semanticProblem) return `calls ${name}, which ${semanticProblem}`;
+
+    const helperFirst = firstAwaitedExpressions(helper);
+    if (helperFirst.length === 0) return `calls ${name}, which has no reachable awaited guard`;
+    const managementWrapper = actionClass === "staff" && managementCapabilityChecked(helperFacts);
+    for (const nested of helperFirst) {
+      if (directGuardCall(actionClass, nested)) continue;
+      if (managementWrapper && ts.isCallExpression(nested) && ["requireSession", "requirePasswordSettledSession"].includes(calleeName(nested) ?? "")) continue;
+      const problem = firstAwaitGuardProblem(actionClass, helper, declarations, new Set(visited));
+      if (problem) return `calls ${name}, which ${problem}`;
+    }
+  }
+  return null;
+}
+
 type ActionAudit = { exports: string[]; problems: string[] };
 
 /** All problems with one "use server" file, given the classes recorded for it. */
@@ -473,7 +644,9 @@ function auditServerActionFile(file: string, text: string, classes: Partial<Reco
       problems.push(`${file}: ${name} is exported but not declared in the file`);
       continue;
     }
-    const problem = guardProblem(actionClass, collectFacts(declaration, declarations));
+    const facts = collectFacts(declaration, declarations);
+    const problem = guardProblem(actionClass, facts)
+      ?? (actionClass === "public" ? null : firstAwaitGuardProblem(actionClass, declaration, declarations));
     if (problem) problems.push(`${file}: ${name} is classed ${actionClass} but ${problem}`);
   }
   for (const name of classOf.keys()) {
@@ -500,6 +673,27 @@ for (const file of serverActionFiles) {
 }
 for (const file of Object.keys(ACTION_CLASSES)) {
   if (!serverActionFiles.includes(file)) actionProblems.push(`${file} is in ACTION_CLASSES but is not a "use server" file`);
+}
+// Imported wrappers still need their own guard as the first awaited operation.
+const GUARDED_HELPERS: Record<string, Partial<Record<ActionClass, string[]>>> = {
+  "lib/admin/banner-maker-action-handler.ts": { staff: ["handleBannerMakerDestinationAction"] },
+  "modules/admin/fraud/action-helpers.ts": { staff: ["runAdmin", "runOwner"] },
+};
+for (const [file, classes] of Object.entries(GUARDED_HELPERS)) {
+  const text = readFileSync(file, "utf8");
+  const declarations = topLevelDeclarations(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
+  for (const [actionClass, names] of Object.entries(classes) as [ActionClass, string[]][]) {
+    for (const name of names) {
+      const declaration = declarations.get(name);
+      if (!declaration) {
+        actionProblems.push(`${file}: guarded helper ${name} is missing`);
+        continue;
+      }
+      const semanticProblem = guardProblem(actionClass, collectFacts(declaration, declarations));
+      const orderProblem = firstAwaitGuardProblem(actionClass, declaration, declarations);
+      if (semanticProblem || orderProblem) actionProblems.push(`${file}: ${name} ${semanticProblem ?? orderProblem}`);
+    }
+  }
 }
 assert.deepEqual(actionProblems, [], `Server actions without a class or a matching guard:\n${actionProblems.join("\n")}`);
 
@@ -547,6 +741,43 @@ assert.deepEqual(classify("unpaid", "requireStudentSession({ allowUnpaid: true }
 assert.equal(classify("unpaid", "requireStudentSession()").length, 1, "an unpaid surface that is actually gated is classed wrongly");
 assert.equal(classify("staff", "requireSession()").length, 1, "a bare session is not a staff guard");
 assert.deepEqual(classify("staff", "requireAdminSession()"), []);
+
+const deadBranch = auditServerActionFile(
+  "fixture/dead-branch.ts",
+  `"use server"; async function doIt() { if (false) { await requireStudentSession(); } await saveAnswer(); } export { doIt };`,
+  { student: ["doIt"] },
+);
+assert.equal(deadBranch.problems.length, 1, "a guard in a dead branch does not protect the action");
+assert.match(deadBranch.problems[0], /first awaits saveAnswer/u);
+
+const lateGuard = auditServerActionFile(
+  "fixture/late-guard.ts",
+  `"use server"; async function doIt() { await readProtectedData(); await requireStudentSession(); } export { doIt };`,
+  { student: ["doIt"] },
+);
+assert.equal(lateGuard.problems.length, 1, "a guard after the first awaited operation is too late");
+assert.match(lateGuard.problems[0], /first awaits readProtectedData/u);
+
+const wrappedGuard = auditServerActionFile(
+  "fixture/wrapped-guard.ts",
+  `"use server"; async function paidSession() { return await requireStudentSession(); } async function doIt() { const session = await paidSession(); await saveAnswer(session); } export { doIt };`,
+  { student: ["doIt"] },
+);
+assert.deepEqual(wrappedGuard.problems, [], "a wrapper is allowed when its own first awaited statement is the guard");
+
+const javascriptAction = auditServerActionFile(
+  "fixture/action.js",
+  `"use server"; export async function doIt() { await requireStudentSession(); }`,
+  { student: ["doIt"] },
+);
+assert.deepEqual(javascriptAction.problems, [], "JavaScript server actions are audited");
+const jsxAction = auditServerActionFile(
+  "fixture/action.jsx",
+  `"use server"; export async function doIt() { await requireStudentSession(); return <section />; }`,
+  { student: ["doIt"] },
+);
+assert.deepEqual(jsxAction.problems, [], "JSX server actions are audited");
+
 assert.equal(
   auditServerActionFile("fixture/a.ts", `"use server";\nasync function doIt() { const session = await requireSession(); requireTryoutCapability(session, "tryout.attempt.execute"); }\nexport { doIt };\n`, { staff: ["doIt"] }).problems.length,
   1,
@@ -661,7 +892,7 @@ const ROUTE_CLASSES: Record<string, RouteClass> = {
 };
 
 /** Route handlers anywhere under app/ or modules/. */
-const routeFiles = files.filter((file) => /(?:^|\/)route\.tsx?$/u.test(file) && (file.startsWith("app/") || file.startsWith("modules/")));
+const routeFiles = files.filter((file) => /(?:^|\/)route\.(?:[cm]?js|[cm]?jsx|tsx?)$/u.test(file) && (file.startsWith("app/") || file.startsWith("modules/")));
 const routeProblems: string[] = [];
 for (const file of routeFiles) {
   const routeClass = ROUTE_CLASSES[file];
