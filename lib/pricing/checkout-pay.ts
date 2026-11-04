@@ -14,7 +14,7 @@ import type { RefusalReason } from "@/lib/payments/risk/reserve";
 import { buildDeviceSetCookie, readDeviceTokenFromHeader } from "@/lib/fraud/device";
 import { isLookupSecretAvailable, newDeviceToken } from "@/lib/fraud/tokens";
 
-import { PURCHASE_TERMS } from "@/lib/fulfillment/terms";
+import { PURCHASE_TERMS, termsOpenForCheckout } from "@/lib/fulfillment/terms";
 
 import { getPackageCode } from "./checkout";
 import {
@@ -196,6 +196,9 @@ async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, d
   // closed and nothing is written: the page shows the same paused notice.
   const provider = (deps.getProvider ?? defaultDeps.getProvider!)(deps.env);
   if (!provider) return checkoutPage();
+
+  // Terms still marked draft cannot be accepted with a real provider (MS-19 M-05): same paused page, nothing written.
+  if (!termsOpenForCheckout(provider.id)) return checkoutPage();
 
   // Blocks cannot be looked up without their secret, so nothing is accepted.
   if (!isLookupSecretAvailable(deps.env)) return checkoutPage();

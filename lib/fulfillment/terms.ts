@@ -117,5 +117,16 @@ function getTermsByVersion(version: string): PurchaseTerms | null {
   return TERMS_VERSIONS.find((terms) => terms.version === version) ?? null;
 }
 
-export { PURCHASE_TERMS, TERMS_VERSIONS, getTermsByVersion };
+/**
+ * Whether the terms in force may be accepted at checkout (MS-19 M-05). A real
+ * provider needs approved terms: a buyer must not agree to text the owner has
+ * not signed off. The local stand-in provider moves no money, so development
+ * and the suites keep working with draft terms. Approving the terms stays a
+ * go-live action for the owner.
+ */
+function termsOpenForCheckout(providerId: string | null | undefined, terms: PurchaseTerms = PURCHASE_TERMS) {
+  return terms.status === "approved" || providerId === "stand-in";
+}
+
+export { PURCHASE_TERMS, TERMS_VERSIONS, getTermsByVersion, termsOpenForCheckout };
 export type { PurchaseTerms, TermsSection };

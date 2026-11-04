@@ -6,7 +6,7 @@ import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
 import { hasActiveFullAccess } from "@/lib/billing/service";
 import { getSupportContact } from "@/lib/config";
-import { PURCHASE_TERMS } from "@/lib/fulfillment/terms";
+import { PURCHASE_TERMS, termsOpenForCheckout } from "@/lib/fulfillment/terms";
 import { isLookupSecretAvailable } from "@/lib/fraud/tokens";
 import { getPaymentProvider } from "@/lib/payments/provider";
 import { isPolicyInForce } from "@/lib/payments/risk/policy";
@@ -71,8 +71,11 @@ export default async function PricingCheckoutPage({
   // The same goes for a missing purchase-limit policy: nothing is accepted
   // until one is in force. Fraud blocks cannot be looked up without their
   // secret, so that closes checkout too.
+  // Terms still marked draft close checkout too, except with the local stand-in (MS-19 M-05).
+  const provider = getPaymentProvider();
   const paused = isCheckoutPaused()
-    || getPaymentProvider() === null
+    || provider === null
+    || !termsOpenForCheckout(provider.id)
     || !isLookupSecretAvailable()
     || !(await isPolicyInForce());
   // Monthly Access is not sold while Full Access runs; the server refuses it
