@@ -8,18 +8,21 @@ type PresentRetention = Extract<OrderRetention, { kind: "present" }>;
 
 const SCOPE_LABELS = { buyer: "Semua data pembeli", case: "Satu kasus", order: "Pesanan ini" } as const;
 
+/** Held by a hold the owner placed, as opposed to an open case that holds the evidence by itself. */
+const hasOpenHold = (retention: PresentRetention) => retention.holds.some((hold) => !hold.releasedAt);
+
 function ipLine(retention: PresentRetention) {
   const { ip } = retention;
   if (ip.state === "removed") return `Sudah dihapus sesuai kebijakan retensi pada ${formatDate(ip.scrubbedAt)}.`;
   if (ip.state === "none") return "Tidak ada alamat IP atau perangkat yang tercatat.";
-  if (retention.held) return "Disimpan selama penahanan masih aktif.";
-  if (!ip.endsAt) return "Disimpan selama ada kasus yang belum selesai.";
+  if (hasOpenHold(retention)) return "Disimpan selama penahanan masih aktif.";
+  if (retention.held || !ip.endsAt) return "Disimpan selama ada kasus yang belum selesai.";
   return `Disimpan sampai ${formatDate(ip.endsAt)}, lalu dihapus.`;
 }
 
 function periodLine(retention: PresentRetention) {
-  if (retention.held) return "Ditunda selama penahanan masih aktif.";
-  if (!retention.periodEndsAt) return "Menunggu kasus yang masih terbuka selesai.";
+  if (hasOpenHold(retention)) return "Ditunda selama penahanan masih aktif.";
+  if (retention.held || !retention.periodEndsAt) return "Menunggu kasus yang masih terbuka selesai.";
   return formatDate(retention.periodEndsAt);
 }
 
