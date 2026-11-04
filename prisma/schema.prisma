@@ -762,6 +762,8 @@ model User {
   refundCaseEventsActed                  RefundCaseEvent[]                    @relation("RefundCaseEventActor")
   paymentDisputesAsBuyer                 PaymentDispute[]                     @relation("PaymentDisputeBuyer")
   paymentDisputeEventsActed              PaymentDisputeEvent[]                @relation("PaymentDisputeEventActor")
+  legalHoldsPlaced                       LegalHold[]                          @relation("LegalHoldPlacedBy")
+  legalHoldsReleased                     LegalHold[]                          @relation("LegalHoldReleasedBy")
   riskAccountTier                        RiskAccountTier?
   riskDayBuckets                         RiskDayBucket[]
   riskReservations                       RiskReservation[]
@@ -4506,4 +4508,139 @@ model StandInRefund {
 
   @@index([providerPaymentId])
   @@map("stand_in_refunds")
+}
+
+/// One version of the evidence retention register (MS-10). Append-only: a
+/// change is a new version through a reviewed migration. The maintenance
+/// functions read the newest version.
+model RetentionRegisterVersion {
+  version   Int      @id
+  note      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  rules RetentionRegisterRule[]
+
+  @@map("retention_register_versions")
+}
+
+/// One record class in a register version. Periods are calendar months or days
+/// on database time (Asia/Jakarta calendar). The table enforces that a financial
+/// class never goes below six calendar months.
+model RetentionRegisterRule {
+  version      Int
+  recordClass  String  @map("record_class") @db.VarChar(40)
+  label        String  @db.VarChar(120)
+  financial    Boolean @default(false)
+  periodMonths Int?    @map("period_months")
+  periodDays   Int?    @map("period_days")
+  /// Which event the period counts from, in words. The maintenance functions implement it.
+  startRule    String  @map("start_rule") @db.VarChar(240)
+  /// delete, scrub, or none (kept; another job or nothing prunes it).
+  actionAfter  String  @map("action_after") @db.VarChar(10)
+
+  registerVersion RetentionRegisterVersion @relation(fields: [version], references: [version], onDelete: Restrict)
+
+  @@id([version, recordClass])
+  @@map("retention_register_rules")
+}
+
+/// Which tables hold evidence, and the few columns the runtime role may still
+/// update. The grant function reads it; a new evidence table is a new row.
+model EvidenceTable {
+  tableName     String   @id @map("table_name") @db.VarChar(80)
+  recordClass   String   @map("record_class") @db.VarChar(40)
+  /// Columns the runtime role may UPDATE. Empty means insert-only.
+  updateColumns String[] @default([]) @map("update_columns")
+  /// False for tables only the maintenance functions write (runs, scrubs, purges, the register).
+  runtimeInsert Boolean  @default(true) @map("runtime_insert")
+  note          String   @default("") @db.VarChar(240)
+
+  @@map("evidence_tables")
+}
+
+/// Every maintenance run: what it looked at, what it changed, under which
+/// register version. Written only by the maintenance functions. Append-only.
+model RetentionRun {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind            String   @db.VarChar(10)
+  recordClass     String   @map("record_class") @db.VarChar(40)
+  registerVersion Int      @map("register_version")
+  batchLimit      Int      @map("batch_limit")
+  examined        Int      @default(0)
+  heldSkipped     Int      @default(0) @map("held_skipped")
+  caseSkipped     Int      @default(0) @map("case_skipped")
+  counts          Json     @default("{}") @db.JsonB
+  /// False when the batch limit was reached, so more is waiting for the next run.
+  complete        Boolean  @default(true)
+  invokedBy       String   @map("invoked_by") @db.VarChar(64)
+  startedAt       DateTime @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt      DateTime @default(now()) @map("finished_at") @db.Timestamptz
+
+  @@index([startedAt])
+  @@map("retention_runs")
+}
+
+/// An order whose IP and device evidence was removed under the policy.
+model RetentionScrub {
+  orderId         String   @id @map("order_id") @db.Uuid
+  runId           String   @map("run_id") @db.Uuid
+  registerVersion Int      @map("register_version")
+  scrubbedAt      DateTime @default(now()) @map("scrubbed_at") @db.Timestamptz
+
+  @@map("retention_scrubs")
+}
+
+/// A tombstone for a record removed under the policy, so the admin pages can say
+/// so. It holds no personal data.
+model RetentionPurge {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordClass      String   @map("record_class") @db.VarChar(40)
+  subjectTable     String   @map("subject_table") @db.VarChar(80)
+  subjectId        String   @map("subject_id") @db.Uuid
+  subjectReference String?  @map("subject_reference") @db.VarChar(120)
+  runId            String   @map("run_id") @db.Uuid
+  registerVersion  Int      @map("register_version")
+  rowsRemoved      Json     @default("{}") @map("rows_removed") @db.JsonB
+  purgedAt         DateTime @default(now()) @map("purged_at") @db.Timestamptz
+
+  @@unique([subjectTable, subjectId])
+  @@index([purgedAt])
+  @@map("retention_purges")
+}
+
+/// A legal or evidence hold. Placed and released by the owner, with a written
+/// reason. Append-only: a release is recorded once on the same row. A hold
+/// suspends scrubbing and deletion of what it covers.
+model LegalHold {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// order, buyer, or case.
+  scope            String    @db.VarChar(10)
+  /// The order id, buyer user id, or case id.
+  subjectId        String    @map("subject_id") @db.Uuid
+  /// For scope case: refund, dispute, or fraud.
+  caseKind         String?   @map("case_kind") @db.VarChar(10)
+  reason           String    @db.VarChar(500)
+  placedByUserId   String    @map("placed_by_user_id") @db.Uuid
+  placedAt         DateTime  @default(now()) @map("placed_at") @db.Timestamptz
+  releasedAt       DateTime? @map("released_at") @db.Timestamptz
+  releasedByUserId String?   @map("released_by_user_id") @db.Uuid
+  releaseReason    String?   @map("release_reason") @db.VarChar(500)
+
+  placedBy   User  @relation("LegalHoldPlacedBy", fields: [placedByUserId], references: [id], onDelete: Restrict)
+  releasedBy User? @relation("LegalHoldReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([scope, subjectId])
+  @@map("legal_holds")
+}
+
+/// Set once by the owner at go-live. While a row exists, the reset, seed and
+/// cleanup scripts refuse to run against this database.
+model EnvironmentMark {
+  id          Int      @id @default(1)
+  environment String   @db.VarChar(20)
+  markedBy    String   @map("marked_by") @db.VarChar(120)
+  note        String   @db.VarChar(500)
+  markedAt    DateTime @default(now()) @map("marked_at") @db.Timestamptz
+
+  @@map("environment_marks")
 }
