@@ -1,7 +1,7 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import pg from "pg";
@@ -577,6 +577,31 @@ async function checkEdgeWhitespace(adminId: string) {
   const reset = await prisma.user.findUniqueOrThrow({ where: { id: resetUser.id } });
   assert.equal(await verifyPassword(resetPassword, reset.passwordHash), true, "reset stores exactly what was typed");
   assert.equal(await verifyPassword(resetPassword.trim(), reset.passwordHash), false);
+
+  // No form in the app reads a password-like field through the trimming reader.
+  const sourceFiles = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name === "node_modules" || entry.name === ".next") return [];
+      const path = `${dir}/${entry.name}`;
+      return entry.isDirectory() ? sourceFiles(path) : /\.(?:ts|tsx)$/u.test(entry.name) ? [path] : [];
+    });
+  for (const file of ["app", "lib", "modules"].flatMap((dir) => sourceFiles(resolve(dir)))) {
+    const text = readFileSync(file, "utf8");
+    const trimmed = text.match(/readTextField\(\s*\w+,\s*"[^"]*pass[^"]*"/giu);
+    assert.equal(trimmed, null, `${file} reads a password field with the trimming reader`);
+    assert.doesNotMatch(text, /get\(\s*"[^"]*pass[^"]*"\s*\)[^;\n]*\.trim\(/iu, `${file} trims a password field`);
+  }
+  const adminActions = readFileSync(resolve("modules/admin/actions.ts"), "utf8");
+  assert.equal((adminActions.match(/readPasswordField\(formData, "(?:password|confirmPassword)"\)/gu) ?? []).length, 2, "the admin set-password form reads exactly what was typed");
+
+  // An admin-set password is stored exactly as typed, too.
+  const adminSetUser = await createFixtureUser("edge-adminset", RoleName.student, false);
+  const adminSetPassword = "  Admin-Edge1pass ";
+  secretsSeen.push(adminSetPassword);
+  await changeStudentEnrollmentPassword({ actorUserId: adminId, password: adminSetPassword, userId: adminSetUser.id });
+  const adminSet = await prisma.user.findUniqueOrThrow({ where: { id: adminSetUser.id } });
+  assert.equal(await verifyPassword(adminSetPassword, adminSet.passwordHash), true, "admin-set password stored as typed");
+  assert.equal(await verifyPassword(adminSetPassword.trim(), adminSet.passwordHash), false);
 
   // Change: changePasswordAction needs a signed-in request, so the reader checks above cover its
   // form handling and this covers what the service stores.
