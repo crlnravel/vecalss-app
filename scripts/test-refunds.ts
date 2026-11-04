@@ -104,6 +104,55 @@ async function main() {
     pass("eligibility: 3-day boundary on database time, used vs unused, our fault always");
   }
 
+  // ---- MS-19 M-01: a failed usage write is a gap, and a gap counts as use ----------------------------
+  {
+    // A client whose usage write (and, when asked, gap write) fails, handed to recordPaidUse; everything else is the real client.
+    const failingDb = (failGap: boolean) => ({
+      $executeRaw: ((strings: TemplateStringsArray, ...values: unknown[]) => {
+        const text = Array.isArray(strings) ? strings.join("?") : "";
+        if (text.includes("INSERT INTO fulfillment_usage_events")) return Promise.reject(new Error("simulated write failure"));
+        if (failGap && text.includes("INSERT INTO fulfillment_usage_gaps")) return Promise.reject(new Error("simulated gap failure"));
+        return prisma.$executeRaw(strings, ...values);
+      }) as typeof prisma.$executeRaw,
+    });
+
+    const order = await paidOrder();
+    await recordPaidUse(order.buyerId, failingDb(false));
+    await recordPaidUse(order.buyerId, failingDb(false));
+    assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { orderId: order.id } }), 0, "the usage row was not written");
+    assert.equal(await prisma.fulfillmentUsageGap.count({ where: { studentId: order.buyerId } }), 1, "a gap was recorded instead, once for the day");
+    const gapCheck = await evaluateEligibility(prisma, { orderId: order.id, reasonCode: "change_of_mind" });
+    assert.equal(gapCheck.usageRows, 0);
+    assert.equal(gapCheck.usageGaps, 1);
+    assert.equal(gapCheck.eligible, false, "a failed usage write is not read as 'not used'");
+    assert.equal(gapCheck.rule, "change_of_mind_used");
+    assert.equal((await evaluateEligibility(prisma, { orderId: order.id, reasonCode: "wrong_amount" })).eligible, true, "our fault is unaffected");
+    const [{ eligible }] = await prisma.$queryRaw<Array<{ eligible: boolean }>>`SELECT refund_change_of_mind_eligible(${order.id}::uuid, now()) AS eligible`;
+    assert.equal(eligible, false, "the database's own recheck at approval agrees");
+    const prepared = await prepare(order.id, "change_of_mind");
+    assert.equal(prepared.eligibility.eligible, false);
+
+    // A gap from before the payment is not about this order; a quiet order stays eligible.
+    const calm = await paidOrder();
+    await prisma.$executeRaw`
+      INSERT INTO fulfillment_usage_gaps (student_id, occurred_at, jakarta_day)
+      SELECT ${calm.buyerId}::uuid, o.paid_at - interval '1 hour', date '2020-01-01' FROM payment_orders o WHERE o.id = ${calm.id}::uuid
+    `;
+    assert.equal((await evaluateEligibility(prisma, { orderId: calm.id, reasonCode: "change_of_mind" })).eligible, true);
+    const [{ calmEligible }] = await prisma.$queryRaw<Array<{ calmEligible: boolean }>>`SELECT refund_change_of_mind_eligible(${calm.id}::uuid, now()) AS "calmEligible"`;
+    assert.equal(calmEligible, true);
+
+    // If the gap cannot be written either, the student's page still loads (nothing throws).
+    const other = await paidOrder();
+    await recordPaidUse(other.buyerId, failingDb(true));
+    assert.equal(await prisma.fulfillmentUsageGap.count({ where: { studentId: other.buyerId } }), 0);
+
+    // Gaps are append-only.
+    await assert.rejects(prisma.$executeRaw`UPDATE fulfillment_usage_gaps SET occurred_at = now() WHERE student_id = ${order.buyerId}::uuid`);
+    await assert.rejects(prisma.$executeRaw`DELETE FROM fulfillment_usage_gaps WHERE student_id = ${order.buyerId}::uuid`);
+    pass("a failed usage write records a gap, a gap counts as use for change of mind (in the app and in the database), and the page still loads");
+  }
+
   // ---- Eligibility of an order held in review: the window runs from when the money arrived ----------
   {
     const held = await reviewOrder();

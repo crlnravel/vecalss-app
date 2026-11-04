@@ -113,6 +113,7 @@ function EligibilityBox({ check, title }: { check: Eligibility | null; title: st
       {check.category === "change_of_mind" ? (
         <p className="mt-1 text-xs leading-5 text-secondary-600">
           Dibayar {formatDateTime(check.paidAt)} · batas 3 hari {formatDateTime(check.windowEndsAt)} · hari pemakaian fitur berbayar tercatat: {check.usageRows}
+          {check.usageGaps ? ` · hari pemakaian yang gagal dicatat (dihitung sebagai dipakai): ${check.usageGaps}` : ""}
         </p>
       ) : null}
     </div>
