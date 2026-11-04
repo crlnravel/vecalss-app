@@ -44,6 +44,8 @@ type CheckoutIntentInput = {
   idempotencyKey: string;
   plan: PricingPlanId;
   referralCode: string | null;
+  /** The version of the purchase terms the buyer ticked. */
+  termsVersion: string;
 };
 
 type CheckoutIntentRecord = {
@@ -52,6 +54,7 @@ type CheckoutIntentRecord = {
   plan: string;
   pricingMonth: string;
   referralCode: string | null;
+  termsVersion: string | null;
 };
 
 type CheckoutIntentResult =
@@ -71,15 +74,15 @@ type CheckoutIntentResult =
  * when it is checked, so a server with a skewed clock cannot extend or cut it.
  */
 async function resolveCheckoutIntent(
-  { buyerId, entry, idempotencyKey, plan, referralCode }: CheckoutIntentInput,
+  { buyerId, entry, idempotencyKey, plan, referralCode, termsVersion }: CheckoutIntentInput,
 ): Promise<CheckoutIntentResult> {
   const inserted = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO checkout_intents (
-      buyer_id, idempotency_key, plan, pricing_month, amount_rupiah, referral_code, expires_at
+      buyer_id, idempotency_key, plan, pricing_month, amount_rupiah, referral_code, terms_version, expires_at
     )
     VALUES (
       ${buyerId}::uuid, ${idempotencyKey}, ${plan}, ${entry.month}, ${getPlanPrice(entry, plan)},
-      ${referralCode}, now() + make_interval(secs => ${CHECKOUT_INTENT_TTL_MS / 1000}::double precision)
+      ${referralCode}, ${termsVersion}, now() + make_interval(secs => ${CHECKOUT_INTENT_TTL_MS / 1000}::double precision)
     )
     ON CONFLICT (buyer_id, idempotency_key) DO NOTHING
     RETURNING id
@@ -87,14 +90,14 @@ async function resolveCheckoutIntent(
 
   const [stored] = await prisma.$queryRaw<Array<CheckoutIntentRecord & { expired: boolean }>>`
     SELECT id, plan, pricing_month AS "pricingMonth", amount_rupiah AS "amountRupiah",
-           referral_code AS "referralCode", expires_at <= now() AS expired
+           referral_code AS "referralCode", terms_version AS "termsVersion", expires_at <= now() AS expired
     FROM checkout_intents
     WHERE buyer_id = ${buyerId}::uuid AND idempotency_key = ${idempotencyKey}
   `;
   if (!stored) return { status: "conflict" };
   if (stored.expired) return { status: "expired" };
 
-  if (stored.plan !== plan || stored.referralCode !== referralCode) {
+  if (stored.plan !== plan || stored.referralCode !== referralCode || stored.termsVersion !== termsVersion) {
     return { status: "conflict" };
   }
 
@@ -105,6 +108,7 @@ async function resolveCheckoutIntent(
       plan: stored.plan,
       pricingMonth: stored.pricingMonth,
       referralCode: stored.referralCode,
+      termsVersion: stored.termsVersion,
     },
     status: inserted.length === 1 ? "created" : "reused",
   };

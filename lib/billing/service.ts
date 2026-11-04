@@ -178,9 +178,27 @@ async function transition(
   kind: BillingAccessEventKind,
   decide: (account: AccountRow, state: AccessState, now: Date) => Decision,
 ): Promise<OperationResult> {
+  checkInput(input);
+  return prisma.$transaction((tx) => runTransition(tx, input, kind, decide));
+}
+
+type EventKindChoice = BillingAccessEventKind | ((state: AccessState) => BillingAccessEventKind);
+
+/**
+ * The body of `transition`, run inside a transaction the caller owns. A payment
+ * uses it directly so the grant commits with the payment that earned it. The
+ * kind may depend on the account's state (a payment is a grant or an extension
+ * depending on whether access is running), so it can be a function of it.
+ */
+async function runTransition(
+  tx: Prisma.TransactionClient,
+  input: OperationInput,
+  kindChoice: EventKindChoice,
+  decide: (account: AccountRow, state: AccessState, now: Date) => Decision,
+): Promise<OperationResult> {
   const reason = checkInput(input);
 
-  return prisma.$transaction(async (tx) => {
+  {
     const student = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT u.id FROM users u
       WHERE u.id = ${input.studentId}::uuid
@@ -213,7 +231,7 @@ async function transition(
       where: { idempotencyKey: input.idempotencyKey },
     });
     if (earlier) {
-      if (earlier.studentId !== input.studentId || earlier.kind !== kind) {
+      if (earlier.studentId !== input.studentId || (typeof kindChoice !== "function" && earlier.kind !== kindChoice)) {
         throw new BillingAccessError("idempotency_conflict", "This key was already used for a different change.");
       }
       return { event: earlier, outcome: "duplicate" as const, state };
@@ -221,6 +239,7 @@ async function transition(
 
     const decision = decide(account, state, now);
     if (decision.kind === "unchanged") return { event: null, outcome: "unchanged" as const, state };
+    const kind = typeof kindChoice === "function" ? kindChoice(state) : kindChoice;
 
     const { change } = decision;
     await tx.$executeRaw`
@@ -280,7 +299,7 @@ async function transition(
         now,
       ),
     };
-  });
+  }
 }
 
 function requirePlan(plan: unknown): AccessPlan {
@@ -346,6 +365,84 @@ async function extendAccess(input: PlanOperationInput) {
 
     return { change: { endsAt, planCode: plan, startsAt, status: BillingStatus.active }, kind: "apply" };
   });
+}
+
+/**
+ * The access a payment buys, inside the transaction that accepts the payment
+ * (key `order:<order id>`, source `payment`).
+ *
+ * - Monthly: one calendar month from the current end while access is running,
+ *   otherwise from now. If Full Access is running it keeps its plan and gains
+ *   the month after its end, so nobody loses what they paid for (checkout
+ *   refuses this combination; this only covers a Full Access bought while the
+ *   Monthly payment was open).
+ * - Full Access: runs to the configured exam date, or keeps a later end the
+ *   account already has.
+ *
+ * A grant that cannot happen (paused access, no Full Access date, an unknown
+ * student) throws a `BillingAccessError` before anything is written, so the
+ * caller can keep the payment and leave delivery pending. Repeating the call
+ * with the same order returns the first result.
+ */
+async function grantPaidAccess(
+  tx: Prisma.TransactionClient,
+  input: { env?: Env; orderId: string; plan: AccessPlan; studentId: string },
+) {
+  const plan = requirePlan(input.plan);
+  const env = input.env ?? process.env;
+
+  return runTransition(
+    tx,
+    {
+      actorUserId: null,
+      idempotencyKey: `order:${input.orderId}`,
+      reason: `Pembayaran pesanan ${input.orderId}`,
+      source: "payment",
+      studentId: input.studentId,
+    },
+    (state) => (state.status === "active" ? BillingAccessEventKind.extend : BillingAccessEventKind.grant),
+    (account, state, now) => {
+      if (state.status === "paused") throw new BillingAccessError("paused", "Access is paused; the payment is kept and delivery waits.");
+
+      const running = state.status === "active" && state.endsAt !== null;
+      const startsAt = running ? (state.startsAt as Date) : now;
+      const full = fullEnd(plan, now, env);
+
+      if (full) {
+        const endsAt = running && (state.endsAt as Date).getTime() > full.getTime() ? (state.endsAt as Date) : full;
+        return { change: { endsAt, planCode: plan, startsAt, status: BillingStatus.active }, kind: "apply" };
+      }
+
+      const keepsPlan = running && typeof state.planCode === "string" && state.planCode.startsWith("full_");
+      return {
+        change: {
+          endsAt: addCalendarMonths(running ? (state.endsAt as Date) : now, 1),
+          planCode: keepsPlan ? state.planCode : plan,
+          startsAt,
+          status: BillingStatus.active,
+        },
+        kind: "apply",
+      };
+    },
+  );
+}
+
+/** Whether the student has Full Access running right now. Used to refuse a Monthly checkout. */
+async function hasActiveFullAccess(
+  db: Pick<Prisma.TransactionClient, "$queryRaw">,
+  studentId: string,
+) {
+  const rows = await db.$queryRaw<Array<{ active: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1 FROM billing_accounts
+      WHERE student_id = ${studentId}::uuid
+        AND status = 'active'
+        AND starts_with(plan_code, 'full_')
+        AND access_starts_at <= now()
+        AND access_expires_at > now()
+    ) AS active
+  `;
+  return rows[0]?.active === true;
 }
 
 /**
@@ -457,6 +554,8 @@ export {
   extendAccess,
   getAccessState,
   grantAccess,
+  grantPaidAccess,
+  hasActiveFullAccess,
   hasPaidAccess,
   listAccessHistory,
   pauseAccess,

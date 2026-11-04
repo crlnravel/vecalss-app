@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import type { SessionContext } from "../lib/auth/types";
+import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import { handlePaymentEventRequest } from "../lib/payments/inbox-http";
 import { getPaymentProvider, isStandInAllowed } from "../lib/payments/provider";
 import { StandInProvider } from "../lib/payments/stand-in/provider";
@@ -88,7 +89,7 @@ async function main() {
       const deps: CheckoutPayDeps = { env: env as unknown as NodeJS.ProcessEnv, getSession: async () => session, now: () => new Date("2026-11-20T10:00:00+07:00") };
       return handleCheckoutPayPost(
         new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key: randomUUID(), plan: "monthly" }).toString(),
+          body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN },
           method: "POST",
         }),

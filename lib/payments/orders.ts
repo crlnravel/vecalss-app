@@ -25,6 +25,8 @@ type OrderIntent = {
   plan: string;
   pricingMonth: string;
   referralCode: string | null;
+  /** The purchase terms version the buyer agreed to; an order is refused without one. */
+  termsVersion: string | null;
 };
 
 type CreateOrderInput = {
@@ -63,6 +65,8 @@ type CreateOrderResult =
   | { created: boolean; ok: true; order: OrderRow }
   /** The plan's package is not published; nothing was written. */
   | { ok: false; reason: "package_unavailable" }
+  /** The intent carries no agreement to the purchase terms; nothing was written. */
+  | { ok: false; reason: "terms_required" }
   /** The checkout is not allowed under the limits; only an audit event was written. */
   | { ok: false; reason: RefusalReason };
 
@@ -90,6 +94,10 @@ async function createOrderFromIntent(input: CreateOrderInput): Promise<CreateOrd
     where: { intentId: input.intent.id },
   });
   if (existing) return { created: false, ok: true, order: existing };
+
+  // Nothing payable exists without the buyer's agreement. The database repeats
+  // this check on insert, so no other caller can get around it.
+  if (!input.intent.termsVersion) return { ok: false, reason: "terms_required" };
 
   let packageName: string;
   try {
@@ -133,14 +141,14 @@ async function createOrderFromIntent(input: CreateOrderInput): Promise<CreateOrd
       INSERT INTO payment_orders (
         intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
         amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip, buyer_ip_source,
-        buyer_ip_exemption, device_lookup_token, provider, provider_environment, provider_account, expires_at
+        buyer_ip_exemption, device_lookup_token, terms_version, provider, provider_environment, provider_account, expires_at
       )
       VALUES (
         ${input.intent.id}::uuid, ${input.buyerId}::uuid, ${newOrderReference()}, ${input.intent.plan},
         ${input.intent.pricingMonth}, ${input.packageCode}, ${packageName},
         ${input.intent.amountRupiah}, ${PAYMENT_CURRENCY}, ${input.intent.referralCode},
         ${affiliator?.id ?? null}::uuid, ${input.buyerIp}::inet, ${input.buyerIpSource},
-        ${request.buyerIpExemption}, ${checked.allowed.deviceLookupToken},
+        ${request.buyerIpExemption}, ${checked.allowed.deviceLookupToken}, ${input.intent.termsVersion},
         ${input.provider.id}, ${input.provider.environment}, ${input.provider.merchantAccount},
         now() + make_interval(mins => ${PAYMENT_EXPIRY_MINUTES}::int)
       )

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 type Tx = Prisma.TransactionClient;
 type Db = Pick<Tx, "$executeRaw" | "$queryRaw">;
 
-type OutboxKind = "receipt_email" | "critical_alert";
+type OutboxKind = "access_grant" | "critical_alert" | "receipt_email";
 
 /** How long a worker holds a job before another may take it. */
 const OUTBOX_LEASE_SECONDS = 120;

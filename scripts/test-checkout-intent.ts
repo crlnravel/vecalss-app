@@ -5,6 +5,7 @@ import { createHmac } from "node:crypto";
 import { PackagePurchaseStatus, RoleName } from "../generated/prisma/client";
 import { POST as purchaseCallback } from "../app/api/internal/package-purchases/succeeded/route";
 import type { SessionContext } from "../lib/auth/types";
+import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import {
   CHECKOUT_INTENT_TTL_MS,
   createCheckoutIdempotencyKey,
@@ -74,7 +75,8 @@ function postRequest(
   const headers: Record<string, string> = { "content-type": contentType, "x-forwarded-for": "192.0.2.10" };
   if (origin !== null) headers.origin = origin;
   return new Request(PAY_URL, {
-    body: new URLSearchParams(fields).toString(),
+    // Every checkout form carries the buyer's agreement; a test that wants it absent says so.
+    body: new URLSearchParams({ terms: PURCHASE_TERMS.version, ...fields }).toString(),
     headers,
     method: "POST",
   });

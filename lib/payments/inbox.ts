@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
 import { checkOrderBlocks, type BlockCheck } from "@/lib/fraud/blocks";
+import { fulfillPaidOrder, queueGrantRetry, type FulfillOptions } from "@/lib/fulfillment/grant";
 import { FraudConfigError } from "@/lib/fraud/errors";
 import { flagBlockedAttempt, flagPaymentReview, flagQuarantinedEvent } from "@/lib/fraud/signals";
 
@@ -131,6 +132,8 @@ type ProcessInput = {
   bodySha256?: string | null;
   callerIp?: string | null;
   event: VerifiedPaymentEvent;
+  /** Server settings for the access grant (the Full Access end dates). Tests pass their own. */
+  fulfillment?: FulfillOptions;
   source: EventSource;
 };
 
@@ -238,11 +241,6 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
         payload: { kind: "quarantined", paymentEventId: recorded.id, reason: decision.reason },
       });
     } else if (order && decision.orderTo === "paid") {
-      // MS-08: grant the paid access here, in this same transaction, by calling
-      // the MS-04 grant with source `payment` and the idempotency key
-      // `order:<order id>`. Paid, summarised and granted must commit together
-      // or not at all. (MS-04's grant opens its own transaction today; MS-08
-      // adds a variant that takes this one.)
       const [purchase] = await tx.$queryRaw<Array<{ id: string }>>`
         INSERT INTO package_purchases (
           student_id, package_code, package_name, status, affiliator_profile_id,
@@ -263,12 +261,16 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
         WHERE id = ${order.id}::uuid
       `;
       const reserved = await moveReservation(tx, order.id, "paid", null);
-      await audit("payment.order.paid", { packagePurchaseId: purchase.id, reservation: reserved ? "paid" : null });
-      await enqueueOutbox(tx, {
-        dedupeKey: `receipt:${order.id}`,
-        kind: "receipt_email",
-        orderId: order.id,
-        payload: { orderId: order.id },
+      // Paid, summarised and granted commit together. The grant (MS-04, key
+      // `order:<id>`) is part of this transaction; if it cannot happen the order
+      // stays paid with delivery pending and a retry job is queued. A failure
+      // inside the grant never takes the payment record down with it.
+      const fulfilled = await fulfillPaidOrder(tx, order.id, input.fulfillment);
+      if (fulfilled.status === "pending") await queueGrantRetry(tx, order.id);
+      await audit("payment.order.paid", {
+        delivery: fulfilled.status,
+        packagePurchaseId: purchase.id,
+        reservation: reserved ? "paid" : null,
       });
     } else if (order && decision.orderTo) {
       const reasonColumn = decision.orderTo === "review" ? decision.reason : null;

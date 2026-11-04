@@ -14,6 +14,8 @@ import type { RefusalReason } from "@/lib/payments/risk/reserve";
 import { buildDeviceSetCookie, readDeviceTokenFromHeader } from "@/lib/fraud/device";
 import { isLookupSecretAvailable, newDeviceToken } from "@/lib/fraud/tokens";
 
+import { PURCHASE_TERMS } from "@/lib/fulfillment/terms";
+
 import { getPackageCode } from "./checkout";
 import {
   isCheckoutPaused,
@@ -52,15 +54,17 @@ const REJECTED_PAGE = `<!doctype html>
  * share a notice, so the exact rule is never revealed. With no policy in force
  * the checkout page itself shows the "paused" notice.
  */
-const REFUSAL_NOTICES: Record<Exclude<RefusalReason, "blocks_unavailable" | "no_policy"> | "package_unavailable", string> = {
+const REFUSAL_NOTICES: Record<Exclude<RefusalReason, "blocks_unavailable" | "no_policy"> | "package_unavailable" | "terms_required", string> = {
   amount_mismatch: "checkout-unavailable",
   blocked: "checkout-blocked",
   daily_limit: "checkout-daily-limit",
+  full_access_active: "checkout-full-access",
   hourly_attempts: "checkout-too-many",
   ip_attempts: "checkout-too-many",
   missing_ip: "checkout-unavailable",
   open_payment: "checkout-open-payment",
   package_unavailable: "checkout-unavailable",
+  terms_required: "checkout-terms",
 };
 
 type CheckoutPayDeps = {
@@ -199,6 +203,12 @@ async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, d
   const idempotencyKey = parseCheckoutIdempotencyKey(form.get("key"));
   if (!idempotencyKey) return checkoutPage({ notice: "checkout-changed" });
 
+  // The buyer must tick agreement to the current Syarat Pembelian. Nothing is
+  // written before this: no intent, no order, no reservation. An old page that
+  // names an earlier version does not count either, so the buyer reads the
+  // current text first.
+  if (form.get("terms") !== PURCHASE_TERMS.version) return checkoutPage({ notice: "checkout-terms" });
+
   let referralCode: string | null = null;
   if (rawReferral) {
     referralCode = await findActiveReferralCode(rawReferral);
@@ -215,6 +225,7 @@ async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, d
     idempotencyKey,
     plan,
     referralCode,
+    termsVersion: PURCHASE_TERMS.version,
   });
   if (result.status === "expired") return checkoutPage({ notice: "checkout-expired" });
   if (result.status === "conflict") return checkoutPage({ notice: "checkout-changed" });

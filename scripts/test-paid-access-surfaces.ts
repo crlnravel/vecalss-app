@@ -123,7 +123,7 @@ assert.deepEqual(
 // The guard itself is gated by default and only skips the check when asked.
 const access = readFileSync("lib/auth/access.ts", "utf8");
 assert.match(access, /allowUnpaid\s*=\s*false/u, "requireStudentSession is a paid surface unless the caller opts out");
-assert.match(access, /!allowUnpaid\s*&&\s*!\(await studentMayUsePaidSurfaces/u);
+assert.match(access, /!allowUnpaid\s*&&\s*!\(await (?:studentMayUsePaidSurfaces|enterPaidSurface)/u);
 
 const gated = Object.values(GUARD_SITES).reduce((sum, [paid]) => sum + paid, 0);
 const open = Object.values(GUARD_SITES).reduce((sum, [, free]) => sum + free, 0);

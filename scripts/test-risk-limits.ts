@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -108,6 +109,7 @@ async function makeIntent(buyerId: string, options: StartOptions = {}) {
       idempotencyKey: randomUUID(),
       plan: options.plan ?? QUOTES.monthlyNov.plan,
       pricingMonth: options.month ?? QUOTES.monthlyNov.month,
+      termsVersion: "test-terms",
     },
   });
 }
@@ -229,11 +231,11 @@ async function insertPastPurchase(buyerId: string, dayOffset: number, state: "pa
   const [order] = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO payment_orders (
       intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name, amount_rupiah,
-      buyer_ip_source, buyer_ip_exemption, provider, provider_environment, provider_account,
+      buyer_ip_source, buyer_ip_exemption, terms_version, provider, provider_environment, provider_account,
       status, paid_at, package_purchase_id, created_at, expires_at
     ) VALUES (
       ${intent.id}::uuid, ${buyerId}::uuid, ${reference}, 'monthly', '2026-11', ${packageCode}, 'fixture', 49000,
-      'unavailable', 'test-fixture', ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
+      'unavailable', 'test-fixture', 'test-terms', ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
       ${status}::payment_order_status, ${state === "paid" ? new Date() : null}, ${purchaseId}::uuid,
       now() - interval '30 hours', now() - interval '29 hours'
     ) RETURNING id
@@ -788,9 +790,9 @@ async function main() {
       await expectDatabaseRefusal(
         () => prisma.$executeRaw`
           INSERT INTO payment_orders (intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
-            amount_rupiah, buyer_ip_source, provider, provider_environment, provider_account, expires_at)
+            amount_rupiah, buyer_ip_source, terms_version, provider, provider_environment, provider_account, expires_at)
           VALUES (${rawIntent.id}::uuid, ${raw}::uuid, ${randomUUID()}, 'monthly', '2026-11', 'X', 'x', 49000,
-            'unavailable', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
+            'unavailable', 'test-terms', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
         /needs a buyer IP or an exemption/u,
         "no address and no reason",
       );
@@ -892,12 +894,12 @@ async function insertOldOrder(buyerId: string, ip: string | null, hoursAgo: numb
   await prisma.$executeRaw`
     INSERT INTO payment_orders (
       intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name, amount_rupiah,
-      buyer_ip, buyer_ip_source, buyer_ip_exemption, status, provider, provider_environment, provider_account,
+      buyer_ip, buyer_ip_source, buyer_ip_exemption, status, terms_version, provider, provider_environment, provider_account,
       created_at, expires_at
     ) VALUES (
       ${intent.id}::uuid, ${buyerId}::uuid, ${randomUUID().replaceAll("-", "")}, 'monthly', '2026-11', ${packageCode},
       'fixture', 49000, ${ip}::inet, ${ip ? "trusted-proxy:1" : "unavailable"}, ${ip ? null : "test-fixture"}, 'pending',
-      ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
+      'test-terms', ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
       now() - make_interval(hours => ${hoursAgo}::int), now() - make_interval(hours => ${hoursAgo}::int) + interval '15 minutes'
     )
   `;
@@ -944,7 +946,7 @@ async function postThroughHandler(
   if (options.forwardedFor) headers["x-forwarded-for"] = options.forwardedFor;
   return handleCheckoutPayPost(
     new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-      body: new URLSearchParams({ key: randomUUID(), plan: "monthly" }).toString(),
+      body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
       headers,
       method: "POST",
     }),
