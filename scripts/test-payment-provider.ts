@@ -160,7 +160,7 @@ async function main() {
 
     const before = await written();
     for (const env of [
-      { ...base, DATABASE_URL: LOCAL, NODE_ENV: "production" },
+      { ...base, APP_BASE_URL: APP_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "production" },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "1" },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "test", VERCEL_ENV: "preview" },
       { ...base, APP_BASE_URL: "https://app.vecalss.example", DATABASE_URL: LOCAL, NODE_ENV: "test" },
@@ -179,7 +179,7 @@ async function main() {
 
     // And it works when the environment allows it, which is what the checks above are measured against.
     const open = await submit({ ...base, DATABASE_URL: LOCAL, NODE_ENV: "test" });
-    assert.match(new URL(open.headers.get("location") ?? "").pathname, /^\/pay\/stand-in\//u);
+    assert.match(new URL(open.headers.get("location") ?? "").pathname, /^\/pay\/stand-in\//u, String(open.headers.get("location")));
     assert.equal((await written()).orders, before.orders + 1);
 
     // The old redirect builder is gone from the module.
