@@ -124,6 +124,13 @@ async function getOrderRetention(orderId: string, db: Db = prisma): Promise<Orde
   };
 }
 
+/** The buyer's raw address, for the owner's order page. Everyone else sees it masked (lib/retention/mask). */
+async function getBuyerIp(orderId: string, db: Db = prisma): Promise<string | null> {
+  if (!/^[0-9a-f-]{36}$/iu.test(orderId)) return null;
+  const [row = null] = await db.$queryRaw<Array<{ ip: string | null }>>`SELECT host(buyer_ip) AS ip FROM payment_orders WHERE id = ${orderId}::uuid`;
+  return row?.ip ?? null;
+}
+
 /** Whether an order's IP and device sections still exist, for the dispute packet. */
 async function getIpEvidenceState(orderId: string, db: Db): Promise<{ scrubbedAt: Date | null; state: IpState }> {
   const [row = null] = await db.$queryRaw<Array<{ hasIp: boolean; scrubbedAt: Date | null }>>`
@@ -137,5 +144,5 @@ async function getIpEvidenceState(orderId: string, db: Db): Promise<{ scrubbedAt
   return { scrubbedAt: row.scrubbedAt, state: row.scrubbedAt ? "removed" : row.hasIp ? "kept" : "none" };
 }
 
-export { getIpEvidenceState, getOrderRetention };
+export { getBuyerIp, getIpEvidenceState, getOrderRetention };
 export type { CaseOption, HoldRow, IpState, OrderRetention };

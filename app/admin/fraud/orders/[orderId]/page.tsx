@@ -8,7 +8,8 @@ import { getOrderSummary } from "@/lib/disputes/queries";
 import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
 import { getPaymentProvider } from "@/lib/payments/provider";
-import { getOrderRetention } from "@/lib/retention/status";
+import { maskIp } from "@/lib/retention/mask";
+import { getBuyerIp, getOrderRetention } from "@/lib/retention/status";
 import { prisma } from "@/lib/prisma";
 import { listCapturedPayments } from "@/lib/refunds/balance";
 import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
@@ -65,6 +66,9 @@ export default async function AdminFraudOrderPage({
 
   const authority = describeAuthority(session);
   const retention = await getOrderRetention(order.id);
+  const rawBuyerIp = await getBuyerIp(order.id);
+  // The owner sees the address; other admins see it masked.
+  const buyerIp = authority.isOwner ? rawBuyerIp : maskIp(rawBuyerIp);
   const exports = await listExportsForOrder(order.id);
   const [refunds, disputes, payments, buyerAccess, orderRow] = await Promise.all([
     listRefundRecords(prisma, order.id),
@@ -122,7 +126,7 @@ export default async function AdminFraudOrderPage({
       />
 
       {retention?.kind === "present" ? (
-        <RetentionPanel authority={authority} buyerId={order.buyerId} orderId={order.id} retention={retention} />
+        <RetentionPanel authority={authority} buyerId={order.buyerId} buyerIp={buyerIp} orderId={order.id} retention={retention} />
       ) : null}
 
       <Panel title="Ekspor bukti sengketa">

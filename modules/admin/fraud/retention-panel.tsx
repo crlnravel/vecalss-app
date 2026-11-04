@@ -27,11 +27,14 @@ function periodLine(retention: PresentRetention) {
 function RetentionPanel({
   authority,
   buyerId,
+  buyerIp,
   orderId,
   retention,
 }: {
   authority: { isOwner: boolean; ownerConfigured: boolean };
   buyerId: string;
+  /** The raw address for the owner, a masked one for other admins, null when none is kept. */
+  buyerIp: string | null;
   orderId: string;
   retention: PresentRetention;
 }) {
@@ -48,6 +51,7 @@ function RetentionPanel({
           {retention.held ? <Badge size="xs" tone="attention">Ditahan</Badge> : <Badge size="xs" tone="neutral">Tidak ditahan</Badge>}
         </Field>
         <Field label="Alamat IP dan perangkat">{ipLine(retention)}</Field>
+        {buyerIp ? <Field label={authority.isOwner ? "Alamat IP pembeli" : "Alamat IP pembeli (disamarkan)"}>{buyerIp}</Field> : null}
       </dl>
 
       {openHolds.length > 0 ? (
