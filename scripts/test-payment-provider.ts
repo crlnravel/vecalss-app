@@ -28,7 +28,7 @@ import {
 
 const LOCAL = "postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public";
 /** A developer machine's own address; the stand-in refuses any other app URL. */
-const WORKSTATION_ORIGIN = "http://localhost:3000";
+const WORKSTATION_ORIGIN = APP_ORIGIN;
 const NEON = "postgresql://user:pass@ep-spring-unit-ao75v221-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
 async function main() {
@@ -160,7 +160,7 @@ async function main() {
 
     const before = await written();
     for (const env of [
-      { ...base, APP_BASE_URL: APP_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "production" },
+      { ...base, APP_BASE_URL: "https://app.example.test", DATABASE_URL: LOCAL, NODE_ENV: "production" },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "1" },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "test", VERCEL_ENV: "preview" },
       { ...base, APP_BASE_URL: "https://app.vecalss.example", DATABASE_URL: LOCAL, NODE_ENV: "test" },

@@ -84,8 +84,7 @@ async function reconcileOrder(order: OpenOrder, provider: PaymentProviderAdapter
   // is recorded against that order and nothing else happens.
   const mismatches = findStatusMismatches(order, status, provider);
   if (mismatches.length > 0) {
-    await quarantineStatusMismatch(order, status, provider, mismatches);
-    return "unchanged";
+    return (await quarantineStatusMismatch(order, status, provider, mismatches)) ? "resolved" : "unchanged";
   }
 
   if (status.state === "pending") return "pending";

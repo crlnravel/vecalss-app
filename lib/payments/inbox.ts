@@ -192,7 +192,7 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
 
     let decision = decidePaymentEvent(order, event, adapter);
     if (input.statusMismatch?.length) {
-      decision = { orderTo: null, outcome: "quarantined", reason: `status_mismatch:${input.statusMismatch.join(",")}` };
+      decision = { orderTo: null, outcome: "quarantined", reason: input.statusMismatch.join(",") };
     }
 
     // What a refund or dispute event means is read from the refund case or

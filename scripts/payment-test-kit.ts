@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 
-import type { PaymentEventKind } from "../lib/payments/adapter";
+import type { PaymentEventKind, PaymentProviderAdapter, ProviderPaymentStatus } from "../lib/payments/adapter";
 import { receivePaymentEvent } from "../lib/payments/inbox";
 import { createOrderFromIntent, ensurePaymentSession } from "../lib/payments/orders";
 import { StandInProvider } from "../lib/payments/stand-in/provider";
@@ -18,7 +18,8 @@ if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
   throw new Error("The payment suites only run against the local dev database on 127.0.0.1:55432.");
 }
 
-const APP_ORIGIN = "https://app.example.test";
+/** A loopback address, like a developer's machine: the stand-in refuses any other app URL (P-01). */
+const APP_ORIGIN = "http://localhost:3000";
 /** The terms version fixture intents and orders carry; checkout needs one on every order. */
 const TEST_TERMS_VERSION = "test-terms";
 const TEST_SECRET = "payment-suite-secret";
@@ -240,6 +241,24 @@ async function failLeftoverOrders() {
 
 const expectedAdapterIdentity = { account: provider.merchantAccount, environment: provider.environment };
 
+/**
+ * The stand-in, except that its status lookups answer with whatever `answer`
+ * returns. Used to prove that a status result about another payment, or with
+ * other facts, is never applied to the order that was asked about.
+ */
+function withStatusAnswer(answer: (reference: string) => Promise<ProviderPaymentStatus>): PaymentProviderAdapter {
+  return {
+    createRefund: (request) => provider.createRefund(request),
+    createSession: (request) => provider.createSession(request),
+    environment: provider.environment,
+    getRefundStatus: (reference) => provider.getRefundStatus(reference),
+    getStatus: answer,
+    id: provider.id,
+    merchantAccount: provider.merchantAccount,
+    verifyAndParseEvent: (input) => provider.verifyAndParseEvent(input),
+  };
+}
+
 export {
   APP_ORIGIN,
   TEST_SECRET,
@@ -258,4 +277,5 @@ export {
   runId,
   signedEventFor,
   snapshotOf,
+  withStatusAnswer,
 };

@@ -54,7 +54,8 @@ function findStatusMismatches(order: QueriedOrder, status: FoundStatus, provider
  * a quarantined event, an audit event, a fraud signal and a critical alert,
  * written by the same transaction as a webhook mismatch. The order itself is
  * left exactly as it was. The event id covers what the provider reported, so
- * the same wrong answer repeated is one event and one alert.
+ * the same wrong answer repeated is one event and one alert. Returns whether
+ * a new finding was recorded.
  */
 async function quarantineStatusMismatch(
   order: QueriedOrder,
@@ -63,7 +64,7 @@ async function quarantineStatusMismatch(
   mismatches: string[],
 ) {
   try {
-    await processPaymentEvent({
+    const result = await processPaymentEvent({
       adapter: provider,
       event: {
         amountRupiah: status.amountRupiah,
@@ -82,10 +83,12 @@ async function quarantineStatusMismatch(
       source: "reconciliation",
       statusMismatch: mismatches,
     });
+    return result.status === "processed";
   } catch (error) {
     serverLogger.error("payments.status.quarantine_failed", error instanceof Error ? error : new Error("quarantine failed"), {
       area: "payments",
     });
+    return false;
   }
 }
 
