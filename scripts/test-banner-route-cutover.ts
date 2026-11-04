@@ -295,6 +295,10 @@ try {
   assert.equal(deliveryErrorStatus(() => assertBannerDeliverySession(adminSession, "published")), 403);
   assert.doesNotThrow(() => assertBannerDeliverySession(adminSession, "admin-published"));
   assert.doesNotThrow(() => assertBannerDeliverySession(adminSession, "draft"));
+  // An admin who still has to change a temporary or reset password gets no draft or admin artwork.
+  const flaggedAdmin = { ...adminSession, user: { ...adminSession.user, mustChangePassword: true } };
+  assert.equal(deliveryErrorStatus(() => assertBannerDeliverySession(flaggedAdmin, "draft")), 403);
+  assert.equal(deliveryErrorStatus(() => assertBannerDeliverySession(flaggedAdmin, "admin-published")), 403);
   assert.doesNotThrow(() => assertBannerDeliverySession(studentSession, "published"));
 
   assert.equal(buildAdminStudentPreviewBannerEditorRoute("materi"), "/admin/student-banners?destination=materi");

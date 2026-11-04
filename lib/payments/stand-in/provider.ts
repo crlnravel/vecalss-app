@@ -20,6 +20,7 @@ import {
   type RefundResult,
   type VerifyEventInput,
 } from "../adapter";
+import { isLocalStandInRuntime } from "./gate";
 import { checkStandInSignature, signStandInEvent } from "./signing";
 
 /**
@@ -35,7 +36,7 @@ import { checkStandInSignature, signStandInEvent } from "./signing";
 const STAND_IN_PROVIDER_ID = "stand-in";
 const STAND_IN_ACCOUNT = "stand-in-local";
 const STAND_IN_ENVIRONMENT = "local";
-/** Documented test secret. The stand-in only exists on a local database, so a fixed fallback is safe. */
+/** Documented test secret. Usable only after the local-runtime gate (./gate.ts) passes, so a deployed process can never fall back to it. */
 const STAND_IN_DEFAULT_SECRET = "stand-in-local-test-secret";
 
 const EVENT_KINDS = [
@@ -81,6 +82,8 @@ const eventSchema = z.object({
 
 type StandInOptions = {
   appBaseUrl: string;
+  /** The environment the local-runtime gate reads when no secret is given. Defaults to process.env. */
+  env?: Partial<Record<string, string | undefined>>;
   secret?: string;
 };
 
@@ -95,9 +98,14 @@ class StandInProvider implements PaymentProviderAdapter {
   private readonly secret: string;
   private readonly refundFaults: RefundFault[] = [];
 
-  constructor({ appBaseUrl, secret }: StandInOptions) {
+  constructor({ appBaseUrl, env = process.env, secret }: StandInOptions) {
     this.appBaseUrl = appBaseUrl;
-    this.secret = secret?.trim() || STAND_IN_DEFAULT_SECRET;
+
+    const explicit = secret?.trim();
+    if (!explicit && !isLocalStandInRuntime(env)) {
+      throw new Error("The stand-in's fixed test secret is only available on a developer's own machine.");
+    }
+    this.secret = explicit || STAND_IN_DEFAULT_SECRET;
   }
 
   /** Same reference, same session: the insert is skipped when the reference already exists. */

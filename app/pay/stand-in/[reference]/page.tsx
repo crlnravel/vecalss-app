@@ -3,8 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button-variants";
 import { getSessionContext } from "@/lib/auth/session";
-import { getPaymentProvider } from "@/lib/payments/provider";
-import { STAND_IN_PROVIDER_ID } from "@/lib/payments/stand-in/provider";
+import { getStandInProvider } from "@/lib/payments/provider";
 import { formatRupiah } from "@/lib/pricing/schedule";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
@@ -27,7 +26,7 @@ export default async function StandInPayPage({
 }: {
   params: Promise<{ reference: string }>;
 }) {
-  if (getPaymentProvider()?.id !== STAND_IN_PROVIDER_ID) notFound();
+  if (!getStandInProvider()) notFound();
 
   const { reference } = await params;
   const session = await getSessionContext();

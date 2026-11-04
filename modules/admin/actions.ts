@@ -31,6 +31,7 @@ import {
   updateStudentEnrollment,
 } from "@/lib/admin/enrollment";
 import type { FormState } from "@/modules/auth/form-state";
+import { readPasswordField } from "@/modules/auth/form-fields";
 import { describePasswordProblem } from "@/modules/auth/password-copy";
 
 function readTextField(formData: FormData, key: string) {
@@ -625,8 +626,8 @@ async function changeStudentEnrollmentPasswordAction(
   const userId = readUuidField(formData, "userId");
   const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
   const directoryQuery = readDirectoryQuery(formData);
-  const password = readTextField(formData, "password");
-  const confirmPassword = readTextField(formData, "confirmPassword");
+  const password = readPasswordField(formData, "password");
+  const confirmPassword = readPasswordField(formData, "confirmPassword");
 
   if (!userId) {
     redirect(buildEnrollmentRedirect({ error: "invalid-user", query: directoryQuery }));

@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button-variants";
 import { requireAdminSession } from "@/lib/auth/access";
-import { getPaymentProvider } from "@/lib/payments/provider";
-import { STAND_IN_PROVIDER_ID } from "@/lib/payments/stand-in/provider";
+import { getStandInProvider } from "@/lib/payments/provider";
 import { formatRupiah } from "@/lib/pricing/schedule";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,7 @@ export const dynamic = "force-dynamic";
  * else this route is a 404.
  */
 export default async function StandInRefundPage({ params }: { params: Promise<{ reference: string }> }) {
-  if (getPaymentProvider()?.id !== STAND_IN_PROVIDER_ID) notFound();
+  if (!getStandInProvider()) notFound();
   await requireAdminSession();
 
   const { reference } = await params;

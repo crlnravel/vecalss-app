@@ -1,18 +1,19 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 
 import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
 import { processPaymentEvent } from "./inbox";
+import { findingDigest, findStatusMismatches, quarantineStatusMismatch } from "./status-binding";
 
 type OpenOrder = {
   amountRupiah: number;
   buyerId: string;
   currency: string;
   id: string;
+  /** Past its expiry by more than a day: an earlier daily run already had its chance to resolve it. */
+  overdue?: boolean;
   packageCode: string;
   providerAccount: string;
   providerEnvironment: string;
@@ -27,7 +28,16 @@ type ReconcileResult = {
   stillPending: number;
   /** The provider could not be reached or answered with something unusable. */
   unavailable: number;
+  /**
+   * Of those, the orders that were already overdue by more than OVERDUE_HOURS,
+   * so the same order has been unavailable on at least two daily runs. One
+   * failed lookup is a transient retry and stays quiet; these do not.
+   */
+  persistentlyUnavailable: number;
 };
+
+/** An order this long past its expiry has met at least one earlier daily run. */
+const OVERDUE_HOURS = 24;
 
 const RECONCILE_BATCH = 50;
 
@@ -41,28 +51,13 @@ async function findOpenOrdersPastExpiry(provider: PaymentProviderAdapter, limit:
   return prisma.$queryRaw<OpenOrder[]>`
     SELECT id, reference, buyer_id AS "buyerId", package_code AS "packageCode",
            amount_rupiah AS "amountRupiah", currency,
-           provider_account AS "providerAccount", provider_environment AS "providerEnvironment"
+           provider_account AS "providerAccount", provider_environment AS "providerEnvironment",
+           expires_at <= now() - make_interval(hours => ${OVERDUE_HOURS}::int) AS overdue
     FROM payment_orders
     WHERE status = 'pending' AND provider = ${provider.id} AND expires_at <= now()
     ORDER BY expires_at
     LIMIT ${limit}
   `;
-}
-
-function findingDigest(status: {
-  amountRupiah: number;
-  buyerId: string | null;
-  currency: string;
-  environment: string;
-  merchantAccount: string;
-  packageCode: string | null;
-}) {
-  return createHash("sha256")
-    .update(JSON.stringify([
-      status.amountRupiah, status.buyerId, status.currency, status.environment, status.merchantAccount, status.packageCode,
-    ]))
-    .digest("hex")
-    .slice(0, 12);
 }
 
 /**
@@ -95,6 +90,13 @@ async function reconcileOrder(order: OpenOrder, provider: PaymentProviderAdapter
       source: "reconciliation",
     });
     return result.status === "processed" ? "resolved" : "unchanged";
+  }
+
+  // The answer must be about the order that was asked about. If it is not, it
+  // is recorded against that order and nothing else happens.
+  const mismatches = findStatusMismatches(order, status, provider);
+  if (mismatches.length > 0) {
+    return (await quarantineStatusMismatch(order, status, provider, mismatches)) ? "resolved" : "unchanged";
   }
 
   if (status.state === "pending") return "pending";
@@ -145,7 +147,13 @@ async function reconcileOpenOrders(
   options: { limit?: number } = {},
 ): Promise<ReconcileResult> {
   const orders = await findOpenOrdersPastExpiry(provider, options.limit ?? RECONCILE_BATCH);
-  const result: ReconcileResult = { checked: orders.length, resolved: 0, stillPending: 0, unavailable: 0 };
+  const result: ReconcileResult = {
+    checked: orders.length,
+    persistentlyUnavailable: 0,
+    resolved: 0,
+    stillPending: 0,
+    unavailable: 0,
+  };
 
   for (const order of orders) {
     try {
@@ -154,6 +162,7 @@ async function reconcileOpenOrders(
       else if (outcome === "pending") result.stillPending += 1;
     } catch (error) {
       result.unavailable += 1;
+      if (order.overdue) result.persistentlyUnavailable += 1;
       serverLogger.error("payments.reconcile.failed", error instanceof Error ? error : new Error("reconcile failed"), {
         area: "payments",
       });
@@ -163,5 +172,5 @@ async function reconcileOpenOrders(
   return result;
 }
 
-export { findOpenOrdersPastExpiry, reconcileOpenOrders, reconcileOrder, reconcileOrderByReference };
+export { OVERDUE_HOURS, findOpenOrdersPastExpiry, reconcileOpenOrders, reconcileOrder, reconcileOrderByReference };
 export type { OpenOrder, ReconcileResult };

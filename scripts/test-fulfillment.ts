@@ -272,7 +272,7 @@ async function main() {
     const deps: CheckoutPayDeps = { env, getProvider: () => provider, getSession: async () => session, now: () => new Date("2026-11-20T10:00:00+07:00") };
     const response = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-        body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+        body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
         headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN },
         method: "POST",
       }),
@@ -483,7 +483,7 @@ async function main() {
     const post = (fields: Record<string, string>) =>
       handleCheckoutPayPost(
         new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key: randomUUID(), plan: "monthly", ...fields }).toString(),
+          body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", ...fields }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": randomBuyerIp() },
           method: "POST",
         }),

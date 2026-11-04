@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { SessionContext } from "../lib/auth/types";
 import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import { handlePaymentEventRequest } from "../lib/payments/inbox-http";
-import { getPaymentProvider, isStandInAllowed } from "../lib/payments/provider";
-import { StandInProvider } from "../lib/payments/stand-in/provider";
+import { getPaymentProvider, getStandInProvider, isStandInAllowed } from "../lib/payments/provider";
+import { STAND_IN_DEFAULT_SECRET, StandInProvider } from "../lib/payments/stand-in/provider";
 import { checkStandInSignature, signStandInEvent } from "../lib/payments/stand-in/signing";
 import * as checkoutConfig from "../lib/pricing/checkout";
 import { handleCheckoutPayPost, type CheckoutPayDeps } from "../lib/pricing/checkout-pay";
@@ -27,6 +27,8 @@ import {
  */
 
 const LOCAL = "postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public";
+/** A developer machine's own address; the stand-in refuses any other app URL. */
+const WORKSTATION_ORIGIN = APP_ORIGIN;
 const NEON = "postgresql://user:pass@ep-spring-unit-ao75v221-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
 async function main() {
@@ -36,6 +38,13 @@ async function main() {
     { DATABASE_URL: LOCAL, NODE_ENV: "test" },
     { DATABASE_URL: "postgresql://u:p@localhost:5432/x", NODE_ENV: "development" },
     { DATABASE_URL: "postgresql://u:p@[::1]:5432/x", NODE_ENV: undefined },
+    // The app's own address may be any loopback host; an unset one defaults to localhost.
+    { APP_BASE_URL: "http://localhost:3000", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://127.0.0.1:5023", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://[::1]:3000", DATABASE_URL: LOCAL, NODE_ENV: "test" },
+    // Variables a workstation can carry that are not platform markers.
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL_TOKEN: "x", VERCEL_PROJECT_ID: "p", VERCEL_ORG_ID: "o" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "" },
   ];
   for (const env of allowed) assert.equal(isStandInAllowed(env), true, JSON.stringify(env));
 
@@ -49,11 +58,28 @@ async function main() {
     { DATABASE_URL: "postgresql://u:p@localhost.evil.example:5432/x", NODE_ENV: "development" },
     { DATABASE_URL: "postgresql://u:p@127.0.0.1.evil.example:5432/x", NODE_ENV: "development" },
     { DATABASE_URL: "postgresql://u:p@db.internal.example:5432/x", NODE_ENV: "development" },
+    // A deployed container with a loopback database is not a developer's machine (P-01).
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "1" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "test", VERCEL: "1" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL_ENV: "preview" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL_ENV: "development" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL_URL: "vecalss-abc.vercel.app" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", KUBERNETES_SERVICE_HOST: "10.0.0.1" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "test", AWS_LAMBDA_FUNCTION_NAME: "fn" },
+    { APP_BASE_URL: "https://app.vecalss.example", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "https://app.vecalss.example", DATABASE_URL: LOCAL, NODE_ENV: "test" },
+    { APP_BASE_URL: "http://localhost.evil.example", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://127.0.0.1.evil.example:3000", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://localhost@evil.example", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://evil-localhost", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "http://10.0.0.5:3000", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "not a url", DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { APP_BASE_URL: "ftp://localhost", DATABASE_URL: LOCAL, NODE_ENV: "development" },
   ];
   for (const env of refused) assert.equal(isStandInAllowed(env), false, JSON.stringify(env));
 
   // ---- Which provider is configured -------------------------------------------------
-  const local = { APP_BASE_URL: APP_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development" };
+  const local = { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development" };
   assert.equal(getPaymentProvider({ ...local }), null, "nothing selected, nothing configured");
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: "" }), null);
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: "e2pay" }), null, "E2Pay's adapter does not exist yet");
@@ -62,11 +88,40 @@ async function main() {
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: " Stand-In " })?.id, "stand-in");
   for (const env of refused) {
     assert.equal(
-      getPaymentProvider({ ...env, APP_BASE_URL: APP_ORIGIN, PAYMENT_PROVIDER: "stand-in" }),
+      getPaymentProvider({ ...env, APP_BASE_URL: (env as { APP_BASE_URL?: string }).APP_BASE_URL ?? WORKSTATION_ORIGIN, PAYMENT_PROVIDER: "stand-in" }),
       null,
       `the stand-in is refused: ${JSON.stringify(env)}`,
     );
   }
+
+  // ---- One gate for every entry point (P-01) ----------------------------------------------
+  // The factory, the pay console and the refund console get the stand-in from the same
+  // helper, and its fixed fallback secret is unusable once the gate fails.
+  for (const env of refused) {
+    const asked = { ...env, APP_BASE_URL: env.APP_BASE_URL ?? WORKSTATION_ORIGIN, PAYMENT_PROVIDER: "stand-in" };
+    assert.equal(getStandInProvider(asked), null, `the console helper is refused: ${JSON.stringify(env)}`);
+    assert.throws(
+      () => new StandInProvider({ appBaseUrl: WORKSTATION_ORIGIN, env: asked }),
+      /only available on a developer's own machine/u,
+      `no fallback secret: ${JSON.stringify(env)}`,
+    );
+  }
+  assert.equal(getStandInProvider({ ...local, PAYMENT_PROVIDER: "" }), null);
+  assert.equal(getStandInProvider({ ...local }), null, "unset stays no provider");
+  assert.ok(getStandInProvider({ ...local, PAYMENT_PROVIDER: "stand-in" }) instanceof StandInProvider);
+  assert.ok(new StandInProvider({ appBaseUrl: WORKSTATION_ORIGIN, env: { ...local } }), "the fallback works on a workstation");
+  assert.equal(STAND_IN_DEFAULT_SECRET.length > 0, true);
+  // A remote process cannot reach the fallback by leaving the secret unset either.
+  assert.equal(
+    getPaymentProvider({ ...local, PAYMENT_PROVIDER: "stand-in", VERCEL: "1" }),
+    null,
+    "a hosted process with a loopback database gets no provider",
+  );
+  assert.equal(
+    getPaymentProvider({ ...local, PAYMENT_PROVIDER: "stand-in", PAYMENT_STAND_IN_SECRET: "some-secret", VERCEL_ENV: "preview" }),
+    null,
+    "an explicit secret does not open the gate either",
+  );
 
   // ---- Production refusal, end to end -------------------------------------------------
   {
@@ -78,7 +133,7 @@ async function main() {
       user: { email: "p@example.test", fullName: "P", id: buyerId, mustChangePassword: false, onboardingStatus: null, roles: ["student"], status: "active" },
     };
     const base = {
-      APP_BASE_URL: APP_ORIGIN,
+      APP_BASE_URL: WORKSTATION_ORIGIN,
       PAYMENT_PROVIDER: "stand-in",
       PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode,
       PRICING_PACKAGE_CODE_FULL_UTBK: packageCode,
@@ -87,10 +142,11 @@ async function main() {
     const submit = (env: Record<string, string | undefined>) => {
       // No provider override: the handler resolves the provider from this environment itself.
       const deps: CheckoutPayDeps = { env: env as unknown as NodeJS.ProcessEnv, getSession: async () => session, now: () => new Date("2026-11-20T10:00:00+07:00") };
+      const origin = new URL(String(env.APP_BASE_URL)).origin;
       return handleCheckoutPayPost(
-        new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
-          headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN },
+        new Request(`${origin}/pricing/checkout/pay`, {
+          body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+          headers: { "content-type": "application/x-www-form-urlencoded", origin },
           method: "POST",
         }),
         deps,
@@ -104,7 +160,10 @@ async function main() {
 
     const before = await written();
     for (const env of [
-      { ...base, DATABASE_URL: LOCAL, NODE_ENV: "production" },
+      { ...base, APP_BASE_URL: "https://app.example.test", DATABASE_URL: LOCAL, NODE_ENV: "production" },
+      { ...base, DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "1" },
+      { ...base, DATABASE_URL: LOCAL, NODE_ENV: "test", VERCEL_ENV: "preview" },
+      { ...base, APP_BASE_URL: "https://app.vecalss.example", DATABASE_URL: LOCAL, NODE_ENV: "test" },
       { ...base, DATABASE_URL: NEON, NODE_ENV: "development" },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "test", PAYMENT_PROVIDER: undefined },
       { ...base, DATABASE_URL: LOCAL, NODE_ENV: "test", PAYMENT_PROVIDER: "e2pay" },
@@ -113,14 +172,14 @@ async function main() {
       const response = await submit(env);
       assert.equal(response.status, 303);
       const target = new URL(response.headers.get("location") ?? "");
-      assert.equal(target.origin, APP_ORIGIN, "never sent anywhere else, so no editable redirect is left");
+      assert.equal(target.origin, new URL(String(env.APP_BASE_URL)).origin, "never sent anywhere else, so no editable redirect is left");
       assert.equal(target.pathname, "/pricing/checkout");
       assert.deepEqual(await written(), before, `nothing written: ${JSON.stringify({ ...env, DATABASE_URL: "…" })}`);
     }
 
     // And it works when the environment allows it, which is what the checks above are measured against.
     const open = await submit({ ...base, DATABASE_URL: LOCAL, NODE_ENV: "test" });
-    assert.match(new URL(open.headers.get("location") ?? "").pathname, /^\/pay\/stand-in\//u);
+    assert.match(new URL(open.headers.get("location") ?? "").pathname, /^\/pay\/stand-in\//u, String(open.headers.get("location")));
     assert.equal((await written()).orders, before.orders + 1);
 
     // The old redirect builder is gone from the module.

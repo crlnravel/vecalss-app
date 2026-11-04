@@ -10,6 +10,7 @@ import { serverLogger } from "@/lib/server-logger";
 import type { PaymentProviderAdapter } from "./adapter";
 import { writePaymentAudit } from "./audit";
 import { PAYMENT_CURRENCY, PAYMENT_EXPIRY_MINUTES } from "./constants";
+import { findStatusMismatches, quarantineStatusMismatch } from "./status-binding";
 import {
   checkCheckoutAllowed,
   lockAccount,
@@ -211,8 +212,15 @@ async function ensurePaymentSession(
   appBaseUrl: string,
 ): Promise<SessionResult> {
   // Judge the order as it is now, not as the caller last read it.
-  const [current] = await prisma.$queryRaw<Array<{ expired: boolean; sessionUrl: string | null; status: string }>>`
-    SELECT expires_at <= now() AS expired, session_url AS "sessionUrl", status
+  const [current] = await prisma.$queryRaw<Array<{
+    expired: boolean;
+    providerAccount: string;
+    providerEnvironment: string;
+    sessionUrl: string | null;
+    status: string;
+  }>>`
+    SELECT expires_at <= now() AS expired, provider_account AS "providerAccount",
+           provider_environment AS "providerEnvironment", session_url AS "sessionUrl", status
     FROM payment_orders WHERE id = ${order.id}::uuid
   `;
   if (!current || current.status !== "pending" || current.expired) return { ok: false, reason: "closed" };
@@ -239,6 +247,14 @@ async function ensurePaymentSession(
     try {
       const status = await provider.getStatus(order.reference);
       if (status.found) {
+        // The answer must be about this order. A pending session that belongs
+        // to another payment is never saved; it is recorded against this order.
+        const queried = { ...order, providerAccount: current.providerAccount, providerEnvironment: current.providerEnvironment };
+        const mismatches = findStatusMismatches(queried, status, provider);
+        if (mismatches.length > 0) {
+          await quarantineStatusMismatch(queried, status, provider, mismatches);
+          return { ok: false, reason: "unavailable" };
+        }
         if (status.state !== "pending" || !status.checkoutUrl) return { ok: false, reason: "closed" };
         session = { checkoutUrl: status.checkoutUrl, providerPaymentId: status.providerPaymentId };
       }

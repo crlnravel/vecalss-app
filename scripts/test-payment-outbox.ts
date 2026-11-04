@@ -6,6 +6,7 @@ import { runDailyMaintenance } from "../lib/maintenance/daily";
 import {
   claimOutboxJobs,
   completeOutboxJob,
+  countRecentDeadCriticalAlerts,
   drainOutbox,
   enqueueOutbox,
   type OutboxHandlers,
@@ -166,6 +167,62 @@ async function main() {
     await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${bad.id}::uuid`;
   }
 
+  // ---- A worker that dies on its last attempt cannot run the job past its limit (P-06) --------
+  {
+    const throwing: OutboxHandlers = { ...noop, critical_alert: async () => { throw new Error("poison"); } };
+    const handled: string[] = [];
+    const counting: OutboxHandlers = { ...noop, critical_alert: async (queued) => { handled.push(queued.id); } };
+
+    // The normal path still works as before: dead after its last thrown attempt, never claimed again.
+    const thrown = await job({ maxAttempts: 2 });
+    await drainOutbox(throwing, { filter });
+    await makeDue(thrown.id);
+    assert.deepEqual(await drainOutbox(throwing, { filter }), { dead: 1, done: 0, failed: 0 });
+    await makeDue(thrown.id);
+    assert.deepEqual(await drainOutbox(counting, { filter }), { dead: 0, done: 0, failed: 0 });
+    assert.equal((await reload(thrown.id)).attempts, 2, "a dead job's attempts never grow");
+    assert.equal(handled.includes(thrown.id), false);
+
+    // A crash after the last lease: the final attempt is spent, no result is ever recorded,
+    // and the lease runs out. The next claim parks the job instead of running it a third time.
+    const crashed = await job({ maxAttempts: 2 });
+    await prisma.$executeRaw`UPDATE payment_outbox SET attempts = 1 WHERE id = ${crashed.id}::uuid`;
+    const lastLease = await claimOutboxJobs(prisma, "worker-that-dies", 20, filter);
+    assert.deepEqual(lastLease.map((item) => [item.id, item.attempts]), [[crashed.id, 2]], "the last allowed attempt is leased");
+    // Still leased: nobody else may take it, and it is not parked while a worker may be running it.
+    assert.deepEqual(await claimOutboxJobs(prisma, "other-worker", 20, filter), []);
+    assert.equal((await reload(crashed.id)).status, "pending");
+
+    await prisma.$executeRaw`UPDATE payment_outbox SET leased_until = now() - interval '1 second' WHERE id = ${crashed.id}::uuid`;
+    assert.deepEqual(await claimOutboxJobs(prisma, "other-worker", 20, filter), [], "an exhausted job is not claimed again");
+    assert.deepEqual(await drainOutbox(counting, { filter }), { dead: 0, done: 0, failed: 0 });
+    const parked = await reload(crashed.id);
+    assert.equal(parked.status, "dead");
+    assert.equal(parked.attempts, 2, "never past max_attempts");
+    assert.equal(parked.leaseOwner, null);
+    assert.match(parked.lastError ?? "", /last allowed attempt/u);
+    assert.equal(handled.includes(crashed.id), false, "its handler never ran a third time");
+
+    // A job that still has attempts left is reclaimed as before.
+    const survivor = await job({ maxAttempts: 3 });
+    await claimOutboxJobs(prisma, "worker-that-dies", 20, filter);
+    await prisma.$executeRaw`UPDATE payment_outbox SET leased_until = now() - interval '1 second' WHERE id = ${survivor.id}::uuid`;
+    const reclaimed = await claimOutboxJobs(prisma, "other-worker", 20, filter);
+    assert.deepEqual(reclaimed.map((item) => [item.id, item.attempts]), [[survivor.id, 2]]);
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${survivor.id}::uuid`;
+
+    // Dead critical alerts are what the daily job reports (P-04): recent ones only, and only that kind.
+    const baseline = await countRecentDeadCriticalAlerts(prisma);
+    assert.ok(baseline >= 2, "the two parked above are counted");
+    const deadReceipt = await job({ kind: "receipt_email" });
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'dead' WHERE id = ${deadReceipt.id}::uuid`;
+    assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline, "a dead receipt is not a lost alert");
+    const old = await job();
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'dead', created_at = now() - interval '10 days' WHERE id = ${old.id}::uuid`;
+    assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline, "an old one has been reported already");
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id IN (${deadReceipt.id}::uuid, ${old.id}::uuid)`;
+  }
+
   // ---- Handlers -----------------------------------------------------------------------------
   {
     const sent: EmailMessage[] = [];
@@ -229,6 +286,11 @@ async function main() {
 
   // ---- The daily maintenance job drains the outbox, and is safe to repeat -------------------
   {
+    // The checks above park alerts on purpose, and earlier runs or other branches' versions of this suite
+    // may have left dead ones in the shared database. They are all disposable test data: settle them here
+    // so the daily run below is judged on the fixtures this run creates, not on leftovers.
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE kind = 'critical_alert' AND status = 'dead'`;
+
     const order = await makeOrder();
     await deliver(signedEventFor(order, "payment.succeeded"));
     const receipt = await prisma.paymentOutbox.findFirstOrThrow({ where: { kind: "receipt_email", orderId: order.id } });
@@ -297,4 +359,9 @@ main()
     console.error(error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    // Alerts this suite parks on purpose are test data: settle them so a later run, or any suite that
+    // runs the daily job's payment step, never finds a dead critical alert left behind.
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE kind = 'critical_alert' AND status = 'dead' AND dedupe_key LIKE ${prefix} || '%'`;
+    await prisma.$disconnect();
+  });

@@ -158,6 +158,16 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
   return response;
 }
 
+/** The month and price the page showed, from its hidden fields; null when absent or malformed. */
+function parseQuotedPrice(form: FormData | URLSearchParams) {
+  const month = form.get("quoted_month");
+  const amount = form.get("quoted_amount");
+  if (typeof month !== "string" || typeof amount !== "string") return null;
+  if (!/^\d{4}-\d{2}$/u.test(month) || !/^\d{1,9}$/u.test(amount)) return null;
+
+  return { amountRupiah: Number(amount), month };
+}
+
 async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, deviceToken: string) {
   if (!isSameOrigin(request, deps.env)) {
     return new Response(REJECTED_PAGE, {
@@ -229,9 +239,13 @@ async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, d
     entry,
     idempotencyKey,
     plan,
+    quote: parseQuotedPrice(form),
     referralCode,
     termsVersion: PURCHASE_TERMS.version,
   });
+  // The price or month moved since the page was shown (or the page named none):
+  // nothing was written, and the buyer sees the current price again.
+  if (result.status === "price_changed") return checkoutPage({ notice: "checkout-price-changed" });
   if (result.status === "expired") return checkoutPage({ notice: "checkout-expired" });
   if (result.status === "conflict") return checkoutPage({ notice: "checkout-changed" });
 

@@ -209,7 +209,8 @@ function responseForCsvCode(code: QuestionBankCsvHttpCode, status?: 401 | 403 | 
 async function readTutorCsvSession() {
   const session = await getReadOnlySessionContext();
   if (!session) return null;
-  return hasRole(session, RoleName.tutor) ? session : false;
+  // A tutor still on a temporary or reset password is refused like a non-tutor.
+  return hasRole(session, RoleName.tutor) && !session.user.mustChangePassword ? session : false;
 }
 
 function publicCsvMutationCode(error: unknown): QuestionBankCsvMutationCode | null {

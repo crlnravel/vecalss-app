@@ -22,12 +22,8 @@ import { revokeCurrentSession } from "@/lib/auth/session";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import type { FormState } from "./form-state";
+import { readPasswordField, readTextField } from "./form-fields";
 import { describePasswordViolation, isPasswordPolicyError } from "./password-copy";
-
-function readTextField(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
 
 function withFieldError(
   fields: Record<string, string>,
@@ -78,7 +74,7 @@ async function handleLoginAction(
   formData: FormData,
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
-  const password = readTextField(formData, "password");
+  const password = readPasswordField(formData, "password");
 
   if (!email || !password) {
     return withFieldError(
@@ -194,8 +190,8 @@ async function resetPasswordAction(
 ): Promise<FormState> {
   const audience = readAudience(formData);
   const token = readTextField(formData, "token");
-  const password = readTextField(formData, "password");
-  const confirmPassword = readTextField(formData, "confirmPassword");
+  const password = readPasswordField(formData, "password");
+  const confirmPassword = readPasswordField(formData, "confirmPassword");
 
   if (!token) {
     return {
@@ -246,8 +242,8 @@ async function changePasswordAction(
   formData: FormData,
 ): Promise<FormState> {
   const session = await requireSession();
-  const password = readTextField(formData, "password");
-  const confirmPassword = readTextField(formData, "confirmPassword");
+  const password = readPasswordField(formData, "password");
+  const confirmPassword = readPasswordField(formData, "confirmPassword");
 
   if (!password || !confirmPassword) {
     return withFieldError(

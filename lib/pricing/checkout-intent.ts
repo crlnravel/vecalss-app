@@ -43,6 +43,14 @@ type CheckoutIntentInput = {
   entry: PricingScheduleEntry;
   idempotencyKey: string;
   plan: PricingPlanId;
+  /**
+   * The month and price the buyer's page showed. Not authoritative: the intent
+   * always takes the server's current entry. If a new intent would differ from
+   * what was shown (or nothing was shown), none is written and the result is
+   * `price_changed`. Left out (undefined), nothing is compared, for server-side
+   * callers that were never shown a page; null means the page named nothing.
+   */
+  quote?: { amountRupiah: number; month: string } | null;
   referralCode: string | null;
   /** The version of the purchase terms the buyer ticked. */
   termsVersion: string;
@@ -60,7 +68,8 @@ type CheckoutIntentRecord = {
 type CheckoutIntentResult =
   | { intent: CheckoutIntentRecord; status: "created" | "reused" }
   | { status: "conflict" }
-  | { status: "expired" };
+  | { status: "expired" }
+  | { status: "price_changed" };
 
 /**
  * Records the buyer's checkout intent, or returns the one already stored for
@@ -74,8 +83,17 @@ type CheckoutIntentResult =
  * when it is checked, so a server with a skewed clock cannot extend or cut it.
  */
 async function resolveCheckoutIntent(
-  { buyerId, entry, idempotencyKey, plan, referralCode, termsVersion }: CheckoutIntentInput,
+  { buyerId, entry, idempotencyKey, plan, quote, referralCode, termsVersion }: CheckoutIntentInput,
 ): Promise<CheckoutIntentResult> {
+  // A first submission is bound to what the page showed. A retry of an intent
+  // that already exists keeps the quote it was first given, so it skips this.
+  if (quote !== undefined && (!quote || quote.month !== entry.month || quote.amountRupiah !== getPlanPrice(entry, plan))) {
+    const [existing] = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM checkout_intents WHERE buyer_id = ${buyerId}::uuid AND idempotency_key = ${idempotencyKey}
+    `;
+    if (!existing) return { status: "price_changed" };
+  }
+
   const inserted = await prisma.$queryRaw<Array<{ id: string }>>`
     INSERT INTO checkout_intents (
       buyer_id, idempotency_key, plan, pricing_month, amount_rupiah, referral_code, terms_version, expires_at

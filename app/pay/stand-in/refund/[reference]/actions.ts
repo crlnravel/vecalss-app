@@ -5,8 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth/access";
 import { getAppBaseUrl } from "@/lib/config";
 import { handlePaymentEventRequest } from "@/lib/payments/inbox-http";
-import { getPaymentProvider } from "@/lib/payments/provider";
-import { STAND_IN_PROVIDER_ID, StandInProvider } from "@/lib/payments/stand-in/provider";
+import { getStandInProvider } from "@/lib/payments/provider";
 import { prisma } from "@/lib/prisma";
 
 const OUTCOMES = ["succeeded", "failed"] as const;
@@ -18,8 +17,8 @@ const OUTCOMES = ["succeeded", "failed"] as const;
  * factor, and only while the stand-in is enabled (a local database).
  */
 export async function settleStandInRefund(formData: FormData) {
-  const provider = getPaymentProvider();
-  if (!(provider instanceof StandInProvider) || provider.id !== STAND_IN_PROVIDER_ID) notFound();
+  const provider = getStandInProvider();
+  if (!provider) notFound();
 
   const session = await requireAdminSession();
   const reference = formData.get("reference");
