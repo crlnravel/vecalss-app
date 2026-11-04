@@ -765,14 +765,16 @@ async function main() {
       assert.deepEqual(await footprint(prodLike), { orders: 0, outbox: 0, reservations: 0, sessions: 0 });
       // A caller cannot claim an exemption the environment does not grant: it comes from the provider and environment.
       const localUrl = process.env.DATABASE_URL;
-      assert.equal(resolveBuyerIpExemption(provider, { DATABASE_URL: localUrl, NODE_ENV: "development" }), STAND_IN_NO_PROXY_EXEMPTION);
-      assert.equal(resolveBuyerIpExemption(provider, { DATABASE_URL: localUrl, NODE_ENV: "production" }), null, "never in production");
+      const localStandInEnv = { APP_BASE_URL: APP_ORIGIN, DATABASE_URL: localUrl, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" };
+      assert.equal(resolveBuyerIpExemption(provider, localStandInEnv), STAND_IN_NO_PROXY_EXEMPTION);
+      assert.equal(resolveBuyerIpExemption(provider, { ...localStandInEnv, NODE_ENV: "production" }), null, "never in production");
+      assert.equal(resolveBuyerIpExemption(provider, { ...localStandInEnv, PAYMENT_STAND_IN_LOCAL: undefined }), null, "the explicit opt-in is required");
       assert.equal(
-        resolveBuyerIpExemption(provider, { DATABASE_URL: "postgresql://u:p@db.example.com:5432/x", NODE_ENV: "development" }),
+        resolveBuyerIpExemption(provider, { ...localStandInEnv, DATABASE_URL: "postgresql://u:p@db.example.com:5432/x" }),
         null,
         "never against a database that is not on this machine",
       );
-      assert.equal(resolveBuyerIpExemption(stubProvider, { DATABASE_URL: localUrl, NODE_ENV: "development" }), null, "only the stand-in");
+      assert.equal(resolveBuyerIpExemption(stubProvider, localStandInEnv), null, "only the stand-in");
 
       // Stand-in on a local database: allowed, and the reason is recorded on the order.
       const standIn = track(await makeBuyer("stand-in"));
@@ -917,6 +919,7 @@ async function postThroughHandler(
     APP_BASE_URL: APP_ORIGIN,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: "test",
+    PAYMENT_STAND_IN_LOCAL: "1",
     PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode,
     PRICING_PACKAGE_CODE_FULL_UTBK: packageCode,
     PRICING_PACKAGE_CODE_MONTHLY: packageCode,
