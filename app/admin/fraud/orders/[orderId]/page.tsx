@@ -8,7 +8,7 @@ import { getOrderSummary } from "@/lib/disputes/queries";
 import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
 import { getPaymentProvider } from "@/lib/payments/provider";
-import { maskIp } from "@/lib/retention/mask";
+import { maskEmail, maskIp } from "@/lib/retention/mask";
 import { getBuyerIp, getOrderRetention } from "@/lib/retention/status";
 import { prisma } from "@/lib/prisma";
 import { listCapturedPayments } from "@/lib/refunds/balance";
@@ -87,7 +87,7 @@ export default async function AdminFraudOrderPage({
 
       <Panel title="Ringkasan">
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Pembeli">{order.buyerEmail}</Field>
+          <Field label="Pembeli">{authority.isOwner ? order.buyerEmail : (maskEmail(order.buyerEmail) ?? "***")}</Field>
           <Field label="Paket">{order.packageName}</Field>
           <Field label="Jumlah">{formatRupiah(order.amountRupiah)}</Field>
           <Field label="Status pesanan">{STATUS_LABELS[order.status] ?? order.status}</Field>

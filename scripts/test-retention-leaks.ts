@@ -188,6 +188,10 @@ async function main() {
   assert.deepEqual(strays, [], `these files read an address or device column and are not on the reviewed list: ${strays.join(", ")}`);
   const orderPage = readFileSync(join(ROOT, "app/admin/fraud/orders/[orderId]/page.tsx"), "utf8");
   assert.match(orderPage, /authority\.isOwner \? rawBuyerIp : maskIp\(rawBuyerIp\)/u, "the order page shows the raw address to the owner only");
+  // MS-19 M-02: the buyer's email is masked for every admin who is not the owner, and appears nowhere on the page unmasked.
+  assert.match(orderPage, /authority\.isOwner \? order\.buyerEmail : \(maskEmail\(order\.buyerEmail\) \?\? "\*\*\*"\)/u, "the order page shows the full email to the owner only");
+  assert.equal([...orderPage.matchAll(/order\.buyerEmail/gu)].length, 2, "the only uses of the buyer's email on the order page are the owner check and its mask");
+  assert.equal(maskEmail("budi.santoso@mail.com"), "bu***@m***.com");
   const caseQueries = readFileSync(join(ROOT, "lib/fraud/queries.ts"), "utf8");
   assert.match(caseQueries, /buyerIp: maskIp\(orderBuyerIp\)/u);
   pass("only the reviewed files read the raw address and device columns; the order page gives the raw address to the owner and a mask to everyone else");
