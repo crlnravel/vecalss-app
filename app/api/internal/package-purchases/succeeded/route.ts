@@ -58,6 +58,10 @@ export async function POST(request: Request) {
       return jsonError("provider_reference_conflict", 409);
     }
 
+    if (error instanceof Error && error.message.includes("already refunded or cancelled")) {
+      return jsonError("purchase_closed", 409);
+    }
+
     if (error instanceof Error && (
       error.message.includes("could not be found")
       || error.message.includes("must be an active student")

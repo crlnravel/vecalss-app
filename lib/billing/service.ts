@@ -445,64 +445,85 @@ async function hasActiveFullAccess(
   return rows[0]?.active === true;
 }
 
+const decideRevoke: (account: AccountRow, state: AccessState, now: Date) => Decision = (account, state, now) => {
+  if (state.status === "revoked") return { kind: "unchanged" };
+  if (account.status === BillingStatus.trial) return { kind: "unchanged" };
+
+  const endsAt = account.access_expires_at && account.access_expires_at.getTime() < now.getTime()
+    ? account.access_expires_at
+    : now;
+  return {
+    change: {
+      endsAt,
+      planCode: account.plan_code,
+      startsAt: account.access_starts_at && account.access_starts_at.getTime() > endsAt.getTime() ? endsAt : account.access_starts_at,
+      status: BillingStatus.cancelled,
+    },
+    kind: "apply",
+  };
+};
+
+const decidePause: (account: AccountRow, state: AccessState) => Decision = (account, state) => {
+  if (state.status === "paused") return { kind: "unchanged" };
+  if (state.status !== "active") throw new BillingAccessError("not_active", "Only running access can be paused.");
+
+  return {
+    change: {
+      endsAt: account.access_expires_at,
+      planCode: account.plan_code,
+      startsAt: account.access_starts_at,
+      status: BillingStatus.suspended,
+    },
+    kind: "apply",
+  };
+};
+
+const decideResume: (account: AccountRow, state: AccessState, now: Date) => Decision = (account, state, now) => {
+  if (state.status !== "paused") return { kind: "unchanged" };
+
+  const ended = account.access_expires_at !== null && account.access_expires_at.getTime() <= now.getTime();
+  return {
+    change: {
+      endsAt: account.access_expires_at,
+      planCode: account.plan_code,
+      startsAt: account.access_starts_at,
+      status: ended ? BillingStatus.expired : BillingStatus.active,
+    },
+    kind: "apply",
+  };
+};
+
 /**
  * Ends access immediately (a full refund). History, results and everything the
  * student produced stay; only access stops. Revoking a revoked account is a no-op.
  */
 async function revokeAccess(input: OperationInput) {
-  return transition(input, BillingAccessEventKind.revoke, (account, state, now) => {
-    if (state.status === "revoked") return { kind: "unchanged" };
-    if (account.status === BillingStatus.trial) return { kind: "unchanged" };
+  return transition(input, BillingAccessEventKind.revoke, decideRevoke);
+}
 
-    const endsAt = account.access_expires_at && account.access_expires_at.getTime() < now.getTime()
-      ? account.access_expires_at
-      : now;
-    return {
-      change: {
-        endsAt,
-        planCode: account.plan_code,
-        startsAt: account.access_starts_at && account.access_starts_at.getTime() > endsAt.getTime() ? endsAt : account.access_starts_at,
-        status: BillingStatus.cancelled,
-      },
-      kind: "apply",
-    };
-  });
+/** `revokeAccess` inside a transaction the caller owns, so it commits with the refund that caused it. */
+async function revokeAccessInTx(tx: Prisma.TransactionClient, input: OperationInput) {
+  return runTransition(tx, input, BillingAccessEventKind.revoke, decideRevoke);
 }
 
 /** Holds access while a dispute is open. The end date does not move. Pausing a paused account is a no-op. */
 async function pauseAccess(input: OperationInput) {
-  return transition(input, BillingAccessEventKind.pause, (account, state) => {
-    if (state.status === "paused") return { kind: "unchanged" };
-    if (state.status !== "active") throw new BillingAccessError("not_active", "Only running access can be paused.");
+  return transition(input, BillingAccessEventKind.pause, decidePause);
+}
 
-    return {
-      change: {
-        endsAt: account.access_expires_at,
-        planCode: account.plan_code,
-        startsAt: account.access_starts_at,
-        status: BillingStatus.suspended,
-      },
-      kind: "apply",
-    };
-  });
+/** `pauseAccess` inside a transaction the caller owns. */
+async function pauseAccessInTx(tx: Prisma.TransactionClient, input: OperationInput) {
+  return runTransition(tx, input, BillingAccessEventKind.pause, decidePause);
 }
 
 /** Lifts a pause. If the end date passed while paused, access is simply expired. */
 async function resumeAccess(input: OperationInput) {
-  return transition(input, BillingAccessEventKind.resume, (account, state, now) => {
-    if (state.status !== "paused") return { kind: "unchanged" };
+  return transition(input, BillingAccessEventKind.resume, decideResume);
+}
 
-    const ended = account.access_expires_at !== null && account.access_expires_at.getTime() <= now.getTime();
-    return {
-      change: {
-        endsAt: account.access_expires_at,
-        planCode: account.plan_code,
-        startsAt: account.access_starts_at,
-        status: ended ? BillingStatus.expired : BillingStatus.active,
-      },
-      kind: "apply",
-    };
-  });
+/** `resumeAccess` inside a transaction the caller owns. */
+async function resumeAccessInTx(tx: Prisma.TransactionClient, input: OperationInput) {
+  return runTransition(tx, input, BillingAccessEventKind.resume, decideResume);
 }
 
 /** Whether a student has running paid access. Uses the database clock unless `now` is given. */
@@ -559,8 +580,11 @@ export {
   hasPaidAccess,
   listAccessHistory,
   pauseAccess,
+  pauseAccessInTx,
   resumeAccess,
+  resumeAccessInTx,
   revokeAccess,
+  revokeAccessInTx,
 };
 export type {
   AccessEvent,

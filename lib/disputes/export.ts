@@ -9,6 +9,7 @@ import { FraudValidationError } from "@/lib/fraud/errors";
 import { getFraudOwnerEmail, requireReason, type OwnerContext } from "@/lib/fraud/authority";
 import { FraudAuthorityError } from "@/lib/fraud/errors";
 import { getTermsByVersion } from "@/lib/fulfillment/terms";
+import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
 import { prisma } from "@/lib/prisma";
 
 import { sealPacket, sha256Hex } from "./canonical";
@@ -18,7 +19,7 @@ type Tx = Prisma.TransactionClient;
 /** How long a download link works. Short on purpose (G4: retrievable fast, exposed briefly). */
 const EXPORT_LINK_MINUTES = 10;
 
-const PACKET_VERSION = 1;
+const PACKET_VERSION = 2;
 
 type OrderRow = {
   affiliatorReferralCode: string | null;
@@ -58,12 +59,13 @@ const REDACTIONS = [
   "Bukti rinci pada kasus fraud (yang bisa menyebut akun lain) tidak disertakan; hanya jenis sinyal, tingkat, status, dan waktunya.",
   "Identitas affiliator tidak disertakan; hanya kode referral yang tercatat pada pesanan.",
   "Nilai pengenal perangkat yang disimpan hanya berupa token pencarian acak, bukan nilai asli.",
+  "Tujuan transfer pengembalian dana hanya berupa nomor yang disamarkan. Catatan tulisan admin ikut disertakan apa adanya.",
 ] as const;
 
 /**
  * Collects the genuine evidence of one order into a plain object. Everything
  * here is read from the tables that hold it; nothing is computed to fill a gap.
- * An empty section is left empty (no refund records exist before MS-09).
+ * An empty section is left empty: an order with no refund or dispute says so.
  */
 async function collectPacket(tx: Tx, orderId: string) {
   const [order = null] = await tx.$queryRaw<OrderRow[]>`
@@ -157,6 +159,8 @@ async function collectPacket(tx: Tx, orderId: string) {
   `;
 
   const terms = order.termsVersion ? getTermsByVersion(order.termsVersion) : null;
+  const refundRecords = await listRefundRecords(tx, orderId);
+  const disputeRecords = await listDisputeRecords(tx, orderId);
 
   const timeline: TimelineEntry[] = [
     { at: order.intentCreatedAt, detail: { termsVersion: order.termsVersion }, label: "Pembeli menyetujui Syarat Pembelian dan memulai checkout", source: "checkout" },
@@ -168,7 +172,7 @@ async function collectPacket(tx: Tx, orderId: string) {
       source: "payment_event",
     })),
     ...audits
-      .filter((audit) => audit.action.startsWith("payment."))
+      .filter((audit) => audit.action.startsWith("payment.") || audit.action.startsWith("refund.") || (audit.action.startsWith("dispute.") && !audit.action.startsWith("dispute.export.")))
       .map((audit) => ({ at: audit.occurredAt, detail: (audit.metadata ?? {}) as Record<string, unknown>, label: audit.action, source: "audit" })),
     ...(receipt
       ? [{ at: receipt.createdAt as Date, detail: { deliveryStatus: receipt.deliveryStatus, receiptNumber: receipt.receiptNumber }, label: "Struk dicatat", source: "receipt" }]
@@ -182,6 +186,22 @@ async function collectPacket(tx: Tx, orderId: string) {
       label: `Pengiriman struk lewat ${String(delivery.channel)}: ${String(delivery.outcome)}`,
       source: "delivery",
     })),
+    ...refundRecords.flatMap((refund) =>
+      refund.events.map((event) => ({
+        at: event.at,
+        detail: { actor: event.actorKind, reference: refund.reference, ...event.metadata },
+        label: `Pengembalian dana ${refund.reference}: ${event.kind}`,
+        source: "refund",
+      })),
+    ),
+    ...disputeRecords.flatMap((dispute) =>
+      dispute.events.map((event) => ({
+        at: event.at,
+        detail: { actor: event.actorKind, providerDisputeId: dispute.providerDisputeId, ...event.metadata },
+        label: `Sengketa ${dispute.providerDisputeId}: ${event.kind}`,
+        source: "dispute",
+      })),
+    ),
     ...usage.map((use) => ({ at: use.firstUsedAt as Date, detail: { jakartaDay: use.jakartaDay }, label: "Pembeli memakai fitur berbayar", source: "use" })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
@@ -205,8 +225,25 @@ async function collectPacket(tx: Tx, orderId: string) {
       state: item.state,
     })),
     communications: {
+      buyerRefundRequests: refundRecords.map((refund) => ({
+        channel: refund.requestChannel,
+        receivedAt: refund.requestedAt,
+        refundReference: refund.reference,
+        summary: refund.requestNote,
+      })),
+      disputeNotices: disputeRecords.map((dispute) => ({
+        providerDisputeId: dispute.providerDisputeId,
+        reason: dispute.reasonText,
+        receivedAt: dispute.noticeReceivedAt,
+        responseDueAt: dispute.responseDueAt,
+        source: dispute.source,
+      })),
+      note: "Yang tercatat di sini: struk yang dikirim ke pembeli, permintaan pengembalian dana dari pembeli (ringkasan yang ditulis admin), dan pemberitahuan sengketa. Aplikasi tidak mengirim pesan lain ke pembeli soal pengembalian dana; percakapan di luar aplikasi hanya ada sebagai ringkasan itu.",
       receiptDeliveries: deliveries,
-      note: "Tidak ada komunikasi lain yang tercatat untuk pesanan ini.",
+    },
+    disputes: {
+      note: disputeRecords.length === 0 ? "Tidak ada sengketa pembayaran yang tercatat untuk pesanan ini." : null,
+      records: disputeRecords,
     },
     financialTimeline: timeline,
     grant: {
@@ -243,12 +280,17 @@ async function collectPacket(tx: Tx, orderId: string) {
       sessionsOpenAtCheckout: sessions,
     },
     receipt,
-    refunds: { note: "Belum ada catatan pengembalian dana. Fitur pengembalian dana belum aktif.", records: [] as unknown[] },
+    refunds: {
+      note: refundRecords.length === 0 ? "Tidak ada permintaan pengembalian dana yang tercatat untuk pesanan ini." : null,
+      records: refundRecords,
+    },
     usage,
     counts: {
       cases: cases.length,
       deliveries: deliveries.length,
+      disputes: disputeRecords.length,
       paymentEvents: events.length,
+      refundCases: refundRecords.length,
       timelineEntries: timeline.length,
       usageDays: usage.length,
     },
@@ -304,7 +346,7 @@ async function createDisputeExport(owner: OwnerContext, input: CreateExportInput
     if (!collected) throw new FraudValidationError("not_found", "The order was not found.");
 
     const [{ now }] = await tx.$queryRaw<Array<{ now: Date }>>`SELECT now() AS now`;
-    const sections = ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "acceptedTerms", "refunds", "communications", "cases"];
+    const sections = ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "acceptedTerms", "refunds", "disputes", "communications", "cases"];
     const { counts, ...evidence } = collected;
     const sealed = sealPacket({
       manifest: {
@@ -439,6 +481,7 @@ async function logRefusedExport(input: { actorUserId: string | null; orderId: st
 }
 
 export {
+  assertStillOwner,
   EXPORT_LINK_MINUTES,
   PACKET_VERSION,
   claimDisputeExport,

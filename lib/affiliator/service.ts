@@ -440,6 +440,12 @@ async function recordSuccessfulPackagePurchase({
         return existingPurchase;
       }
 
+      // A refunded or cancelled purchase is final: a late or repeated success
+      // must not bring it back (the database refuses it too).
+      if (existingPurchase.status === PackagePurchaseStatus.refunded || existingPurchase.status === PackagePurchaseStatus.cancelled) {
+        throw new Error("The package purchase is already refunded or cancelled.");
+      }
+
       await assertActiveStudent(tx, normalizedStudentId);
 
       return tx.packagePurchase.update({

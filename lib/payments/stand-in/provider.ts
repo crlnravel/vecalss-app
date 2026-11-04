@@ -6,14 +6,19 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
-import type {
-  EventVerification,
-  PaymentEventKind,
-  PaymentProviderAdapter,
-  PaymentSession,
-  PaymentSessionRequest,
-  ProviderPaymentStatus,
-  VerifyEventInput,
+import {
+  ProviderOutcomeUnknownError,
+  type EventVerification,
+  type PaymentEventKind,
+  type PaymentProviderAdapter,
+  type PaymentSession,
+  type PaymentSessionRequest,
+  type ProviderPaymentStatus,
+  type ProviderRefundState,
+  type ProviderRefundStatus,
+  type RefundRequest,
+  type RefundResult,
+  type VerifyEventInput,
 } from "../adapter";
 import { checkStandInSignature, signStandInEvent } from "./signing";
 
@@ -33,9 +38,27 @@ const STAND_IN_ENVIRONMENT = "local";
 /** Documented test secret. The stand-in only exists on a local database, so a fixed fallback is safe. */
 const STAND_IN_DEFAULT_SECRET = "stand-in-local-test-secret";
 
-const EVENT_KINDS = ["payment.succeeded", "payment.failed", "payment.expired"] as const satisfies readonly PaymentEventKind[];
+const EVENT_KINDS = [
+  "payment.succeeded",
+  "payment.failed",
+  "payment.expired",
+  "refund.succeeded",
+  "refund.failed",
+  "dispute.opened",
+  "dispute.won",
+  "dispute.lost",
+] as const satisfies readonly PaymentEventKind[];
 
 const eventSchema = z.object({
+  dispute: z.object({
+    id: z.string().min(1).max(160),
+    reason: z.string().max(500).nullish(),
+    responseDueAt: z.iso.datetime({ offset: true }).nullish(),
+  }).optional(),
+  refund: z.object({
+    id: z.string().min(1).max(160),
+    reference: z.string().min(1).max(40),
+  }).optional(),
   createdAt: z.iso.datetime({ offset: true }),
   environment: z.string().min(1).max(40),
   id: z.string().min(1).max(160),
@@ -51,12 +74,17 @@ const eventSchema = z.object({
     reference: z.string().min(1).max(120),
   }),
   type: z.enum(EVENT_KINDS),
+}).superRefine((value, context) => {
+  if (value.type.startsWith("refund.") && !value.refund) context.addIssue({ code: "custom", message: "refund missing", path: ["refund"] });
+  if (value.type.startsWith("dispute.") && !value.dispute) context.addIssue({ code: "custom", message: "dispute missing", path: ["dispute"] });
 });
 
 type StandInOptions = {
   appBaseUrl: string;
   secret?: string;
 };
+
+type RefundFault = "after" | "before";
 
 class StandInProvider implements PaymentProviderAdapter {
   readonly id = STAND_IN_PROVIDER_ID;
@@ -65,6 +93,7 @@ class StandInProvider implements PaymentProviderAdapter {
 
   private readonly appBaseUrl: string;
   private readonly secret: string;
+  private readonly refundFaults: RefundFault[] = [];
 
   constructor({ appBaseUrl, secret }: StandInOptions) {
     this.appBaseUrl = appBaseUrl;
@@ -140,6 +169,146 @@ class StandInProvider implements PaymentProviderAdapter {
     };
   }
 
+  /**
+   * Makes the next refund call time out, as a test: `before` loses the request
+   * (the provider never saw it), `after` loses the answer (the provider did
+   * record the refund). The caller sees the same unknown outcome either way.
+   */
+  failNextRefundCall(fault: RefundFault) {
+    this.refundFaults.push(fault);
+  }
+
+  /** Same reference, same refund. A refund beyond what the payment captured is refused outright. */
+  async createRefund(request: RefundRequest): Promise<RefundResult> {
+    const fault = this.refundFaults.shift();
+    if (fault === "before") throw new ProviderOutcomeUnknownError();
+
+    const result = await prisma.$transaction(async (tx): Promise<RefundResult> => {
+      // One refund request per payment at a time, so the sum below cannot be raced.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stand-in-refund:${request.providerPaymentId}`}))`;
+
+      const [existing = null] = await tx.$queryRaw<Array<{ amountRupiah: number; providerPaymentId: string; providerRefundId: string; state: ProviderRefundState }>>`
+        SELECT amount_rupiah AS "amountRupiah", provider_payment_id AS "providerPaymentId",
+               provider_refund_id AS "providerRefundId", state
+        FROM stand_in_refunds WHERE reference = ${request.refundReference}
+      `;
+      if (existing) {
+        if (existing.amountRupiah !== request.amountRupiah || existing.providerPaymentId !== request.providerPaymentId) {
+          return { outcome: "rejected", reason: "reference_reused" };
+        }
+        return { outcome: "accepted", providerRefundId: existing.providerRefundId, state: existing.state };
+      }
+
+      const [payment = null] = await tx.$queryRaw<Array<{ amountRupiah: number; currency: string; state: string }>>`
+        SELECT amount_rupiah AS "amountRupiah", currency, state FROM stand_in_payments
+        WHERE provider_payment_id = ${request.providerPaymentId}
+      `;
+      if (!payment || payment.state !== "succeeded") return { outcome: "rejected", reason: "payment_not_captured" };
+      if (payment.currency !== request.currency) return { outcome: "rejected", reason: "currency" };
+
+      const [{ taken }] = await tx.$queryRaw<Array<{ taken: number }>>`
+        SELECT COALESCE(sum(amount_rupiah), 0)::int AS taken FROM stand_in_refunds
+        WHERE provider_payment_id = ${request.providerPaymentId} AND state IN ('pending', 'succeeded')
+      `;
+      if (taken + request.amountRupiah > payment.amountRupiah) return { outcome: "rejected", reason: "exceeds_capture" };
+
+      const providerRefundId = `sir_${randomBytes(12).toString("hex")}`;
+      await tx.$executeRaw`
+        INSERT INTO stand_in_refunds (reference, provider_refund_id, provider_payment_id, amount_rupiah, currency)
+        VALUES (${request.refundReference}, ${providerRefundId}, ${request.providerPaymentId}, ${request.amountRupiah}, ${request.currency})
+      `;
+      return { outcome: "accepted", providerRefundId, state: "pending" };
+    });
+
+    if (fault === "after") throw new ProviderOutcomeUnknownError();
+    return result;
+  }
+
+  async getRefundStatus(refundReference: string): Promise<ProviderRefundStatus> {
+    const [row = null] = await prisma.$queryRaw<Array<{
+      amountRupiah: number;
+      currency: string;
+      occurredAt: Date;
+      providerPaymentId: string;
+      providerRefundId: string;
+      reference: string;
+      state: ProviderRefundState;
+    }>>`
+      SELECT amount_rupiah AS "amountRupiah", currency, COALESCE(settled_at, created_at) AS "occurredAt",
+             provider_payment_id AS "providerPaymentId", provider_refund_id AS "providerRefundId",
+             reference, state
+      FROM stand_in_refunds WHERE reference = ${refundReference}
+    `;
+    if (!row) return { found: false };
+
+    return {
+      amountRupiah: row.amountRupiah,
+      currency: row.currency,
+      environment: this.environment,
+      found: true,
+      merchantAccount: this.merchantAccount,
+      occurredAt: row.occurredAt,
+      providerPaymentId: row.providerPaymentId,
+      providerRefundId: row.providerRefundId,
+      refundReference: row.reference,
+      state: row.state,
+    };
+  }
+
+  /**
+   * What the stand-in's refund console does: settle a pending refund and return
+   * the signed event the provider would send. Null when it is not pending.
+   */
+  async settleRefund(refundReference: string, outcome: "failed" | "succeeded", at: Date) {
+    const [row = null] = await prisma.$queryRaw<Array<{ providerPaymentId: string; providerRefundId: string; reference: string }>>`
+      UPDATE stand_in_refunds SET state = ${outcome}, settled_at = now()
+      WHERE reference = ${refundReference} AND state = 'pending'
+      RETURNING provider_payment_id AS "providerPaymentId", provider_refund_id AS "providerRefundId", reference
+    `;
+    if (!row) return null;
+
+    return this.buildSignedRefundEventFor(row.reference, `refund.${outcome}`, at);
+  }
+
+  /** A signed refund event for a refund the stand-in knows, whatever its state. Tests forge variants with the overrides. */
+  async buildSignedRefundEventFor(
+    refundReference: string,
+    kind: "refund.failed" | "refund.succeeded",
+    at: Date,
+    overrides: { amountRupiah?: number; eventId?: string; providerPaymentId?: string; refundReference?: string } = {},
+  ) {
+    const [row] = await prisma.$queryRaw<Array<{
+      amountRupiah: number;
+      currency: string;
+      metadata: { buyerId?: string; packageCode?: string };
+      orderReference: string;
+      providerPaymentId: string;
+      providerRefundId: string;
+    }>>`
+      SELECT r.amount_rupiah AS "amountRupiah", r.currency, p.metadata, p.reference AS "orderReference",
+             r.provider_payment_id AS "providerPaymentId", r.provider_refund_id AS "providerRefundId"
+      FROM stand_in_refunds r JOIN stand_in_payments p ON p.provider_payment_id = r.provider_payment_id
+      WHERE r.reference = ${refundReference}
+    `;
+    if (!row) throw new Error("The stand-in has no such refund.");
+
+    return this.buildSignedEvent(
+      {
+        amountRupiah: overrides.amountRupiah ?? row.amountRupiah,
+        currency: row.currency,
+        metadata: row.metadata,
+        providerPaymentId: overrides.providerPaymentId ?? row.providerPaymentId,
+        reference: row.orderReference,
+      },
+      kind,
+      at,
+      {
+        eventId: overrides.eventId,
+        extra: { refund: { id: row.providerRefundId, reference: overrides.refundReference ?? refundReference } },
+      },
+    );
+  }
+
   verifyAndParseEvent({ headers, now, rawBody }: VerifyEventInput): EventVerification {
     const check = checkStandInSignature(this.secret, headers, rawBody, now);
     if (check !== "ok") return { ok: false, reason: check };
@@ -165,6 +334,16 @@ class StandInProvider implements PaymentProviderAdapter {
         occurredAt: new Date(parsed.createdAt),
         packageCode: parsed.payment.metadata.packageCode ?? null,
         providerPaymentId: parsed.payment.id,
+        ...(parsed.refund ? { refund: { providerRefundId: parsed.refund.id, refundReference: parsed.refund.reference } } : {}),
+        ...(parsed.dispute
+          ? {
+              dispute: {
+                providerDisputeId: parsed.dispute.id,
+                reason: parsed.dispute.reason ?? null,
+                responseDueAt: parsed.dispute.responseDueAt ? new Date(parsed.dispute.responseDueAt) : null,
+              },
+            }
+          : {}),
       },
       ok: true,
     };
@@ -207,9 +386,16 @@ class StandInProvider implements PaymentProviderAdapter {
     },
     kind: PaymentEventKind,
     at: Date,
-    overrides: { eventId?: string; account?: string; environment?: string } = {},
+    overrides: {
+      account?: string;
+      environment?: string;
+      eventId?: string;
+      /** Extra top-level members of the event body: the `refund` or `dispute` object. */
+      extra?: Record<string, unknown>;
+    } = {},
   ) {
     const body = new TextEncoder().encode(JSON.stringify({
+      ...overrides.extra,
       createdAt: at.toISOString(),
       environment: overrides.environment ?? this.environment,
       id: overrides.eventId ?? `evt_${randomUUID()}`,
@@ -225,6 +411,50 @@ class StandInProvider implements PaymentProviderAdapter {
     }));
 
     return { body, headers: signStandInEvent(this.secret, body, at) };
+  }
+
+  /**
+   * A signed dispute event for a payment the stand-in knows. The stand-in keeps
+   * no dispute state of its own: a dispute is only ever an event.
+   */
+  async buildSignedDisputeEventFor(
+    orderReference: string,
+    kind: "dispute.lost" | "dispute.opened" | "dispute.won",
+    at: Date,
+    dispute: { amountRupiah?: number; eventId?: string; providerDisputeId: string; reason?: string | null; responseDueAt?: Date | null },
+  ) {
+    const [row] = await prisma.$queryRaw<Array<{
+      amountRupiah: number;
+      currency: string;
+      metadata: { buyerId?: string; packageCode?: string };
+      providerPaymentId: string;
+    }>>`
+      SELECT amount_rupiah AS "amountRupiah", currency, metadata, provider_payment_id AS "providerPaymentId"
+      FROM stand_in_payments WHERE reference = ${orderReference}
+    `;
+    if (!row) throw new Error("The stand-in has no such payment.");
+
+    return this.buildSignedEvent(
+      {
+        amountRupiah: dispute.amountRupiah ?? row.amountRupiah,
+        currency: row.currency,
+        metadata: row.metadata,
+        providerPaymentId: row.providerPaymentId,
+        reference: orderReference,
+      },
+      kind,
+      at,
+      {
+        eventId: dispute.eventId,
+        extra: {
+          dispute: {
+            id: dispute.providerDisputeId,
+            reason: dispute.reason ?? null,
+            responseDueAt: dispute.responseDueAt ? dispute.responseDueAt.toISOString() : null,
+          },
+        },
+      },
+    );
   }
 }
 

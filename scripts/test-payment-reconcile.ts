@@ -40,8 +40,10 @@ async function main() {
   await setProviderState(mismatched.reference, "succeeded");
 
   const flaky: PaymentProviderAdapter = {
+    createRefund: (request) => provider.createRefund(request),
     createSession: (request) => provider.createSession(request),
     environment: provider.environment,
+    getRefundStatus: (reference) => provider.getRefundStatus(reference),
     getStatus: async (reference) => {
       if (reference === providerDown.reference) throw new Error("provider unreachable");
       return provider.getStatus(reference);

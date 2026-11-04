@@ -43,7 +43,9 @@ function instrumented(hooks: {
       hooks.afterCreate?.();
       return session;
     },
+    createRefund: (request) => provider.createRefund(request),
     environment: provider.environment,
+    getRefundStatus: (reference) => provider.getRefundStatus(reference),
     getStatus: async (reference) => {
       calls.status += 1;
       if (hooks.statusFails) throw new Error("status lookup timed out");
