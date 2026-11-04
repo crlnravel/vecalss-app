@@ -4303,6 +4303,8 @@ model DisputeExport {
 enum RefundReasonCategory {
   our_fault
   change_of_mind
+  /// MS-18: a regulator, acquirer or court ordered the refund.
+  authority_order
 
   @@map("refund_reason_category")
 }
@@ -4352,6 +4354,11 @@ model RefundCase {
   requestNote         String               @map("request_note") @db.VarChar(1000)
   requestChannel      String               @map("request_channel") @db.VarChar(30)
   requestedAt         DateTime             @map("requested_at") @db.Timestamptz
+  /// MS-18, only on an `authority_order` case: who ordered it, their reference, when we received it and the deadline they set.
+  authorityName       String?              @map("authority_name") @db.VarChar(200)
+  authorityReference  String?              @map("authority_reference") @db.VarChar(120)
+  authorityReceivedAt DateTime?            @map("authority_received_at") @db.Timestamptz
+  authorityDeadlineAt DateTime?            @map("authority_deadline_at") @db.Timestamptz
   amountRupiah        Int                  @map("amount_rupiah")
   currency            String               @default("IDR") @db.VarChar(3)
   state               RefundCaseState      @default(prepared)

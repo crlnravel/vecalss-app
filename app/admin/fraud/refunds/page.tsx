@@ -54,7 +54,8 @@ export default async function AdminFraudRefundsPage({ searchParams }: { searchPa
             ) : refunds.map((refund) => {
               const state = refund.state as RefundState;
               const open = state === "prepared" || state === "approved" || state === "processing";
-              const due = state === "prepared" ? refund.decisionDueAt : refund.payoutDueAt;
+              const stateDue = state === "prepared" ? refund.decisionDueAt : refund.payoutDueAt;
+              const due = stateDue && refund.authorityDeadlineAt && refund.authorityDeadlineAt < stateDue ? refund.authorityDeadlineAt : stateDue;
               const late = refund.overdue;
               return (
                 <TableRow key={refund.id}>

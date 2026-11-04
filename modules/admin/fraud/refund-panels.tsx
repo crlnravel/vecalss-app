@@ -139,8 +139,20 @@ function RefundCard({ authority, record, standInEnabled, orderId }: { authority:
 
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Alasan">{reason?.label ?? record.reasonCode}</Field>
-        <Field label="Permintaan pembeli">{REQUEST_CHANNELS[record.requestChannel as keyof typeof REQUEST_CHANNELS] ?? record.requestChannel} · {formatDateTime(record.requestedAt)}</Field>
-        <Field label="Catatan permintaan">{record.requestNote}</Field>
+        {record.reasonCategory === "authority_order" ? (
+          <>
+            <Field label="Otoritas yang memerintahkan">{record.authorityName}</Field>
+            <Field label="Nomor surat atau perintah">{record.authorityReference}</Field>
+            <Field label="Perintah diterima">{REQUEST_CHANNELS[record.requestChannel as keyof typeof REQUEST_CHANNELS] ?? record.requestChannel} · {formatDateTime(record.authorityReceivedAt)}</Field>
+            <Field label="Batas waktu dari otoritas">{record.authorityDeadlineAt ? formatDateTime(record.authorityDeadlineAt) : "Tidak ada batas waktu yang disebut"}</Field>
+            <Field label="Ringkasan perintah">{record.requestNote}</Field>
+          </>
+        ) : (
+          <>
+            <Field label="Permintaan pembeli">{REQUEST_CHANNELS[record.requestChannel as keyof typeof REQUEST_CHANNELS] ?? record.requestChannel} · {formatDateTime(record.requestedAt)}</Field>
+            <Field label="Catatan permintaan">{record.requestNote}</Field>
+          </>
+        )}
         <Field label="Keputusan paling lambat">{formatDateTime(record.decisionDueAt)}</Field>
         <Field label="Disiapkan oleh">{record.preparedByEmail} · {formatDateTime(record.preparedAt)}</Field>
         {record.approvedByEmail ? <Field label="Disetujui oleh">{record.approvedByEmail} · {formatDateTime(record.approvedAt)}</Field> : null}
@@ -241,6 +253,7 @@ function PreparePanel({ orderId, payments, status }: { orderId: string; payments
   }
 
   return (
+    <div className="min-w-0 space-y-3">
     <form action={prepareRefundAction} className="min-w-0 space-y-3 rounded-control border border-primary-100 p-3">
       <input name="orderId" type="hidden" value={orderId} />
       <fieldset className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -288,6 +301,58 @@ function PreparePanel({ orderId, payments, status }: { orderId: string; payments
       </fieldset>
       <p className="text-xs leading-5 text-secondary-600">Admin mana pun dengan verifikasi dua langkah bisa menyiapkan. Sistem yang memeriksa syaratnya, dan hanya pemilik yang bisa menyetujui.</p>
     </form>
+    <Fold title="Siapkan karena perintah otoritas">
+      <form action={prepareRefundAction} className="min-w-0 space-y-3 rounded-control border border-primary-100 p-3">
+        <input name="orderId" type="hidden" value={orderId} />
+        <input name="reasonCode" type="hidden" value="authority_order" />
+        <fieldset className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <legend className={`${fieldLabelClassName} mb-1`}>Pengembalian dana atas perintah regulator, acquirer, atau pengadilan</legend>
+          <div className="sm:col-span-2">
+            <label className={fieldLabelClassName} htmlFor="authority-name">Otoritas yang memerintahkan</label>
+            <Input autoComplete="off" id="authority-name" maxLength={200} minLength={3} name="authorityName" placeholder="Contoh: Pengadilan Negeri Jakarta Selatan" required />
+          </div>
+          <div>
+            <label className={fieldLabelClassName} htmlFor="authority-reference">Nomor surat atau perintah</label>
+            <Input autoComplete="off" id="authority-reference" maxLength={120} name="authorityReference" required />
+          </div>
+          <div>
+            <label className={fieldLabelClassName} htmlFor="authority-received">Kapan perintah diterima (WIB)</label>
+            <Input id="authority-received" name="requestedAt" required type="datetime-local" />
+          </div>
+          <div>
+            <label className={fieldLabelClassName} htmlFor="authority-deadline">Batas waktu dari otoritas (WIB, kosongkan jika tidak ada)</label>
+            <Input id="authority-deadline" name="authorityDeadlineAt" type="datetime-local" />
+          </div>
+          <div>
+            <label className={fieldLabelClassName} htmlFor="authority-amount">Jumlah (rupiah, kosongkan untuk semua sisa)</label>
+            <Input autoComplete="off" id="authority-amount" inputMode="numeric" name="amount" placeholder={String(Math.max(...usable.map((payment) => payment.remainingRupiah)))} />
+          </div>
+          {usable.length > 1 ? (
+            <div>
+              <label className={fieldLabelClassName} htmlFor="authority-payment">Pembayaran</label>
+              <Select id="authority-payment" name="providerPaymentId">
+                {usable.map((payment) => <option key={payment.providerPaymentId} value={payment.providerPaymentId}>{payment.providerPaymentId} · sisa {formatRupiah(payment.remainingRupiah)}</option>)}
+              </Select>
+            </div>
+          ) : <input name="providerPaymentId" type="hidden" value={usable[0].providerPaymentId} />}
+          <div>
+            <label className={fieldLabelClassName} htmlFor="authority-channel">Perintah masuk lewat</label>
+            <Select id="authority-channel" name="requestChannel">
+              {Object.entries(REQUEST_CHANNELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={fieldLabelClassName} htmlFor="authority-note">Ringkasan isi perintah</label>
+            <Textarea className={fieldControlClassName} id="authority-note" maxLength={1000} minLength={3} name="requestNote" required />
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit">Siapkan</Button>
+          </div>
+        </fieldset>
+        <p className="text-xs leading-5 text-secondary-600">Selalu memenuhi syarat: tanpa batas 3 hari dan tanpa melihat pemakaian fitur. Hanya pemilik yang bisa menyetujui. Jika otoritas menyebut batas waktu yang lebih awal dari 14 hari, itulah batas pengembaliannya.</p>
+      </form>
+    </Fold>
+    </div>
   );
 }
 
