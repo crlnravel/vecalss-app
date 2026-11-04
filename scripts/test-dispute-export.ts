@@ -159,7 +159,7 @@ async function main() {
     assert.equal(packet.manifest.orderId, order.id);
     assert.equal(packet.manifest.reason, REASON);
     assert.equal(packet.manifest.generatedBy.userId, ownerId);
-    assert.deepEqual(packet.manifest.sections, ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "acceptedTerms", "refunds", "communications", "cases"]);
+    assert.deepEqual(packet.manifest.sections, ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "acceptedTerms", "refunds", "disputes", "communications", "cases"]);
     assert.ok(packet.manifest.redactions.length >= 4);
 
     // Financial timeline: ordered, and it carries the order, the payment, the grant and the use.
@@ -190,7 +190,10 @@ async function main() {
     assert.equal(packet.acceptedTerms.version, PURCHASE_TERMS.version);
     assert.equal(packet.acceptedTerms.status, "draft");
     assert.ok(packet.acceptedTerms.text.length > 3, "the accepted text is printed");
-    assert.deepEqual(packet.refunds.records, []);
+    assert.deepEqual(packet.refunds.records, [], "an order with no refund says so");
+    assert.match(packet.refunds.note, /Tidak ada permintaan pengembalian dana/u);
+    assert.deepEqual(packet.disputes.records, []);
+    assert.equal(packet.manifest.packetVersion, 2);
     assert.equal(packet.order.affiliatorReferralCode, referral.referralCode);
     assert.equal(packet.buyer.email, buyer.email);
     assert.equal(packet.manifest.counts.usageDays, 1);

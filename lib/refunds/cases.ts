@@ -85,6 +85,7 @@ async function prepareRefund(admin: AdminContext, input: PrepareInput) {
     const payment = paymentId ? await getCapturedPayment(tx, input.orderId, paymentId) : null;
     if (!payment) throw new RefundError("not_refundable", "The order has no captured payment.");
 
+    if (payment.remainingRupiah <= 0) throw new RefundError("balance_exceeded", "Nothing is left of the payment to refund.");
     const amount = input.amountRupiah ?? payment.remainingRupiah;
     if (!Number.isInteger(amount) || amount <= 0) throw new RefundError("invalid_input", "Jumlah pengembalian harus bilangan rupiah bulat lebih dari nol.");
     if (amount > payment.remainingRupiah) throw new RefundError("balance_exceeded", "More than what is left of the payment.");
