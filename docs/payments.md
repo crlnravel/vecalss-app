@@ -44,6 +44,13 @@ that already has an intent keeps the quote it was first given, as before (the
 30-minute window), so a double submit across midnight still returns the same
 order. No new secret or token is involved.
 
+The selected plan itself is not bound to the rendered form on its first
+submission: a buyer can edit the hidden plan and submit its matching current
+price. Only the buyer can change those fields; the Origin check blocks another
+site from submitting the form. The server still prices the submitted plan from
+its current schedule, and the provider page shows that plan and amount before
+the buyer pays. This is an accepted limit of the checkout form.
+
 **Provider answers are bound to the order asked about (MS-19, P-02).** A status
 lookup is a question about one reference. In `reconcileOrder` and in the session
 recovery of `ensurePaymentSession`, an answer is applied only if its reference,
@@ -135,13 +142,16 @@ counts only, no references or error text.
 ## The stand-in provider
 
 - Enabled only by `PAYMENT_PROVIDER=stand-in` **and** a local runtime
-  (`isLocalStandInRuntime`, `lib/payments/stand-in/gate.ts`; MS-19, P-01). All of
-  these must hold, otherwise it is treated as no provider:
+  (`isLocalStandInRuntime`, `lib/payments/stand-in/gate.ts`; MS-19 P-01 and
+  MS-20 R2A-04/R2B-01). All of these must hold, otherwise it is treated as no
+  provider:
+  - `PAYMENT_STAND_IN_LOCAL=1`, an explicit opt-in for local development. Never
+    set it on any deployed environment;
   - `NODE_ENV` is not `production`;
-  - `DATABASE_URL` points at this machine (`localhost`, `127.0.0.1`, `::1`,
-    `host.docker.internal`);
-  - `APP_BASE_URL` is a loopback host (`localhost`, `127.0.0.1`, `[::1]`; unset
-    counts as `http://localhost:3000`). A lookalike such as
+  - `DATABASE_URL` has a strictly loopback host: `localhost`, `127.0.0.1` or
+    `::1`. `host.docker.internal` does not qualify;
+  - `APP_BASE_URL` is explicitly set to a loopback URL (`localhost`,
+    `127.0.0.1`, `[::1]`). An unset or blank value does not count. A lookalike such as
     `localhost.evil.example` or `localhost@evil.example` does not pass;
   - none of the hosting-platform variables is set: `VERCEL`, `VERCEL_ENV`,
     `VERCEL_URL`, `VERCEL_REGION`, `VERCEL_DEPLOYMENT_ID`, `NETLIFY`,
@@ -149,8 +159,9 @@ counts only, no references or error text.
     `AWS_LAMBDA_FUNCTION_NAME`, `KUBERNETES_SERVICE_HOST`. (`vercel env pull`
     can copy `VERCEL_ENV` and `VERCEL_URL` into a local env file; remove them
     from it to use the stand-in.)
-  A deployed container with a loopback database is therefore not enough. The
-  same one helper gates the provider factory, the buyer pay page and action,
+  A hosted runtime can imitate some of these values, so the opt-in is a
+  developer-controlled boundary rather than proof that the process cannot be
+  reached remotely. The same one helper gates the provider factory, the buyer pay page and action,
   the admin refund console, the admin order panel and the buyer-IP exemption
   (`getStandInProvider` / `isStandInAllowed`).
 - The pay page at `/pay/stand-in/<reference>` is plainly marked as a test
@@ -160,7 +171,8 @@ counts only, no references or error text.
   HMAC-SHA256 over `<timestamp>.<raw body>` with `PAYMENT_STAND_IN_SECRET`. The
   fixed test value used when it is unset can only be reached after the local
   runtime check passes: the `StandInProvider` constructor throws otherwise.
-- To try it: set `PAYMENT_PROVIDER=stand-in` and the three
+- To try it locally: set `PAYMENT_PROVIDER=stand-in`,
+  `PAYMENT_STAND_IN_LOCAL=1`, and an explicit loopback `APP_BASE_URL`, plus the three
   `PRICING_PACKAGE_CODE_*` values to a published package code, leave
   `CHECKOUT_KILL_SWITCH` off, sign in as the seeded student and use `/pricing`.
 

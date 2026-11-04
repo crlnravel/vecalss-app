@@ -1,9 +1,4 @@
-import { isLocalDatabaseUrl } from "@/prisma/seed-password-policy.mjs";
-
 type GateEnv = Partial<Record<string, string | undefined>>;
-
-/** What `getAppBaseUrl` falls back to outside production when APP_BASE_URL is unset. */
-const DEFAULT_LOOPBACK_BASE_URL = "http://localhost:3000";
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -31,10 +26,22 @@ const HOSTING_PLATFORM_MARKERS = [
 ] as const;
 
 function isLoopbackBaseUrl(raw: string | undefined) {
-  const value = raw?.trim() || DEFAULT_LOOPBACK_BASE_URL;
+  const value = raw?.trim();
+  if (!value) return false;
   try {
     const parsed = new URL(value);
     return ["http:", "https:"].includes(parsed.protocol) && LOOPBACK_HOSTNAMES.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/** Stand-in only: seeds retain the broader isLocalDatabaseUrl classification. */
+function isStrictLoopbackDatabaseUrl(raw: string | undefined) {
+  if (!raw?.trim()) return false;
+  try {
+    const host = new URL(raw.trim()).hostname.toLowerCase();
+    return LOOPBACK_HOSTNAMES.has(host);
   } catch {
     return false;
   }
@@ -46,21 +53,20 @@ function isLoopbackBaseUrl(raw: string | undefined) {
  * refund console, the buyer-IP exemption and the stand-in's fallback signing
  * secret. All of these must hold, otherwise it fails closed:
  *
+ * - PAYMENT_STAND_IN_LOCAL is explicitly set to "1" for local development;
  * - NODE_ENV is not production;
- * - the database is on this machine;
- * - the app's own base URL is a loopback host (an unset one defaults to localhost);
+ * - the database host is strictly loopback (host.docker.internal is not local);
+ * - APP_BASE_URL is explicitly set to a loopback URL;
  * - no hosting-platform marker is present.
- *
- * Each check alone is spoofable by a deployment that sets a harmless-looking
- * value; together they describe a workstation, not a server.
  */
 function isLocalStandInRuntime(env: GateEnv = process.env) {
   return (
-    env.NODE_ENV !== "production"
-    && isLocalDatabaseUrl(env.DATABASE_URL?.trim())
+    env.PAYMENT_STAND_IN_LOCAL?.trim() === "1"
+    && env.NODE_ENV !== "production"
+    && isStrictLoopbackDatabaseUrl(env.DATABASE_URL)
     && isLoopbackBaseUrl(env.APP_BASE_URL)
     && !HOSTING_PLATFORM_MARKERS.some((name) => Boolean(env[name]?.trim()))
   );
 }
 
-export { HOSTING_PLATFORM_MARKERS, isLocalStandInRuntime };
+export { HOSTING_PLATFORM_MARKERS, isLocalStandInRuntime, isStrictLoopbackDatabaseUrl };
