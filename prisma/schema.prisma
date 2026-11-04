@@ -753,6 +753,9 @@ model User {
   packagePurchases                       PackagePurchase[]                    @relation("PackagePurchaseStudent")
   checkoutIntents                        CheckoutIntent[]
   paymentOrders                          PaymentOrder[]                       @relation("PaymentOrderBuyer")
+  paymentReceipts                        PaymentReceipt[]                     @relation("PaymentReceiptBuyer")
+  fulfillmentUsageEvents                 FulfillmentUsageEvent[]              @relation("FulfillmentUsageStudent")
+  disputeExportsRequested                DisputeExport[]                      @relation("DisputeExportRequester")
   riskAccountTier                        RiskAccountTier?
   riskDayBuckets                         RiskDayBucket[]
   riskReservations                       RiskReservation[]
@@ -3352,6 +3355,9 @@ model BillingAccessEvent {
   student User           @relation("BillingAccessEventStudent", fields: [studentId], references: [id], onDelete: Restrict)
   actor   User?          @relation("BillingAccessEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
+  receipt         PaymentReceipt?
+  usageEvents     FulfillmentUsageEvent[]
+
   @@index([studentId, occurredAt])
   @@map("billing_access_events")
 }
@@ -3435,6 +3441,10 @@ model CheckoutIntent {
   pricingMonth   String   @map("pricing_month") @db.VarChar(7)
   amountRupiah   Int      @map("amount_rupiah")
   referralCode   String?  @map("referral_code") @db.VarChar(40)
+  /// The version of the "Syarat Pembelian" the buyer ticked on the checkout
+  /// form. Null only on intents made before MS-08; the database refuses an
+  /// order whose intent has none.
+  termsVersion   String?  @map("terms_version") @db.VarChar(40)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   /// A retry may reuse this intent (and its quote) only before this time;
   /// afterwards the buyer must confirm the current price on a fresh page.
@@ -3487,6 +3497,7 @@ enum PaymentEventOutcome {
 enum PaymentOutboxKind {
   receipt_email
   critical_alert
+  access_grant
 
   @@map("payment_outbox_kind")
 }
@@ -3531,6 +3542,9 @@ model PaymentOrder {
   /// HMAC lookup token of the first-party device cookie at checkout. The cookie
   /// value itself is never stored. Null when the order had no device cookie.
   deviceLookupToken   String?  @map("device_lookup_token") @db.VarChar(64)
+  /// The "Syarat Pembelian" version the buyer agreed to; frozen at creation.
+  /// Legacy orders (made before MS-08) have none.
+  termsVersion        String?  @map("terms_version") @db.VarChar(40)
   provider            String   @db.VarChar(40)
   providerEnvironment String   @map("provider_environment") @db.VarChar(40)
   providerAccount     String   @map("provider_account") @db.VarChar(80)
@@ -3556,6 +3570,9 @@ model PaymentOrder {
   events          PaymentEvent[]
   reservation     RiskReservation?
   fraudCases      FraudCase[]
+  receipt         PaymentReceipt?
+  usageEvents     FulfillmentUsageEvent[]
+  disputeExports  DisputeExport[]
 
   @@unique([provider, providerEnvironment, providerAccount, providerReference])
   @@index([status, expiresAt])
@@ -4148,4 +4165,115 @@ model FraudAppeal {
 
   @@index([state, dueAt])
   @@map("fraud_appeals")
+}
+
+
+enum FulfillmentDeliveryStatus {
+  pending
+  delivered
+
+  @@map("fulfillment_delivery_status")
+}
+
+/// The durable receipt of one paid order: what was bought, at what price, under
+/// which terms, and whether the access it pays for was actually delivered. It is
+/// written in the transaction that accepts the payment, as `pending`. Delivery
+/// moves to `delivered` once, when the entitlement is granted (`grantEventId`),
+/// and never because money arrived. Rows are never deleted.
+model PaymentReceipt {
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId           String                    @unique @map("order_id") @db.Uuid
+  buyerId           String                    @map("buyer_id") @db.Uuid
+  receiptNumber     String                    @unique @map("receipt_number") @db.VarChar(24)
+  packageCode       String                    @map("package_code") @db.VarChar(80)
+  packageName       String                    @map("package_name") @db.VarChar(220)
+  plan              String                    @db.VarChar(20)
+  pricingMonth      String                    @map("pricing_month") @db.VarChar(7)
+  amountRupiah      Int                       @map("amount_rupiah")
+  currency          String                    @default("IDR") @db.VarChar(3)
+  termsVersion      String                    @map("terms_version") @db.VarChar(40)
+  providerPaymentId String?                   @map("provider_payment_id") @db.VarChar(160)
+  paidAt            DateTime                  @map("paid_at") @db.Timestamptz
+  deliveryStatus    FulfillmentDeliveryStatus @default(pending) @map("delivery_status")
+  /// Why the last grant attempt did not deliver, while delivery is pending.
+  pendingReason     String?                   @map("pending_reason") @db.VarChar(60)
+  accessPlanCode    String?                   @map("access_plan_code") @db.VarChar(80)
+  grantEventId      String?                   @unique @map("grant_event_id") @db.Uuid
+  validFrom         DateTime?                 @map("valid_from") @db.Timestamptz
+  validUntil        DateTime?                 @map("valid_until") @db.Timestamptz
+  grantedAt         DateTime?                 @map("granted_at") @db.Timestamptz
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+
+  order      PaymentOrder         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  buyer      User                 @relation("PaymentReceiptBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  grantEvent BillingAccessEvent?  @relation(fields: [grantEventId], references: [id], onDelete: Restrict)
+  deliveries ReceiptDelivery[]
+
+  @@index([deliveryStatus, paidAt])
+  @@map("payment_receipts")
+}
+
+/// One attempt to tell the buyer about a receipt, and what came of it. The
+/// in-app record counts as delivery evidence (G5); the email is the second
+/// channel. At most one `sent` row per receipt and channel. Append-only.
+model ReceiptDelivery {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiptId         String   @map("receipt_id") @db.Uuid
+  channel           String   @db.VarChar(10)
+  outcome           String   @db.VarChar(10)
+  /// A short code: a mail failure reason, or why a channel was skipped.
+  detail            String?  @db.VarChar(120)
+  providerMessageId String?  @map("provider_message_id") @db.VarChar(160)
+  notificationId    String?  @map("notification_id") @db.Uuid
+  attemptedAt       DateTime @default(now()) @map("attempted_at") @db.Timestamptz
+
+  receipt PaymentReceipt @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+
+  @@index([receiptId, attemptedAt])
+  @@map("receipt_deliveries")
+}
+
+/// Real use of a paid surface: at most one row per grant per Asia/Jakarta day,
+/// written when the paid-access check passes for a student whose access came
+/// from a payment. Never created any other way. Append-only.
+model FulfillmentUsageEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  grantEventId String   @map("grant_event_id") @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  jakartaDay   DateTime @map("jakarta_day") @db.Date
+  firstUsedAt  DateTime @default(now()) @map("first_used_at") @db.Timestamptz
+
+  grantEvent BillingAccessEvent @relation(fields: [grantEventId], references: [id], onDelete: Restrict)
+  order      PaymentOrder       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  student    User               @relation("FulfillmentUsageStudent", fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([grantEventId, jakartaDay])
+  @@index([orderId, jakartaDay])
+  @@map("fulfillment_usage_events")
+}
+
+/// The log of every dispute export, and the short-lived packet behind its
+/// one-use link. The packet is dropped when the link is used or expires; the
+/// row, its reason and its digest stay. Rows are never deleted.
+model DisputeExport {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String    @map("order_id") @db.Uuid
+  requestedById  String    @map("requested_by_id") @db.Uuid
+  reason         String    @db.VarChar(500)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  /// SHA-256 of the one-use download token; the token itself is never stored.
+  tokenHash      String    @unique @map("token_hash") @db.VarChar(64)
+  digestSha256   String    @map("digest_sha256") @db.VarChar(64)
+  packetBytes    Int       @map("packet_bytes")
+  packet         String?   @db.Text
+  downloadedAt   DateTime? @map("downloaded_at") @db.Timestamptz
+  packetPurgedAt DateTime? @map("packet_purged_at") @db.Timestamptz
+
+  order       PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  requestedBy User         @relation("DisputeExportRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@map("dispute_exports")
 }
