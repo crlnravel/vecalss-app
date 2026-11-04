@@ -125,8 +125,8 @@ when either of these holds after the payment step:
 
 | Condition | Definition | Quiet case |
 | --- | --- | --- |
-| `payment_reconciliation` | An open order the provider could not be asked about (error or unusable answer) **and** whose time to pay ended more than 24 hours ago. The daily job runs once a day, so such an order was already tried on an earlier run: it has been unanswered on at least two consecutive runs. | One failed lookup on an order that expired in the last 24 hours is a transient retry: counted in `reconciliation.unavailable`, no email, status stays 200. |
-| `payment_alert_dead` | A `critical_alert` outbox job that ran out of attempts and was created in the last 3 days (a job dies about two hours after it is queued, so its creation time stands in for the day it died). It is reported on each daily run for those 3 days, then stops; the dead row stays. | A dead `receipt_email` or `access_grant` job is not counted here (grant failures are flagged by the fulfillment step). |
+| `payment_reconciliation` | An open order the provider could not be asked about (error or unusable answer) **and** whose time to pay ended more than 24 hours ago. This is an age rule; the database does not require two failed daily lookups, so the alert can follow the first failed lookup after the order passes that age threshold. | A failed lookup on an order whose time to pay ended within the last 24 hours is a transient retry: counted in `reconciliation.unavailable`, no email, status stays 200. |
+| `payment_alert_dead` | A `critical_alert` outbox job whose `dead_at` time is within the last 3 days. It is reported on each daily run for those 3 days after it becomes dead, then stops; the dead row stays. | A dead `receipt_email` or `access_grant` job is not counted here (grant failures are flagged by the fulfillment step). |
 
 Not covered, by decision: a provider that keeps answering "still pending" for
 an order more than a day past its expiry (`reconciliation.stillPending`) raises
@@ -324,9 +324,11 @@ through the contact on the blocked screen) and decides within three working days
 transaction. A denied appeal can be reopened on new evidence. All of it is also
 written to the block's case.
 
-**Reports.** A daily summary email to `MAINTENANCE_ALERT_EMAIL` (counts only) and
-`/admin/fraud/report`, a monthly page of aggregates with no raw IP, email, phone,
-device or account id.
+**Reports.** The daily summary email to `MAINTENANCE_ALERT_EMAIL` includes counts
+and case references for refunds approved, refunds completed, and manual transfers
+confirmed during the last 24 hours. References are review pointers; no buyer or
+payment details are included. `/admin/fraud/report` is a monthly page of
+aggregates with no raw IP, email, phone, device or account id.
 
 ## Delivery, receipts, terms and the dispute export (MS-08 phase A)
 
@@ -407,6 +409,16 @@ did to access.
 | send to provider | the owner | `processing` is committed **before** the call; see "Timeout" |
 | manual transfer | the owner | destination (4 digits at most), holder (buyer or parent), reference, proof note; completes the case |
 | confirmation | the provider's signed event or status | completes a provider refund |
+
+**Authorization boundary (MS-20 R2A-01).** The application enforces the owner-only
+and verified second-factor checks for refund approval and manual-transfer
+confirmation. The database enforces the refund state machine, balance cap,
+eligibility and linked history event; it does not verify the owner's identity or
+second factor. A stolen runtime database credential could fabricate a valid
+approval or manual-transfer confirmation while preserving those database
+consistency checks. The owner's daily summary reports counts and case references
+so an unexpected action can be noticed; it is a detective control, not an
+authorization check.
 
 **Eligibility** (`lib/refunds/eligibility.ts`, repeated by the database at
 approval): our-fault reasons and `authority_order` are always eligible; change of mind is eligible

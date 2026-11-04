@@ -219,7 +219,7 @@ assert.equal(stuckReconciliation.ok, false);
 assert.deepEqual(stuckReconciliation.failures, ["payment_reconciliation"]);
 assert.equal(sent.length, sentBefore + 1, "one email for the condition");
 assert.equal(sent.at(-1)?.idempotencyKey, "daily-maintenance:2026-11-03:payment_reconciliation");
-assert.match(sent.at(-1)?.text ?? "", /pengecekan status pembayaran/u);
+assert.match(sent.at(-1)?.text ?? "", /pesanan yang belum terkonfirmasi penyedia/u);
 assert.match(sent.at(-1)?.text ?? "", /lebih dari 24 jam/u);
 const failingCron = await handleDailyMaintenanceRequest(request(`Bearer ${SECRET}`), { run: async () => stuckReconciliation, secret: SECRET });
 assert.equal(failingCron.status, 500, "the cron answers with a failure");

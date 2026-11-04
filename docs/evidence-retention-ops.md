@@ -127,6 +127,15 @@ unexpected deletion is noticed the day it happens.
 
 ## Things to know
 
+- **Refund approval and transfer authorization.** Owner-only approval and
+  second-factor verification are enforced by the application, not by the
+  database. The database checks refund-state consistency, the balance cap,
+  eligibility and the required history event, but it cannot verify the owner's
+  identity or second factor. Someone with the runtime database credential could
+  fabricate an approval or manual-transfer confirmation that satisfies those
+  checks. The daily owner summary lists counts and case references for recent
+  approvals, completions and confirmed manual transfers so unexpected actions
+  can be noticed.
 - What a compromised app can and cannot do (the threat model). The app's runtime
   login can **place** holds, and it can call the cleanup functions, which only act
   on records already past their period (12 months for IP and device data, 2 years

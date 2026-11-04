@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { ProviderOutcomeUnknownError, type PaymentProviderAdapter } from "../lib/payments/adapter";
 import { getAccessState, grantAccess } from "../lib/billing/service";
 import { FraudAuthorityError, FraudValidationError } from "../lib/fraud/errors";
+import { buildDailySummary, buildSummaryEmail, summaryHasNews } from "../lib/fraud/maintenance";
 import { PURCHASE_TERMS, TERMS_VERSIONS, getTermsByVersion } from "../lib/fulfillment/terms";
 import { recordPaidUse } from "../lib/fulfillment/usage";
 import { findStandingPaidOrder } from "../lib/payments/risk/tier";
@@ -592,6 +593,7 @@ async function main() {
 
   // ---- Manual transfer: the owner records destination, reference and proof ----------------------------------
   {
+    const summaryBefore = await buildDailySummary();
     const order = await paidOrder();
     const prepared = await prepare(order.id, "wrong_amount");
     const transfer = (overrides: Partial<Parameters<typeof recordManualTransfer>[1]> = {}, who = owner) =>
@@ -633,6 +635,30 @@ async function main() {
     assert.equal((await getAccessState(order.buyerId)).status, "revoked");
     assert.equal((await prisma.packagePurchase.findUniqueOrThrow({ where: { id: order.packagePurchaseId! } })).status, "refunded");
     await refundError(() => transfer(), "wrong_state");
+
+    const summaryAfter = await buildDailySummary();
+    assert.equal(summaryAfter.refunds.approvedLast24Hours.count, summaryBefore.refunds.approvedLast24Hours.count + 1);
+    assert.equal(summaryAfter.refunds.completedLast24Hours.count, summaryBefore.refunds.completedLast24Hours.count + 1);
+    assert.equal(summaryAfter.refunds.manualTransfersConfirmedLast24Hours.count, summaryBefore.refunds.manualTransfersConfirmedLast24Hours.count + 1);
+    for (const activity of [
+      summaryAfter.refunds.approvedLast24Hours,
+      summaryAfter.refunds.completedLast24Hours,
+      summaryAfter.refunds.manualTransfersConfirmedLast24Hours,
+    ]) {
+      assert.ok(activity.references.includes(row.reference), "the summary carries the refund case reference");
+    }
+    const ownerSummary = buildSummaryEmail(summaryAfter, "owner@example.test");
+    assert.match(ownerSummary.text, /Pengembalian dana disetujui dalam 24 jam/u);
+    assert.match(ownerSummary.text, /Pengembalian dana selesai dalam 24 jam/u);
+    assert.match(ownerSummary.text, /Transfer manual dikonfirmasi dalam 24 jam/u);
+    assert.ok(ownerSummary.text.includes(row.reference), "the owner email contains the case reference");
+    assert.equal(summaryHasNews({
+      ...summaryAfter,
+      appealsPending: 0,
+      blocksCreatedLastDay: { automatic: 0, manual: 0 },
+      blocksEndingSoon: 0,
+      casesOpen: { critical: 0, high: 0, low: 0, medium: 0, total: 0 },
+    }), true, "refund activity alone triggers the owner's daily summary");
 
     // A provider refund cannot be completed by hand, and a manual one needs everything.
     const second = await paidOrder();

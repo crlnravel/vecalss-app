@@ -69,7 +69,7 @@ const failureLabels: Record<MaintenanceFailure, string> = {
   fraud_maintenance: "tinjauan fraud harian",
   payment_alert_dead: "peringatan pembayaran penting yang tidak berhasil terkirim",
   payment_maintenance: "pemeriksaan dan antrean pembayaran",
-  payment_reconciliation: "pengecekan status pembayaran ke penyedia pembayaran yang berulang gagal",
+  payment_reconciliation: "pesanan yang belum terkonfirmasi penyedia lebih dari 24 jam setelah batas bayar",
   redis: "Redis",
   retention_maintenance: "pemangkasan dan pembersihan bukti sesuai kebijakan retensi",
   runtime_role: "peran basis data aplikasi (masih bisa mengubah skema atau menghapus bukti)",
