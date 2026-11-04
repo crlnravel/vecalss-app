@@ -18,7 +18,7 @@ import { deliver } from "./payment-test-kit";
 import {
   ENV,
   FULL_REASON,
-  failLeftoverOrders,
+  cleanUp,
   makeBuyer,
   paidOrder,
   prisma,
@@ -722,7 +722,7 @@ async function main() {
     pass("terms: refund rules added, version bumped, still a draft");
   }
 
-  await failLeftoverOrders();
+  await cleanUp();
   console.log(`Refund checks passed: ${checks.join("; ")}.`);
 }
 

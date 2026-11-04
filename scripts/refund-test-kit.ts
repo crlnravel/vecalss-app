@@ -98,13 +98,31 @@ async function refundCase(caseId: string) {
   return prisma.refundCase.findUniqueOrThrow({ where: { id: caseId } });
 }
 
+/**
+ * Fails this run's unpaid orders and closes the outbox jobs its orders queued
+ * (receipt emails, alerts). The suites never drain the outbox themselves, and a
+ * backlog of them would crowd the daily-maintenance suite, which drains only the
+ * first few batches. Only this run's buyers are touched.
+ */
+async function cleanUp() {
+  await failLeftoverOrders();
+  await prisma.$executeRaw`
+    UPDATE payment_outbox SET status = 'done', completed_at = now()
+    WHERE status = 'pending'
+      AND order_id IN (
+        SELECT o.id FROM payment_orders o JOIN users u ON u.id = o.buyer_id
+        WHERE u.email LIKE ${`pay-%-${runId}@vecalss.local`}
+      )
+  `;
+}
+
 const FULL_REASON = "Pembeli meminta uang kembali lewat WhatsApp dan buktinya sudah dicek.";
 
 export {
   ENV,
   FULL_REASON,
   OWNER_EMAIL,
-  failLeftoverOrders,
+  cleanUp,
   makeBuyer,
   makeOrder,
   paidOrder,

@@ -16,7 +16,7 @@ import { deliver, getPackageCode, makeIntent, randomBuyerIp, APP_ORIGIN } from "
 import {
   ENV,
   FULL_REASON,
-  failLeftoverOrders,
+  cleanUp,
   makeBuyer,
   makeOrder,
   paidOrder,
@@ -418,7 +418,7 @@ async function main() {
     pass("export: refund, dispute and communication sections, with self-approval disclosed");
   }
 
-  await failLeftoverOrders();
+  await cleanUp();
   console.log(`Dispute checks passed: ${checks.join("; ")}.`);
 }
 
