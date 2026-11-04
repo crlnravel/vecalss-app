@@ -2,13 +2,19 @@ import "server-only";
 
 import { runFulfillmentMaintenance, type StalledResult } from "@/lib/fulfillment/stalled";
 import { purgeExpiredExportPackets } from "@/lib/disputes/export";
+import { prisma } from "@/lib/prisma";
 import { runRefundMaintenance, type RefundMaintenanceResult } from "@/lib/refunds/maintenance";
 
 import type { PaymentProviderAdapter } from "./adapter";
-import { drainOutbox, type DrainResult, type OutboxHandlers } from "./outbox";
+import { countRecentDeadCriticalAlerts, drainOutbox, type DrainResult, type OutboxHandlers } from "./outbox";
 import { reconcileOpenOrders, type ReconcileResult } from "./reconcile";
 
 type PaymentMaintenanceResult = {
+  /**
+   * Critical alerts that ran out of attempts in the last few days (after this
+   * run's drain): alerts nobody received, which the daily job reports.
+   */
+  deadCriticalAlerts: number;
   /** Packets of dispute exports whose link ran out, dropped this run. */
   exportPacketsPurged: number;
   /** Paid orders still waiting for access: retried, then flagged after an hour. */
@@ -50,7 +56,9 @@ async function runPaymentMaintenance(deps: {
     if (drained.done + drained.failed + drained.dead === 0) break;
   }
 
-  return { exportPacketsPurged, fulfillment, outbox, reconciliation, refunds };
+  const deadCriticalAlerts = await countRecentDeadCriticalAlerts(prisma);
+
+  return { deadCriticalAlerts, exportPacketsPurged, fulfillment, outbox, reconciliation, refunds };
 }
 
 export { runPaymentMaintenance };

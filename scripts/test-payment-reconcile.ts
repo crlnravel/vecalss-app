@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import type { PaymentProviderAdapter } from "../lib/payments/adapter";
 import { reconcileOpenOrders, reconcileOrderByReference } from "../lib/payments/reconcile";
-import { deliver, makeOrder, prisma, provider, signedEventFor } from "./payment-test-kit";
+import { deliver, makeOrder, prisma, provider, signedEventFor, withStatusAnswer } from "./payment-test-kit";
 
 /**
  * Reconciliation: orders still open past their expiry are resolved from the
@@ -31,6 +32,8 @@ async function main() {
   const mismatched = await makeOrder({ pastExpiry: true, session: true });
   const providerDown = await makeOrder({ pastExpiry: true, session: true });
   const notDueYet = await makeOrder({ session: true });
+  // Unanswered for more than a day: an earlier daily run already tried it (P-04).
+  const longDown = await makeOrder({ expiredHoursAgo: 30, pastExpiry: true, session: true });
 
   await setProviderState(lostWebhook.reference, "succeeded");
   await setProviderState(providerFailed.reference, "failed");
@@ -45,7 +48,7 @@ async function main() {
     environment: provider.environment,
     getRefundStatus: (reference) => provider.getRefundStatus(reference),
     getStatus: async (reference) => {
-      if (reference === providerDown.reference) throw new Error("provider unreachable");
+      if (reference === providerDown.reference || reference === longDown.reference) throw new Error("provider unreachable");
       return provider.getStatus(reference);
     },
     id: provider.id,
@@ -56,7 +59,11 @@ async function main() {
   const first = await reconcileOpenOrders(flaky, LIMIT);
   assert.ok(first.checked >= 7, "every order past its expiry was looked at");
   assert.ok(first.stillPending >= 1);
-  assert.ok(first.unavailable >= 1);
+  assert.ok(first.unavailable >= 2);
+  // One failed lookup on a fresh order is a transient retry; the order that has been
+  // unanswered since before the previous daily run is the persistent one.
+  assert.equal(first.persistentlyUnavailable, 1);
+  assert.equal(await statusOf(longDown.id), "pending");
   assert.ok(first.resolved >= 5);
 
   // A webhook that never arrived is made up for.
@@ -104,6 +111,7 @@ async function main() {
   // The mismatched one is looked at again, and the same finding is the same event: still one record.
   assert.equal(await prisma.paymentEvent.count({ where: { orderId: mismatched.id } }), 1);
   assert.equal(await statusOf(providerDown.id), "expired", "back up, the provider says expired");
+  assert.equal(await statusOf(longDown.id), "expired", "back up, the long-unanswered order is resolved too");
 
   // ---- The webhook that arrives after reconciliation is no second payment ----------------
   const lostWebhookPaid = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: lostWebhook.id } });
@@ -127,6 +135,71 @@ async function main() {
   assert.equal(await statusOf(viewing.id), "failed");
   assert.equal(await reconcileOrderByReference(viewing.reference, provider), "unchanged", "already decided");
   assert.equal(await reconcileOrderByReference(notDueYet.reference, provider), "unchanged", "not past its expiry");
+
+  // ---- A status answer about something else is never applied (P-02) --------------------------
+  {
+    const rowOf = (id: string) => prisma.paymentOrder.findUniqueOrThrow({ where: { id } });
+    const afterBoth = async (queried: { id: string }, other: { id: string }) => ({
+      other: { events: await prisma.paymentEvent.count({ where: { orderId: other.id } }), status: await statusOf(other.id) },
+      purchases: await prisma.packagePurchase.count({ where: { providerReference: { in: [`order:${queried.id}`, `order:${other.id}`] } } }),
+      queried: await statusOf(queried.id),
+    });
+
+    // Asked about A, the provider answers with B's payment: B's reference, amount, buyer, package.
+    const queried = await makeOrder({ pastExpiry: true, session: true });
+    const other = await makeOrder({ pastExpiry: true, session: true });
+    await setProviderState(other.reference, "succeeded");
+    const crossed = withStatusAnswer(() => provider.getStatus(other.reference));
+
+    const before = await rowOf(queried.id);
+    assert.equal(await reconcileOrderByReference(queried.reference, crossed), "resolved", "a finding was recorded");
+    assert.deepEqual(await afterBoth(queried, other), { other: { events: 0, status: "pending" }, purchases: 0, queried: "pending" });
+    const quarantined = await prisma.paymentEvent.findMany({ where: { orderId: queried.id } });
+    assert.equal(quarantined.length, 1, "recorded once, against the order that was asked about");
+    assert.equal(quarantined[0].outcome, "quarantined");
+    assert.match(quarantined[0].reason ?? "", /reference/u);
+    assert.equal(await prisma.paymentOutbox.count({ where: { kind: "critical_alert", orderId: queried.id } }), 1);
+    assert.equal(await prisma.auditLog.count({ where: { action: "payment.event.quarantined", targetId: queried.id } }), 1);
+    const after = await rowOf(queried.id);
+    assert.deepEqual(
+      { providerReference: after.providerReference, sessionUrl: after.sessionUrl, status: after.status },
+      { providerReference: before.providerReference, sessionUrl: before.sessionUrl, status: before.status },
+    );
+
+    // The same wrong answer again is the same finding: no second record, no second alert.
+    assert.equal(await reconcileOrderByReference(queried.reference, crossed), "unchanged");
+    assert.equal(await prisma.paymentEvent.count({ where: { orderId: queried.id } }), 1);
+    assert.equal(await prisma.paymentOutbox.count({ where: { kind: "critical_alert", orderId: queried.id } }), 1);
+
+    // Each fact on its own: right reference, one wrong field, a "succeeded" state.
+    const lies = [
+      { field: "amount", reason: "amount", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, amountRupiah: 1 }) },
+      { field: "currency", reason: "currency", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, currency: "USD" }) },
+      { field: "buyer", reason: "buyer", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, buyerId: randomUUID() }) },
+      { field: "package", reason: "package", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, packageCode: "SOME-OTHER-PACKAGE" }) },
+      { field: "merchant account", reason: "merchant", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, merchantAccount: "another-account" }) },
+      { field: "environment", reason: "environment", change: (own: Awaited<ReturnType<typeof provider.getStatus>>) => ({ ...own, environment: "live" }) },
+    ];
+    for (const lie of lies) {
+      const order = await makeOrder({ pastExpiry: true, session: true });
+      await setProviderState(order.reference, "succeeded");
+      const liar = withStatusAnswer(async (reference) => {
+        const own = await provider.getStatus(reference);
+        assert.ok(own.found);
+        return lie.change(own) as typeof own;
+      });
+      assert.equal(await reconcileOrderByReference(order.reference, liar), "resolved", lie.field);
+      assert.equal(await statusOf(order.id), "pending", `${lie.field}: nothing is paid`);
+      assert.equal(await prisma.packagePurchase.count({ where: { providerReference: `order:${order.id}` } }), 0, lie.field);
+      const events = await prisma.paymentEvent.findMany({ where: { orderId: order.id } });
+      assert.deepEqual(events.map((event) => [event.outcome, event.reason]), [["quarantined", lie.reason]], lie.field);
+      assert.equal(await prisma.paymentOutbox.count({ where: { kind: "critical_alert", orderId: order.id } }), 1, lie.field);
+
+      // The truth, once the provider tells it, is decided afresh.
+      assert.equal(await reconcileOrderByReference(order.reference, provider), "resolved", lie.field);
+      assert.equal(await statusOf(order.id), "paid", lie.field);
+    }
+  }
 
   // ---- Settle the leftovers so nothing stays open in the shared database ---------------------
   await setProviderState(stillOpen.reference, "failed");

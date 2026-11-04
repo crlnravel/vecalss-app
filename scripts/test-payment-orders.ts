@@ -17,6 +17,7 @@ import {
   prisma,
   provider,
   signedEventFor,
+  withStatusAnswer,
 } from "./payment-test-kit";
 
 /**
@@ -183,6 +184,39 @@ async function main() {
     assert.deepEqual(again.calls, { create: 0, status: 0 });
   }
   {
+    // The answer to a lookup after a lost response belongs to another order (P-02): its session is not saved.
+    const order = await makeOrder({ session: false });
+    const other = await makeOrder({ session: true });
+    const otherBefore = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: other.id } });
+    const crossed = withStatusAnswer((reference) => provider.getStatus(reference === order.reference ? other.reference : reference));
+    const lost: PaymentProviderAdapter = {
+      ...crossed,
+      createSession: async (request) => {
+        await provider.createSession(request);
+        throw new Error("timed out");
+      },
+    };
+    assert.deepEqual(await ensurePaymentSession(order, lost, APP_ORIGIN), { ok: false, reason: "unavailable" });
+    const unlinked = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: order.id } });
+    assert.equal(unlinked.sessionUrl, null, "no session URL is saved");
+    assert.equal(unlinked.providerReference, null);
+    assert.equal(unlinked.status, "pending");
+    const held = await prisma.paymentEvent.findMany({ where: { orderId: order.id } });
+    assert.equal(held.length, 1);
+    assert.equal(held[0].outcome, "quarantined");
+    assert.match(held[0].reason ?? "", /^reference/u);
+    assert.equal(await prisma.paymentOutbox.count({ where: { kind: "critical_alert", orderId: order.id } }), 1);
+    const otherAfter = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: other.id } });
+    assert.deepEqual(
+      { providerReference: otherAfter.providerReference, sessionUrl: otherAfter.sessionUrl, status: otherAfter.status },
+      { providerReference: otherBefore.providerReference, sessionUrl: otherBefore.sessionUrl, status: otherBefore.status },
+    );
+    assert.equal(await prisma.paymentEvent.count({ where: { orderId: other.id } }), 0);
+
+    // With the truth available, the same order recovers its own session.
+    assert.equal((await ensurePaymentSession(order, instrumented({}).provider, APP_ORIGIN)).ok, true);
+  }
+  {
     // The request never reached the provider: nothing exists, so the retry creates the one session.
     const order = await makeOrder({ session: false });
     const dropped = instrumented({ beforeCreate: timeout });
@@ -288,7 +322,7 @@ async function main() {
     const submit = () =>
       handleCheckoutPayPost(
         new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+          body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "192.0.2.1" },
           method: "POST",
         }),
@@ -321,7 +355,7 @@ async function main() {
     const secondKey = randomUUID();
     const proxiedResponse = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-        body: new URLSearchParams({ key: secondKey, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+        body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: secondKey, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
         headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "10.9.9.9, 192.0.2.55" },
         method: "POST",
       }),

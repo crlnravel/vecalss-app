@@ -47,11 +47,33 @@ type OutboxJob = {
 };
 
 /**
+ * Parks as `dead` any pending job that used its last attempt and whose lease
+ * has run out. Such a job's worker died mid-run (a handler that throws is
+ * parked by `failOutboxJob` already), and claiming it again would run it past
+ * its documented maximum, so a poison job could cycle forever.
+ */
+async function reapExhaustedOutboxJobs(db: Db, filter: OutboxFilter = {}) {
+  const prefix = filter.dedupeKeyPrefix ?? null;
+  return db.$executeRaw`
+    UPDATE payment_outbox
+    SET status = 'dead',
+        leased_until = NULL,
+        lease_owner = NULL,
+        last_error = 'The worker stopped during the last allowed attempt.'
+    WHERE status = 'pending'
+      AND attempts >= max_attempts
+      AND (leased_until IS NULL OR leased_until <= now())
+      AND (${prefix}::text IS NULL OR dedupe_key LIKE ${prefix}::text || '%')
+  `;
+}
+
+/**
  * Takes up to `limit` due jobs for this worker. A job is due when it is
  * pending, its next run time has come, and no live lease holds it, all judged
  * on database time. `SKIP LOCKED` lets concurrent workers pick different jobs.
  * The attempt is counted when the lease is taken, so a worker that dies
- * mid-job still spends it.
+ * mid-job still spends it, and a job with no attempts left is never taken
+ * again: it is parked as dead first (see `reapExhaustedOutboxJobs`).
  */
 async function claimOutboxJobs(
   db: Db,
@@ -59,6 +81,8 @@ async function claimOutboxJobs(
   limit = OUTBOX_DEFAULT_BATCH,
   filter: OutboxFilter = {},
 ): Promise<OutboxJob[]> {
+  await reapExhaustedOutboxJobs(db, filter);
+
   const prefix = filter.dedupeKeyPrefix ?? null;
   return db.$queryRaw<OutboxJob[]>`
     UPDATE payment_outbox
@@ -68,6 +92,7 @@ async function claimOutboxJobs(
     WHERE id IN (
       SELECT id FROM payment_outbox
       WHERE status = 'pending'
+        AND attempts < max_attempts
         AND next_run_at <= now()
         AND (leased_until IS NULL OR leased_until <= now())
         AND (${prefix}::text IS NULL OR dedupe_key LIKE ${prefix}::text || '%')
@@ -137,13 +162,36 @@ async function drainOutbox(
   return result;
 }
 
+/**
+ * How long a parked critical alert keeps counting as an open problem. A job
+ * dies about two hours after it is queued (eight attempts, backoff doubling
+ * from a minute), so its creation time stands in for the day it died; the
+ * daily run therefore reports it on each of its next three runs, then stops.
+ * The dead row itself stays, for the operator panel and the audit trail.
+ */
+const DEAD_ALERT_REPORT_DAYS = 3;
+
+/** Critical-alert jobs that ran out of attempts within the reporting window: alerts nobody received. */
+async function countRecentDeadCriticalAlerts(db: Db) {
+  const [row] = await db.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM payment_outbox
+    WHERE kind = 'critical_alert' AND status = 'dead'
+      AND created_at > now() - make_interval(days => ${DEAD_ALERT_REPORT_DAYS}::int)
+  `;
+  return Number(row?.count ?? 0);
+}
+
 export {
+  DEAD_ALERT_REPORT_DAYS,
   OUTBOX_DEFAULT_BATCH,
   OUTBOX_LEASE_SECONDS,
   claimOutboxJobs,
   completeOutboxJob,
+  countRecentDeadCriticalAlerts,
   drainOutbox,
   enqueueOutbox,
   failOutboxJob,
+  reapExhaustedOutboxJobs,
 };
 export type { DrainResult, OutboxFilter, OutboxHandlers, OutboxJob, OutboxKind };

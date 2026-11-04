@@ -948,7 +948,7 @@ async function postThroughHandler(
   if (options.forwardedFor) headers["x-forwarded-for"] = options.forwardedFor;
   return handleCheckoutPayPost(
     new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-      body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+      body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
       headers,
       method: "POST",
     }),

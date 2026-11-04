@@ -89,6 +89,7 @@ export default async function PricingCheckoutPage({
       || requestedNotice === "checkout-full-access"
       || requestedNotice === "checkout-unavailable"
       || requestedNotice === "checkout-changed"
+      || requestedNotice === "checkout-price-changed"
       || requestedNotice === "checkout-expired"
       || requestedNotice === "checkout-daily-limit"
       || requestedNotice === "checkout-open-payment"

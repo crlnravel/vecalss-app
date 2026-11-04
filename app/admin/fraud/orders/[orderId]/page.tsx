@@ -7,7 +7,7 @@ import { EXPORT_LINK_MINUTES, listExportsForOrder } from "@/lib/disputes/export"
 import { getOrderSummary } from "@/lib/disputes/queries";
 import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
-import { getPaymentProvider } from "@/lib/payments/provider";
+import { getStandInProvider } from "@/lib/payments/provider";
 import { maskIp } from "@/lib/retention/mask";
 import { getBuyerIp, getOrderRetention } from "@/lib/retention/status";
 import { prisma } from "@/lib/prisma";
@@ -77,7 +77,7 @@ export default async function AdminFraudOrderPage({
     getAccessState(order.buyerId),
     prisma.paymentOrder.findUnique({ select: { statusReason: true }, where: { id: order.id } }),
   ]);
-  const standInEnabled = getPaymentProvider()?.id === "stand-in";
+  const standInEnabled = getStandInProvider() !== null;
   const link = firstParam(query.link);
   const downloadHref = link && TOKEN_PATTERN.test(link) ? `/api/admin/dispute-exports/${link}` : null;
 
