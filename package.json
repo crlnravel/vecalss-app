@@ -112,6 +112,7 @@
     "test:dispute-export": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-dispute-export.ts",
     "test:refunds": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-refunds.ts",
     "test:refund-authority": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-refund-authority.ts",
+    "test:refund-completion-evidence": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-refund-completion-evidence.ts",
     "test:disputes": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-disputes.ts",
     "test:fraud-blocks": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-fraud-blocks.ts",
     "test:fraud-cases": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-fraud-cases.ts",

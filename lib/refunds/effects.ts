@@ -14,7 +14,7 @@ import { insertRefundEvent, type Actor, type RefundCaseRow, type Tx } from "./co
  */
 
 type Confirmation =
-  | { actor: Actor; eventId: string | null; source: "provider_event" | "provider_status" }
+  | { actor: Actor; eventId: string; source: "provider_event" | "provider_status" }
   | {
       actor: { kind: "owner"; userId: string };
       destinationHolder: "buyer" | "parent";

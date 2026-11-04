@@ -404,6 +404,17 @@ Won: access resumes (only if this dispute paused it and no other open dispute
 holds it). Lost: access is revoked and the amount counts against the balance.
 A resolved dispute is final; a contradicting event is kept for review.
 
+**What the database checks on a completion (MS-19).** A provider refund completes
+only when `confirmation_event_id` names a stored `payment_events` row for the same
+order: type `refund_succeeded`, outcome `accepted`, with the case's refund
+reference, provider refund id, payment id, amount and currency, and the source that
+matches (`webhook` for a signed event, `reconciliation` for a status lookup). The
+status lookup stores its answer as that reconciliation event before completing.
+This is defense in depth: whoever can insert an event row can write one, so the
+database cannot prove what the provider said. A **manual-transfer** completion is
+**owner-attested by design**: the owner records the destination, reference and
+proof note, and nothing else can confirm a bank transfer.
+
 **The refund-versus-dispute rule.** The order row is locked by every step, so
 one happens strictly before the other.
 
