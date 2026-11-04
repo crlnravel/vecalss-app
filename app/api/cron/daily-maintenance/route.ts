@@ -6,6 +6,7 @@ import { runFraudMaintenance } from "@/lib/fraud/maintenance";
 import { defaultHandlers } from "@/lib/payments/drain";
 import { runPaymentMaintenance } from "@/lib/payments/maintenance";
 import { getPaymentProvider } from "@/lib/payments/provider";
+import { checkRuntimeRole, runRetentionMaintenance } from "@/lib/retention/maintenance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,6 +25,8 @@ export async function GET(request: Request) {
           }),
         payments: () => runPaymentMaintenance({ handlers: defaultHandlers(), provider: getPaymentProvider() }),
         probes: defaultProbes,
+        retention: () => runRetentionMaintenance(),
+        roleCheck: () => checkRuntimeRole(),
         sendAlert: (message) => sendEmail(message),
       }),
     secret: process.env.CRON_SECRET,

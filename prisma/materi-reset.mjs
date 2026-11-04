@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import pg from "pg";
@@ -576,6 +578,7 @@ async function inspectPostSeed(client) {
 }
 
 async function runMateriResetSeed(argv = process.argv.slice(2)) {
+  await assertNotMerchantEnvironment("db:seed-materi");
   const options = parseMateriResetArgs(argv);
   if (argv.includes("--help") || argv.includes("-h")) {
     console.log(`Usage: node prisma/seed-materi.mjs [--apply --confirm=${MATERI_RESET_CONFIRMATION}]`);

@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import pg from "pg";
 import {
   cleanStagingDatabase,
@@ -62,6 +64,7 @@ export async function seedStaging(client, options = {}) {
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed-staging");
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
 

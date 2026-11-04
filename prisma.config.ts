@@ -9,7 +9,8 @@ const prisma7Config = defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations run as the schema owner: MIGRATE_DATABASE_URL, falling back to DATABASE_URL.
+    url: process.env["MIGRATE_DATABASE_URL"] || process.env["DATABASE_URL"],
   },
 });
 

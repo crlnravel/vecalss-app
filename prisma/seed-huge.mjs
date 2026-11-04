@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import pg from "pg";
@@ -326,6 +328,7 @@ async function seedHugeModules(client, { moduleCount, tutorId }) {
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed-huge");
   const databaseUrl = requireLocalDatabaseUrl();
   const studentCount = requestedCount("LOCAL_HUGE_SEED_STUDENTS", DEFAULT_STUDENT_COUNT);
   const moduleCount = requestedCount("LOCAL_HUGE_SEED_MODULES", DEFAULT_MODULE_COUNT);
