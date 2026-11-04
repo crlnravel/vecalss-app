@@ -49,6 +49,10 @@ const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
   },
   "lib/media/repository.ts": { count: 1, how: "hasRole on the context" },
   "lib/reports/access.ts": { count: 1, how: "roles passed from the context" },
+  "lib/retention/release-hold.mjs": {
+    count: 1,
+    how: "command-line only, run with the schema owner's database login (it refuses the app's runtime login); the check only identifies the owner account to record, and no web route reaches it",
+  },
   "lib/tryout/capabilities.ts": { count: 1, how: "reads session.user.roles from the context" },
   "lib/tryout/result-recovery-http.ts": { count: 1, how: "reads session.user.roles from the context" },
 };
