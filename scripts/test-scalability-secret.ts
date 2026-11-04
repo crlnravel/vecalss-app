@@ -9,7 +9,7 @@ import { hasSimulationSecret } from "../lib/scalability/simulation-secret";
  * time after a length check, and the endpoints stay 404 without it.
  */
 
-const env = (value?: string) => ({ SCALABILITY_SIMULATION_SECRET: value }) as NodeJS.ProcessEnv;
+const env = (value?: string) => ({ SCALABILITY_SIMULATION_SECRET: value });
 const requestWith = (secret?: string) =>
   new Request("http://localhost/api/scalability/instance", { headers: secret === undefined ? {} : { "x-scalability-secret": secret } });
 

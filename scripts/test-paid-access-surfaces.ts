@@ -361,7 +361,7 @@ function studentSessionCalls(facts: Facts) {
 }
 
 /** A requireTryoutCapability call proves management only when its capability is not one a student holds. */
-function managementCapabilityChecked(facts: Facts, declarations: Map<string, ts.Node>) {
+function managementCapabilityChecked(facts: Facts) {
   return facts.calls.some((call) => {
     if (calleeName(call) !== "requireTryoutCapability") return false;
     const capability = call.arguments[1];
@@ -377,7 +377,7 @@ function managementCapabilityChecked(facts: Facts, declarations: Map<string, ts.
   });
 }
 
-function guardProblem(actionClass: ActionClass, facts: Facts, declarations: Map<string, ts.Node>): string | null {
+function guardProblem(actionClass: ActionClass, facts: Facts): string | null {
   const sessions = studentSessionCalls(facts);
   const hasStaffGuard = [...facts.names].some((name) => STAFF_GUARDS.has(name));
   const helperNames = ["managementSession", "assemblyManagementSession"].filter((name) => facts.names.has(name));
@@ -393,9 +393,9 @@ function guardProblem(actionClass: ActionClass, facts: Facts, declarations: Map<
       if (sessions.length) return sessions.some((call) => call.allowUnpaid) ? null : "is a paid surface; class it as student";
       return facts.names.has("getSessionContext") ? null : "has no session check";
     case "staff":
-      if (!hasStaffGuard && !managementCapabilityChecked(facts, declarations)) return "has no role guard";
+      if (!hasStaffGuard && !managementCapabilityChecked(facts)) return "has no role guard";
       // The two shared helpers are only a role guard while they check a management capability.
-      if (helperNames.length && !managementCapabilityChecked(facts, declarations)) return "calls a management helper that does not check a management capability";
+      if (helperNames.length && !managementCapabilityChecked(facts)) return "calls a management helper that does not check a management capability";
       return null;
     case "account":
       return [...facts.names].some((name) => ACCOUNT_GUARDS.has(name)) ? null : "has no session check";
@@ -453,7 +453,7 @@ function auditServerActionFile(file: string, text: string, classes: Partial<Reco
       problems.push(`${file}: ${name} is exported but not declared in the file`);
       continue;
     }
-    const problem = guardProblem(actionClass, collectFacts(declaration, declarations), declarations);
+    const problem = guardProblem(actionClass, collectFacts(declaration, declarations));
     if (problem) problems.push(`${file}: ${name} is classed ${actionClass} but ${problem}`);
   }
   for (const name of classOf.keys()) {

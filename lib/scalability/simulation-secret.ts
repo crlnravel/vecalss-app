@@ -6,7 +6,7 @@ import { timingSafeEqual } from "node:crypto";
  * timingSafeEqual needs equal lengths; equal-length values are compared in
  * constant time so repeated guesses learn nothing from response timing.
  */
-function hasSimulationSecret(request: Request, env: NodeJS.ProcessEnv = process.env) {
+function hasSimulationSecret(request: Request, env: Record<string, string | undefined> = process.env) {
   const expected = env.SCALABILITY_SIMULATION_SECRET;
   const presented = request.headers.get("x-scalability-secret");
   if (!expected || !presented) return false;
