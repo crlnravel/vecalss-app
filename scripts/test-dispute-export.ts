@@ -40,6 +40,9 @@ import {
  * only (payment-test-kit refuses the rest).
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the packet is read as loose JSON, field by field
+type LoosePacket = Record<string, any>;
+
 const checks: string[] = [];
 const pass = (name: string) => checks.push(name);
 
@@ -148,7 +151,7 @@ async function main() {
   assert.ok(row.packet);
   const file = JSON.parse(row.packet) as {
     digest: { method: string; sha256: string };
-    packet: Record<string, any>;
+    packet: LoosePacket;
   };
   const packet = file.packet;
 
@@ -200,7 +203,7 @@ async function main() {
     await deliver(signedEventFor(stuck, "payment.succeeded"));
     const undelivered = await createDisputeExport(owner, { env: ENV, orderId: stuck.id, reason: REASON });
     const text = (await prisma.disputeExport.findUniqueOrThrow({ where: { id: undelivered.exportId } })).packet!;
-    const stuckPacket = (JSON.parse(text) as { packet: Record<string, any> }).packet;
+    const stuckPacket = (JSON.parse(text) as { packet: LoosePacket }).packet;
     assert.equal(stuckPacket.receipt.deliveryStatus, "pending");
     assert.equal(stuckPacket.receipt.grantEventId, null);
     assert.deepEqual(stuckPacket.grant.accessHistorySinceGrant, [], "no grant is invented");
