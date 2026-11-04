@@ -196,6 +196,26 @@ async function main() {
     await scrubAll();
     assert.equal((await ipState(flagged.id)).ip, false, "two years after closure the evidence is scrubbed");
     pass("an open refund case and a closed refund case keep IP and device evidence until two years after closure");
+
+    // MS-18: an authority-order case is a refund case to the retention rules, held while open and kept two years after closure.
+    const authorityOrder = await paidWithIp();
+    await shiftOrderBack(authorityOrder.id, "13 months");
+    const ordered = await prepareRefund(admin, {
+      authorityName: "Bank Indonesia", authorityReference: "BI/2026/0042", orderId: authorityOrder.id, reasonCode: "authority_order",
+      requestChannel: "email", requestedAt: authorityOrder.createdAt, requestNote: "Surat perintah pengembalian dana dari otoritas.",
+    });
+    assert.equal((await refundCase(ordered.caseId)).evidenceHold, true, "an open authority case holds evidence");
+    await scrubAll();
+    assert.equal((await ipState(authorityOrder.id)).ip, true, "an open authority case keeps the IP and device evidence");
+    const orderedRow = await refundCase(ordered.caseId);
+    await approveRefund(owner, { caseId: ordered.caseId, expectedVersion: orderedRow.version, reason: FULL_REASON }, ENV);
+    await cancelRefund(owner, { caseId: ordered.caseId, expectedVersion: 2, reason: "Otoritas mencabut perintahnya." }, ENV);
+    await scrubAll();
+    assert.equal((await ipState(authorityOrder.id)).ip, true, "an authority case closed today keeps the evidence for the case's own two years");
+    await setupSql("UPDATE refund_cases SET closed_at = now() - interval '25 months', completed_at = NULL WHERE id = $1", [ordered.caseId]);
+    await scrubAll();
+    assert.equal((await ipState(authorityOrder.id)).ip, false, "two years after closure the evidence is scrubbed");
+    pass("an authority-order refund case holds IP and device evidence like any refund case");
   }
 
   // ---- The month-11 dispute: a dispute opened late keeps the evidence it needs ---------------------------------------------------
@@ -254,6 +274,12 @@ async function main() {
     const preparedRow = await refundCase(prepared.caseId);
     await approveRefund(owner, { caseId: prepared.caseId, expectedVersion: preparedRow.version, reason: FULL_REASON }, ENV);
     await cancelRefund(owner, { caseId: prepared.caseId, expectedVersion: 2, reason: "Pembeli menarik permintaannya." }, ENV);
+    // MS-18: an authority-order case belongs to the same family and goes with it.
+    const ordered = await prepareRefund(admin, {
+      authorityName: "Bank Indonesia", authorityReference: "BI/2026/0043", orderId: full.id, reasonCode: "authority_order",
+      requestChannel: "email", requestedAt: full.createdAt, requestNote: "Surat perintah pengembalian dana dari otoritas.", amountRupiah: 1000,
+    });
+    await cancelRefund(owner, { caseId: ordered.caseId, expectedVersion: 1, reason: "Otoritas mencabut perintahnya." }, ENV);
     const notice = await recordDisputeNotice(owner, { orderId: full.id, providerDisputeId: `DSP-${randomUUID().slice(0, 8)}`, reasonText: "Pembeli menyangkal transaksi di bank." }, ENV);
     const dispute = await prisma.paymentDispute.findUniqueOrThrow({ where: { id: notice.disputeId } });
     await resolveDispute(owner, { disputeId: dispute.id, expectedVersion: dispute.version, outcome: "won", reason: "Hasil dari pemberitahuan penyedia." }, ENV);

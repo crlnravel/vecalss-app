@@ -25,7 +25,7 @@ type RefundCaseRow = {
   preparedByUserId: string;
   providerPaymentId: string;
   providerRefundId: string | null;
-  reasonCategory: "change_of_mind" | "our_fault";
+  reasonCategory: "authority_order" | "change_of_mind" | "our_fault";
   reasonCode: string;
   reference: string;
   requestedAt: Date;

@@ -40,6 +40,9 @@ async function prepareRefundAction(form: FormData) {
   await runAdmin(form, orderPage(form), "Pengembalian dana disiapkan. Pemilik yang memutuskan.", (admin) =>
     prepareRefund(admin, {
       amountRupiah: rupiah(form, "amount"),
+      authorityDeadlineAt: jakartaDate(form, "authorityDeadlineAt"),
+      authorityName: text(form, "authorityName"),
+      authorityReference: text(form, "authorityReference"),
       orderId: text(form, "orderId"),
       providerPaymentId: text(form, "providerPaymentId") || null,
       reasonCode: text(form, "reasonCode"),

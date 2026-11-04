@@ -20,18 +20,21 @@ const BATCH = 50;
  * A refund still not paid back 3 working days after the buyer asked (the
  * decision deadline), or 14 days after approval (the payout deadline), opens an
  * MS-07 `refund_stalled` case: the "refunds pending more than 3 working days"
- * rule of the daily review. One case per refund while it is open. Judged on
- * database time.
+ * rule of the daily review. An authority order that set an earlier deadline is
+ * late once that deadline passes, approved or not. One case per refund while it
+ * is open. Judged on database time.
  */
 async function flagStalledRefunds(limit = 100): Promise<number> {
   const late = await prisma.$queryRaw<Array<{
-    buyerId: string; decisionDue: boolean; id: string; orderId: string; payoutDue: boolean; state: string;
+    authorityDue: boolean; buyerId: string; decisionDue: boolean; id: string; orderId: string; payoutDue: boolean; state: string;
   }>>`
     SELECT id, order_id AS "orderId", buyer_id AS "buyerId", state::text AS state,
-           (decision_due_at <= now()) AS "decisionDue", (payout_due_at IS NOT NULL AND payout_due_at <= now()) AS "payoutDue"
+           (decision_due_at <= now()) AS "decisionDue", (payout_due_at IS NOT NULL AND payout_due_at <= now()) AS "payoutDue",
+           (authority_deadline_at IS NOT NULL AND authority_deadline_at <= now()) AS "authorityDue"
     FROM refund_cases
     WHERE state IN ('prepared', 'approved', 'processing')
-      AND (decision_due_at <= now() OR (payout_due_at IS NOT NULL AND payout_due_at <= now()))
+      AND (decision_due_at <= now() OR (payout_due_at IS NOT NULL AND payout_due_at <= now())
+        OR (authority_deadline_at IS NOT NULL AND authority_deadline_at <= now()))
     ORDER BY decision_due_at
     LIMIT ${limit}
   `;
@@ -39,7 +42,7 @@ async function flagStalledRefunds(limit = 100): Promise<number> {
   for (const item of late) {
     await prisma.$transaction((tx) =>
       openFraudCase(tx, {
-        evidence: { decisionOverdue: item.decisionDue, orderId: item.orderId, payoutOverdue: item.payoutDue, refundCaseId: item.id, state: item.state },
+        evidence: { authorityDeadlineOverdue: item.authorityDue, decisionOverdue: item.decisionDue, orderId: item.orderId, payoutOverdue: item.payoutDue, refundCaseId: item.id, state: item.state },
         orderId: item.orderId,
         signal: "refund_stalled",
         subjectKey: `refund:${item.id}`,

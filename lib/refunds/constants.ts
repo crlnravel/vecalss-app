@@ -4,10 +4,11 @@
  * holiday list, the same as appeals.
  */
 
-type RefundReasonCategory = "change_of_mind" | "our_fault";
+type RefundReasonCategory = "authority_order" | "change_of_mind" | "our_fault";
 
 const REFUND_REASONS = {
   access_not_delivered: { category: "our_fault", label: "Sudah bayar, tetapi akses tidak sampai" },
+  authority_order: { category: "authority_order", label: "Perintah dari otoritas (regulator, acquirer, atau pengadilan)" },
   change_of_mind: { category: "change_of_mind", label: "Berubah pikiran" },
   double_charge: { category: "our_fault", label: "Tertagih dua kali" },
   service_unavailable: { category: "our_fault", label: "Layanan tidak bisa kami sediakan" },
@@ -69,6 +70,11 @@ function isDestinationHolder(value: unknown): value is DestinationHolder {
   return typeof value === "string" && value in DESTINATION_HOLDERS;
 }
 
+/** What an authority-order case must carry (the database repeats these limits). */
+const MIN_AUTHORITY_NAME_LENGTH = 3;
+const MAX_AUTHORITY_NAME_LENGTH = 200;
+const MAX_AUTHORITY_REFERENCE_LENGTH = 120;
+
 const MIN_NOTE_LENGTH = 3;
 const MAX_REQUEST_NOTE_LENGTH = 1000;
 const MAX_PROOF_NOTE_LENGTH = 1000;
@@ -84,8 +90,11 @@ export {
   isDestinationHolder,
   isRefundReasonCode,
   isRequestChannel,
+  MAX_AUTHORITY_NAME_LENGTH,
+  MAX_AUTHORITY_REFERENCE_LENGTH,
   MAX_PROOF_NOTE_LENGTH,
   MAX_REQUEST_NOTE_LENGTH,
+  MIN_AUTHORITY_NAME_LENGTH,
   MIN_NOTE_LENGTH,
   OPEN_REFUND_STATES,
   REFUND_DECISION_WORKING_DAYS,
