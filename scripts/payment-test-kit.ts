@@ -68,23 +68,32 @@ function randomBuyerIp() {
 type MakeOrderOptions = {
   amountRupiah?: number;
   buyerId?: string;
+  /** Monthly (default) or Full Access, at the November 2026 price. */
+  plan?: "full" | "monthly";
+  /** The terms version on the intent and order; defaults to the fixture's. */
+  termsVersion?: string;
   /** Insert an order that is already past its time to pay, as if created 20 minutes ago. */
   pastExpiry?: boolean;
   referral?: boolean;
   session?: boolean;
 };
 
-async function makeIntent(buyerId: string, amountRupiah: number, referralCode: string | null) {
+async function makeIntent(
+  buyerId: string,
+  amountRupiah: number,
+  referralCode: string | null,
+  options: { plan?: "full" | "monthly"; termsVersion?: string | null } = {},
+) {
   return prisma.checkoutIntent.create({
     data: {
       amountRupiah,
       buyerId,
       expiresAt: new Date(Date.now() + 30 * 60_000),
       idempotencyKey: randomUUID(),
-      plan: "monthly",
+      plan: options.plan ?? "monthly",
       pricingMonth: "2026-11",
       referralCode,
-      termsVersion: TEST_TERMS_VERSION,
+      termsVersion: options.termsVersion === undefined ? TEST_TERMS_VERSION : options.termsVersion,
     },
     select: { amountRupiah: true, id: true, plan: true, pricingMonth: true, referralCode: true, termsVersion: true },
   });
@@ -95,7 +104,11 @@ async function makeOrder(options: MakeOrderOptions = {}) {
   const buyerId = options.buyerId ?? (await makeBuyer());
   const packageCode = await getPackageCode();
   const referral = options.referral ? await getReferral() : null;
-  const intent = await makeIntent(buyerId, options.amountRupiah ?? 49_000, referral?.referralCode ?? null);
+  const plan = options.plan ?? "monthly";
+  const intent = await makeIntent(buyerId, options.amountRupiah ?? (plan === "full" ? 200_000 : 49_000), referral?.referralCode ?? null, {
+    plan,
+    termsVersion: options.termsVersion,
+  });
 
   if (options.pastExpiry) {
     const reference = randomUUID().replaceAll("-", "");

@@ -6,7 +6,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { accessPlanLabel } from "@/lib/billing/plans";
 import { FRAUD_SIGNALS, isFraudSignal } from "@/lib/fraud/constants";
 import { FraudValidationError } from "@/lib/fraud/errors";
-import { requireReason, type OwnerContext } from "@/lib/fraud/authority";
+import { getFraudOwnerEmail, requireReason, type OwnerContext } from "@/lib/fraud/authority";
+import { FraudAuthorityError } from "@/lib/fraud/errors";
 import { getTermsByVersion } from "@/lib/fulfillment/terms";
 import { prisma } from "@/lib/prisma";
 
@@ -254,7 +255,29 @@ async function collectPacket(tx: Tx, orderId: string) {
   };
 }
 
-type CreateExportInput = { orderId: string; reason: unknown };
+type CreateExportInput = { env?: Partial<Record<string, string | undefined>>; orderId: string; reason: unknown };
+
+/**
+ * The owner context comes from `requireOwner`, but it is only a value; this
+ * checks again, against the database, that its account is still the owner's and
+ * still an admin, so a context that was forged or outlived a role change is
+ * refused here too.
+ */
+async function assertStillOwner(
+  tx: Pick<Tx, "$queryRaw">,
+  owner: OwnerContext,
+  env: Partial<Record<string, string | undefined>> = process.env,
+) {
+  const ownerEmail = getFraudOwnerEmail(env);
+  if (!ownerEmail) throw new FraudAuthorityError("owner_unset");
+
+  const [row = null] = await tx.$queryRaw<Array<{ email: string }>>`
+    SELECT u.email FROM users u
+    WHERE u.id = ${owner.userId}::uuid AND u.soft_deleted_at IS NULL AND u.status = 'active'
+      AND EXISTS (SELECT 1 FROM role_assignments ra WHERE ra.user_id = u.id AND ra.role = 'admin'::role_name AND ra.revoked_at IS NULL)
+  `;
+  if (!row || row.email.toLowerCase() !== ownerEmail) throw new FraudAuthorityError("not_owner");
+}
 
 type CreatedExport = {
   digestSha256: string;
@@ -276,6 +299,7 @@ async function createDisputeExport(owner: OwnerContext, input: CreateExportInput
   if (!/^[0-9a-f-]{36}$/iu.test(input.orderId)) throw new FraudValidationError("not_found", "The order was not found.");
 
   return prisma.$transaction(async (tx) => {
+    await assertStillOwner(tx, owner, input.env);
     const collected = await collectPacket(tx, input.orderId);
     if (!collected) throw new FraudValidationError("not_found", "The order was not found.");
 
@@ -336,10 +360,15 @@ type ClaimResult =
  * out of the row and records the download; a second claim, or one after the
  * link expired, gets nothing. Judged on database time.
  */
-async function claimDisputeExport(owner: OwnerContext, token: string): Promise<ClaimResult> {
+async function claimDisputeExport(
+  owner: OwnerContext,
+  token: string,
+  env: Partial<Record<string, string | undefined>> = process.env,
+): Promise<ClaimResult> {
   if (typeof token !== "string" || token.length < 20 || token.length > 100) return { ok: false, reason: "expired_or_used" };
 
   return prisma.$transaction(async (tx) => {
+    await assertStillOwner(tx, owner, env);
     const [claimed = null] = await tx.$queryRaw<Array<{ id: string; orderId: string; packet: string }>>`
       WITH target AS (
         SELECT id, packet FROM dispute_exports
