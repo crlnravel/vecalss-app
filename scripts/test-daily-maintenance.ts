@@ -10,6 +10,7 @@ import {
 import { checkDependencies, isReady, withTimeout, type DependencyProbes } from "../lib/maintenance/readiness";
 import {
   CLEANUP_BATCH_SIZE,
+  CLEANUP_MAX_BATCHES,
   purgeSecurityLogs,
   purgeTable,
   SECURITY_LOG_RETENTION_DAYS,
@@ -151,13 +152,33 @@ assert.equal(sent[0]?.idempotencyKey, "daily-maintenance:2026-11-03:security_log
 assert.equal(sent[0]?.text.includes("relation login_attempts"), false, "the email carries no error text");
 assert.equal(sent[0]?.text.includes("pembersihan log keamanan"), true);
 
+const cappedCleanupDb = {
+  $executeRaw: async () => CLEANUP_BATCH_SIZE,
+  $queryRaw: async () => [{ count: 0n }],
+} as unknown as Db;
+const beforeCappedCleanup = sent.length;
+const cappedCleanup = await runDailyMaintenance(baseDeps({ db: cappedCleanupDb }));
+assert.equal(cappedCleanup.ok, false, "hitting the cleanup batch cap is a failure");
+assert.deepEqual(cappedCleanup.failures, ["security_log_cleanup"]);
+assert.ok(Object.values(cappedCleanup.cleanup ?? {}).every((table) => !table.complete));
+assert.equal(sent.length, beforeCappedCleanup + 1, "the cap sends a cleanup alert");
+assert.equal(sent.at(-1)?.idempotencyKey, "daily-maintenance:2026-11-03:security_log_cleanup");
+const cappedAlert = sent.at(-1)?.text ?? "";
+for (const table of SECURITY_LOG_TABLES) {
+  assert.ok(cappedAlert.includes(table), `the cleanup alert names ${table}`);
+  assert.ok(cappedAlert.includes(String(CLEANUP_BATCH_SIZE * CLEANUP_MAX_BATCHES)), `the cleanup alert includes the count for ${table}`);
+}
+assert.equal(cappedAlert.includes("relation"), false, "the cleanup alert contains no database error detail");
+
+const beforeRedisDown = sent.length;
 const redisDown = await runDailyMaintenance(baseDeps({ probes: { database: ok, redis: down } }));
 assert.deepEqual(redisDown.failures, ["redis"]);
-assert.equal(sent.length, 2);
+assert.equal(sent.length, beforeRedisDown + 1);
 
+const beforeNoAddress = sent.length;
 const noAddress = await runDailyMaintenance(baseDeps({ alertTo: null, probes: { database: down, redis: ok } }));
 assert.equal(noAddress.ok, false, "a failure still reports not ok when no alert address is set");
-assert.equal(sent.length, 2, "no address means no email");
+assert.equal(sent.length, beforeNoAddress, "no address means no email");
 
 const mailerDown = await runDailyMaintenance(
   baseDeps({
