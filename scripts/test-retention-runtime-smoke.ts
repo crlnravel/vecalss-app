@@ -217,7 +217,9 @@ async function main() {
     pass("legal holds are placed and released, and the retention maintenance runs and logs, all as the runtime role");
 
     // Nothing in the whole run needed more than the restricted role.
-    await failLeftoverOrders();
+    // Close this run's unpaid orders and outbox jobs so they do not crowd the maintenance suites.
+    await refundKit.cleanUp();
+    void failLeftoverOrders;
     void ownerId;
     void makeIntent;
     const stillRestricted = (await ownerQuery<{ n: number }>("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename = $1", [login.role]))[0].n;
