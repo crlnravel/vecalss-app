@@ -30,6 +30,31 @@ checkout stays closed.
 The browser's return page (`/pricing/checkout/status/<reference>`) only
 displays the order's state. It never proves a payment.
 
+**The quote the buyer saw (MS-19, P-03).** The checkout form carries two hidden
+fields, `quoted_month` and `quoted_amount`: the pricing month and the price of
+the chosen plan that the page showed. They are not authoritative and are never
+used as the price: the intent and order always take the server's current entry.
+On the first POST of a form key, if the server's month or amount differs from
+the fields (or they are missing or malformed), **nothing is written** (no
+intent, order, reservation or audit row) and the buyer is sent back to
+`/pricing/checkout` with the notice `checkout-price-changed`, which shows the
+new price to confirm. This catches a page opened before a Jakarta month change
+and submitted after it, and a page held for a long time. A retry of a form key
+that already has an intent keeps the quote it was first given, as before (the
+30-minute window), so a double submit across midnight still returns the same
+order. No new secret or token is involved.
+
+**Provider answers are bound to the order asked about (MS-19, P-02).** A status
+lookup is a question about one reference. In `reconcileOrder` and in the session
+recovery of `ensurePaymentSession`, an answer is applied only if its reference,
+amount, currency, buyer, package, merchant account and environment all match the
+order (`lib/payments/status-binding.ts`). Otherwise the answer is recorded as a
+quarantined event against the order that was asked about (reason lists the
+fields that differed, for example `reference,buyer`), with the audit event,
+fraud signal and critical alert of any quarantine; the order stays as it was,
+no session URL is saved and nothing transitions. The event id covers what the
+provider reported, so the same wrong answer repeated is one record.
+
 ## What each event does
 
 | Event | Order is pending | Order is failed or expired | Order is paid or in review |
@@ -70,17 +95,66 @@ lookup. Both are idempotent and leased: a job is claimed with a 2-minute lease
 parked as `dead` after 8 attempts. Kinds: `critical_alert`, `receipt_email` and
 `access_grant` (the retry of a grant that could not happen, see MS-08).
 
+**Attempt limit (MS-19, P-06).** The attempt is counted when the lease is taken.
+A job with no attempts left is never claimed again: if a worker dies during the
+last allowed attempt, the next claim finds the lease expired and parks the job
+as `dead` (`last_error` says the worker stopped) instead of running it a ninth
+time. A handler that throws on its last attempt is parked by the same rule as
+before.
+
+**Duplicate notices after an ambiguous send (P-05, accepted).** Receipt and
+alert emails go to Resend with the job's stable key as `Idempotency-Key`, and
+Resend keeps a key for 24 hours. If Resend accepts a message but the answer is
+lost, the retry is normally minutes later and is deduplicated. A retry that
+only happens after the 24-hour window (the outbox backs off to 6 hours, and the
+daily job is the fallback) can send the same receipt or alert a second time.
+That is possible, not expected, and a duplicate notice is harmless, so there is
+no extra delivery record. `critical_alert` has no local "sent" record at all.
+Revisit this if the outbox ever runs hourly, or if a notice must never repeat.
+
+**What the daily job reports as a payment failure (MS-19, P-04).** The job
+answers with a failure status (HTTP 500) and emails `MAINTENANCE_ALERT_EMAIL`
+when either of these holds after the payment step:
+
+| Condition | Definition | Quiet case |
+| --- | --- | --- |
+| `payment_reconciliation` | An open order the provider could not be asked about (error or unusable answer) **and** whose time to pay ended more than 24 hours ago. The daily job runs once a day, so such an order was already tried on an earlier run: it has been unanswered on at least two consecutive runs. | One failed lookup on an order that expired in the last 24 hours is a transient retry: counted in `reconciliation.unavailable`, no email, status stays 200. |
+| `payment_alert_dead` | A `critical_alert` outbox job that ran out of attempts and was created in the last 3 days (a job dies about two hours after it is queued, so its creation time stands in for the day it died). It is reported on each daily run for those 3 days, then stops; the dead row stays. | A dead `receipt_email` or `access_grant` job is not counted here (grant failures are flagged by the fulfillment step). |
+
+Each of these two conditions is emailed on its own, once per day: the mail
+idempotency key is `daily-maintenance:<day>:<condition>`, so a retried cron run
+repeats the key and the mailer sends it once. Other failures keep their
+combined per-day key. The emails say what happened in plain Indonesian and carry
+counts only, no references or error text.
+
 ## The stand-in provider
 
-- Enabled only by `PAYMENT_PROVIDER=stand-in` **and** `NODE_ENV` other than
-  production **and** a `DATABASE_URL` host on this machine (the same rule as
-  `isSeedMfaAllowed`). Anywhere else it is treated as no provider.
+- Enabled only by `PAYMENT_PROVIDER=stand-in` **and** a local runtime
+  (`isLocalStandInRuntime`, `lib/payments/stand-in/gate.ts`; MS-19, P-01). All of
+  these must hold, otherwise it is treated as no provider:
+  - `NODE_ENV` is not `production`;
+  - `DATABASE_URL` points at this machine (`localhost`, `127.0.0.1`, `::1`,
+    `host.docker.internal`);
+  - `APP_BASE_URL` is a loopback host (`localhost`, `127.0.0.1`, `[::1]`; unset
+    counts as `http://localhost:3000`). A lookalike such as
+    `localhost.evil.example` or `localhost@evil.example` does not pass;
+  - none of the hosting-platform variables is set: `VERCEL`, `VERCEL_ENV`,
+    `VERCEL_URL`, `VERCEL_REGION`, `VERCEL_DEPLOYMENT_ID`, `NETLIFY`,
+    `CF_PAGES`, `RENDER`, `RAILWAY_ENVIRONMENT`, `FLY_APP_NAME`, `K_SERVICE`,
+    `AWS_LAMBDA_FUNCTION_NAME`, `KUBERNETES_SERVICE_HOST`. (`vercel env pull`
+    can copy `VERCEL_ENV` and `VERCEL_URL` into a local env file; remove them
+    from it to use the stand-in.)
+  A deployed container with a loopback database is therefore not enough. The
+  same one helper gates the provider factory, the buyer pay page and action,
+  the admin refund console, the admin order panel and the buyer-IP exemption
+  (`getStandInProvider` / `isStandInAllowed`).
 - The pay page at `/pay/stand-in/<reference>` is plainly marked as a test
   payment and lets the buyer pay, fail or let the payment expire. It then sends
   a signed event to the real inbox in-process.
 - Events carry `x-stand-in-timestamp` and `x-stand-in-signature: v1=<hex>`,
-  HMAC-SHA256 over `<timestamp>.<raw body>` with `PAYMENT_STAND_IN_SECRET` (a
-  fixed test value when unset).
+  HMAC-SHA256 over `<timestamp>.<raw body>` with `PAYMENT_STAND_IN_SECRET`. The
+  fixed test value used when it is unset can only be reached after the local
+  runtime check passes: the `StandInProvider` constructor throws otherwise.
 - To try it: set `PAYMENT_PROVIDER=stand-in` and the three
   `PRICING_PACKAGE_CODE_*` values to a published package code, leave
   `CHECKOUT_KILL_SWITCH` off, sign in as the seeded student and use `/pricing`.
