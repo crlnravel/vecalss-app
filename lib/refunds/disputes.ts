@@ -105,6 +105,9 @@ async function openDisputeInTx(tx: Tx, input: OpenDisputeInput) {
   // An open dispute pauses the access this order granted.
   let accessEffect = "none_paid_order";
   let accessPaused = false;
+  // True only when this dispute's pause changed the account. A pause that was already
+  // there (an admin's, say) is not this dispute's to lift when it is won.
+  let pauseCaused = false;
   if (order.status === "paid") {
     try {
       const paused = await pauseAccessInTx(tx, {
@@ -116,6 +119,7 @@ async function openDisputeInTx(tx: Tx, input: OpenDisputeInput) {
       });
       accessEffect = paused.outcome === "unchanged" ? "already_paused" : "paused";
       accessPaused = true;
+      pauseCaused = paused.outcome !== "unchanged";
     } catch (error) {
       if (!(error instanceof BillingAccessError)) throw error;
       accessEffect = `not_active_${error.code}`.slice(0, 40);
@@ -132,7 +136,7 @@ async function openDisputeInTx(tx: Tx, input: OpenDisputeInput) {
   `;
   await tx.$executeRaw`
     UPDATE payment_disputes
-    SET access_paused = ${accessPaused}, access_effect = ${accessEffect}, refund_in_flight = ${processing.length > 0}, updated_at = now()
+    SET access_paused = ${accessPaused}, pause_caused = ${pauseCaused}, access_effect = ${accessEffect}, refund_in_flight = ${processing.length > 0}, updated_at = now()
     WHERE id = ${dispute.id}::uuid
   `;
 
@@ -247,10 +251,11 @@ async function resolveDisputeInTx(
   input: { actor: Actor; disputeId: string; expectedVersion?: number; note: string; outcome: "lost" | "won"; source: "owner" | "provider_event" },
 ) {
   const [dispute = null] = await tx.$queryRaw<Array<{
-    buyerId: string; id: string; orderId: string; providerDisputeId: string; providerPaymentId: string; state: string; version: number; accessPaused: boolean;
+    buyerId: string; id: string; orderId: string; pauseCaused: boolean; providerDisputeId: string; providerPaymentId: string; state: string; version: number; accessPaused: boolean;
   }>>`
     SELECT id, order_id AS "orderId", buyer_id AS "buyerId", provider_payment_id AS "providerPaymentId",
-           provider_dispute_id AS "providerDisputeId", state::text AS state, version, access_paused AS "accessPaused"
+           provider_dispute_id AS "providerDisputeId", state::text AS state, version, access_paused AS "accessPaused",
+           pause_caused AS "pauseCaused"
     FROM payment_disputes WHERE id = ${input.disputeId}::uuid FOR UPDATE
   `;
   if (!dispute) throw new RefundError("not_found", "The dispute was not found.");
@@ -265,13 +270,21 @@ async function resolveDisputeInTx(
 
   if (input.outcome === "won") {
     if (dispute.accessPaused) {
-      // Another open dispute on the same buyer keeps access paused.
+      // Another open dispute on the same buyer keeps access paused. If this one caused the
+      // pause, that dispute now owns it, so winning it later still lifts the pause.
       const [other = null] = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM payment_disputes
-        WHERE buyer_id = ${dispute.buyerId}::uuid AND state = 'open' AND access_paused AND id <> ${dispute.id}::uuid LIMIT 1
+        WHERE buyer_id = ${dispute.buyerId}::uuid AND state = 'open' AND access_paused AND id <> ${dispute.id}::uuid
+        ORDER BY notice_received_at LIMIT 1
       `;
       if (other) {
+        if (dispute.pauseCaused) {
+          await tx.$executeRaw`UPDATE payment_disputes SET pause_caused = true, updated_at = now() WHERE id = ${other.id}::uuid`;
+        }
         accessEffect = "still_paused_other_dispute";
+      } else if (!dispute.pauseCaused) {
+        // The pause was there before this dispute (or another dispute took it on and has ended): leave it.
+        accessEffect = "pause_not_from_dispute";
       } else {
         try {
           const resumed = await resumeAccessInTx(tx, {
