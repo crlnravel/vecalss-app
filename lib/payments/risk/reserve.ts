@@ -2,7 +2,12 @@ import "server-only";
 
 import { getPlanPrice, isPricingPlanId, PRICING_SCHEDULE } from "@/lib/pricing/schedule";
 
+import { checkBlocks } from "@/lib/fraud/blocks";
+import { FraudConfigError } from "@/lib/fraud/errors";
+import { flagBlockedAttempt } from "@/lib/fraud/signals";
+
 import { writePaymentAudit } from "../audit";
+import { lockAccount } from "./account-lock";
 import { loadPolicyInForce, type Db, type RiskPolicy } from "./policy";
 import { evaluateTier, type RiskTierName, type TierBasis } from "./tier";
 
@@ -12,6 +17,8 @@ import { evaluateTier, type RiskTierName, type TierBasis } from "./tier";
  */
 type RefusalReason =
   | "amount_mismatch"
+  | "blocked"
+  | "blocks_unavailable"
   | "daily_limit"
   | "hourly_attempts"
   | "ip_attempts"
@@ -25,6 +32,8 @@ type CheckoutRequest = {
   buyerIp: string | null;
   /** Why this checkout may go ahead without a buyer IP, or null when it may not. */
   buyerIpExemption: string | null;
+  /** The raw device cookie value of the request, if it carried a valid one. */
+  deviceToken?: string | null;
   intentId: string;
   packageCode: string;
   plan: string;
@@ -35,6 +44,8 @@ type CheckoutAllowed = {
   basis: TierBasis;
   /** The Asia/Jakarta day this checkout counts against, as YYYY-MM-DD. */
   bucketDate: string;
+  /** HMAC of the request's device cookie, to record on the order. Null without one. */
+  deviceLookupToken: string | null;
   policy: RiskPolicy;
   tier: RiskTierName;
 };
@@ -55,21 +66,6 @@ function expectedQuoteRupiah(plan: string, pricingMonth: string) {
   return entry ? getPlanPrice(entry, plan) : null;
 }
 
-/**
- * Takes the account's row lock (creating the row on first use). It is held to
- * the end of the transaction and serialises every limit check for the account.
- * Idempotent within a transaction.
- */
-async function lockAccount(tx: Db, buyerId: string) {
-  await tx.$executeRaw`
-    INSERT INTO risk_account_tiers (user_id) VALUES (${buyerId}::uuid)
-    ON CONFLICT (user_id) DO NOTHING
-  `;
-  await tx.$queryRaw`
-    SELECT user_id FROM risk_account_tiers WHERE user_id = ${buyerId}::uuid FOR UPDATE
-  `;
-}
-
 async function countRows(rows: PromiseLike<Array<{ n: number }>>) {
   const [{ n }] = await rows;
   return n;
@@ -88,7 +84,9 @@ async function countRows(rows: PromiseLike<Array<{ n: number }>>) {
  * database time; no cache is involved, so an outage elsewhere cannot lift a cap.
  *
  * Checks, in order: a policy is in force; the amount equals the server quote;
- * a buyer IP exists (or the local stand-in is exempt); one open unpaid payment
+ * a buyer IP exists (or the local stand-in is exempt); no fraud block is in
+ * force for the account, its email or phone, the device cookie or the IP (MS-07);
+ * one open unpaid payment
  * at a time; unpaid checkouts per account per hour; checkout starts per IP per
  * hour; then the day's count and rupiah for the account's tier.
  */
@@ -112,6 +110,31 @@ async function checkCheckoutAllowed(
   }
 
   if (!request.buyerIp && !request.buyerIpExemption) return refuse("missing_ip", policy, null);
+
+  // Blocks are read under the same account lock, with a shared lock on each
+  // identifier, so a block created while this checkout runs waits for it (and
+  // the other way round). Without a lookup secret the answer cannot be trusted,
+  // so nothing is accepted.
+  let blockCheck: Awaited<ReturnType<typeof checkBlocks>>;
+  try {
+    blockCheck = await checkBlocks(
+      tx,
+      { deviceToken: request.deviceToken, ip: request.buyerIp, userId: request.buyerId },
+      { lock: true },
+    );
+  } catch (error) {
+    if (error instanceof FraudConfigError) return refuse("blocks_unavailable", policy, null);
+    throw error;
+  }
+  if (blockCheck.blocked) {
+    await flagBlockedAttempt(tx, {
+      context: "checkout",
+      matches: blockCheck.matches,
+      policyVersion: policy.version,
+      userId: request.buyerId,
+    });
+    return refuse("blocked", policy, null);
+  }
 
   const { basis, changed, tier } = await evaluateTier(tx, request.buyerId, policy);
   if (changed) {
@@ -169,7 +192,7 @@ async function checkCheckoutAllowed(
     return refuse("daily_limit", policy, tier);
   }
 
-  return { allowed: { basis, bucketDate: day, policy, tier }, ok: true };
+  return { allowed: { basis, bucketDate: day, deviceLookupToken: blockCheck.deviceLookupToken, policy, tier }, ok: true };
 }
 
 /**
@@ -219,10 +242,11 @@ async function recordCheckoutRefusal(
 
 type ReservationMove = "paid" | "released" | "review";
 
-const MOVE_FROM: Record<ReservationMove, "pending" | "released"> = {
-  paid: "pending",
-  released: "pending",
-  review: "released",
+const MOVE_FROM: Record<ReservationMove, Array<"pending" | "released">> = {
+  paid: ["pending"],
+  released: ["pending"],
+  // A late payment (after a confirmed expiry), or a payment held while still pending.
+  review: ["released", "pending"],
 };
 
 /**
@@ -232,8 +256,9 @@ const MOVE_FROM: Record<ReservationMove, "pending" | "released"> = {
  * - paid: the exposure stays counted, now as a completed purchase;
  * - released (the order failed or expired, confirmed by the provider): the
  *   exposure is freed on its original day;
- * - review (a payment arrived after that): the exposure is held again on the
- *   original day, even past the cap, because the money exists.
+ * - review (a payment arrived after that, or the buyer was blocked while the
+ *   order was pending): the exposure is held again on the original day, even
+ *   past the cap, because the money exists.
  *
  * A refund is not a transition here: it never gives the day's allowance back
  * (MS-09 adds refunds without touching this). Orders created before the
@@ -245,7 +270,7 @@ async function moveReservation(tx: Db, orderId: string, to: ReservationMove, rea
   const moved = await tx.$queryRaw<Array<{ id: string }>>`
     UPDATE risk_reservations
     SET state = ${to}::risk_reservation_state, state_reason = ${reason}, state_changed_at = now()
-    WHERE order_id = ${orderId}::uuid AND state = ${MOVE_FROM[to]}::risk_reservation_state
+    WHERE order_id = ${orderId}::uuid AND state::text = ANY(${MOVE_FROM[to]})
     RETURNING id
   `;
   return moved.length === 1;

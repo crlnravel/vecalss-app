@@ -34,6 +34,8 @@ type CreateOrderInput = {
   buyerIpExemption: string | null;
   /** How the IP was obtained, for example `trusted-proxy:1`, or `unavailable`. */
   buyerIpSource: string;
+  /** The raw device cookie value of the request, if it carried a valid one. */
+  deviceToken?: string | null;
   intent: OrderIntent;
   packageCode: string;
   provider: PaymentProviderAdapter;
@@ -104,6 +106,7 @@ async function createOrderFromIntent(input: CreateOrderInput): Promise<CreateOrd
     buyerId: input.buyerId,
     buyerIp: input.buyerIp,
     buyerIpExemption: input.buyerIp ? null : input.buyerIpExemption,
+    deviceToken: input.deviceToken ?? null,
     intentId: input.intent.id,
     packageCode: input.packageCode,
     plan: input.intent.plan,
@@ -130,14 +133,14 @@ async function createOrderFromIntent(input: CreateOrderInput): Promise<CreateOrd
       INSERT INTO payment_orders (
         intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
         amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip, buyer_ip_source,
-        buyer_ip_exemption, provider, provider_environment, provider_account, expires_at
+        buyer_ip_exemption, device_lookup_token, provider, provider_environment, provider_account, expires_at
       )
       VALUES (
         ${input.intent.id}::uuid, ${input.buyerId}::uuid, ${newOrderReference()}, ${input.intent.plan},
         ${input.intent.pricingMonth}, ${input.packageCode}, ${packageName},
         ${input.intent.amountRupiah}, ${PAYMENT_CURRENCY}, ${input.intent.referralCode},
         ${affiliator?.id ?? null}::uuid, ${input.buyerIp}::inet, ${input.buyerIpSource},
-        ${request.buyerIpExemption},
+        ${request.buyerIpExemption}, ${checked.allowed.deviceLookupToken},
         ${input.provider.id}, ${input.provider.environment}, ${input.provider.merchantAccount},
         now() + make_interval(mins => ${PAYMENT_EXPIRY_MINUTES}::int)
       )

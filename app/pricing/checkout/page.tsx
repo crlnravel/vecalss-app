@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { RoleName } from "@/generated/prisma/client";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
+import { getSupportContact } from "@/lib/config";
+import { isLookupSecretAvailable } from "@/lib/fraud/tokens";
 import { getPaymentProvider } from "@/lib/payments/provider";
 import { isPolicyInForce } from "@/lib/payments/risk/policy";
 import { prisma } from "@/lib/prisma";
@@ -65,13 +67,18 @@ export default async function PricingCheckoutPage({
   // No payment provider means nothing to pay through, which looks the same to
   // the buyer as a paused checkout: the notice shows and the button is off.
   // The same goes for a missing purchase-limit policy: nothing is accepted
-  // until one is in force.
-  const paused = isCheckoutPaused() || getPaymentProvider() === null || !(await isPolicyInForce());
+  // until one is in force. Fraud blocks cannot be looked up without their
+  // secret, so that closes checkout too.
+  const paused = isCheckoutPaused()
+    || getPaymentProvider() === null
+    || !isLookupSecretAvailable()
+    || !(await isPolicyInForce());
   const checkoutReady = !paused && getPackageCode(plan, entry) !== null;
   const requestedNotice = firstValue(params.notice);
   const notice: CheckoutNotice | null = paused
     ? "checkout-paused"
-    : requestedNotice === "checkout-unavailable"
+    : requestedNotice === "checkout-blocked"
+      || requestedNotice === "checkout-unavailable"
       || requestedNotice === "checkout-changed"
       || requestedNotice === "checkout-expired"
       || requestedNotice === "checkout-daily-limit"
@@ -99,6 +106,7 @@ export default async function PricingCheckoutPage({
       plan={plan}
       referralCode={referral.code}
       referralStatus={referral.status}
+      supportContact={getSupportContact()}
     />
   );
 }

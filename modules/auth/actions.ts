@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 
+import { getSupportContact } from "@/lib/config";
+import { ensureDeviceCookie } from "@/lib/fraud/device";
 import { serverLogger } from "@/lib/server-logger";
 import {
   getDefaultHomePath,
@@ -100,6 +102,15 @@ async function handleLoginAction(
       };
     }
 
+    if (result.code === "blocked") {
+      // Neutral on purpose: it names no rule and no identifier.
+      return {
+        fields: { email },
+        message: `Akunmu belum bisa dipakai saat ini. Hubungi tim Vecalss lewat ${getSupportContact().label} supaya kami bisa membantu memeriksanya.`,
+        status: "error",
+      };
+    }
+
     if (result.code === "rate_limited") {
       return {
         fields: { email },
@@ -114,6 +125,14 @@ async function handleLoginAction(
       message: "Email atau kata sandi belum cocok. Periksa kembali, lalu coba lagi.",
       status: "error",
     };
+  }
+
+  // The first-party device cookie, so a later checkout from this browser can be
+  // recognised. Only an HMAC of it is ever stored.
+  try {
+    await ensureDeviceCookie();
+  } catch (error) {
+    serverLogger.error("auth.device_cookie.failed", error, { area: "auth" });
   }
 
   const destination = !result.user.mustChangePassword

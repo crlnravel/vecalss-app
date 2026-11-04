@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import type { EmailMessage, MailResult } from "@/lib/email/mailer";
+import type { FraudMaintenanceResult } from "@/lib/fraud/maintenance";
 import type { PaymentMaintenanceResult } from "@/lib/payments/maintenance";
 import { serverLogger } from "@/lib/server-logger";
 
@@ -18,6 +19,7 @@ type Db = Parameters<typeof purgeSecurityLogs>[0];
 
 export type MaintenanceFailure =
   | "database"
+  | "fraud_maintenance"
   | "payment_maintenance"
   | "redis"
   | "security_log_cleanup"
@@ -26,6 +28,8 @@ export type MaintenanceFailure =
 export type MaintenanceDeps = {
   alertTo: string | null;
   db: Db;
+  /** Fraud step: daily signals, lapsed blocks, and the owner's summary email. */
+  fraud?: () => Promise<FraudMaintenanceResult>;
   now?: Date;
   /** Payment step: resolves orders open past expiry and drains the payment outbox. */
   payments?: () => Promise<PaymentMaintenanceResult>;
@@ -36,6 +40,8 @@ export type MaintenanceDeps = {
 export type MaintenanceResult = {
   cleanup: Record<SecurityLogTable, TableCleanupResult> | null;
   failures: MaintenanceFailure[];
+  /** Absent when the run was given no fraud step. */
+  fraud?: FraudMaintenanceResult | null;
   ok: boolean;
   /** Absent when the run was given no payment step. */
   payments?: PaymentMaintenanceResult | null;
@@ -45,6 +51,7 @@ export type MaintenanceResult = {
 
 const failureLabels: Record<MaintenanceFailure, string> = {
   database: "basis data",
+  fraud_maintenance: "tinjauan fraud harian",
   payment_maintenance: "pemeriksaan dan antrean pembayaran",
   redis: "Redis",
   security_log_cleanup: "pembersihan log keamanan",
@@ -129,6 +136,15 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     }
   }
 
+  let fraud: FraudMaintenanceResult | null = null;
+  if (deps.fraud) {
+    try {
+      fraud = await deps.fraud();
+    } catch {
+      failures.push("fraud_maintenance");
+    }
+  }
+
   if (failures.length > 0) {
     serverLogger.error("maintenance.daily.failed", new Error("A daily maintenance step failed."), {
       area: "maintenance",
@@ -140,6 +156,7 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
   return {
     cleanup,
     failures,
+    fraud,
     ok: failures.length === 0 && isReady(readiness),
     payments,
     readiness,
@@ -170,6 +187,9 @@ export async function handleDailyMaintenanceRequest(request: Request, deps: Cron
     {
       cleanup: result.cleanup,
       failures: result.failures,
+      fraud: result.fraud
+        ? { automaticBlocks: result.fraud.daily.automaticBlocks, emailed: result.fraud.emailed, signals: result.fraud.daily.signals }
+        : result.fraud,
       ok: result.ok,
       payments: result.payments,
       readiness: result.readiness,

@@ -5,6 +5,10 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
+import { checkOrderBlocks, type BlockCheck } from "@/lib/fraud/blocks";
+import { FraudConfigError } from "@/lib/fraud/errors";
+import { flagBlockedAttempt, flagPaymentReview, flagQuarantinedEvent } from "@/lib/fraud/signals";
+
 import { writePaymentAudit } from "./audit";
 import { enqueueOutbox } from "./outbox";
 import { moveReservation } from "./risk/reserve";
@@ -161,7 +165,26 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
       FOR UPDATE
     `;
 
-    const decision = decidePaymentEvent(order, event, adapter);
+    let decision = decidePaymentEvent(order, event, adapter);
+
+    // A payment that would be accepted is checked against the blocks once more:
+    // the buyer may have been blocked since checkout started. The money has
+    // arrived, so it is kept, not refused: the order goes to review, no access
+    // follows, and a case is opened. If blocks cannot be read at all, the same
+    // holds (fail closed).
+    let heldForBlock: BlockCheck | null = null;
+    if (order && decision.orderTo === "paid") {
+      try {
+        const check = await checkOrderBlocks(tx, order.id);
+        if (check.blocked) {
+          heldForBlock = check;
+          decision = { orderTo: "review", outcome: "review", reason: "blocked_buyer" };
+        }
+      } catch (error) {
+        if (!(error instanceof FraudConfigError)) throw error;
+        decision = { orderTo: "review", outcome: "review", reason: "blocks_unavailable" };
+      }
+    }
 
     const [recorded] = await tx.$queryRaw<Array<{ id: string }>>`
       INSERT INTO payment_events (
@@ -202,6 +225,12 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
 
     if (decision.outcome === "quarantined") {
       await audit("payment.event.quarantined");
+      await flagQuarantinedEvent(tx, {
+        eventId: recorded.id,
+        orderId: order?.id ?? null,
+        reason: decision.reason,
+        userId: order?.buyerId ?? null,
+      });
       await enqueueOutbox(tx, {
         dedupeKey: `alert:event:${recorded.id}`,
         kind: "critical_alert",
@@ -263,6 +292,20 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
       );
       await audit(`payment.order.${decision.orderTo}`, { reservation: reserved ? reservation : null });
       if (decision.orderTo === "review") {
+        await flagPaymentReview(tx, {
+          eventId: recorded.id,
+          orderId: order.id,
+          reason: decision.reason,
+          userId: order.buyerId,
+        });
+        if (heldForBlock) {
+          await flagBlockedAttempt(tx, {
+            context: "paid_order",
+            matches: heldForBlock.matches,
+            orderId: order.id,
+            userId: order.buyerId,
+          });
+        }
         await enqueueOutbox(tx, {
           dedupeKey: `alert:event:${recorded.id}`,
           kind: "critical_alert",
@@ -273,6 +316,12 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
     } else if (order && decision.outcome === "review") {
       // A second capture on an order that is already settled: keep the evidence.
       await audit("payment.event.review");
+      await flagPaymentReview(tx, {
+        eventId: recorded.id,
+        orderId: order.id,
+        reason: decision.reason,
+        userId: order.buyerId,
+      });
       await enqueueOutbox(tx, {
         dedupeKey: `alert:event:${recorded.id}`,
         kind: "critical_alert",

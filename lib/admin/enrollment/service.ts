@@ -24,6 +24,10 @@ import {
   validatePassword,
 } from "@/lib/auth/crypto";
 import { normalizeReferralCode } from "@/lib/affiliator/contracts";
+import { hasAccountBlockInForce } from "@/lib/fraud/account-block";
+import { checkBlocks } from "@/lib/fraud/blocks";
+
+import { applyAccountDeactivation, applyAccountReactivation } from "./account-state";
 
 const MAX_EMAIL_LENGTH = 254;
 const MAX_FULL_NAME_LENGTH = 160;
@@ -247,6 +251,18 @@ async function assertNoExistingEmail(tx: Prisma.TransactionClient, email: string
   }
 }
 
+/**
+ * A blocked email cannot be used for a new account (fraud blocks, MS-07). The
+ * message says nothing about why.
+ */
+async function assertEmailNotBlocked(tx: Prisma.TransactionClient, email: string) {
+  const check = await checkBlocks(tx, { email }, { lock: true });
+
+  if (check.matches.some((match) => match.type === "email")) {
+    throw new EnrollmentServiceError("invalid_email", "Email ini belum bisa dipakai untuk akun baru.");
+  }
+}
+
 function roleNameForEnrollmentRole(role: EnrollmentRole) {
   switch (role) {
     case "student":
@@ -321,6 +337,7 @@ async function createEnrollmentHandoffResult({
       // This check gives callers a stable, field-level error in the common
       // path. The unique lower(email) index remains the final race-safe guard.
       await assertNoExistingEmail(tx, email);
+      await assertEmailNotBlocked(tx, email);
       await assertTargetExamEvent(tx, targetExamEventId ?? null);
 
       const createdUser = await tx.user.create({
@@ -793,31 +810,16 @@ async function setEnrollmentStatus(input: SetEnrollmentStatusInput) {
       );
     }
 
-    const now = new Date();
-
-    await tx.user.update({
-      data: {
-        // Treat status transitions as credential-generation changes so a
-        // bcrypt verification that started before deactivate/reactivate
-        // cannot issue a session after the account is active again.
-        passwordUpdatedAt: now,
-        status: input.nextStatus,
-      },
-      where: { id: input.userId },
-    });
-
     if (input.nextStatus === UserStatus.disabled) {
-      await revokeOpenEnrollmentHandoffs(tx, input.userId, input.actorUserId);
-      await tx.authSession.updateMany({
-        data: {
-          revokedAt: now,
-          status: SessionStatus.revoked,
-        },
-        where: {
-          status: SessionStatus.active,
-          userId: input.userId,
-        },
-      });
+      await applyAccountDeactivation(tx, input.userId, input.actorUserId);
+    } else {
+      if (await hasAccountBlockInForce(tx, input.userId)) {
+        throw new EnrollmentServiceError(
+          "invalid_status_transition",
+          "This account has a fraud block. Lift the block before reactivating it.",
+        );
+      }
+      await applyAccountReactivation(tx, input.userId);
     }
 
     await tx.auditLog.create({
@@ -895,7 +897,19 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
       throw new Error("Managed student preview fixtures cannot be edited through generic account lifecycle actions.");
     }
 
-    const eligibleAccounts = accounts.filter((account) => account.status === expectedCurrentStatus);
+    // An account under a fraud block stays disabled until the block is lifted.
+    const blockedIds = input.nextStatus === UserStatus.active
+      ? new Set(
+          (await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT lookup_token AS id FROM fraud_blocks
+            WHERE block_type = 'account' AND status = 'active' AND (expires_at IS NULL OR expires_at > clock_timestamp())
+              AND subject_user_id = ANY(${lockedUserIds}::uuid[])
+          `).map((row) => row.id),
+        )
+      : new Set<string>();
+    const eligibleAccounts = accounts.filter(
+      (account) => account.status === expectedCurrentStatus && !blockedIds.has(account.id),
+    );
     if (!eligibleAccounts.length) {
       return {
         changedCount: 0,
