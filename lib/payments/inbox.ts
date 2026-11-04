@@ -146,6 +146,12 @@ type ProcessInput = {
   /** Server settings for the access grant (the Full Access end dates). Tests pass their own. */
   fulfillment?: FulfillOptions;
   source: EventSource;
+  /**
+   * Set when a status lookup answered with facts that do not belong to the
+   * order that was asked about. The event is then quarantined against that
+   * order whatever else it says, and never changes it.
+   */
+  statusMismatch?: string[];
 };
 
 type ProcessResult =
@@ -185,6 +191,9 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
     `;
 
     let decision = decidePaymentEvent(order, event, adapter);
+    if (input.statusMismatch?.length) {
+      decision = { orderTo: null, outcome: "quarantined", reason: `status_mismatch:${input.statusMismatch.join(",")}` };
+    }
 
     // What a refund or dispute event means is read from the refund case or
     // dispute it names, under the order lock taken above.

@@ -1,12 +1,11 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 
 import type { PaymentProviderAdapter, VerifiedPaymentEvent } from "./adapter";
 import { processPaymentEvent } from "./inbox";
+import { findingDigest, findStatusMismatches, quarantineStatusMismatch } from "./status-binding";
 
 type OpenOrder = {
   amountRupiah: number;
@@ -49,22 +48,6 @@ async function findOpenOrdersPastExpiry(provider: PaymentProviderAdapter, limit:
   `;
 }
 
-function findingDigest(status: {
-  amountRupiah: number;
-  buyerId: string | null;
-  currency: string;
-  environment: string;
-  merchantAccount: string;
-  packageCode: string | null;
-}) {
-  return createHash("sha256")
-    .update(JSON.stringify([
-      status.amountRupiah, status.buyerId, status.currency, status.environment, status.merchantAccount, status.packageCode,
-    ]))
-    .digest("hex")
-    .slice(0, 12);
-}
-
 /**
  * Looks one open order up at the provider and applies the answer through the
  * same decision code as a webhook. The event ids are stable per payment, state
@@ -95,6 +78,14 @@ async function reconcileOrder(order: OpenOrder, provider: PaymentProviderAdapter
       source: "reconciliation",
     });
     return result.status === "processed" ? "resolved" : "unchanged";
+  }
+
+  // The answer must be about the order that was asked about. If it is not, it
+  // is recorded against that order and nothing else happens.
+  const mismatches = findStatusMismatches(order, status, provider);
+  if (mismatches.length > 0) {
+    await quarantineStatusMismatch(order, status, provider, mismatches);
+    return "unchanged";
   }
 
   if (status.state === "pending") return "pending";
