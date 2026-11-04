@@ -70,6 +70,13 @@ scripts refuse to run there. The mark is a single append-only row: nothing in th
 product can change or remove it, and only a deliberate owner act in SQL (disabling
 its trigger) can. Do not mark staging or local databases.
 
+A database that has no `environment_marks` table at all is **not** treated as
+unmarked, because a merchant database whose table was dropped would look the same.
+On this machine (a loopback host) such a database can still be reset. Anywhere else
+the reset refuses, unless the owner is sure it is a throwaway database and says so,
+naming it: `ALLOW_RESET_WITHOUT_MARK=<database name> pnpm db:reset`. The override
+never beats a mark.
+
 ## Adding a table later
 
 A new table works for the app straight away. If it holds evidence, add it to
