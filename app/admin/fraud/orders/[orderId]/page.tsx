@@ -5,9 +5,15 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth/access";
 import { EXPORT_LINK_MINUTES, listExportsForOrder } from "@/lib/disputes/export";
 import { getOrderSummary } from "@/lib/disputes/queries";
+import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
+import { getPaymentProvider } from "@/lib/payments/provider";
+import { prisma } from "@/lib/prisma";
+import { listCapturedPayments } from "@/lib/refunds/balance";
+import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
 import { formatRupiah } from "@/lib/pricing/schedule";
 import { createDisputeExportAction } from "@/modules/admin/fraud-actions";
+import { RefundAndDisputePanels } from "@/modules/admin/fraud/refund-panels";
 import { Field, firstParam, formatDateTime, FraudPage, ownerNote, Panel, ReasonForm } from "@/modules/admin/fraud/shared";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +53,14 @@ export default async function AdminFraudOrderPage({
 
   const authority = describeAuthority(session);
   const exports = await listExportsForOrder(order.id);
+  const [refunds, disputes, payments, buyerAccess, orderRow] = await Promise.all([
+    listRefundRecords(prisma, order.id),
+    listDisputeRecords(prisma, order.id),
+    listCapturedPayments(prisma, order.id),
+    getAccessState(order.buyerId),
+    prisma.paymentOrder.findUnique({ select: { statusReason: true }, where: { id: order.id } }),
+  ]);
+  const standInEnabled = getPaymentProvider()?.id === "stand-in";
   const link = firstParam(query.link);
   const downloadHref = link && TOKEN_PATTERN.test(link) ? `/api/admin/dispute-exports/${link}` : null;
 
@@ -81,6 +95,18 @@ export default async function AdminFraudOrderPage({
           </dl>
         </Panel>
       ) : null}
+
+      <RefundAndDisputePanels
+        access={buyerAccess}
+        authority={authority}
+        disputes={disputes}
+        orderId={order.id}
+        orderStatus={order.status}
+        payments={payments}
+        refunds={refunds}
+        reviewReason={orderRow?.statusReason ?? null}
+        standInEnabled={standInEnabled}
+      />
 
       <Panel title="Ekspor bukti sengketa">
         <p className="mb-3 text-sm leading-6 text-secondary-700">

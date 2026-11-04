@@ -6,15 +6,15 @@ import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth/access";
 import { createDisputeExport, logRefusedExport } from "@/lib/disputes/export";
 import { decideAppeal, fileAppeal, reopenAppeal } from "@/lib/fraud/appeals";
-import { requireAdmin, requireOwner } from "@/lib/fraud/authority";
+import { requireOwner } from "@/lib/fraud/authority";
 import { FraudAuthorityError } from "@/lib/fraud/errors";
 import { createManualBlock, liftBlock, renewBlock } from "@/lib/fraud/blocks";
 import { acknowledgeCase, closeCase, escalateCase, linkBlockToCase, reopenCase } from "@/lib/fraud/cases";
 import { isBlockReasonCode, BLOCK_TYPES, type FraudBlockType } from "@/lib/fraud/constants";
 import { FraudValidationError } from "@/lib/fraud/errors";
 import { describeFraudError } from "@/lib/fraud/messages";
+import { pathWith, runAdmin, runOwner, text, integer } from "@/modules/admin/fraud/action-helpers";
 import { serverLogger } from "@/lib/server-logger";
-import type { OwnerContext, AdminContext } from "@/lib/fraud/authority";
 
 /**
  * Server actions behind the fraud pages. Each one re-authenticates on the
@@ -24,63 +24,6 @@ import type { OwnerContext, AdminContext } from "@/lib/fraud/authority";
  * confirmation. Nothing here trusts a hidden field except the version number,
  * and that is only ever used to detect a concurrent change.
  */
-
-function text(form: FormData, key: string) {
-  const value = form.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function integer(form: FormData, key: string) {
-  const value = Number.parseInt(text(form, key), 10);
-  return Number.isInteger(value) ? value : -1;
-}
-
-function pathWith(path: string, params: Record<string, string>) {
-  return `${path}?${new URLSearchParams(params)}`;
-}
-
-function safeReturn(form: FormData, fallback: string) {
-  const value = text(form, "returnTo");
-  return /^\/admin\/fraud(\/[0-9a-f-]{36})?(\/[0-9a-f-]{36})?$/iu.test(value) || value === "/admin/fraud/blocks" ? value : fallback;
-}
-
-async function runAdmin(form: FormData, fallback: string, done: string, work: (admin: AdminContext) => Promise<unknown>): Promise<never> {
-  const session = await requireAdminSession();
-  const target = safeReturn(form, fallback);
-  let outcome: Record<string, string>;
-
-  try {
-    await work(requireAdmin(session));
-    outcome = { done };
-  } catch (error) {
-    if (!(error instanceof Error && error.name.startsWith("Fraud"))) {
-      serverLogger.error("fraud.action.failed", error, { area: "fraud" });
-    }
-    outcome = { error: describeFraudError(error) };
-  }
-
-  revalidatePath("/admin/fraud", "layout");
-  redirect(pathWith(target, outcome));
-}
-
-async function runOwner(form: FormData, fallback: string, done: string, work: (owner: OwnerContext) => Promise<unknown>): Promise<never> {
-  const session = await requireAdminSession();
-  const target = safeReturn(form, fallback);
-  let outcome: Record<string, string>;
-
-  try {
-    await work(requireOwner(session));
-    outcome = { done };
-  } catch (error) {
-    if (!(error instanceof Error && error.name.startsWith("Fraud"))) {
-      serverLogger.error("fraud.action.failed", error, { area: "fraud" });
-    }
-    outcome = { error: describeFraudError(error) };
-  }
-
-  revalidatePath("/admin/fraud", "layout");
-  redirect(pathWith(target, outcome));
-}
 
 async function acknowledgeCaseAction(form: FormData) {
   const caseId = text(form, "caseId");

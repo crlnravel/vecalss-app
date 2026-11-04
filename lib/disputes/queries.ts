@@ -26,6 +26,7 @@ async function listRecentOrders(limit = 50): Promise<OrderListRow[]> {
 }
 
 type OrderSummary = OrderListRow & {
+  buyerId: string;
   grantedAt: Date | null;
   pendingReason: string | null;
   receiptNumber: string | null;
@@ -41,7 +42,7 @@ async function getOrderSummary(orderId: string): Promise<OrderSummary | null> {
   const [row = null] = await prisma.$queryRaw<OrderSummary[]>`
     SELECT o.id, o.created_at AS "createdAt", o.status::text AS status, o.amount_rupiah AS "amountRupiah",
            o.package_name AS "packageName", o.reference, o.terms_version AS "termsVersion",
-           u.email AS "buyerEmail", r.delivery_status::text AS "deliveryStatus",
+           u.email AS "buyerEmail", o.buyer_id AS "buyerId", r.delivery_status::text AS "deliveryStatus",
            r.pending_reason AS "pendingReason", r.receipt_number AS "receiptNumber",
            r.granted_at AS "grantedAt", r.valid_until AS "validUntil",
            (SELECT count(*)::int FROM fulfillment_usage_events e WHERE e.order_id = o.id) AS "usageDays"

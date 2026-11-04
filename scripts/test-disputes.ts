@@ -24,7 +24,6 @@ import {
   provider,
   refundCase,
   setupAuthority,
-  signedEventFor,
 } from "./refund-test-kit";
 
 /**

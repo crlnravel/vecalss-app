@@ -140,6 +140,8 @@ type RecentRefundRow = {
   buyerEmail: string;
   decisionDueAt: Date;
   id: string;
+  /** Past its deadline on database time: the decision deadline while prepared, the payout deadline after. */
+  overdue: boolean;
   orderId: string;
   payoutDueAt: Date | null;
   preparedAt: Date;
@@ -152,7 +154,9 @@ async function listRecentRefunds(db: Db, limit = 50): Promise<RecentRefundRow[]>
   return db.$queryRaw<RecentRefundRow[]>`
     SELECT c.id, c.order_id AS "orderId", c.amount_rupiah AS "amountRupiah", c.state::text AS state,
            c.reason_code AS "reasonCode", c.prepared_at AS "preparedAt", c.decision_due_at AS "decisionDueAt",
-           c.payout_due_at AS "payoutDueAt", u.email AS "buyerEmail"
+           c.payout_due_at AS "payoutDueAt", u.email AS "buyerEmail",
+           (c.state IN ('prepared', 'approved', 'processing')
+             AND COALESCE(CASE WHEN c.state = 'prepared' THEN c.decision_due_at ELSE c.payout_due_at END, c.decision_due_at) <= now()) AS overdue
     FROM refund_cases c JOIN users u ON u.id = c.buyer_id
     ORDER BY (c.state IN ('prepared', 'approved', 'processing')) DESC, c.prepared_at DESC
     LIMIT ${Math.min(limit, 100)}
