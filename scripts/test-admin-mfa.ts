@@ -501,6 +501,21 @@ async function main() {
     // The block ends when the failures age out of the window.
     await prisma.$executeRaw`UPDATE mfa_failed_attempts SET occurred_at = now() - make_interval(mins => ${MFA_ATTEMPT_WINDOW_MINUTES + 1}) WHERE user_id = ${user.id}::uuid`;
     assert.deepEqual(await verifyTotpChallenge({ code: codeAt(factor.secret), sessionId: session.id, userId: user.id }), { ok: true });
+
+    // Failure rows are security evidence for 90 days: later throttle activity does not delete older
+    // ones, and the daily maintenance job owns expiry.
+    const evidenceUser = await makeUser("evidence", [RoleName.admin]);
+    const evidenceFactor = await provisionFactor(evidenceUser.id);
+    const evidenceSession = await makeSession(evidenceUser.id);
+    await prisma.$executeRaw`
+      INSERT INTO mfa_failed_attempts (user_id, kind, occurred_at)
+      SELECT ${evidenceUser.id}::uuid, 'challenge', now() - make_interval(days => d) FROM unnest(ARRAY[2, 10, 60, 89]) AS d`;
+    assert.deepEqual(await verifyTotpChallenge({ code: "000000", sessionId: evidenceSession.id, userId: evidenceUser.id }), { ok: false, reason: "invalid" });
+    assert.deepEqual(await verifyTotpChallenge({ code: codeAt(evidenceFactor.secret), sessionId: evidenceSession.id, userId: evidenceUser.id }), { ok: true });
+    const [{ older }] = await prisma.$queryRaw<Array<{ older: bigint }>>`
+      SELECT count(*) AS older FROM mfa_failed_attempts WHERE user_id = ${evidenceUser.id}::uuid AND occurred_at < now() - interval '1 day'`;
+    assert.equal(Number(older), 4, "throttle activity does not delete failures older than a day");
+    assert.equal(await failuresOf(evidenceUser.id, "challenge"), 5, "one new failure plus the four old rows are all still there");
     if (ORIGINAL_REDIS === undefined) delete process.env.REDIS_URL;
     else process.env.REDIS_URL = ORIGINAL_REDIS;
   }

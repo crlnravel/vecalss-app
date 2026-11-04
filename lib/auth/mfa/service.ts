@@ -42,6 +42,10 @@ function normalizeTotpCode(value: unknown) {
  * failure count in Postgres. A failed attempt is recorded in the same
  * transaction, so concurrent guesses cannot slip past the limit and a Redis
  * outage changes nothing: nothing here uses Redis.
+ *
+ * Nothing here deletes rows. The count above reads `occurred_at`, so old
+ * failures stop counting on their own, and the daily maintenance job removes
+ * them after the 90-day security log retention (lib/maintenance/retention.ts).
  */
 async function throttled<T extends { ok: boolean }>(
   userId: string,
@@ -66,12 +70,6 @@ async function throttled<T extends { ok: boolean }>(
         INSERT INTO mfa_failed_attempts (user_id, kind) VALUES (${userId}::uuid, ${kind})
       `;
     }
-
-    // Old rows only ever matter inside the window; keep the table small.
-    await tx.$executeRaw`
-      DELETE FROM mfa_failed_attempts
-      WHERE user_id = ${userId}::uuid AND occurred_at < now() - interval '1 day'
-    `;
 
     return result;
   });

@@ -9,6 +9,10 @@ import { prisma } from "@/lib/prisma";
  * Only requests that are let through are recorded, so a flood of refused ones
  * cannot extend someone's lock-out; an attacker can at most use up the quota
  * and make the owner wait for the window to pass.
+ *
+ * Nothing here deletes rows. The windows below are read from `requested_at`, so
+ * old rows never count, and the daily maintenance job removes them after the
+ * 90-day security log retention (lib/maintenance/retention.ts).
  */
 const PASSWORD_RESET_REQUEST_LIMITS = {
   /** Per normalized email address: enough for a typo and a retry. */
@@ -62,15 +66,6 @@ async function consumePasswordResetRequest({
     await tx.$executeRaw`
       INSERT INTO password_reset_requests (email_hash, ip_address)
       VALUES (${emailHash}, ${ipAddress}::inet)
-    `;
-    // Keep the table small: rows only matter inside the window.
-    await tx.$executeRaw`
-      DELETE FROM password_reset_requests
-      WHERE id IN (
-        SELECT id FROM password_reset_requests
-        WHERE requested_at < now() - interval '1 day'
-        LIMIT 50
-      )
     `;
     return true;
   });

@@ -358,6 +358,41 @@ async function main() {
       await requestPasswordReset(knownEmail, "student", again.deps);
       await again.runTasks();
       assert.equal(again.sent.length, 1);
+
+      // Throttle activity never deletes older rows: they are security evidence for 90 days, and the
+      // daily maintenance job owns expiry. They also stop counting once they leave the window.
+      const evidenceHash = hashEmail(email("old-evidence"));
+      await prisma.$executeRaw`
+        INSERT INTO password_reset_requests (email_hash, requested_at)
+        SELECT ${evidenceHash}, now() - make_interval(days => d) FROM unnest(ARRAY[2, 3, 30, 60, 89]) AS d`;
+      const agedAccount = await makeUser("aged");
+      await prisma.$executeRaw`
+        INSERT INTO password_reset_requests (email_hash, requested_at)
+        SELECT ${hashEmail(agedAccount.email)}, now() - interval '2 days' FROM generate_series(1, ${limit}::int)`;
+      const afterAged = harness(ipPool(30));
+      await requestPasswordReset(agedAccount.email, "student", afterAged.deps);
+      await afterAged.runTasks();
+      assert.equal(afterAged.sent.length, 1, "rows from two days ago no longer count toward the limit");
+      assert.equal(
+        Number((await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) AS count FROM password_reset_requests WHERE email_hash = ${evidenceHash}`)[0].count),
+        5,
+        "an accepted request does not delete older rows",
+      );
+      assert.equal(
+        Number((await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) AS count FROM password_reset_requests WHERE email_hash = ${hashEmail(agedAccount.email)} AND requested_at < now() - interval '1 day'`)[0].count),
+        limit,
+        "the throttled address keeps its own older rows too",
+      );
+      // The limit itself still holds from timestamps alone.
+      for (let attempt = 0; attempt < limit; attempt += 1) {
+        const h = harness(ipPool(31));
+        await requestPasswordReset(agedAccount.email, "student", h.deps);
+        await h.runTasks();
+      }
+      const blocked = harness(ipPool(31));
+      await requestPasswordReset(agedAccount.email, "student", blocked.deps);
+      await blocked.runTasks();
+      assert.equal(blocked.sent.length, 0, "the limit still blocks without any cleanup");
     }
 
     // ---- Throttle per client address ---------------------------------------
