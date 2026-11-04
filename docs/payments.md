@@ -146,10 +146,103 @@ the dev stand-in on a local database is exempt (`stand-in-local-no-trusted-proxy
 is stored on the order); everything else without an IP is refused. A trigger
 enforces this on insert.
 
+## Fraud blocks and the case queue (MS-07 phase A)
+
+Code in `lib/fraud`, pages under `/admin/fraud`. Migration
+`20261104170000_fraud_blocks_and_cases`.
+
+**Blocks.** Five types, each with a length the database enforces on creation and
+renewal (`assert_fraud_block_lifetime`), on database time:
+
+| Type | Matched against | Length | Effect |
+| --- | --- | --- | --- |
+| Account | user id | until lifted, reviewed every 30 days | deactivation path: sessions end, sign-in and checkout refused |
+| Email | normalized email | until lifted, reviewed every 30 days | signup and checkout refused; an existing account also gets an account block |
+| Phone | normalized profile phone (unverified) | until lifted, reviewed every 30 days | checkout refused |
+| Device | device cookie | at most 30 days | checkout refused |
+| IP | buyer IP | at most 7 days | checkout refused from that address only; no account is ever deactivated |
+| Automatic | a daily rule hit | 24 hours, pending review | as its type, never an account deactivation |
+
+A block never holds the identifier. `lookup_token` is an HMAC-SHA256 of the
+normalized value under `FRAUD_LOOKUP_SECRET` (an account block uses the user
+id); `hint` is a masked label. Rotating the secret orphans every token, so it is
+a migration. In production a missing or short secret closes checkout and the
+signup check (fail closed); outside production a fixed dev value is used.
+
+**In force** means `status = 'active'` and an end date, if any, still ahead of
+the database clock. That is decided when it is read, so a block lapses with no
+job; the daily step only marks lapsed rows `expired` and writes their history.
+Current state is a guarded row (a trigger freezes the identifier, type, source
+and reason, and refuses any change that lacks its history row and the next
+version number); history is `fraud_block_events`, append-only, and every change
+also writes an audit event.
+
+**Where blocks are checked.**
+
+- Checkout: inside the MS-06 order transaction, after the account lock and
+  before the limits, with a shared advisory lock per identifier. Creating a block
+  takes the exclusive lock on the same identifier, so a checkout and a block for
+  one identifier run one after the other. A refusal shows the calm
+  `checkout-blocked` notice and the support contact; it writes an audit event and
+  opens/hits a `blocked_attempt` case, and creates no order, reservation, session
+  or job.
+- Signup: enrolling an account with a blocked email is refused, and accepting an
+  invite re-checks the account, email and device. (There is no public signup;
+  accounts are created by admins.)
+- Sign-in: after the password, an account block gives the neutral blocked
+  message. Reactivating a blocked account through enrollment is refused.
+- Paid order: when an event would be accepted, the order's buyer, IP and device
+  are checked again. If now blocked, or if blocks cannot be read, the money is
+  kept: the order goes to `review` (`blocked_buyer`), no purchase or access
+  follows, the reservation is held, and cases and the alert are raised. Migration
+  note: the order and reservation guards now also allow `pending` to `review`.
+
+**Device cookie.** `vc_device`: 32 random bytes, httpOnly, SameSite=Lax, Secure in
+production, a year. It is set at sign-in and when the checkout form is posted
+(never to a cross-site request). Only its HMAC is stored, on
+`payment_orders.device_lookup_token`. Clearing cookies defeats it, so it is one
+signal among several.
+
+**Authority.** The owner is the account whose email is `FRAUD_OWNER_EMAIL`; unset
+means nobody is the owner and every owner action is refused. Any admin with a
+verified second factor can view and acknowledge. The owner alone creates
+manual blocks, lifts and renews them, escalates, closes, reopens and links cases,
+files and decides appeals, and publishes limit changes, each with a written
+reason (10 to 500 characters). Every action re-authenticates on the server and
+carries the version the owner saw; a changed version or state is refused. A limit
+exception is a new risk policy version published by the owner (the append-only
+policy tables as they are), which applies to everyone; there is no per-account
+override.
+
+**Cases.** `fraud_cases` is one open case per signal and subject (a partial
+unique index); a repeat adds a hit and can raise severity, a closed case takes
+none. Each records evidence (ids, tokens and counts only), rule version, the
+purchase-limit policy version, severity, owner, acknowledgement, escalation and
+closure. Immediate signals: `payment_quarantined`, `payment_review`,
+`blocked_attempt`. Daily signals (`runFraudMaintenance`, a step of
+`runDailyMaintenance`): `ip_multi_account` and `device_multi_account` (3+
+accounts paying within an hour), `repeated_payment_failures` (3+ failed or
+expired in a day), `volume_spike` (3x the previous seven days' daily average,
+at least 6 orders), `block_ending` (manual blocks ending or due for review
+within 3 days). The device signal also creates the only automatic block. The
+MS-08 `capture_without_access` and MS-09 `refund_stalled` signals are declared
+in `lib/fraud/constants.ts`; those tickets only call `openFraudCase`.
+
+**Appeals.** One per block. The owner records it (the buyer reaches support
+through the contact on the blocked screen) and decides within three working days
+(Mon to Fri, Asia/Jakarta, no holiday list). Granting lifts the block in the same
+transaction. A denied appeal can be reopened on new evidence. All of it is also
+written to the block's case.
+
+**Reports.** A daily summary email to `MAINTENANCE_ALERT_EMAIL` (counts only) and
+`/admin/fraud/report`, a monthly page of aggregates with no raw IP, email, phone,
+device or account id.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
-`test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`, plus `test:checkout-intent`,
+`test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
+`test:fraud-blocks`, `test:fraud-cases`, plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`. The
 payment suites only run against the local database. Orders and payment events
 cannot be deleted, so every run leaves its own rows behind there; reseed
