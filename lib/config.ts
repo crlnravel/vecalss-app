@@ -40,6 +40,22 @@ function getRegistrationFormUrl() {
   );
 }
 
+/**
+ * Where someone refused by a fraud block, or anyone with a payment problem,
+ * can reach the team. Defaults to the Instagram account the site already links
+ * everywhere; set SUPPORT_CONTACT_URL and SUPPORT_CONTACT_LABEL to change it.
+ */
+function getSupportContact(env: NodeJS.ProcessEnv = process.env) {
+  const url = env.SUPPORT_CONTACT_URL?.trim();
+  const label = env.SUPPORT_CONTACT_LABEL?.trim();
+
+  if (url && /^https:\/\//u.test(url)) {
+    return { label: label || "Hubungi tim Vecalss", url };
+  }
+
+  return { label: "Instagram @vecalss.academy", url: "https://www.instagram.com/vecalss.academy/" };
+}
+
 const isProduction = process.env.NODE_ENV === "production";
 
 function isDebugEnabled(env: NodeJS.ProcessEnv = process.env) {
@@ -69,6 +85,7 @@ export {
   DEFAULT_APP_BASE_URL,
   getAppBaseUrl,
   getRegistrationFormUrl,
+  getSupportContact,
   isAdminStudentPreviewEnabled,
   isDebugAccountSwitcherEnabled,
   isDebugEnabled,

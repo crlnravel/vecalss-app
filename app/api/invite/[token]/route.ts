@@ -4,6 +4,7 @@ import {
   getTrustedInviteIdentity,
 } from "@/lib/admin/handoffs/rate-limit";
 import { completeEnrollmentInvite } from "@/lib/auth/service";
+import { readDeviceTokenFromHeader } from "@/lib/fraud/device";
 import { hashToken } from "@/lib/auth/crypto";
 import { PasswordPolicyError } from "@/lib/auth/password-policy.mjs";
 
@@ -117,7 +118,9 @@ export async function POST(
       return invalidInviteResponse();
     }
 
-    const result = await completeEnrollmentInvite(token, body.password);
+    const result = await completeEnrollmentInvite(token, body.password, {
+      deviceToken: readDeviceTokenFromHeader(request.headers.get("cookie")),
+    });
     return Response.json(
       { loginAudience: result.loginAudience, ok: true },
       { headers: inviteHeaders() },

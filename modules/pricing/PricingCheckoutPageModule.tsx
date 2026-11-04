@@ -17,6 +17,7 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 import { PLAN_COPY } from "./plan-copy";
 
 type CheckoutNotice =
+  | "checkout-blocked"
   | "checkout-changed"
   | "checkout-daily-limit"
   | "checkout-expired"
@@ -26,6 +27,8 @@ type CheckoutNotice =
   | "checkout-unavailable";
 
 const NOTICE_COPY: Record<CheckoutNotice, string> = {
+  "checkout-blocked":
+    "Pembelian belum bisa kami proses saat ini. Kalau kamu merasa ini keliru, hubungi tim Vecalss supaya kami bisa membantu memeriksanya.",
   "checkout-changed":
     "Pilihan di halaman ini sempat berubah. Periksa lagi paket dan kode referralmu, lalu lanjut ke pembayaran.",
   "checkout-daily-limit":
@@ -53,6 +56,8 @@ type PricingCheckoutPageModuleProps = {
   plan: PricingPlanId;
   referralCode: string;
   referralStatus: ReferralStatus;
+  /** Shown with the blocked notice. */
+  supportContact: { label: string; url: string };
 };
 
 function ReferralField({
@@ -113,6 +118,7 @@ export default function PricingCheckoutPageModule({
   plan,
   referralCode,
   referralStatus,
+  supportContact,
 }: PricingCheckoutPageModuleProps) {
   const copy = PLAN_COPY[plan];
 
@@ -138,6 +144,19 @@ export default function PricingCheckoutPageModule({
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
               {NOTICE_COPY[notice]}
+              {notice === "checkout-blocked" ? (
+                <>
+                  {" "}
+                  <a
+                    className="font-semibold text-voyage-deep underline underline-offset-4"
+                    href={supportContact.url}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {supportContact.label}
+                  </a>
+                </>
+              ) : null}
               {notice === "checkout-open-payment" && openPaymentHref ? (
                 <>
                   {" "}

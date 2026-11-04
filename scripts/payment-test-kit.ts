@@ -209,6 +209,19 @@ async function snapshotOf(orderId: string) {
   return { audits, events, order, outbox, purchases };
 }
 
+/**
+ * Closes the unpaid orders this run's buyers left behind, through the real
+ * inbox, so a suite does not pile up open orders for the reconciliation suite
+ * (which only looks at the oldest few hundred). Only this run's buyers.
+ */
+async function failLeftoverOrders() {
+  const leftovers = await prisma.paymentOrder.findMany({
+    where: { buyer: { email: { endsWith: `-${runId}@vecalss.local`, startsWith: "pay-" } }, status: "pending" },
+  });
+  for (const order of leftovers) await deliver(signedEventFor(order, "payment.failed"));
+  return leftovers.length;
+}
+
 const expectedAdapterIdentity = { account: provider.merchantAccount, environment: provider.environment };
 
 export {
@@ -216,6 +229,7 @@ export {
   TEST_SECRET,
   deliver,
   expectedAdapterIdentity,
+  failLeftoverOrders,
   getPackageCode,
   getReferral,
   makeBuyer,

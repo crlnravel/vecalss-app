@@ -11,6 +11,9 @@ import { getPaymentProvider } from "@/lib/payments/provider";
 import { resolveBuyerIpExemption } from "@/lib/payments/risk/buyer-ip";
 import type { RefusalReason } from "@/lib/payments/risk/reserve";
 
+import { buildDeviceSetCookie, readDeviceTokenFromHeader } from "@/lib/fraud/device";
+import { isLookupSecretAvailable, newDeviceToken } from "@/lib/fraud/tokens";
+
 import { getPackageCode } from "./checkout";
 import {
   isCheckoutPaused,
@@ -49,8 +52,9 @@ const REJECTED_PAGE = `<!doctype html>
  * share a notice, so the exact rule is never revealed. With no policy in force
  * the checkout page itself shows the "paused" notice.
  */
-const REFUSAL_NOTICES: Record<Exclude<RefusalReason, "no_policy"> | "package_unavailable", string> = {
+const REFUSAL_NOTICES: Record<Exclude<RefusalReason, "blocks_unavailable" | "no_policy"> | "package_unavailable", string> = {
   amount_mismatch: "checkout-unavailable",
+  blocked: "checkout-blocked",
   daily_limit: "checkout-daily-limit",
   hourly_attempts: "checkout-too-many",
   ip_attempts: "checkout-too-many",
@@ -132,7 +136,23 @@ function handleCheckoutPayRedirect(
   return redirectTo(pathWithQuery("/pricing/checkout", ref ? { plan, ref } : { plan }), base);
 }
 
+/**
+ * The device cookie rides on every answer to a same-origin POST, so the order
+ * made here and the next sign-in see the same random value. Only an HMAC of it
+ * is ever stored (lib/fraud). A cross-site request gets nothing.
+ */
 async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = defaultDeps) {
+  const existingDeviceToken = readDeviceTokenFromHeader(request.headers.get("cookie"));
+  const deviceToken = existingDeviceToken ?? newDeviceToken();
+
+  const response = await processCheckoutPayPost(request, deps, deviceToken);
+  if (!existingDeviceToken && response.status !== 403) {
+    response.headers.append("Set-Cookie", buildDeviceSetCookie(deviceToken, deps.env.NODE_ENV === "production"));
+  }
+  return response;
+}
+
+async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, deviceToken: string) {
   if (!isSameOrigin(request, deps.env)) {
     return new Response(REJECTED_PAGE, {
       headers: {
@@ -173,6 +193,9 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
   const provider = (deps.getProvider ?? defaultDeps.getProvider!)(deps.env);
   if (!provider) return checkoutPage();
 
+  // Blocks cannot be looked up without their secret, so nothing is accepted.
+  if (!isLookupSecretAvailable(deps.env)) return checkoutPage();
+
   const idempotencyKey = parseCheckoutIdempotencyKey(form.get("key"));
   if (!idempotencyKey) return checkoutPage({ notice: "checkout-changed" });
 
@@ -208,12 +231,13 @@ async function handleCheckoutPayPost(request: Request, deps: CheckoutPayDeps = d
     buyerIp,
     buyerIpExemption: resolveBuyerIpExemption(provider, deps.env),
     buyerIpSource: buyerIp ? `trusted-proxy:${trustedProxyCount}` : "unavailable",
+    deviceToken,
     intent: result.intent,
     packageCode,
     provider,
   });
   if (!created.ok) {
-    return created.reason === "no_policy"
+    return created.reason === "no_policy" || created.reason === "blocks_unavailable"
       ? checkoutPage()
       : checkoutPage({ notice: REFUSAL_NOTICES[created.reason] });
   }

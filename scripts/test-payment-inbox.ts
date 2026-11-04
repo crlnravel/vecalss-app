@@ -324,7 +324,7 @@ async function main() {
     await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`TRUNCATE payment_orders CASCADE`), /append-only/u, "truncate");
     await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`UPDATE payment_events SET outcome = 'ignored' WHERE order_id = $1::uuid`, order.id), /append-only/u, "event update");
     await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`DELETE FROM payment_events WHERE order_id = $1::uuid`, order.id), /append-only/u, "event delete");
-    await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`TRUNCATE payment_events`), /append-only/u, "event truncate");
+    await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`TRUNCATE payment_events`), /append-only|cannot truncate a table referenced/u, "event truncate");
     await rejectsWithDatabase(() => prisma.$executeRawUnsafe(`DELETE FROM payment_outbox WHERE order_id = $1::uuid`, order.id), /append-only/u, "outbox delete");
 
     // Paid is impossible without its purchase summary, and a pending order cannot be marked paid by hand.

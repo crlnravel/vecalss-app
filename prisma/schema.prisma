@@ -756,6 +756,14 @@ model User {
   riskAccountTier                        RiskAccountTier?
   riskDayBuckets                         RiskDayBucket[]
   riskReservations                       RiskReservation[]
+  fraudBlocksAsSubject                   FraudBlock[]                         @relation("FraudBlockSubject")
+  fraudBlocksAsOwner                     FraudBlock[]                         @relation("FraudBlockOwner")
+  fraudBlocksCreated                     FraudBlock[]                         @relation("FraudBlockCreator")
+  fraudBlockEvents                       FraudBlockEvent[]                    @relation("FraudBlockEventActor")
+  fraudCasesAsSubject                    FraudCase[]                          @relation("FraudCaseUser")
+  fraudCasesAsOwner                      FraudCase[]                          @relation("FraudCaseOwner")
+  fraudCaseEvents                        FraudCaseEvent[]                     @relation("FraudCaseEventActor")
+  fraudCaseBlocksLinked                  FraudCaseBlock[]                     @relation("FraudCaseBlockLinker")
   mfaFactor                              UserMfaFactor?                       @relation("UserMfaFactor")
   mfaSetupCodes                          MfaSetupCode[]                       @relation("UserMfaSetupCodes")
   mfaFailedAttempts                      MfaFailedAttempt[]                   @relation("UserMfaFailedAttempts")
@@ -3520,6 +3528,9 @@ model PaymentOrder {
   /// proxy). Null on every order that carries an IP; the database refuses a new
   /// order that has neither.
   buyerIpExemption    String?  @map("buyer_ip_exemption") @db.VarChar(60)
+  /// HMAC lookup token of the first-party device cookie at checkout. The cookie
+  /// value itself is never stored. Null when the order had no device cookie.
+  deviceLookupToken   String?  @map("device_lookup_token") @db.VarChar(64)
   provider            String   @db.VarChar(40)
   providerEnvironment String   @map("provider_environment") @db.VarChar(40)
   providerAccount     String   @map("provider_account") @db.VarChar(80)
@@ -3544,11 +3555,13 @@ model PaymentOrder {
   packagePurchase PackagePurchase?   @relation(fields: [packagePurchaseId], references: [id], onDelete: Restrict)
   events          PaymentEvent[]
   reservation     RiskReservation?
+  fraudCases      FraudCase[]
 
   @@unique([provider, providerEnvironment, providerAccount, providerReference])
   @@index([status, expiresAt])
   @@index([buyerId, createdAt])
   @@index([buyerIp, createdAt])
+  @@index([deviceLookupToken, createdAt])
   @@map("payment_orders")
 }
 
@@ -3577,7 +3590,8 @@ model PaymentEvent {
   providerOccurredAt  DateTime            @map("provider_occurred_at") @db.Timestamptz
   receivedAt          DateTime            @default(now()) @map("received_at") @db.Timestamptz
 
-  order PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  order      PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  fraudCases FraudCase[]
 
   @@unique([provider, providerEnvironment, providerAccount, eventId])
   @@index([orderId, receivedAt])
@@ -3912,4 +3926,226 @@ model VeraMateriText {
 
   @@index([moduleId])
   @@map("vera_materi_texts")
+}
+
+// ─────────────────────────────────────────────
+// Fraud blocks and the case queue (MS-07). Current state lives in guarded rows;
+// every change is also an append-only history row and an audit event.
+// ─────────────────────────────────────────────
+
+enum FraudBlockType {
+  account
+  email
+  phone
+  device
+  ip
+
+  @@map("fraud_block_type")
+}
+
+enum FraudBlockSource {
+  automatic
+  manual
+
+  @@map("fraud_block_source")
+}
+
+/// `active` is not the same as in force: a block stops counting at `expires_at`
+/// whether or not anything has marked it `expired` yet.
+enum FraudBlockStatus {
+  active
+  lifted
+  expired
+
+  @@map("fraud_block_status")
+}
+
+enum FraudCaseState {
+  open
+  acknowledged
+  escalated
+  closed
+
+  @@map("fraud_case_state")
+}
+
+enum FraudSeverity {
+  low
+  medium
+  high
+  critical
+
+  @@map("fraud_severity")
+}
+
+enum FraudAppealState {
+  pending
+  granted
+  denied
+
+  @@map("fraud_appeal_state")
+}
+
+/// A typed block. The identifier is never stored: `lookup_token` is an HMAC of
+/// the normalized value under a server secret (for an account block, the user
+/// id). `hint` is a masked label for the admin list. Rows are never deleted.
+model FraudBlock {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockType          FraudBlockType   @map("block_type")
+  lookupToken        String           @map("lookup_token") @db.VarChar(64)
+  hint               String           @db.VarChar(80)
+  subjectUserId      String?          @map("subject_user_id") @db.Uuid
+  source             FraudBlockSource
+  reasonCode         String           @map("reason_code") @db.VarChar(40)
+  reasonNote         String           @map("reason_note") @db.Text
+  ownerUserId        String?          @map("owner_user_id") @db.Uuid
+  createdByUserId    String?          @map("created_by_user_id") @db.Uuid
+  /// Whether this block disabled the account (and so lifting it reactivates it).
+  deactivatedAccount Boolean          @default(false) @map("deactivated_account")
+  status             FraudBlockStatus @default(active)
+  /// Optimistic version: every change adds one and writes a history row with it.
+  version            Int              @default(1)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  /// Null for blocks that last until lifted.
+  expiresAt          DateTime?        @map("expires_at") @db.Timestamptz
+  /// When a block with no end date must next be reviewed.
+  reviewDueAt        DateTime?        @map("review_due_at") @db.Timestamptz
+  endedAt            DateTime?        @map("ended_at") @db.Timestamptz
+  lastEventId        String?          @map("last_event_id") @db.Uuid
+  updatedAt          DateTime         @default(now()) @map("updated_at") @db.Timestamptz
+
+  subjectUser User?             @relation("FraudBlockSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  owner       User?             @relation("FraudBlockOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  createdBy   User?             @relation("FraudBlockCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  events      FraudBlockEvent[]
+  cases       FraudCaseBlock[]
+  appeal      FraudAppeal?
+
+  @@index([blockType, lookupToken, status])
+  @@index([status, expiresAt])
+  @@index([subjectUserId])
+  @@map("fraud_blocks")
+}
+
+/// Append-only history of a block: created, renewed, lifted, expired.
+model FraudBlockEvent {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockId       String    @map("block_id") @db.Uuid
+  blockVersion  Int       @map("block_version")
+  kind          String    @db.VarChar(20)
+  actorUserId   String?   @map("actor_user_id") @db.Uuid
+  /// `owner` or `system`.
+  actorKind     String    @map("actor_kind") @db.VarChar(10)
+  reason        String    @db.Text
+  fromExpiresAt DateTime? @map("from_expires_at") @db.Timestamptz
+  toExpiresAt   DateTime? @map("to_expires_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  block FraudBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  actor User?      @relation("FraudBlockEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([blockId, blockVersion])
+  @@map("fraud_block_events")
+}
+
+/// One case per signal and subject while it is not closed. Evidence holds ids
+/// and counts only, never a raw IP, email, phone or device value.
+model FraudCase {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  signal         String         @db.VarChar(60)
+  /// `order`, `user`, `ip`, `device`, `event`, `block` or `system`.
+  subjectType    String         @map("subject_type") @db.VarChar(20)
+  /// An id, or a lookup token for ip and device. Never a raw identifier.
+  subjectKey     String         @map("subject_key") @db.VarChar(100)
+  severity       FraudSeverity
+  ruleVersion    Int            @map("rule_version")
+  /// The purchase-limit policy version in force when the case opened, if relevant.
+  policyVersion  Int?           @map("policy_version")
+  state          FraudCaseState @default(open)
+  version        Int            @default(1)
+  ownerUserId    String?        @map("owner_user_id") @db.Uuid
+  userId         String?        @map("user_id") @db.Uuid
+  orderId        String?        @map("order_id") @db.Uuid
+  paymentEventId String?        @map("payment_event_id") @db.Uuid
+  evidence       Json           @default("{}") @db.JsonB
+  hitCount       Int            @default(1) @map("hit_count")
+  openedAt       DateTime       @default(now()) @map("opened_at") @db.Timestamptz
+  lastSeenAt     DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz
+  acknowledgedAt DateTime?      @map("acknowledged_at") @db.Timestamptz
+  escalatedAt    DateTime?      @map("escalated_at") @db.Timestamptz
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz
+  closureReason  String?        @map("closure_reason") @db.VarChar(40)
+  lastEventId    String?        @map("last_event_id") @db.Uuid
+  updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+
+  user         User?            @relation("FraudCaseUser", fields: [userId], references: [id], onDelete: Restrict)
+  owner        User?            @relation("FraudCaseOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  order        PaymentOrder?    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentEvent PaymentEvent?    @relation(fields: [paymentEventId], references: [id], onDelete: Restrict)
+  events       FraudCaseEvent[]
+  blocks       FraudCaseBlock[]
+  appeals      FraudAppeal[]
+
+  @@index([state, severity, openedAt])
+  @@index([signal, openedAt])
+  @@map("fraud_cases")
+}
+
+/// Append-only history of a case: opened, hit, acknowledged, escalated, closed,
+/// reopened, note, block_linked, appeal_filed, appeal_decided, appeal_reopened.
+model FraudCaseEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId      String   @map("case_id") @db.Uuid
+  caseVersion Int      @map("case_version")
+  kind        String   @db.VarChar(30)
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorKind   String   @map("actor_kind") @db.VarChar(10)
+  note        String?  @db.Text
+  metadata    Json     @default("{}") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  case  FraudCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor User?     @relation("FraudCaseEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+  @@map("fraud_case_events")
+}
+
+/// Append-only link between a case and a block it led to or concerns.
+model FraudCaseBlock {
+  caseId         String   @map("case_id") @db.Uuid
+  blockId        String   @map("block_id") @db.Uuid
+  linkedByUserId String?  @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime @default(now()) @map("linked_at") @db.Timestamptz
+
+  case     FraudCase  @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  block    FraudBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  linkedBy User?      @relation("FraudCaseBlockLinker", fields: [linkedByUserId], references: [id], onDelete: Restrict)
+
+  @@id([caseId, blockId])
+  @@map("fraud_case_blocks")
+}
+
+/// One appeal per block. The owner decides; a denied appeal can be reopened
+/// once new evidence arrives. Who did what is in the case's event history.
+model FraudAppeal {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockId        String           @unique @map("block_id") @db.Uuid
+  caseId         String           @map("case_id") @db.Uuid
+  state          FraudAppealState @default(pending)
+  channel        String           @db.VarChar(30)
+  summary        String           @db.Text
+  receivedAt     DateTime         @default(now()) @map("received_at") @db.Timestamptz
+  /// Three working days after it was received (Asia/Jakarta, no holiday list).
+  dueAt          DateTime         @map("due_at") @db.Timestamptz
+  decidedAt      DateTime?        @map("decided_at") @db.Timestamptz
+  decisionReason String?          @map("decision_reason") @db.Text
+  reopenCount    Int              @default(0) @map("reopen_count")
+  version        Int              @default(1)
+
+  block FraudBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  case  FraudCase  @relation(fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@index([state, dueAt])
+  @@map("fraud_appeals")
 }

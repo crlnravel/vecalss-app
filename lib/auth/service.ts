@@ -12,6 +12,9 @@ import { after } from "next/server";
 import { getAppBaseUrl, isProduction } from "@/lib/config";
 import { sendEmail } from "@/lib/email/mailer";
 import { buildPasswordResetEmail } from "@/lib/email/password-reset-email";
+import { hasAccountBlockInForce } from "@/lib/fraud/account-block";
+import { checkBlocks } from "@/lib/fraud/blocks";
+import { flagBlockedAttempt } from "@/lib/fraud/signals";
 import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 
@@ -58,7 +61,7 @@ import type {
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
-  | { code: "invalid_credentials" | "rate_limited" | "service_unavailable"; ok: false };
+  | { code: "blocked" | "invalid_credentials" | "rate_limited" | "service_unavailable"; ok: false };
 
 type PasswordResetRequestResult = {
   deliveredResetUrl: string | null;
@@ -360,6 +363,23 @@ async function authenticateUser(
 
       return {
         code: "invalid_credentials",
+        ok: false,
+      };
+    }
+
+    // A fraud block on the account is checked after the password, so it is not
+    // a way to learn which emails have accounts. It holds even if the account
+    // was reactivated by hand while the block was still in force.
+    if (await hasAccountBlockInForce(prisma, user.id)) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "fraud_block",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "blocked",
         ok: false,
       };
     }
@@ -773,7 +793,11 @@ async function changePasswordForUser(userId: string, sessionId: string, nextPass
  * Consume a manual-share invite link and complete the recipient's credential
  * setup in the same transaction as the handoff transition.
  */
-async function completeEnrollmentInvite(rawToken: string, nextPassword: string) {
+async function completeEnrollmentInvite(
+  rawToken: string,
+  nextPassword: string,
+  options: { deviceToken?: string | null } = {},
+) {
   assertPasswordPolicy(nextPassword);
 
   const tokenHash = hashToken(rawToken);
@@ -822,7 +846,7 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
         });
       }
 
-      return { expired: true as const };
+      return { blocked: false as const, expired: true as const };
     }
 
     if (
@@ -831,6 +855,19 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
       || isManagedPreviewPurpose(handoff.preview_purpose)
     ) {
       throw new Error("This invite link is invalid or has already expired.");
+    }
+
+    // Linking the account to a person is the signup moment for invited
+    // accounts: a blocked email, account or device stops it here. The attempt
+    // is recorded and the link looks like any other dead link.
+    const blockCheck = await checkBlocks(
+      tx,
+      { deviceToken: options.deviceToken, userId: handoff.user_id },
+      { lock: true },
+    );
+    if (blockCheck.blocked) {
+      await flagBlockedAttempt(tx, { context: "signup", matches: blockCheck.matches, userId: handoff.user_id });
+      return { blocked: true as const, expired: false as const };
     }
 
     const activeRoles = await tx.roleAssignment.findMany({
@@ -917,8 +954,12 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
       },
     });
 
-    return { expired: false as const, loginAudience };
+    return { blocked: false as const, expired: false as const, loginAudience };
   });
+
+  if (outcome.blocked) {
+    throw new Error("This invite link is invalid or has already expired.");
+  }
 
   if (outcome.expired) {
     throw new Error("This invite link is invalid or has already expired.");

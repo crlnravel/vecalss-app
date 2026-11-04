@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email/mailer";
 import { handleDailyMaintenanceRequest, runDailyMaintenance } from "@/lib/maintenance/daily";
 import { defaultProbes } from "@/lib/maintenance/readiness";
+import { runFraudMaintenance } from "@/lib/fraud/maintenance";
 import { defaultHandlers } from "@/lib/payments/drain";
 import { runPaymentMaintenance } from "@/lib/payments/maintenance";
 import { getPaymentProvider } from "@/lib/payments/provider";
@@ -16,6 +17,11 @@ export async function GET(request: Request) {
       runDailyMaintenance({
         alertTo: process.env.MAINTENANCE_ALERT_EMAIL?.trim() || null,
         db: prisma,
+        fraud: () =>
+          runFraudMaintenance({
+            alertTo: process.env.MAINTENANCE_ALERT_EMAIL?.trim() || null,
+            sendEmail: (message) => sendEmail(message),
+          }),
         payments: () => runPaymentMaintenance({ handlers: defaultHandlers(), provider: getPaymentProvider() }),
         probes: defaultProbes,
         sendAlert: (message) => sendEmail(message),
