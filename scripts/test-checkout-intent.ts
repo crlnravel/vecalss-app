@@ -160,6 +160,8 @@ async function main() {
       return session;
     },
     now: () => NOVEMBER,
+    // A real (non stand-in) provider needs approved terms (MS-19 M-05).
+    terms: { ...PURCHASE_TERMS, status: "approved" },
     ...overrides,
   });
 

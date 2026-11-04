@@ -940,6 +940,8 @@ async function postThroughHandler(
     getProvider: () => options.provider ?? provider,
     getSession: async () => session,
     now: () => new Date("2026-11-20T10:00:00+07:00"),
+    // A real (non stand-in) provider needs approved terms (MS-19 M-05).
+    terms: { ...PURCHASE_TERMS, status: "approved" },
   };
   const headers: Record<string, string> = {
     "content-type": "application/x-www-form-urlencoded",

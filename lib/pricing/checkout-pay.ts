@@ -14,7 +14,7 @@ import type { RefusalReason } from "@/lib/payments/risk/reserve";
 import { buildDeviceSetCookie, readDeviceTokenFromHeader } from "@/lib/fraud/device";
 import { isLookupSecretAvailable, newDeviceToken } from "@/lib/fraud/tokens";
 
-import { PURCHASE_TERMS, termsOpenForCheckout } from "@/lib/fulfillment/terms";
+import { PURCHASE_TERMS, termsOpenForCheckout, type PurchaseTerms } from "@/lib/fulfillment/terms";
 
 import { getPackageCode } from "./checkout";
 import {
@@ -73,6 +73,8 @@ type CheckoutPayDeps = {
   now: () => Date;
   /** The payment provider; null means none is configured and checkout stays closed. */
   getProvider?: (env: NodeJS.ProcessEnv) => PaymentProviderAdapter | null;
+  /** The terms in force. Tests only: the app always uses PURCHASE_TERMS. */
+  terms?: PurchaseTerms;
 };
 
 const defaultDeps: CheckoutPayDeps = {
@@ -198,7 +200,7 @@ async function processCheckoutPayPost(request: Request, deps: CheckoutPayDeps, d
   if (!provider) return checkoutPage();
 
   // Terms still marked draft cannot be accepted with a real provider (MS-19 M-05): same paused page, nothing written.
-  if (!termsOpenForCheckout(provider.id)) return checkoutPage();
+  if (!termsOpenForCheckout(provider.id, deps.terms)) return checkoutPage();
 
   // Blocks cannot be looked up without their secret, so nothing is accepted.
   if (!isLookupSecretAvailable(deps.env)) return checkoutPage();
