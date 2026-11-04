@@ -300,11 +300,11 @@ Rules are the "Refund eligibility" row of the MS-00 decision record (closed
 
 **A refund case** (`refund_cases`, history in `refund_case_events`) records the
 order and captured payment, the reason (our fault: double charge, wrong amount,
-access not delivered, service unavailable; or change of mind), the buyer's
-request (channel, date, note), the amount, who prepared it, who approved it and
+access not delivered, service unavailable; change of mind; or an authority
+order, see below), the buyer's request (channel, date, note), the amount, who prepared it, who approved it and
 why, the system's eligibility check, the deadlines (decision: 3 working days
 from the request, Mon-Fri Asia/Jakarta, no holiday list; payout: 14 calendar
-days from approval), the method, the provider refund id or the manual transfer
+days from approval, or the authority's deadline when that is earlier), the method, the provider refund id or the manual transfer
 (masked destination, holder, reference, proof note), and what the confirmation
 did to access.
 
@@ -318,11 +318,43 @@ did to access.
 | confirmation | the provider's signed event or status | completes a provider refund |
 
 **Eligibility** (`lib/refunds/eligibility.ts`, repeated by the database at
-approval): our-fault reasons are always eligible; change of mind is eligible
+approval): our-fault reasons and `authority_order` are always eligible; change of mind is eligible
 only if the buyer's request arrived within 3 days of payment (inclusive) **and**
 the order has no `fulfillment_usage_events` row at all. For an order held in
 review the first succeeded event stands in for the payment time. A change of
 mind may be partial; the policy only says it is owed in full.
+
+**Authority order** (MS-18, reason `authority_order`, its own `refund_reason_category`).
+A regulator, acquirer or court ordered the refund. The case carries four fields
+beside the usual ones: the issuing authority (free text, 3 to 200 characters), the
+reference number of the order or letter, the date received, and an optional
+deadline the authority set. Who entered it is the case's preparer, as for any
+case. The date received is also the case's request date (the database requires
+the two to be equal), so the 3 working days to decide run from it, and it cannot
+be before the order was created or in the future. The deadline cannot be before
+the date received.
+
+- **Always eligible**: no 3-day window, no look at paid use, however old the
+  order; the amount may be anything up to the captured payment (partial allowed).
+- **Same roles**: any admin with a verified second factor prepares, only the
+  owner approves with a written reason, a self-approval is stored and disclosed.
+- **Deadline**: approval sets the payout deadline to 14 days from approval or the
+  authority's deadline, whichever is earlier (a deadline already past makes the
+  payout late at once). The database refuses an approval whose payout deadline is
+  later than the authority's. The `refund_stalled` case opens when the authority's
+  deadline passes, even before approval; its evidence says
+  `authorityDeadlineOverdue`. The refund list marks the case late the same way.
+- **Evidence**: a database check requires all of name, reference and date
+  received for this reason and none of them for any other, and the fields cannot
+  change after the case is written (they are not in the guard's mutable list; the
+  runtime login only inserts them). They show on the case page, in the dispute
+  packet's `refunds.records`, in `communications.authorityOrders` (the packet
+  keeps `buyerRefundRequests` for buyers' own requests) and in the timeline
+  entry for the preparation. Retention treats the case like any refund case:
+  evidence held while it is open, two years from closure. The packet is still
+  version 3.
+- This records evidence and applies those rules only. How the owner deals with
+  E2Pay or the regulator is the PKS and runbook work, not built here.
 
 **Balance.** `refund_capture_amount` (the order's payment, or an unexpected
 second capture held in review) minus approved, processing and completed refunds
@@ -550,7 +582,7 @@ own discipline.
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
 `test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
 `test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`,
-`test:refunds`, `test:disputes`, plus `test:checkout-intent`,
+`test:refunds`, `test:refund-authority`, `test:disputes`, plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`, and
 for MS-10 `test:retention-register`, `-roles`, `-runtime-smoke`, `-maintenance`,
 `-holds`, `-leaks`, `-reset-guard` and `-daily`. The payment suites only run

@@ -7,6 +7,7 @@ import { CHANGE_OF_MIND_WINDOW_DAYS, REFUND_REASONS, type RefundReasonCategory, 
 type Db = Pick<Prisma.TransactionClient, "$queryRaw">;
 
 type EligibilityRule =
+  | "authority_order"
   | "change_of_mind_ok"
   | "change_of_mind_used"
   | "change_of_mind_window_and_used"
@@ -46,6 +47,8 @@ type EvaluateInput = {
  *
  * - our fault (double charge, wrong amount, paid but access never delivered, or
  *   a service we could not provide): always eligible;
+ * - authority order (a regulator, acquirer or court ordered it): always
+ *   eligible, whatever the age or use of the order;
  * - change of mind: eligible only when requested within 3 days of payment AND no
  *   `fulfillment_usage_events` row exists for the order.
  *
@@ -87,7 +90,10 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
   const withinWindow = row.withinWindow === true;
   let rule: EligibilityRule;
   let eligible: boolean;
-  if (category === "our_fault") {
+  if (category === "authority_order") {
+    rule = "authority_order";
+    eligible = true;
+  } else if (category === "our_fault") {
     rule = "our_fault";
     eligible = true;
   } else if (withinWindow && row.usageRows === 0) {
@@ -116,6 +122,7 @@ async function evaluateEligibility(db: Db, input: EvaluateInput): Promise<Eligib
 }
 
 const RULE_TEXT: Record<EligibilityRule, string> = {
+  authority_order: "Memenuhi syarat: pengembalian karena perintah otoritas selalu bisa dilakukan, tanpa batas 3 hari dan tanpa melihat pemakaian fitur.",
   change_of_mind_ok: "Memenuhi syarat: permintaan masuk dalam 3 hari sejak pembayaran dan belum ada fitur berbayar yang dipakai.",
   change_of_mind_used: "Tidak memenuhi syarat: sudah ada fitur berbayar yang dipakai.",
   change_of_mind_window_and_used: "Tidak memenuhi syarat: permintaan masuk lebih dari 3 hari setelah pembayaran dan fitur berbayar sudah dipakai.",

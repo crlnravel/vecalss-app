@@ -252,7 +252,16 @@ async function collectPacket(tx: Tx, orderId: string) {
       state: item.state,
     })),
     communications: {
-      buyerRefundRequests: refundRecords.map((refund) => ({
+      authorityOrders: refundRecords.filter((refund) => refund.reasonCategory === "authority_order").map((refund) => ({
+        authority: refund.authorityName,
+        authorityReference: refund.authorityReference,
+        channel: refund.requestChannel,
+        deadlineAt: refund.authorityDeadlineAt,
+        receivedAt: refund.authorityReceivedAt,
+        refundReference: refund.reference,
+        summary: refund.requestNote,
+      })),
+      buyerRefundRequests: refundRecords.filter((refund) => refund.reasonCategory !== "authority_order").map((refund) => ({
         channel: refund.requestChannel,
         receivedAt: refund.requestedAt,
         refundReference: refund.reference,
@@ -265,7 +274,7 @@ async function collectPacket(tx: Tx, orderId: string) {
         responseDueAt: dispute.responseDueAt,
         source: dispute.source,
       })),
-      note: "Yang tercatat di sini: struk yang dikirim ke pembeli, permintaan pengembalian dana dari pembeli (ringkasan yang ditulis admin), dan pemberitahuan sengketa. Aplikasi tidak mengirim pesan lain ke pembeli soal pengembalian dana; percakapan di luar aplikasi hanya ada sebagai ringkasan itu.",
+      note: "Yang tercatat di sini: struk yang dikirim ke pembeli, permintaan pengembalian dana dari pembeli (ringkasan yang ditulis admin), perintah pengembalian dana dari otoritas (nama, nomor surat, tanggal diterima, dan batas waktunya), dan pemberitahuan sengketa. Aplikasi tidak mengirim pesan lain ke pembeli soal pengembalian dana; percakapan di luar aplikasi hanya ada sebagai ringkasan itu.",
       receiptDeliveries: deliveries,
     },
     disputes: {

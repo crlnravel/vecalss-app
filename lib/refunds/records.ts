@@ -21,6 +21,11 @@ type RefundRecord = {
   approvalReason: string | null;
   approvedAt: Date | null;
   approvedByEmail: string | null;
+  /** Set on an `authority_order` case only (null otherwise). */
+  authorityDeadlineAt: Date | null;
+  authorityName: string | null;
+  authorityReceivedAt: Date | null;
+  authorityReference: string | null;
   closedAt: Date | null;
   closureReason: string | null;
   completedAt: Date | null;
@@ -88,7 +93,9 @@ async function listRefundRecords(db: Db, orderId: string): Promise<RefundRecord[
            c.method::text AS method, c.provider_refund_id AS "providerRefundId", c.outcome_unknown AS "outcomeUnknown",
            c.destination_masked AS "destinationMasked", c.destination_holder AS "destinationHolder",
            c.transfer_reference AS "transferReference", c.proof_note AS "proofNote", c.completed_at AS "completedAt",
-           c.confirmation_source AS "confirmationSource", c.access_effect AS "accessEffect"
+           c.confirmation_source AS "confirmationSource", c.access_effect AS "accessEffect",
+           c.authority_name AS "authorityName", c.authority_reference AS "authorityReference",
+           c.authority_received_at AS "authorityReceivedAt", c.authority_deadline_at AS "authorityDeadlineAt"
     FROM refund_cases c
     JOIN users pu ON pu.id = c.prepared_by_user_id
     LEFT JOIN users au ON au.id = c.approved_by_user_id
@@ -138,6 +145,8 @@ async function listDisputeRecords(db: Db, orderId: string): Promise<DisputeRecor
 
 type RecentRefundRow = {
   amountRupiah: number;
+  /** The deadline an authority order set, if any. */
+  authorityDeadlineAt: Date | null;
   buyerEmail: string;
   decisionDueAt: Date;
   id: string;
@@ -155,9 +164,10 @@ async function listRecentRefunds(db: Db, limit = 50): Promise<RecentRefundRow[]>
   const rows = await db.$queryRaw<RecentRefundRow[]>`
     SELECT c.id, c.order_id AS "orderId", c.amount_rupiah AS "amountRupiah", c.state::text AS state,
            c.reason_code AS "reasonCode", c.prepared_at AS "preparedAt", c.decision_due_at AS "decisionDueAt",
-           c.payout_due_at AS "payoutDueAt", u.email AS "buyerEmail",
+           c.payout_due_at AS "payoutDueAt", c.authority_deadline_at AS "authorityDeadlineAt", u.email AS "buyerEmail",
            (c.state IN ('prepared', 'approved', 'processing')
-             AND COALESCE(CASE WHEN c.state = 'prepared' THEN c.decision_due_at ELSE c.payout_due_at END, c.decision_due_at) <= now()) AS overdue
+             AND LEAST(COALESCE(CASE WHEN c.state = 'prepared' THEN c.decision_due_at ELSE c.payout_due_at END, c.decision_due_at),
+                       COALESCE(c.authority_deadline_at, 'infinity'::timestamptz)) <= now()) AS overdue
     FROM refund_cases c JOIN users u ON u.id = c.buyer_id
     ORDER BY (c.state IN ('prepared', 'approved', 'processing')) DESC, c.prepared_at DESC
     LIMIT ${Math.min(limit, 100)}
