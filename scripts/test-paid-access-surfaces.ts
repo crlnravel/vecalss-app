@@ -187,7 +187,7 @@ const ACTION_CLASSES: ClassTable = {
     ],
   },
   "modules/admin/retention-actions.ts": {
-    staff: ["placeHoldAction", "releaseHoldAction"],
+    staff: ["placeHoldAction"],
   },
   "modules/admin/student-banners-actions.ts": {
     staff: ["updateAdminStudentPreviewBannersAction", "updateStudentBannersAction"],
