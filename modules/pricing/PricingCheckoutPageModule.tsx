@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { Checkbox } from "@/components/ui/checkbox";
 import { fieldLabelClassName } from "@/components/ui/field-constants";
 import { Input } from "@/components/ui/input";
 import { Info } from "@/lib/icons";
@@ -21,8 +23,10 @@ type CheckoutNotice =
   | "checkout-changed"
   | "checkout-daily-limit"
   | "checkout-expired"
+  | "checkout-full-access"
   | "checkout-open-payment"
   | "checkout-paused"
+  | "checkout-terms"
   | "checkout-too-many"
   | "checkout-unavailable";
 
@@ -35,10 +39,14 @@ const NOTICE_COPY: Record<CheckoutNotice, string> = {
     "Kamu sudah mencapai batas pembelian untuk hari ini. Coba lagi besok.",
   "checkout-expired":
     "Sudah cukup lama sejak halaman ini dibuka, jadi harganya bisa saja sudah berubah. Periksa lagi totalnya, lalu lanjut ke pembayaran.",
+  "checkout-full-access":
+    "Full Access-mu masih berjalan dan sudah mencakup isi Monthly Access, jadi paket bulanan belum perlu dibeli. Setelah Full Access berakhir, kamu bisa memilih paket lagi di sini.",
   "checkout-open-payment":
     "Kamu masih punya pembayaran yang belum selesai. Selesaikan dulu pembayaran itu, atau tunggu sampai waktunya habis, lalu coba lagi.",
   "checkout-paused":
     "Pembelian paket sedang dijeda sementara. Coba lagi beberapa saat lagi, atau hubungi tim Vecalss kalau butuh bantuan.",
+  "checkout-terms":
+    "Centang persetujuan Syarat Pembelian dulu, lalu lanjut ke pembayaran.",
   "checkout-too-many":
     "Kamu sudah beberapa kali memulai pembayaran dalam waktu singkat. Tunggu sebentar, lalu coba lagi.",
   "checkout-unavailable":
@@ -58,6 +66,8 @@ type PricingCheckoutPageModuleProps = {
   referralStatus: ReferralStatus;
   /** Shown with the blocked notice. */
   supportContact: { label: string; url: string };
+  /** What the buyer's tick stands for; sent with the form and checked again on the server. */
+  termsVersion: string;
 };
 
 function ReferralField({
@@ -119,6 +129,7 @@ export default function PricingCheckoutPageModule({
   referralCode,
   referralStatus,
   supportContact,
+  termsVersion,
 }: PricingCheckoutPageModuleProps) {
   const copy = PLAN_COPY[plan];
 
@@ -208,8 +219,32 @@ export default function PricingCheckoutPageModule({
             <ReferralField referralCode={referralCode} status={referralStatus} />
           </div>
 
+          <label
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "mt-6 h-auto items-start py-3")}
+            htmlFor="terms-agree"
+          >
+            <Checkbox
+              className="mt-0.5"
+              id="terms-agree"
+              name="terms"
+              required
+              value={termsVersion}
+            />
+            <span className="text-sm leading-6 text-voyage-ink">
+              Aku sudah membaca dan setuju dengan{" "}
+              <Link
+                className="font-semibold text-voyage-deep underline underline-offset-4"
+                href="/syarat-pembelian"
+                target="_blank"
+              >
+                Syarat Pembelian
+              </Link>
+              .
+            </span>
+          </label>
+
           <button
-            className={cn(buttonVariants({ size: "lg" }), "mt-8 w-full")}
+            className={cn(buttonVariants({ size: "lg" }), "mt-6 w-full")}
             disabled={!checkoutReady}
             type="submit"
           >

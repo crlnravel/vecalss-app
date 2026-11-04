@@ -46,7 +46,7 @@ const secondsUntilNextRun = async (id: string) => {
 };
 const makeDue = (id: string) => prisma.$executeRaw`UPDATE payment_outbox SET next_run_at = now() - interval '1 second' WHERE id = ${id}::uuid`;
 
-const noop: OutboxHandlers = { critical_alert: async () => {}, receipt_email: async () => {} };
+const noop: OutboxHandlers = { access_grant: async () => {}, critical_alert: async () => {}, receipt_email: async () => {} };
 
 async function main() {
   // ---- Queueing is idempotent per business fact ---------------------------------
@@ -210,7 +210,7 @@ async function main() {
     assert.equal(describeReason("late_success_after_expired"), "late success after expired");
     assert.equal(describeReason(null), "alasan tidak tercatat");
 
-    // The receipt is a stub: it completes for a paid order and refuses an unpaid one.
+    // The receipt email is real now: it sends once for a delivered order and refuses an order with no receipt.
     const paid = await makeOrder();
     await deliver(signedEventFor(paid, "payment.succeeded"));
     const receipt = await prisma.paymentOutbox.findFirstOrThrow({ where: { kind: "receipt_email", orderId: paid.id } });
@@ -218,11 +218,12 @@ async function main() {
       await drainOutbox(handlers, { filter: { dedupeKeyPrefix: receipt.dedupeKey } }),
       { dead: 0, done: 1, failed: 0 },
     );
-    assert.equal(sent.length, 2, "nothing is emailed until MS-08 builds receipts");
+    assert.equal(sent.length, 3, "the receipt email went out");
+    assert.match(sent[2].subject, /Struk pembelian Vecalss VCL-/u);
     const unpaid = await makeOrder();
     const premature = await job({ kind: "receipt_email", orderId: unpaid.id });
     assert.deepEqual(await drainOutbox(handlers, { filter }), { dead: 0, done: 0, failed: 1 });
-    assert.match((await reload(premature.id)).lastError ?? "", /not paid/u);
+    assert.match((await reload(premature.id)).lastError ?? "", /no receipt/u);
     await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${premature.id}::uuid`;
   }
 
@@ -235,6 +236,7 @@ async function main() {
 
     const handled: string[] = [];
     const handlers: OutboxHandlers = {
+      access_grant: async () => {},
       critical_alert: async () => {},
       receipt_email: async (queued) => {
         handled.push(queued.id);

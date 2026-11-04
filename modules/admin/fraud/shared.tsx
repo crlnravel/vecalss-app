@@ -37,6 +37,7 @@ function formatDate(value: Date | string | null) {
 const TABS = [
   { href: "/admin/fraud", id: "cases", label: "Kasus" },
   { href: "/admin/fraud/blocks", id: "blocks", label: "Blokir" },
+  { href: "/admin/fraud/orders", id: "orders", label: "Pesanan" },
   { href: "/admin/fraud/report", id: "report", label: "Laporan bulanan" },
 ] as const;
 

@@ -5,6 +5,7 @@ import type { PaymentProviderAdapter } from "../lib/payments/adapter";
 import { PAYMENT_EXPIRY_MINUTES } from "../lib/payments/constants";
 import { createOrderFromIntent, ensurePaymentSession } from "../lib/payments/orders";
 import { STAND_IN_NO_PROXY_EXEMPTION } from "../lib/payments/risk/buyer-ip";
+import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import { handleCheckoutPayPost, type CheckoutPayDeps } from "../lib/pricing/checkout-pay";
 import type { SessionContext } from "../lib/auth/types";
 import {
@@ -108,6 +109,7 @@ async function main() {
         idempotencyKey: randomUUID(),
         plan: "monthly",
         pricingMonth: "2026-11",
+        termsVersion: "test-terms",
       },
     });
     const input = {
@@ -133,9 +135,9 @@ async function main() {
     await assert.rejects(
       () => prisma.$executeRaw`
         INSERT INTO payment_orders (intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
-          amount_rupiah, buyer_ip_source, buyer_ip_exemption, provider, provider_environment, provider_account, expires_at)
+          amount_rupiah, buyer_ip_source, buyer_ip_exemption, terms_version, provider, provider_environment, provider_account, expires_at)
         VALUES (${intent.id}::uuid, ${buyerId}::uuid, ${randomUUID()}, 'monthly', '2026-11', ${packageCode}, 'x',
-          49000, 'unavailable', 'test-fixture', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
+          49000, 'unavailable', 'test-fixture', 'test-terms', 'stand-in', 'local', 'stand-in-local', now() + interval '15 minutes')`,
       /unique|intent_id/iu,
     );
 
@@ -148,6 +150,7 @@ async function main() {
         idempotencyKey: randomUUID(),
         plan: "monthly",
         pricingMonth: "2026-11",
+        termsVersion: "test-terms",
       },
     });
     assert.deepEqual(
@@ -283,7 +286,7 @@ async function main() {
     const submit = () =>
       handleCheckoutPayPost(
         new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key, plan: "monthly" }).toString(),
+          body: new URLSearchParams({ key, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "192.0.2.1" },
           method: "POST",
         }),
@@ -316,7 +319,7 @@ async function main() {
     const secondKey = randomUUID();
     const proxiedResponse = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-        body: new URLSearchParams({ key: secondKey, plan: "monthly" }).toString(),
+        body: new URLSearchParams({ key: secondKey, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
         headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "10.9.9.9, 192.0.2.55" },
         method: "POST",
       }),

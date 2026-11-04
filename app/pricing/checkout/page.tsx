@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { RoleName } from "@/generated/prisma/client";
 import { findActiveReferralCode } from "@/lib/affiliator/service";
 import { getSessionContext, hasRole } from "@/lib/auth/session";
+import { hasActiveFullAccess } from "@/lib/billing/service";
 import { getSupportContact } from "@/lib/config";
+import { PURCHASE_TERMS } from "@/lib/fulfillment/terms";
 import { isLookupSecretAvailable } from "@/lib/fraud/tokens";
 import { getPaymentProvider } from "@/lib/payments/provider";
 import { isPolicyInForce } from "@/lib/payments/risk/policy";
@@ -73,11 +75,18 @@ export default async function PricingCheckoutPage({
     || getPaymentProvider() === null
     || !isLookupSecretAvailable()
     || !(await isPolicyInForce());
-  const checkoutReady = !paused && getPackageCode(plan, entry) !== null;
+  // Monthly Access is not sold while Full Access runs; the server refuses it
+  // too, this only says so before the buyer fills anything in.
+  const fullAccessRunning = plan === "monthly" && (await hasActiveFullAccess(prisma, session.user.id));
+  const checkoutReady = !paused && !fullAccessRunning && getPackageCode(plan, entry) !== null;
   const requestedNotice = firstValue(params.notice);
   const notice: CheckoutNotice | null = paused
     ? "checkout-paused"
-    : requestedNotice === "checkout-blocked"
+    : fullAccessRunning
+      ? "checkout-full-access"
+      : requestedNotice === "checkout-blocked"
+      || requestedNotice === "checkout-terms"
+      || requestedNotice === "checkout-full-access"
       || requestedNotice === "checkout-unavailable"
       || requestedNotice === "checkout-changed"
       || requestedNotice === "checkout-expired"
@@ -107,6 +116,7 @@ export default async function PricingCheckoutPage({
       referralCode={referral.code}
       referralStatus={referral.status}
       supportContact={getSupportContact()}
+      termsVersion={PURCHASE_TERMS.version}
     />
   );
 }

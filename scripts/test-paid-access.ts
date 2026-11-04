@@ -306,7 +306,8 @@ async function main() {
   await assert.rejects(() => prisma.$executeRaw`DELETE FROM billing_access_events WHERE id = ${row.id}::uuid`, /append-only/u);
   await assert.rejects(() => prisma.billingAccessEvent.update({ data: { reason: "edited" }, where: { id: row.id } }), /append-only/u);
   await assert.rejects(() => prisma.billingAccessEvent.deleteMany({ where: { studentId: student } }), /append-only/u);
-  await assert.rejects(() => prisma.$executeRaw`TRUNCATE billing_access_events`, /append-only/u);
+  // Receipts and usage events now reference the history, so Postgres refuses the truncate before the trigger runs.
+  await assert.rejects(() => prisma.$executeRaw`TRUNCATE billing_access_events`, /append-only|cannot truncate a table referenced/u);
   assert.equal((await prisma.billingAccessEvent.findUniqueOrThrow({ where: { id: row.id } })).reason, "pembayaran dikonfirmasi");
   // An admin change always names the admin and a reason, even if a caller skips the service.
   const account = await prisma.billingAccount.findUniqueOrThrow({ where: { studentId: student } });

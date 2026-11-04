@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import { isAdminStudentPreviewEnabled } from "@/lib/config";
-import { studentMayUsePaidSurfaces } from "@/lib/billing/enforcement";
+import { enterPaidSurface } from "@/lib/billing/enforcement";
 import {
   AdminStudentPreviewUnavailableError,
   createAdminStudentPreviewContext,
@@ -153,7 +153,7 @@ async function requireStudentSession({
     redirect("/onboarding");
   }
 
-  if (!allowUnpaid && !(await studentMayUsePaidSurfaces(session.user.id))) {
+  if (!allowUnpaid && !(await enterPaidSurface(session.user.id))) {
     redirect(PAID_ACCESS_PATH);
   }
 

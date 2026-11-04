@@ -105,6 +105,8 @@
     "test:payment-outbox": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-outbox.ts",
     "test:payment-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-provider.ts",
     "test:payment-reconcile": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-payment-reconcile.ts",
+    "test:fulfillment": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-fulfillment.ts",
+    "test:dispute-export": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-dispute-export.ts",
     "test:fraud-blocks": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-fraud-blocks.ts",
     "test:fraud-cases": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-fraud-cases.ts",
     "test:risk-limits": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-risk-limits.ts",

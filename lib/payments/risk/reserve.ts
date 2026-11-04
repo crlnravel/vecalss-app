@@ -1,5 +1,6 @@
 import "server-only";
 
+import { hasActiveFullAccess } from "@/lib/billing/service";
 import { getPlanPrice, isPricingPlanId, PRICING_SCHEDULE } from "@/lib/pricing/schedule";
 
 import { checkBlocks } from "@/lib/fraud/blocks";
@@ -20,6 +21,7 @@ type RefusalReason =
   | "blocked"
   | "blocks_unavailable"
   | "daily_limit"
+  | "full_access_active"
   | "hourly_attempts"
   | "ip_attempts"
   | "missing_ip"
@@ -84,7 +86,7 @@ async function countRows(rows: PromiseLike<Array<{ n: number }>>) {
  * database time; no cache is involved, so an outage elsewhere cannot lift a cap.
  *
  * Checks, in order: a policy is in force; the amount equals the server quote;
- * a buyer IP exists (or the local stand-in is exempt); no fraud block is in
+ * a Monthly checkout is refused while Full Access runs; a buyer IP exists (or the local stand-in is exempt); no fraud block is in
  * force for the account, its email or phone, the device cookie or the IP (MS-07);
  * one open unpaid payment
  * at a time; unpaid checkouts per account per hour; checkout starts per IP per
@@ -107,6 +109,12 @@ async function checkCheckoutAllowed(
 
   if (request.amountRupiah !== expectedQuoteRupiah(request.plan, request.pricingMonth)) {
     return refuse("amount_mismatch", policy, null);
+  }
+
+  // Monthly Access adds nothing to a running Full Access, so it is not sold
+  // then (MS-08). Read under the account lock, before any payable session.
+  if (request.plan === "monthly" && (await hasActiveFullAccess(tx, request.buyerId))) {
+    return refuse("full_access_active", policy, null);
   }
 
   if (!request.buyerIp && !request.buyerIpExemption) return refuse("missing_ip", policy, null);

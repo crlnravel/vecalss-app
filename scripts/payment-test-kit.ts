@@ -19,6 +19,8 @@ if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
 }
 
 const APP_ORIGIN = "https://app.example.test";
+/** The terms version fixture intents and orders carry; checkout needs one on every order. */
+const TEST_TERMS_VERSION = "test-terms";
 const TEST_SECRET = "payment-suite-secret";
 const runId = randomUUID().slice(0, 8);
 
@@ -66,24 +68,34 @@ function randomBuyerIp() {
 type MakeOrderOptions = {
   amountRupiah?: number;
   buyerId?: string;
+  /** Monthly (default) or Full Access, at the November 2026 price. */
+  plan?: "full" | "monthly";
+  /** The terms version on the intent and order; defaults to the fixture's. */
+  termsVersion?: string;
   /** Insert an order that is already past its time to pay, as if created 20 minutes ago. */
   pastExpiry?: boolean;
   referral?: boolean;
   session?: boolean;
 };
 
-async function makeIntent(buyerId: string, amountRupiah: number, referralCode: string | null) {
+async function makeIntent(
+  buyerId: string,
+  amountRupiah: number,
+  referralCode: string | null,
+  options: { plan?: "full" | "monthly"; termsVersion?: string | null } = {},
+) {
   return prisma.checkoutIntent.create({
     data: {
       amountRupiah,
       buyerId,
       expiresAt: new Date(Date.now() + 30 * 60_000),
       idempotencyKey: randomUUID(),
-      plan: "monthly",
+      plan: options.plan ?? "monthly",
       pricingMonth: "2026-11",
       referralCode,
+      termsVersion: options.termsVersion === undefined ? TEST_TERMS_VERSION : options.termsVersion,
     },
-    select: { amountRupiah: true, id: true, plan: true, pricingMonth: true, referralCode: true },
+    select: { amountRupiah: true, id: true, plan: true, pricingMonth: true, referralCode: true, termsVersion: true },
   });
 }
 
@@ -92,7 +104,11 @@ async function makeOrder(options: MakeOrderOptions = {}) {
   const buyerId = options.buyerId ?? (await makeBuyer());
   const packageCode = await getPackageCode();
   const referral = options.referral ? await getReferral() : null;
-  const intent = await makeIntent(buyerId, options.amountRupiah ?? 49_000, referral?.referralCode ?? null);
+  const plan = options.plan ?? "monthly";
+  const intent = await makeIntent(buyerId, options.amountRupiah ?? (plan === "full" ? 200_000 : 49_000), referral?.referralCode ?? null, {
+    plan,
+    termsVersion: options.termsVersion,
+  });
 
   if (options.pastExpiry) {
     const reference = randomUUID().replaceAll("-", "");
@@ -101,11 +117,11 @@ async function makeOrder(options: MakeOrderOptions = {}) {
       INSERT INTO payment_orders (
         intent_id, buyer_id, reference, plan, pricing_month, package_code, package_name,
         amount_rupiah, currency, referral_code, affiliator_profile_id, buyer_ip_source, buyer_ip_exemption,
-        provider, provider_environment, provider_account, created_at, expires_at
+        terms_version, provider, provider_environment, provider_account, created_at, expires_at
       ) VALUES (
         ${intent.id}::uuid, ${buyerId}::uuid, ${reference}, 'monthly', '2026-11', ${packageCode}, ${packageName},
         ${intent.amountRupiah}, 'IDR', ${intent.referralCode}, ${referral?.id ?? null}::uuid, 'unavailable', 'test-fixture',
-        ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
+        ${TEST_TERMS_VERSION}, ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
         now() - interval '20 minutes', now() - interval '5 minutes'
       )
     `;
@@ -227,6 +243,7 @@ const expectedAdapterIdentity = { account: provider.merchantAccount, environment
 export {
   APP_ORIGIN,
   TEST_SECRET,
+  TEST_TERMS_VERSION,
   deliver,
   expectedAdapterIdentity,
   failLeftoverOrders,

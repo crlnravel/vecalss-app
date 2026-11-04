@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Check, Info } from "@/lib/icons";
 import {
@@ -145,10 +147,22 @@ export default function PricingPageModule({
         ) : null}
 
         {entry ? (
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
-            <PlanCard entry={entry} plan="monthly" referralCode={referralCode} />
-            <PlanCard entry={entry} plan="full" referralCode={referralCode} />
-          </div>
+          <>
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              <PlanCard entry={entry} plan="monthly" referralCode={referralCode} />
+              <PlanCard entry={entry} plan="full" referralCode={referralCode} />
+            </div>
+            <p className="mt-8 text-center text-sm leading-7 text-voyage-deep/78">
+              Dengan membeli, kamu setuju dengan{" "}
+              <Link
+                className="font-semibold text-voyage-deep underline underline-offset-4"
+                href="/syarat-pembelian"
+              >
+                Syarat Pembelian
+              </Link>
+              .
+            </p>
+          </>
         ) : (
           <section
             aria-label="Harga belum tersedia"

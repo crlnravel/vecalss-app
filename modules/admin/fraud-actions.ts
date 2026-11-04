@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdminSession } from "@/lib/auth/access";
+import { createDisputeExport, logRefusedExport } from "@/lib/disputes/export";
 import { decideAppeal, fileAppeal, reopenAppeal } from "@/lib/fraud/appeals";
 import { requireAdmin, requireOwner } from "@/lib/fraud/authority";
+import { FraudAuthorityError } from "@/lib/fraud/errors";
 import { createManualBlock, liftBlock, renewBlock } from "@/lib/fraud/blocks";
 import { acknowledgeCase, closeCase, escalateCase, linkBlockToCase, reopenCase } from "@/lib/fraud/cases";
 import { isBlockReasonCode, BLOCK_TYPES, type FraudBlockType } from "@/lib/fraud/constants";
@@ -178,6 +180,7 @@ export {
   acknowledgeCaseAction,
   closeCaseAction,
   createBlockAction,
+  createDisputeExportAction,
   decideAppealAction,
   escalateCaseAction,
   fileAppealAction,
@@ -187,3 +190,33 @@ export {
   reopenCaseAction,
   renewBlockAction,
 };
+
+
+/**
+ * Builds a dispute export for one order. Owner only, with a verified second
+ * factor and a written reason; the server decides, whatever the page showed. The
+ * one-use download link comes back in the address of the order page, where it is
+ * shown once and works once, for a few minutes, only for the owner's session.
+ */
+async function createDisputeExportAction(form: FormData) {
+  const session = await requireAdminSession();
+  const orderId = text(form, "orderId");
+  const page = /^[0-9a-f-]{36}$/iu.test(orderId) ? `/admin/fraud/orders/${orderId}` : "/admin/fraud/orders";
+  let outcome: Record<string, string>;
+
+  try {
+    const owner = requireOwner(session);
+    const created = await createDisputeExport(owner, { orderId, reason: text(form, "reason") });
+    outcome = { done: "Paket bukti dibuat.", link: created.token };
+  } catch (error) {
+    if (error instanceof FraudAuthorityError) {
+      await logRefusedExport({ actorUserId: session.user.id, orderId: /^[0-9a-f-]{36}$/iu.test(orderId) ? orderId : null, reason: `create_${error.code}` });
+    } else if (!(error instanceof Error && error.name.startsWith("Fraud"))) {
+      serverLogger.error("dispute.export.failed", error, { area: "fraud" });
+    }
+    outcome = { error: describeFraudError(error) };
+  }
+
+  revalidatePath("/admin/fraud", "layout");
+  redirect(pathWith(page, outcome));
+}

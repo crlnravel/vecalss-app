@@ -8,8 +8,18 @@ import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 type PaymentStatus = "expired" | "failed" | "paid" | "pending" | "review";
 
+/** What the buyer received for a paid order. Absent for orders that are not paid. */
+type PaymentDelivery = {
+  /** Formatted for the reader, for example "4 Desember 2026". */
+  validUntilLabel: string | null;
+  planLabel: string | null;
+  receiptNumber: string | null;
+  status: "delivered" | "pending";
+};
+
 type PaymentStatusPageModuleProps = {
   amountRupiah: number;
+  delivery?: PaymentDelivery | null;
   /** Formatted for the reader, for example "14.35 WIB". */
   expiresAtLabel: string;
   packageName: string;
@@ -46,17 +56,32 @@ const COPY: Record<PaymentStatus, { body: (name: string, amount: string, until: 
 
 export default function PaymentStatusPageModule({
   amountRupiah,
+  delivery = null,
   expiresAtLabel,
   packageName,
   payUrl,
   status,
 }: PaymentStatusPageModuleProps) {
-  const copy = COPY[status];
+  const paidCopy = status === "paid" && delivery
+    ? delivery.status === "delivered"
+      ? {
+          body: `Pembayaran ${formatRupiah(amountRupiah)} untuk ${packageName} sudah kami terima. ${delivery.planLabel ?? "Aksesmu"} aktif sampai ${delivery.validUntilLabel ?? "-"}.${delivery.receiptNumber ? ` Nomor struk: ${delivery.receiptNumber}.` : ""}`,
+          title: "Pembayaran diterima, aksesmu aktif",
+        }
+      : {
+          body: `Pembayaran ${formatRupiah(amountRupiah)} untuk ${packageName} sudah kami terima. Aksesmu sedang disiapkan. Kalau belum aktif dalam beberapa menit, hubungi tim Vecalss.`,
+          title: "Pembayaran diterima, aksesmu sedang disiapkan",
+        }
+    : null;
+  const copy = paidCopy
+    ? { body: () => paidCopy.body, title: paidCopy.title }
+    : COPY[status];
   const needsAttention = status === "failed" || status === "expired" || status === "review";
 
   return (
     <main className="reference-landing min-h-screen overflow-x-clip bg-[#eef2f0] text-[var(--voyage-deep)]">
       {status === "pending" ? <meta content="5" httpEquiv="refresh" /> : null}
+      {status === "paid" && delivery?.status === "pending" ? <meta content="10" httpEquiv="refresh" /> : null}
       <MarketingHeader currentPath="/pricing" layout="landing" />
 
       <div className="mx-auto w-full max-w-[560px] px-5 pb-24 pt-32 md:pt-40">
@@ -100,4 +125,4 @@ export default function PaymentStatusPageModule({
   );
 }
 
-export type { PaymentStatus };
+export type { PaymentDelivery, PaymentStatus };

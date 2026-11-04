@@ -24,9 +24,8 @@ checkout stays closed.
    buyer, package, merchant account and environment, and the payment id against
    the order.
 5. One transaction commits the event record, the order transition, the
-   `package_purchases` summary (affiliator conversions), an audit event and the
-   outbox jobs. `lib/payments/inbox.ts` has a marked place where MS-08 adds the
-   access grant to this same transaction.
+   `package_purchases` summary (affiliator conversions), the access grant and
+   receipt (MS-08, below), an audit event and the outbox jobs.
 
 The browser's return page (`/pricing/checkout/status/<reference>`) only
 displays the order's state. It never proves a payment.
@@ -68,7 +67,8 @@ maintenance job (`/api/cron/daily-maintenance`) drains whatever is left and
 reconciles orders still open past their expiry through the adapter's status
 lookup. Both are idempotent and leased: a job is claimed with a 2-minute lease
 (`FOR UPDATE SKIP LOCKED`), retried after 1, 2, 4... minutes (cap 6 hours), and
-parked as `dead` after 8 attempts. Receipt emails are a stub until MS-08.
+parked as `dead` after 8 attempts. Kinds: `critical_alert`, `receipt_email` and
+`access_grant` (the retry of a grant that could not happen, see MS-08).
 
 ## The stand-in provider
 
@@ -224,9 +224,8 @@ closure. Immediate signals: `payment_quarantined`, `payment_review`,
 accounts paying within an hour), `repeated_payment_failures` (3+ failed or
 expired in a day), `volume_spike` (3x the previous seven days' daily average,
 at least 6 orders), `block_ending` (manual blocks ending or due for review
-within 3 days). The device signal also creates the only automatic block. The
-MS-08 `capture_without_access` and MS-09 `refund_stalled` signals are declared
-in `lib/fraud/constants.ts`; those tickets only call `openFraudCase`.
+within 3 days). The device signal also creates the only automatic block. `capture_without_access` is raised by MS-08 (below); the MS-09 `refund_stalled`
+signal is declared in `lib/fraud/constants.ts` and only needs `openFraudCase`.
 
 **Appeals.** One per block. The owner records it (the buyer reaches support
 through the contact on the blocked screen) and decides within three working days
@@ -238,11 +237,64 @@ written to the block's case.
 `/admin/fraud/report`, a monthly page of aggregates with no raw IP, email, phone,
 device or account id.
 
+## Delivery, receipts, terms and the dispute export (MS-08 phase A)
+
+**Grant in the payment transaction.** `fulfillPaidOrder` (`lib/fulfillment/grant.ts`)
+runs inside the transaction that accepts a payment: the MS-04 grant
+(`grantPaidAccess` in `lib/billing/service.ts`, source `payment`, key
+`order:<id>`), the receipt, the in-app notification, and the receipt email job
+commit or roll back with the payment. Plan rules: Monthly extends one calendar
+month from the current end while access runs, otherwise from now; Full Access
+ends on `FULL_ACCESS_ENDS_ON_<TARGET>` or keeps a later end the account already
+has; Monthly is refused at checkout while Full Access runs (`full_access_active`
+in `lib/payments/risk/reserve.ts`, shown as a calm notice).
+
+**When the grant cannot happen** (Full Access date unset or passed, access
+paused, unknown plan or student, or an unexpected error inside a savepoint) the
+order stays `paid`, the receipt stays `pending` with a reason, and an
+`access_grant` outbox job retries. The daily maintenance step
+(`runFulfillmentMaintenance`) retries every pending receipt itself, then opens
+an MS-07 `capture_without_access` case and queues a critical alert for any
+receipt still pending after 1 hour (database time). An order held for review
+(blocked buyer, late success, second capture) gets no receipt and no grant.
+
+**Receipt.** `payment_receipts`: one per paid order, written pending, moved to
+`delivered` once (with the grant event, window and time), never deleted.
+`receipt_deliveries` is append-only: the in-app notification (the delivery
+evidence of G5) and each email attempt, with at most one `sent` row per channel.
+The email goes through Resend (`lib/fulfillment/receipt-email.ts`; outside
+production only to `EMAIL_DEV_REDIRECT`); its idempotency key is the receipt.
+
+**Terms.** `lib/fulfillment/terms.ts` holds the "Syarat Pembelian" text and its
+version; the public page is `/syarat-pembelian`, linked from pricing and
+checkout, and marked as a draft until `status` is set to `approved` by the owner.
+Checkout needs the tick; the intent and the order store the version, and a
+trigger refuses an order whose intent has none. Change the text and the version
+together.
+
+**Usage evidence.** `fulfillment_usage_events`: written by `recordPaidUse` where
+a student enters a paid surface (`enterPaidSurface`, whether or not
+`PAID_ACCESS_ENFORCED` is on; the switch only decides who is let in), at most
+one row per grant per Asia/Jakarta day, only for access that came from a payment
+and only while the student's current access is active (paused or revoked access
+records nothing). Nothing else writes it.
+
+**Dispute export.** `/admin/fraud/orders/<id>` (a "Pesanan" tab): the owner
+(`FRAUD_OWNER_EMAIL`, verified second factor) gives a written reason and gets a
+packet for that one order: manifest, financial timeline, grant, receipt and use
+evidence, IP and device provenance, the accepted terms, refund records (empty
+until MS-09), communications, case summaries, and a SHA-256 over the sorted-key
+JSON of the packet. Other students' data and case evidence are left out. Every
+export writes a `dispute_exports` row and an audit event in one transaction. The
+download link (`/api/admin/dispute-exports/<token>`) works once, for 10 minutes,
+only in an owner session; the packet is dropped from the row when it is handed
+over or expires, and the row, reason and digest stay.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
 `test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
-`test:fraud-blocks`, `test:fraud-cases`, plus `test:checkout-intent`,
+`test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`, plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`. The
 payment suites only run against the local database. Orders and payment events
 cannot be deleted, so every run leaves its own rows behind there; reseed

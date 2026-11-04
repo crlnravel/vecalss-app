@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
@@ -427,7 +428,7 @@ async function postThroughHandler(buyerId: string, options: { cookie?: string; o
   if (options.cookie) headers.cookie = options.cookie;
   return handleCheckoutPayPost(
     new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-      body: new URLSearchParams({ key: randomUUID(), plan: "monthly" }).toString(),
+      body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
       headers,
       method: "POST",
     }),

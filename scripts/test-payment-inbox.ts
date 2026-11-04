@@ -168,7 +168,7 @@ async function main() {
     assert.equal(snapshot.order.status, "paid");
     assert.equal(snapshot.purchases, 1);
     assert.equal(snapshot.events, 1);
-    assert.equal(snapshot.audits, 2, "one for the order being created, one for it being paid");
+    assert.equal(snapshot.audits, 3, "created, paid, and delivered");
     assert.equal(snapshot.outbox, 1);
   }
 
