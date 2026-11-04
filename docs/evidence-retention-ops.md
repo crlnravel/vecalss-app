@@ -33,6 +33,15 @@ in a migration, in git, or in chat.
 
    Without `--yes` it only says what it would do. It never prints the password,
    and it prints the connection string with the password left out.
+
+   Reusing a login that already exists is checked first. If it is a member of any
+   role other than `vecalss_runtime` (above all `vecalss_retention`), or owns any
+   table or other object, the script lists that and changes nothing, not even the
+   password. `--revoke-extra` removes extra role memberships; it never moves
+   ownership, so a login that owns something needs a new name. At the end the
+   script connects as the login and runs `retention_role_check()`; it reports
+   success only when that passes. Before the migrations exist the check cannot
+   run, and the script says so: run it again after migrating.
 3. Build the app's connection string from that output, put the password in, and
    set it as `DATABASE_URL` in Vercel (Production). Use Neon's pooled host for the
    app, as before. Set `MIGRATE_DATABASE_URL` to the owner's direct connection

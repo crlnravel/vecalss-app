@@ -121,6 +121,7 @@
     "test:retention-maintenance": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-maintenance.ts",
     "test:retention-holds": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-holds.ts",
     "test:retention-leaks": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-leaks.ts",
+    "test:retention-provision": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-provision.ts",
     "test:retention-reset-guard": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-reset-guard.ts",
     "test:retention-daily": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-retention-daily.ts",
     "test:tryout-package-invariants": "node scripts/test-tryout-package-invariants.mjs",
