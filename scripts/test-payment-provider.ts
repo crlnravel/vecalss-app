@@ -145,7 +145,7 @@ async function main() {
       const origin = new URL(String(env.APP_BASE_URL)).origin;
       return handleCheckoutPayPost(
         new Request(`${origin}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+          body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: randomUUID(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin },
           method: "POST",
         }),

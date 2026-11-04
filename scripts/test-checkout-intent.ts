@@ -77,8 +77,14 @@ function postRequest(
   const headers: Record<string, string> = { "content-type": contentType, "x-forwarded-for": "192.0.2.10" };
   if (origin !== null) headers.origin = origin;
   return new Request(PAY_URL, {
-    // Every checkout form carries the buyer's agreement; a test that wants it absent says so.
-    body: new URLSearchParams({ terms: PURCHASE_TERMS.version, ...fields }).toString(),
+    // Every checkout form carries the buyer's agreement and the month and price it showed (November's,
+    // unless a test says otherwise); a test that wants any of them absent or different says so.
+    body: new URLSearchParams({
+      quoted_amount: fields.plan === "full" ? "200000" : "49000",
+      quoted_month: "2026-11",
+      terms: PURCHASE_TERMS.version,
+      ...fields,
+    }).toString(),
     headers,
     method: "POST",
   });
@@ -344,19 +350,96 @@ async function main() {
     const december = new Date("2026-12-20T10:00:00+07:00");
     const freshKey = createCheckoutIdempotencyKey();
     const fresh = await handleCheckoutPayPost(
-      postRequest({ key: freshKey, plan: "monthly" }),
+      postRequest({ key: freshKey, plan: "monthly", quoted_amount: "59000", quoted_month: "2026-12" }),
       deps({ now: () => december }),
     );
     assert.equal(location(fresh).origin, "https://pay.example.test");
     assert.equal((await orderOf(alice.id, freshKey)).amountRupiah, 59_000);
     assert.equal(await intentCount(), 4);
 
+    // ---- The first submission is bound to the price the page showed (P-03) ----------------
+    {
+      const footprint = async () => ({
+        intents: await prisma.checkoutIntent.count({ where: { buyerId: alice.id } }),
+        orders: await prisma.paymentOrder.count({ where: { buyerId: alice.id } }),
+        reservations: await prisma.riskReservation.count({ where: { userId: alice.id } }),
+      });
+      const expectPriceChanged = async (response: Response, label: string) => {
+        const target = location(response);
+        assert.equal(target.origin, APP_ORIGIN, label);
+        assert.equal(target.pathname, "/pricing/checkout", label);
+        assert.equal(target.searchParams.get("notice"), "checkout-price-changed", label);
+        assert.equal(target.searchParams.get("plan"), "monthly", label);
+      };
+      const start = await footprint();
+
+      // A page rendered in November, submitted just after the Jakarta month boundary: nothing is written.
+      const boundaryKey = createCheckoutIdempotencyKey();
+      await expectPriceChanged(
+        await handleCheckoutPayPost(postRequest({ key: boundaryKey, plan: "monthly" }), deps({ now: () => earlyDecember })),
+        "after the month boundary",
+      );
+      assert.deepEqual(await footprint(), start, "no intent, no order, no reservation");
+
+      // The same moment, one minute before the boundary, the November quote still stands.
+      const justBefore = new Date("2026-11-30T23:59:00+07:00");
+      const beforeKey = createCheckoutIdempotencyKey();
+      assert.equal(
+        location(await handleCheckoutPayPost(postRequest({ key: beforeKey, plan: "monthly" }), deps({ now: () => justBefore }))).origin,
+        "https://pay.example.test",
+      );
+      assert.equal((await orderOf(alice.id, beforeKey)).amountRupiah, 49_000);
+      assert.equal((await orderOf(alice.id, beforeKey)).pricingMonth, "2026-11");
+
+      // Tampering with the hidden fields can neither keep an old price nor claim a new one.
+      const tampered: Array<[string, Record<string, string>, Date]> = [
+        ["old month claimed after the boundary", { quoted_amount: "49000", quoted_month: "2026-11" }, earlyDecember],
+        ["old amount under the new month", { quoted_amount: "49000", quoted_month: "2026-12" }, earlyDecember],
+        ["future price claimed in November", { quoted_amount: "59000", quoted_month: "2026-12" }, NOVEMBER],
+        ["a token amount", { quoted_amount: "1", quoted_month: "2026-11" }, NOVEMBER],
+        ["a negative amount", { quoted_amount: "-49000", quoted_month: "2026-11" }, NOVEMBER],
+        ["a decimal amount", { quoted_amount: "49000.5", quoted_month: "2026-11" }, NOVEMBER],
+        ["a malformed month", { quoted_amount: "49000", quoted_month: "november" }, NOVEMBER],
+        ["the other plan's price", { quoted_amount: "200000", quoted_month: "2026-11" }, NOVEMBER],
+      ];
+      for (const [label, fields, appNow] of tampered) {
+        await expectPriceChanged(
+          await handleCheckoutPayPost(postRequest({ key: createCheckoutIdempotencyKey(), plan: "monthly", ...fields }), deps({ now: () => appNow })),
+          label,
+        );
+      }
+      // A form that names no quote at all cannot be confirmed either.
+      const unquoted = new Request(PAY_URL, {
+        body: new URLSearchParams({ key: createCheckoutIdempotencyKey(), plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "192.0.2.10" },
+        method: "POST",
+      });
+      await expectPriceChanged(await handleCheckoutPayPost(unquoted, deps({ now: () => NOVEMBER })), "no quote");
+      const afterTampering = await footprint();
+      assert.deepEqual(
+        { intents: afterTampering.intents, orders: afterTampering.orders },
+        { intents: start.intents + 1, orders: start.orders + 1 },
+        "only the one honest November submission wrote anything",
+      );
+
+      // The buyer who is sent back sees the new price and confirms it: the order uses the server's.
+      const confirmKey = createCheckoutIdempotencyKey();
+      const confirmed = await handleCheckoutPayPost(
+        postRequest({ key: confirmKey, plan: "monthly", quoted_amount: "59000", quoted_month: "2026-12" }),
+        deps({ now: () => earlyDecember }),
+      );
+      assert.equal(location(confirmed).origin, "https://pay.example.test");
+      const confirmedOrder = await orderOf(alice.id, confirmKey);
+      assert.equal(confirmedOrder.amountRupiah, 59_000);
+      assert.equal(confirmedOrder.pricingMonth, "2026-12");
+    }
+
     // Another buyer cannot ride on the same key; a fresh key for the same buyer is a new intent.
     session = sessionFor(bob.id, [RoleName.student]);
     await handleCheckoutPayPost(postRequest({ key: first, plan: "full" }), deps());
     session = sessionFor(alice.id, [RoleName.student]);
     assert.equal(await prisma.checkoutIntent.count({ where: { buyerId: bob.id } }), 1);
-    assert.equal(await intentCount(), 5);
+    assert.equal(await intentCount(), 7);
 
     // Kill switch: no new intent (and no redirect to the payment service); config parsing fails closed.
     for (const [value, paused] of [["", false], ["0", false], ["false", false], ["OFF", false], ["1", true], ["on", true], ["yes please", true]] as const) {

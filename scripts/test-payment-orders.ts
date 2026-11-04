@@ -322,7 +322,7 @@ async function main() {
     const submit = () =>
       handleCheckoutPayPost(
         new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-          body: new URLSearchParams({ key, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+          body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
           headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "192.0.2.1" },
           method: "POST",
         }),
@@ -355,7 +355,7 @@ async function main() {
     const secondKey = randomUUID();
     const proxiedResponse = await handleCheckoutPayPost(
       new Request(`${APP_ORIGIN}/pricing/checkout/pay`, {
-        body: new URLSearchParams({ key: secondKey, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
+        body: new URLSearchParams({ quoted_amount: "49000", quoted_month: "2026-11", key: secondKey, plan: "monthly", terms: PURCHASE_TERMS.version }).toString(),
         headers: { "content-type": "application/x-www-form-urlencoded", origin: APP_ORIGIN, "x-forwarded-for": "10.9.9.9, 192.0.2.55" },
         method: "POST",
       }),

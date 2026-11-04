@@ -26,6 +26,7 @@ type CheckoutNotice =
   | "checkout-full-access"
   | "checkout-open-payment"
   | "checkout-paused"
+  | "checkout-price-changed"
   | "checkout-terms"
   | "checkout-too-many"
   | "checkout-unavailable";
@@ -45,6 +46,8 @@ const NOTICE_COPY: Record<CheckoutNotice, string> = {
     "Kamu masih punya pembayaran yang belum selesai. Selesaikan dulu pembayaran itu, atau tunggu sampai waktunya habis, lalu coba lagi.",
   "checkout-paused":
     "Pembelian paket sedang dijeda sementara. Coba lagi beberapa saat lagi, atau hubungi tim Vecalss kalau butuh bantuan.",
+  "checkout-price-changed":
+    "Harga paket ini sudah berubah sejak halamanmu dibuka, jadi belum ada pembayaran yang kami buat. Lihat harga terbarunya di bawah, lalu lanjutkan kalau kamu setuju.",
   "checkout-terms":
     "Centang persetujuan Syarat Pembelian dulu, lalu lanjut ke pembayaran.",
   "checkout-too-many":
@@ -190,6 +193,8 @@ export default function PricingCheckoutPageModule({
         >
           <input name="plan" type="hidden" value={plan} />
           <input name="key" type="hidden" value={intentKey} />
+          <input name="quoted_month" type="hidden" value={entry.month} />
+          <input name="quoted_amount" type="hidden" value={getPlanPrice(entry, plan)} />
 
           <div className="flex items-start justify-between gap-4">
             <div>
