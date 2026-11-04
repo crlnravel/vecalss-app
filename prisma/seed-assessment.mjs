@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import { createHash, randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import pg from "pg";
@@ -2181,6 +2183,7 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed-assessment");
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
   try {

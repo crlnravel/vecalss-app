@@ -11,6 +11,7 @@ import { FraudAuthorityError } from "@/lib/fraud/errors";
 import { getTermsByVersion } from "@/lib/fulfillment/terms";
 import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
 import { prisma } from "@/lib/prisma";
+import { getOrderRetention } from "@/lib/retention/status";
 
 import { sealPacket, sha256Hex } from "./canonical";
 
@@ -19,7 +20,9 @@ type Tx = Prisma.TransactionClient;
 /** How long a download link works. Short on purpose (G4: retrievable fast, exposed briefly). */
 const EXPORT_LINK_MINUTES = 10;
 
-const PACKET_VERSION = 2;
+// Version 3 adds the retention section. Earlier packets keep their own digest; verification
+// reads the file alone, so adding a section never invalidates an export made before.
+const PACKET_VERSION = 3;
 
 type OrderRow = {
   affiliatorReferralCode: string | null;
@@ -61,6 +64,30 @@ const REDACTIONS = [
   "Nilai pengenal perangkat yang disimpan hanya berupa token pencarian acak, bukan nilai asli.",
   "Tujuan transfer pengembalian dana hanya berupa nomor yang disamarkan. Catatan tulisan admin ikut disertakan apa adanya.",
 ] as const;
+
+const IP_NOTES = {
+  kept: "Alamat IP dan perangkat pembeli masih disimpan dan ada di bagian asal-usul.",
+  none: "Tidak ada alamat IP atau perangkat yang tercatat untuk pesanan ini.",
+  removed: "Alamat IP dan perangkat pembeli sudah dihapus sesuai kebijakan retensi. Bagian asal-usul tidak memuat nilainya.",
+} as const;
+
+/** Says whether the IP and device sections were kept or already removed, and why the record is still here. */
+async function describeRetention(tx: Tx, orderId: string) {
+  const retention = await getOrderRetention(orderId, tx);
+  if (!retention || retention.kind !== "present") return { ipAndDevice: { note: IP_NOTES.none, state: "none" as const } };
+
+  return {
+    held: retention.held,
+    ipAndDevice: {
+      endsAt: retention.ip.endsAt,
+      note: IP_NOTES[retention.ip.state],
+      removedAt: retention.ip.scrubbedAt,
+      state: retention.ip.state,
+    },
+    openCase: retention.caseOpen,
+    orderPeriodEndsAt: retention.periodEndsAt,
+  };
+}
 
 /**
  * Collects the genuine evidence of one order into a plain object. Everything
@@ -280,6 +307,7 @@ async function collectPacket(tx: Tx, orderId: string) {
       sessionsOpenAtCheckout: sessions,
     },
     receipt,
+    retention: await describeRetention(tx, orderId),
     refunds: {
       note: refundRecords.length === 0 ? "Tidak ada permintaan pengembalian dana yang tercatat untuk pesanan ini." : null,
       records: refundRecords,
@@ -346,7 +374,7 @@ async function createDisputeExport(owner: OwnerContext, input: CreateExportInput
     if (!collected) throw new FraudValidationError("not_found", "The order was not found.");
 
     const [{ now }] = await tx.$queryRaw<Array<{ now: Date }>>`SELECT now() AS now`;
-    const sections = ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "acceptedTerms", "refunds", "disputes", "communications", "cases"];
+    const sections = ["order", "financialTimeline", "payment", "grant", "receipt", "usage", "provenance", "retention", "acceptedTerms", "refunds", "disputes", "communications", "cases"];
     const { counts, ...evidence } = collected;
     const sealed = sealPacket({
       manifest: {

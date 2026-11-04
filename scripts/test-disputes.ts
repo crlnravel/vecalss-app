@@ -371,7 +371,7 @@ async function main() {
     const fileText = (await prisma.disputeExport.findUniqueOrThrow({ where: { id: exported.exportId } })).packet!;
     assert.equal(verifyPacketFile(fileText), true, "the digest verifies");
     const packet = (JSON.parse(fileText) as { packet: Record<string, any> }).packet; // eslint-disable-line @typescript-eslint/no-explicit-any
-    assert.equal(packet.manifest.packetVersion, 2);
+    assert.equal(packet.manifest.packetVersion, 3, "MS-10 added the retention section, so packets are version 3");
     assert.ok(packet.manifest.sections.includes("refunds") && packet.manifest.sections.includes("disputes"));
     assert.equal(packet.manifest.counts.refundCases, 1);
     assert.equal(packet.manifest.counts.disputes, 1);

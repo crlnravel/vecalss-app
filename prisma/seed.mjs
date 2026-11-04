@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { seedMateriCatalogue } from "./materi-seed.mjs";
@@ -1085,6 +1087,7 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed");
   const databaseUrl = requireDatabaseUrl();
   const client = new Client({
     connectionString: databaseUrl,

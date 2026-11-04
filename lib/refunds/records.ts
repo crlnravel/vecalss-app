@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { maskEmail } from "@/lib/retention/mask";
 
 type Db = Pick<Prisma.TransactionClient, "$queryRaw">;
 
@@ -151,7 +152,7 @@ type RecentRefundRow = {
 
 /** Open cases first, then the newest; for the small refund list. */
 async function listRecentRefunds(db: Db, limit = 50): Promise<RecentRefundRow[]> {
-  return db.$queryRaw<RecentRefundRow[]>`
+  const rows = await db.$queryRaw<RecentRefundRow[]>`
     SELECT c.id, c.order_id AS "orderId", c.amount_rupiah AS "amountRupiah", c.state::text AS state,
            c.reason_code AS "reasonCode", c.prepared_at AS "preparedAt", c.decision_due_at AS "decisionDueAt",
            c.payout_due_at AS "payoutDueAt", u.email AS "buyerEmail",
@@ -161,6 +162,8 @@ async function listRecentRefunds(db: Db, limit = 50): Promise<RecentRefundRow[]>
     ORDER BY (c.state IN ('prepared', 'approved', 'processing')) DESC, c.prepared_at DESC
     LIMIT ${Math.min(limit, 100)}
   `;
+  // The list is a summary: the buyer's full email is on the order page, not here.
+  return rows.map((row) => ({ ...row, buyerEmail: maskEmail(row.buyerEmail) ?? "***" }));
 }
 
 export { listDisputeRecords, listRecentRefunds, listRefundRecords };

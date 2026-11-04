@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import bcrypt from "bcryptjs";
 import pg from "pg";
 
@@ -297,6 +299,7 @@ export async function seedMentors(client) {
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed-mentors");
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
 

@@ -16,6 +16,7 @@ import type {
 import { auditLogRangeStart } from "./audit-query";
 import { parseDirectoryParams } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
+import { isPaymentAuditRow, maskIp } from "@/lib/retention/mask";
 
 const ATTENTION_HANDOFF_STATUSES = [
   EnrollmentHandoffStatus.pending,
@@ -408,7 +409,8 @@ async function getAdminAuditLogPage({
       actorEmail: entry.actor?.email ?? null,
       actorName: entry.actor?.fullName ?? "System",
       id: entry.id,
-      ipAddress: entry.ipAddress,
+      // Payment rows carry buyer evidence; the general audit page shows them masked.
+      ipAddress: isPaymentAuditRow(entry) ? maskIp(entry.ipAddress) : entry.ipAddress,
       metadata: entry.metadata,
       occurredAt: entry.occurredAt.toISOString(),
       targetId: entry.targetId,

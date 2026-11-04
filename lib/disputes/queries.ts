@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { maskEmail } from "@/lib/retention/mask";
 
 type OrderListRow = {
   amountRupiah: number;
@@ -12,9 +13,9 @@ type OrderListRow = {
   status: string;
 };
 
-/** The newest orders, for the admin to pick one. Aggregates and ids only; no payment evidence. */
+/** The newest orders, for the admin to pick one. Aggregates and ids only; no payment evidence, and the buyer is shown masked. */
 async function listRecentOrders(limit = 50): Promise<OrderListRow[]> {
-  return prisma.$queryRaw<OrderListRow[]>`
+  const rows = await prisma.$queryRaw<OrderListRow[]>`
     SELECT o.id, o.created_at AS "createdAt", o.status::text AS status, o.amount_rupiah AS "amountRupiah",
            o.package_name AS "packageName", u.email AS "buyerEmail", r.delivery_status::text AS "deliveryStatus"
     FROM payment_orders o
@@ -23,6 +24,8 @@ async function listRecentOrders(limit = 50): Promise<OrderListRow[]> {
     ORDER BY o.created_at DESC
     LIMIT ${Math.min(limit, 100)}
   `;
+  // The list is a summary: the buyer's full email is on the order page, not here.
+  return rows.map((row) => ({ ...row, buyerEmail: maskEmail(row.buyerEmail) ?? "***" }));
 }
 
 type OrderSummary = OrderListRow & {

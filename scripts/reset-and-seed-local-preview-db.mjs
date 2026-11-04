@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -91,6 +93,7 @@ function run(command, args, env) {
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("local preview reset");
   const options = parseArgs(process.argv.slice(2));
   const target = resolveDatabaseUrl(options.databaseUrl);
 

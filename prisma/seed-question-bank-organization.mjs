@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import { pathToFileURL } from "node:url";
 import pg from "pg";
 import { seedQuestionBankOrganization } from "./question-bank-organization-seed.mjs";
@@ -32,6 +34,7 @@ async function resolveTutor(client) {
 }
 
 async function main() {
+  await assertNotMerchantEnvironment("db:seed-question-bank-organization");
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
   try {

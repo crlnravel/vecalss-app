@@ -5,6 +5,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { EmailMessage, MailResult } from "@/lib/email/mailer";
 import type { FraudMaintenanceResult } from "@/lib/fraud/maintenance";
 import type { PaymentMaintenanceResult } from "@/lib/payments/maintenance";
+import type { RetentionMaintenanceResult, RoleCheck } from "@/lib/retention/maintenance";
 import { serverLogger } from "@/lib/server-logger";
 
 import { checkDependencies, defaultProbes, isReady, type DependencyProbes, type Readiness } from "./readiness";
@@ -22,6 +23,8 @@ export type MaintenanceFailure =
   | "fraud_maintenance"
   | "payment_maintenance"
   | "redis"
+  | "retention_maintenance"
+  | "runtime_role"
   | "security_log_cleanup"
   | "stale_state_check";
 
@@ -33,7 +36,13 @@ export type MaintenanceDeps = {
   now?: Date;
   /** Payment step: resolves orders open past expiry and drains the payment outbox. */
   payments?: () => Promise<PaymentMaintenanceResult>;
+  /** Whether this is a production deployment; the role check only runs there. Defaults to NODE_ENV. */
+  production?: boolean;
   probes?: DependencyProbes;
+  /** Retention step: scrubs IP and device evidence and deletes what is past its period. */
+  retention?: () => Promise<RetentionMaintenanceResult>;
+  /** Production readiness: asks whether the connected database role can alter schema or delete evidence. */
+  roleCheck?: () => Promise<RoleCheck>;
   sendAlert: (message: EmailMessage) => Promise<MailResult>;
 };
 
@@ -46,6 +55,10 @@ export type MaintenanceResult = {
   /** Absent when the run was given no payment step. */
   payments?: PaymentMaintenanceResult | null;
   readiness: Readiness;
+  /** Absent when the run was given no retention step. */
+  retention?: RetentionMaintenanceResult | null;
+  /** Absent outside production or when the run was given no role check. */
+  runtimeRole?: RoleCheck | null;
   staleEditLeases: number | null;
 };
 
@@ -54,6 +67,8 @@ const failureLabels: Record<MaintenanceFailure, string> = {
   fraud_maintenance: "tinjauan fraud harian",
   payment_maintenance: "pemeriksaan dan antrean pembayaran",
   redis: "Redis",
+  retention_maintenance: "pemangkasan dan pembersihan bukti sesuai kebijakan retensi",
+  runtime_role: "peran basis data aplikasi (masih bisa mengubah skema atau menghapus bukti)",
   security_log_cleanup: "pembersihan log keamanan",
   stale_state_check: "pemeriksaan status tertinggal",
 };
@@ -74,7 +89,7 @@ export function checkCronAuthorization(
   return timingSafeEqual(presented, expected) ? "ok" : "unauthorized";
 }
 
-async function alertOwner(deps: MaintenanceDeps, failures: MaintenanceFailure[], now: Date) {
+async function alertOwner(deps: MaintenanceDeps, failures: MaintenanceFailure[], now: Date, details: string[] = []) {
   if (!deps.alertTo) {
     serverLogger.error("maintenance.alert.not_configured", new Error("No maintenance alert address is set."), {
       area: "maintenance",
@@ -85,11 +100,11 @@ async function alertOwner(deps: MaintenanceDeps, failures: MaintenanceFailure[],
   const labels = failures.map((failure) => failureLabels[failure]).join(", ");
   const day = now.toISOString().slice(0, 10);
   const result = await deps.sendAlert({
-    html: `<p>Pekerjaan pemeliharaan harian gagal pada: ${labels}.</p><p>Rincian ada di log server.</p>`,
+    html: `<p>Pekerjaan pemeliharaan harian gagal pada: ${labels}.</p>${details.map((line) => `<p>${line}</p>`).join("")}<p>Rincian ada di log server.</p>`,
     // One alert per day and failure set, so a retried run does not send twice.
     idempotencyKey: `daily-maintenance:${day}:${failures.join(",")}`,
     subject: "Pemeliharaan harian Vecalss gagal",
-    text: `Pekerjaan pemeliharaan harian gagal pada: ${labels}. Rincian ada di log server.`,
+    text: `Pekerjaan pemeliharaan harian gagal pada: ${labels}. ${details.join(" ")} Rincian ada di log server.`,
     to: deps.alertTo,
   });
 
@@ -145,12 +160,35 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     }
   }
 
+  // The retention step and the role check come last, and each one fails on its own,
+  // so a problem here never stops the steps above.
+  let retention: RetentionMaintenanceResult | null = null;
+  if (deps.retention) {
+    try {
+      retention = await deps.retention();
+      if (retention.failedRows > 0) failures.push("retention_maintenance");
+    } catch {
+      failures.push("retention_maintenance");
+    }
+  }
+
+  let runtimeRole: RoleCheck | null = null;
+  if (deps.roleCheck && (deps.production ?? process.env.NODE_ENV === "production")) {
+    try {
+      runtimeRole = await deps.roleCheck();
+      if (!runtimeRole.ok) failures.push("runtime_role");
+    } catch {
+      failures.push("runtime_role");
+    }
+  }
+
   if (failures.length > 0) {
     serverLogger.error("maintenance.daily.failed", new Error("A daily maintenance step failed."), {
       area: "maintenance",
       code: failures.join(","),
     });
-    await alertOwner(deps, failures, now);
+    const details = runtimeRole && !runtimeRole.ok ? [`Temuan pada peran basis data: ${runtimeRole.findings.join(", ")}.`] : [];
+    await alertOwner(deps, failures, now, details);
   }
 
   return {
@@ -160,6 +198,8 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     ok: failures.length === 0 && isReady(readiness),
     payments,
     readiness,
+    retention,
+    runtimeRole,
     staleEditLeases,
   };
 }
@@ -193,6 +233,11 @@ export async function handleDailyMaintenanceRequest(request: Request, deps: Cron
       ok: result.ok,
       payments: result.payments,
       readiness: result.readiness,
+      retention: result.retention
+        ? { complete: result.retention.complete, delete: result.retention.delete, failedRows: result.retention.failedRows, scrub: result.retention.scrub }
+        : result.retention,
+      // Only whether the role passed and how many findings; the findings stay in the server log and the alert.
+      runtimeRole: result.runtimeRole ? { findings: result.runtimeRole.findings.length, ok: result.runtimeRole.ok } : result.runtimeRole,
       staleEditLeases: result.staleEditLeases,
     },
     { headers: jsonHeaders, status: result.ok ? 200 : 500 },

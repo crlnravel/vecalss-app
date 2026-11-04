@@ -8,12 +8,15 @@ import { getOrderSummary } from "@/lib/disputes/queries";
 import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
 import { getPaymentProvider } from "@/lib/payments/provider";
+import { maskIp } from "@/lib/retention/mask";
+import { getBuyerIp, getOrderRetention } from "@/lib/retention/status";
 import { prisma } from "@/lib/prisma";
 import { listCapturedPayments } from "@/lib/refunds/balance";
 import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
 import { formatRupiah } from "@/lib/pricing/schedule";
 import { createDisputeExportAction } from "@/modules/admin/fraud-actions";
 import { RefundAndDisputePanels } from "@/modules/admin/fraud/refund-panels";
+import { PurgedPanel, RetentionPanel } from "@/modules/admin/fraud/retention-panel";
 import { Field, firstParam, formatDateTime, FraudPage, ownerNote, Panel, ReasonForm } from "@/modules/admin/fraud/shared";
 
 export const dynamic = "force-dynamic";
@@ -49,9 +52,23 @@ export default async function AdminFraudOrderPage({
   const { orderId } = await params;
   const query = await searchParams;
   const order = await getOrderSummary(orderId);
-  if (!order) notFound();
+  if (!order) {
+    // An order removed under the retention policy leaves a tombstone, and the page says so.
+    const removed = await getOrderRetention(orderId);
+    if (removed?.kind !== "purged") notFound();
+    return (
+      <FraudPage active="orders" done={firstParam(query.done)} error={firstParam(query.error)} session={session} title="Pesanan">
+        <p className="mb-4"><Link className="text-sm font-medium text-primary-800 underline-offset-4 hover:underline" href="/admin/fraud/orders">← Kembali ke daftar pesanan</Link></p>
+        <PurgedPanel purgedAt={removed.purgedAt} reference={removed.reference} />
+      </FraudPage>
+    );
+  }
 
   const authority = describeAuthority(session);
+  const retention = await getOrderRetention(order.id);
+  const rawBuyerIp = await getBuyerIp(order.id);
+  // The owner sees the address; other admins see it masked.
+  const buyerIp = authority.isOwner ? rawBuyerIp : maskIp(rawBuyerIp);
   const exports = await listExportsForOrder(order.id);
   const [refunds, disputes, payments, buyerAccess, orderRow] = await Promise.all([
     listRefundRecords(prisma, order.id),
@@ -107,6 +124,10 @@ export default async function AdminFraudOrderPage({
         reviewReason={orderRow?.statusReason ?? null}
         standInEnabled={standInEnabled}
       />
+
+      {retention?.kind === "present" ? (
+        <RetentionPanel authority={authority} buyerId={order.buyerId} buyerIp={buyerIp} orderId={order.id} retention={retention} />
+      ) : null}
 
       <Panel title="Ekspor bukti sengketa">
         <p className="mb-3 text-sm leading-6 text-secondary-700">

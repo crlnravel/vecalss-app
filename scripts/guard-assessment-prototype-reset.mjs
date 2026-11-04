@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { assertNotMerchantEnvironment } from "../lib/retention/environment-guard.mjs";
+
 import path from "node:path";
 import pg from "pg";
 
@@ -181,6 +183,7 @@ function parseArgs(args) {
 }
 
 async function main() {
+  if (process.argv.includes("--apply")) await assertNotMerchantEnvironment("assessment prototype reset");
   const report = await runGuard(parseArgs(process.argv.slice(2)));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
