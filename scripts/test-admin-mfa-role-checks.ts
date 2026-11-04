@@ -35,6 +35,18 @@ const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
     how: "sign-in role support and invite audience label (authorizes nothing); the login result carries no privileged roles",
   },
   "lib/banner/delivery.ts": { count: 1, how: "reads session.user.roles from the context" },
+  "lib/disputes/export.ts": {
+    count: 1,
+    how: "owner recheck in the database; only reached with an owner context from requireOwner, which needs a verified second factor",
+  },
+  "lib/fraud/authority.ts": {
+    count: 1,
+    how: "requireAdmin checks mfaStatus is verified before the roles check; owner actions add the FRAUD_OWNER_EMAIL check",
+  },
+  "lib/fraud/blocks.ts": {
+    count: 1,
+    how: "refuses to block admin or developer accounts (authorizes nothing)",
+  },
   "lib/media/repository.ts": { count: 1, how: "hasRole on the context" },
   "lib/reports/access.ts": { count: 1, how: "roles passed from the context" },
   "lib/tryout/capabilities.ts": { count: 1, how: "reads session.user.roles from the context" },
