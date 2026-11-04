@@ -45,6 +45,11 @@ const SENSITIVE_ASSIGNMENT_KEYS = [
   "phone",
   "mobile",
   "address",
+  "ip[_-]?address",
+  "(?:buyer|caller|client|remote|source)[_-]?ip",
+  "forwarded[_-]?for",
+  "device",
+  "user[_-]?agent",
   "birthdate",
   "date[_-]?of[_-]?birth",
   "(?:student|user|account|record)[_-]?id",
@@ -60,6 +65,9 @@ const SENSITIVE_ASSIGNMENT = new RegExp(
 const DATABASE_URL = /\b(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s"'<>]+/giu;
 const HTTP_URL = /\bhttps?:\/\/[^\s"'<>]+/giu;
 const EMAIL_ADDRESS = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu;
+// Buyer and caller addresses are protected evidence (MS-10): they never reach a log line.
+const IPV4_ADDRESS = /(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/gu;
+const IPV6_ADDRESS = /(?<![\w:])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{0,4}::(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{0,4})(?![\w:])/giu;
 const PHONE_NUMBER = /(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)/gu;
 const UUID = /\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/giu;
 const BEARER_TOKEN = /\bBearer\s+[^\s,;]+/giu;
@@ -92,6 +100,8 @@ function sanitizeText(value: string) {
       return url.includes("?") ? "<REDACTED_URL>?<REDACTED_QUERY>" : "<REDACTED_URL>";
     })
     .replace(EMAIL_ADDRESS, "<REDACTED_EMAIL>")
+    .replace(IPV6_ADDRESS, "<REDACTED_IP>")
+    .replace(IPV4_ADDRESS, "<REDACTED_IP>")
     .replace(UUID, "<REDACTED_ID>")
     .replace(PHONE_NUMBER, "<REDACTED_PHONE>")
     .replace(/[\r\n\t]+/gu, " ")

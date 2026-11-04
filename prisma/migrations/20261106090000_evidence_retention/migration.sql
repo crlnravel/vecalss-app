@@ -1570,6 +1570,7 @@ DECLARE
   findings text[] := ARRAY[]::text[];
   t record;
   qualified text;
+  stray name;
 BEGIN
   SELECT * INTO me FROM pg_roles WHERE rolname = current_user;
   IF me.rolsuper THEN findings := array_append(findings, 'superuser'); END IF;
@@ -1592,10 +1593,14 @@ BEGIN
     IF has_table_privilege(current_user, qualified, 'TRUNCATE') THEN findings := array_append(findings, ('truncate:' || t.table_name)); END IF;
     IF has_table_privilege(current_user, qualified, 'TRIGGER') THEN findings := array_append(findings, ('trigger:' || t.table_name)); END IF;
     IF has_table_privilege(current_user, qualified, 'REFERENCES') THEN findings := array_append(findings, ('references:' || t.table_name)); END IF;
-    IF has_table_privilege(current_user, qualified, 'UPDATE') THEN
-      findings := array_append(findings, ('update_all:' || t.table_name));
-    ELSIF cardinality(t.update_columns) = 0 AND has_any_column_privilege(current_user, qualified, 'UPDATE') THEN
-      findings := array_append(findings, ('update:' || t.table_name));
+    -- UPDATE beyond the guarded columns: a whole-table grant shows up on every column.
+    SELECT a.attname INTO stray FROM pg_attribute a
+    WHERE a.attrelid = qualified::regclass AND a.attnum > 0 AND NOT a.attisdropped
+      AND has_column_privilege(current_user, a.attrelid, a.attnum, 'UPDATE')
+      AND a.attname::text <> ALL (t.update_columns)
+    ORDER BY a.attnum LIMIT 1;
+    IF FOUND THEN
+      findings := array_append(findings, 'update:' || t.table_name || '.' || stray);
     END IF;
   END LOOP;
 

@@ -79,7 +79,7 @@ export default async function AdminFraudCasePage({
                 {detail.order.packageCode} · {formatRupiah(detail.order.amountRupiah)} · {detail.order.status}{" · "}
                 <Link className="text-primary-800 underline-offset-4 hover:underline" href={`/admin/fraud/orders/${detail.order.id}`}>Buka pesanan</Link>
               </Field>
-              <Field label="Alamat IP pembeli">{detail.order.buyerIp ?? "Tidak tercatat"}</Field>
+              <Field label="Alamat IP pembeli (disamarkan)">{detail.order.buyerIp ?? "Tidak tercatat"}</Field>
             </>
           ) : null}
         </dl>

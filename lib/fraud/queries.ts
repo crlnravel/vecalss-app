@@ -1,14 +1,15 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { maskEmail, maskIp } from "@/lib/retention/mask";
 
 import type { FraudBlockType } from "./constants";
 
 /**
  * Reads for the admin pages. The lists never include a raw identifier: a block
  * shows its masked hint, a case shows ids and counts. The case detail adds the
- * linked order's buyer address, which only an admin with a verified second
- * factor reaches (the pages are gated; this module is only imported by them).
+ * linked order's buyer address and the account email, both masked here. The full
+ * values stay on the owner's order page and in the dispute export.
  */
 
 type CaseRow = {
@@ -94,8 +95,9 @@ async function getCaseDetail(caseId: string) {
   const { orderAmount, orderBuyerIp, orderId, orderPackage, orderStatus, ...rest } = row;
   const detail: CaseDetail = {
     ...rest,
+    userEmail: maskEmail(rest.userEmail),
     order: orderId
-      ? { amountRupiah: orderAmount ?? 0, buyerIp: orderBuyerIp, id: orderId, packageCode: orderPackage ?? "", status: orderStatus ?? "" }
+      ? { amountRupiah: orderAmount ?? 0, buyerIp: maskIp(orderBuyerIp), id: orderId, packageCode: orderPackage ?? "", status: orderStatus ?? "" }
       : null,
   };
   return { blocks, detail, events };
