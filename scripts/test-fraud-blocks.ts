@@ -25,7 +25,7 @@ import { deliver, failLeftoverOrders, getPackageCode, makeBuyer, makeIntent, pri
 const OWNER_EMAIL = `owner-${randomUUID().slice(0, 8)}@vecalss.local`;
 const ENV = { FRAUD_OWNER_EMAIL: OWNER_EMAIL };
 
-function sessionFor(email: string, options: { mfa?: "verified" | "challenge"; roles?: RoleName[] } = {}): SessionContext {
+function sessionFor(email: string, options: { mfa?: "verified" | "challenge"; mustChangePassword?: boolean; roles?: RoleName[] } = {}): SessionContext {
   return {
     expiresAt: new Date(Date.now() + 3_600_000),
     sessionId: `session-${randomUUID()}`,
@@ -34,7 +34,7 @@ function sessionFor(email: string, options: { mfa?: "verified" | "challenge"; ro
       fullName: "Test admin",
       id: randomUUID(),
       mfaStatus: options.mfa ?? "verified",
-      mustChangePassword: false,
+      mustChangePassword: options.mustChangePassword ?? false,
       onboardingStatus: null,
       roles: options.roles ?? [RoleName.admin],
       status: "active",
@@ -117,6 +117,8 @@ async function main() {
   assert.throws(() => requireAdmin(sessionFor(OWNER_EMAIL, { mfa: "challenge" })), authorityIs("mfa_required"));
   assert.throws(() => requireOwner(sessionFor(OWNER_EMAIL, { roles: [RoleName.student] }), ENV), authorityIs("not_admin"));
   assert.throws(() => requireAdmin(null), authorityIs("unauthenticated"));
+  assert.throws(() => requireAdmin(sessionFor(OWNER_EMAIL, { mustChangePassword: true })), authorityIs("password_change_required"), "an admin still on a temporary password is refused");
+  assert.throws(() => requireOwner(sessionFor(OWNER_EMAIL, { mustChangePassword: true }), ENV), authorityIs("password_change_required"), "so is the owner");
   assert.equal(requireAdmin(sessionFor("someone.else@vecalss.local")).email, "someone.else@vecalss.local", "any verified admin may view and acknowledge");
   assert.deepEqual(describeAuthority(sessionFor("x@vecalss.local"), ENV), { isOwner: false, ownerConfigured: true });
   assert.deepEqual(describeAuthority(sessionFor(OWNER_EMAIL), {}), { isOwner: false, ownerConfigured: false });

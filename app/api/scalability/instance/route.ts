@@ -1,3 +1,5 @@
+import { hasSimulationSecret } from "@/lib/scalability/simulation-secret";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -14,10 +16,7 @@ export async function GET(request: Request) {
 
   if (process.env.SCALABILITY_SIMULATION !== "1") return notFound();
 
-  const expectedSecret = process.env.SCALABILITY_SIMULATION_SECRET;
-  if (!expectedSecret || request.headers.get("x-scalability-secret") !== expectedSecret) {
-    return notFound();
-  }
+  if (!hasSimulationSecret(request)) return notFound();
 
   return Response.json(
     {

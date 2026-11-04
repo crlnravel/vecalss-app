@@ -22,7 +22,7 @@ export async function GET(
   void request;
   const session = await getReadOnlySessionContext();
   if (!session) return responseForCsvCode("unauthenticated", 401);
-  if (!hasRole(session, RoleName.tutor)) return responseForCsvCode("resource_inaccessible", 403);
+  if (!hasRole(session, RoleName.tutor) || session.user.mustChangePassword) return responseForCsvCode("resource_inaccessible", 403);
   const { bankId } = await context.params;
   if (!isUuid(bankId)) return responseForCsvCode("resource_inaccessible", 403);
   const result = await exportQuestionBankCsv(session.user.id, bankId);

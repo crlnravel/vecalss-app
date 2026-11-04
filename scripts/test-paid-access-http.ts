@@ -63,8 +63,8 @@ async function sessionFor(userId: string, verification?: { factorId: string }) {
   return `vecalss_session=${token}`;
 }
 
-async function adminWithFactor() {
-  const adminId = await makeUser("admin", RoleName.admin);
+async function adminWithFactor(label = "admin") {
+  const adminId = await makeUser(label, RoleName.admin);
   const secret = generateSecret();
   const factorId = randomUUID();
   await prisma.userMfaFactor.create({
@@ -215,6 +215,10 @@ async function main() {
   const revoked = await makeUser("revoked", RoleName.student);
   const target = await makeUser("target", RoleName.student);
   const tutor = await makeUser("tutor", RoleName.tutor);
+  // Accounts still on a temporary or reset password (MS-01 flags every existing account).
+  const flaggedTutor = await makeUser("flagged-tutor", RoleName.tutor);
+  const flagged = await adminWithFactor("flagged-admin");
+  await prisma.user.updateMany({ data: { mustChangePassword: true }, where: { id: { in: [flaggedTutor, flagged.adminId] } } });
 
   await grantAccess({ ...grantor, idempotencyKey: `http-${runId}-active`, plan: "monthly", studentId: active });
   await grantAccess({ ...grantor, idempotencyKey: `http-${runId}-expired`, now: new Date(Date.now() - 90 * 86_400_000), plan: "monthly", studentId: expired });
@@ -231,6 +235,8 @@ async function main() {
     none: await sessionFor(none),
     paused: await sessionFor(paused),
     revoked: await sessionFor(revoked),
+    flaggedAdmin: await sessionFor(flagged.adminId, { factorId: flagged.factorId }),
+    flaggedTutor: await sessionFor(flaggedTutor),
     tutor: await sessionFor(tutor),
   };
   const withoutAccess = ["none", "expired", "paused", "revoked"] as const;
@@ -327,6 +333,47 @@ async function main() {
     }
     assert.ok(called >= 8, `the manifest exposed ${called} paid student actions`);
     console.log(`paid student actions called directly: ${called}`);
+
+    // Staff on a temporary or reset password reach nothing: management server actions send them to
+    // change it, and the staff routes answer 403. The same calls from a settled account go through.
+    await get("/mentor/tryout", cookies.tutor);
+    await sleep(1500);
+    const staffIds = actionIds();
+    const staffActions: Array<[string, unknown[], string]> = [
+      ["modules/mentor/tryout-actions.ts#archiveTryoutAction", [UUID_A], "/mentor/tryout"],
+      ["modules/mentor/tryout-actions.ts#duplicateTryoutAction", [UUID_A], "/mentor/tryout"],
+      ["modules/mentor/assembly-actions.ts#listReadyAssemblyRevisionsAction", ["tryout"], "/mentor/tryout"],
+      ["modules/mentor/tryout-result-policy-action.ts#configureTryoutResultPolicyAction", [{}], "/mentor/tryout"],
+      ["modules/mentor/tryout-result-publication-action.ts#publishTryoutSessionResultsAction", [{}], "/mentor/tryout"],
+    ];
+    let staffCalled = 0;
+    for (const [key, args, page] of staffActions) {
+      const id = staffIds.get(key);
+      if (!id) continue;
+      staffCalled += 1;
+      assert.equal(await redirectTarget(await callAction(id, page, cookies.flaggedTutor, args)), "/change-password", `flagged tutor: ${key}`);
+      assert.notEqual(await redirectTarget(await callAction(id, page, cookies.tutor, args)), "/change-password", `settled tutor: ${key}`);
+    }
+    assert.ok(staffCalled >= 1, "the manifest exposed a management action");
+    console.log(`staff actions called by a flagged tutor: ${staffCalled}`);
+
+    const jsonPost = { body: "{}", headers: { "content-type": "application/json", origin: BASE }, method: "POST" } satisfies RequestInit;
+    const staffRoutes: Array<[string, RequestInit, string, string]> = [
+      ["/api/mentor/question-banks/csv/template", {}, "flaggedTutor", "tutor"],
+      ["/api/media/kapten", {}, "flaggedTutor", "tutor"],
+      ["/api/media/admin", {}, "flaggedAdmin", "admin"],
+      ["/api/mentor/resource-edit-lock/acquire", jsonPost, "flaggedTutor", "tutor"],
+    ];
+    for (const [path, init, flaggedWho, settledWho] of staffRoutes) {
+      const refused = await get(path, cookies[flaggedWho as keyof typeof cookies], init);
+      await refused.text();
+      assert.equal(refused.status, 403, `${flaggedWho} ${path}`);
+      const served = await get(path, cookies[settledWho as keyof typeof cookies], init);
+      await served.text();
+      assert.notEqual(served.status, 403, `${settledWho} ${path}`);
+    }
+    // An admin with a verified second factor but a temporary password is sent to change it, not served.
+    assert.equal(await redirectTarget(await get("/admin", cookies.flaggedAdmin)), "/change-password");
 
     // The admin action: admin only, and with a verified second factor.
     // The student page renders the panel for a verified admin, which also makes the action callable.

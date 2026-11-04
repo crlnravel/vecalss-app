@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/access";
+import { requirePasswordSettledSession } from "@/lib/auth/access";
 import { isTryoutPolicyBaseline } from "@/lib/tryout/result-readiness";
 import { isUuid } from "@/lib/resource-edit-lock/canonical";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
@@ -8,7 +8,7 @@ import { configureTryoutDefaultResultRelease, TryoutDeliveryValidationError } fr
 import type { TryoutPolicyIntent, TryoutPolicyReply } from "@/lib/tryout/result-policy-recovery";
 
 export async function configureTryoutResultPolicyAction(intent: TryoutPolicyIntent): Promise<TryoutPolicyReply> {
-  const session = await requireSession();
+  const session = await requirePasswordSettledSession();
   try {
     requireTryoutCapability(session, "tryout.delivery.configure");
     if (typeof intent.requestId !== "string" || !isUuid(intent.requestId) || !isTryoutPolicyBaseline(intent.expectedBaseline)) return { ok: false, confirmedRefusal: true, message: "Permintaan penyimpanan tidak dapat digunakan. Mulai perubahan baru." };

@@ -234,7 +234,7 @@ async function authenticateTutor(request: Request) {
   }
   const session = await getReadOnlySessionContext();
   if (!session) return null;
-  if (!hasRole(session, RoleName.tutor)) {
+  if (!hasRole(session, RoleName.tutor) || session.user.mustChangePassword) {
     throw new EditLeaseServiceError("resource_inaccessible", 403);
   }
   return session;

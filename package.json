@@ -48,6 +48,7 @@
     "test:admin-mfa-http": "tsx scripts/test-admin-mfa-http.ts",
     "test:password-reset-email": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-password-reset-email.ts && NODE_ENV=production NODE_OPTIONS=--conditions=react-server tsx scripts/test-password-reset-email.ts production",
     "test:auth-hardening": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-auth-hardening.ts",
+    "test:scalability-secret": "tsx scripts/test-scalability-secret.ts",
     "test:daily-maintenance": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-daily-maintenance.ts",
     "test:daily-maintenance-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-daily-maintenance-db.ts",
     "test:authoring-lock-family": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-authoring-lock-family.ts",
