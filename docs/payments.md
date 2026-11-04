@@ -282,19 +282,129 @@ records nothing). Nothing else writes it.
 **Dispute export.** `/admin/fraud/orders/<id>` (a "Pesanan" tab): the owner
 (`FRAUD_OWNER_EMAIL`, verified second factor) gives a written reason and gets a
 packet for that one order: manifest, financial timeline, grant, receipt and use
-evidence, IP and device provenance, the accepted terms, refund records (empty
-until MS-09), communications, case summaries, and a SHA-256 over the sorted-key
+evidence, IP and device provenance, the accepted terms, refund and dispute
+records with their history, communications (the buyer's refund requests,
+receipt deliveries and dispute notices), case summaries, and a SHA-256 over the sorted-key
 JSON of the packet. Other students' data and case evidence are left out. Every
 export writes a `dispute_exports` row and an audit event in one transaction. The
 download link (`/api/admin/dispute-exports/<token>`) works once, for 10 minutes,
 only in an owner session; the packet is dropped from the row when it is handed
 over or expires, and the row, reason and digest stay.
 
+## Refunds and disputes (MS-09 phase A)
+
+Built against the stand-in; E2Pay's refund and dispute formats are phase B.
+Rules are the "Refund eligibility" row of the MS-00 decision record (closed
+4 November 2026). Code is in `lib/refunds/*`; the admin screens are on
+`/admin/fraud/orders/<id>` and the list `/admin/fraud/refunds`.
+
+**A refund case** (`refund_cases`, history in `refund_case_events`) records the
+order and captured payment, the reason (our fault: double charge, wrong amount,
+access not delivered, service unavailable; or change of mind), the buyer's
+request (channel, date, note), the amount, who prepared it, who approved it and
+why, the system's eligibility check, the deadlines (decision: 3 working days
+from the request, Mon-Fri Asia/Jakarta, no holiday list; payout: 14 calendar
+days from approval), the method, the provider refund id or the manual transfer
+(masked destination, holder, reference, proof note), and what the confirmation
+did to access.
+
+| Step | Who | What it does |
+| --- | --- | --- |
+| prepare | any admin with a verified second factor | writes the case and the eligibility check; reserves nothing |
+| approve | the owner (`FRAUD_OWNER_EMAIL`) only, written reason | **reserves the balance**; refused for a change of mind that fails the check; stored as `self_approved` when the owner also prepared it |
+| reject / cancel | the owner | frees the balance |
+| send to provider | the owner | `processing` is committed **before** the call; see "Timeout" |
+| manual transfer | the owner | destination (4 digits at most), holder (buyer or parent), reference, proof note; completes the case |
+| confirmation | the provider's signed event or status | completes a provider refund |
+
+**Eligibility** (`lib/refunds/eligibility.ts`, repeated by the database at
+approval): our-fault reasons are always eligible; change of mind is eligible
+only if the buyer's request arrived within 3 days of payment (inclusive) **and**
+the order has no `fulfillment_usage_events` row at all. For an order held in
+review the first succeeded event stands in for the payment time. A change of
+mind may be partial; the policy only says it is owed in full.
+
+**Balance.** `refund_capture_amount` (the order's payment, or an unexpected
+second capture held in review) minus approved, processing and completed refunds
+minus lost disputes. A trigger takes the order lock and refuses an approval that
+would pass the capture, so concurrent and partial refunds cannot exceed it,
+whatever the application did. Cases beyond the capture cannot even be prepared.
+
+**Timeout.** A provider call that times out is an unknown outcome, not a
+failure: the case is marked `outcome_unknown` and cannot be sent again until
+`reconcileRefund` has asked the provider (`getRefundStatus`). No record there
+means the request never arrived and sending again is allowed; a record means the
+case follows it (pending: wait; succeeded: complete; failed: fail). The
+provider is given the case reference as its idempotency key every time. The
+daily job reconciles every refund still with the provider, so a lost
+confirmation is settled from status.
+
+**Completion** only on a verified confirmation: a refund event that passed the
+payment inbox (signature, freshness, merchant, currency, buyer, package, then
+reference, payment and amount against the case), the provider's own status, or
+the owner confirming a manual transfer. Then, in one transaction: the history
+row, the case, the purchase summary (`refunded` when the order's payment is
+refunded in full) and the access change.
+
+- A refund that brings the order's refunds to the whole payment revokes access
+  (MS-04, G5). A partial refund keeps access unless the owner ticked "akhiri
+  akses" at approval. A payment held in review never granted access, so
+  refunding it takes none away.
+- The MS-06 allowance is never restored: the reservation and the day bucket are
+  not touched.
+- `findStandingPaidOrder` (the tier seam) stops counting an order once a refund
+  on it is approved, or any dispute exists on it, won ones included.
+- Terminal states never change (trigger). A refunded or cancelled
+  `package_purchases` row can no longer be set back to `succeeded` (trigger),
+  the provisional callback refuses it with `purchase_closed`, and a late
+  `payment.succeeded`, `failed` or `expired` is ignored on a paid order. A late
+  or contradicting refund event on a finished case is kept for review and never
+  applied.
+- A refund not finished 3 working days after the request (or 14 days after
+  approval) opens an MS-07 `refund_stalled` case in the daily payment step.
+
+**Disputes** (`payment_disputes`, history in `payment_dispute_events`). Created
+by the owner from a provider notice, or by a `dispute.opened` event from the
+inbox. One open dispute per payment. While open: access is paused, and
+`evidence_hold` is true; **MS-10's retention job must not delete the order's
+evidence while any `evidence_hold` (dispute or open refund case) is true**.
+Won: access resumes (only if this dispute paused it and no other open dispute
+holds it). Lost: access is revoked and the amount counts against the balance.
+A resolved dispute is final; a contradicting event is kept for review.
+
+**The refund-versus-dispute rule.** The order row is locked by every step, so
+one happens strictly before the other.
+
+1. While a dispute is open on a payment, no refund on it can be approved, sent
+   to the provider or confirmed as a manual transfer (the database refuses it
+   too). Preparing and cancelling stay allowed.
+2. A refund already with the provider when the dispute opens is **not recalled**:
+   it finishes or fails on its own confirmation. The dispute is flagged
+   `refund_in_flight`, and the owner gets a `payment_review` case and a critical
+   alert to tell the provider. If that dispute is then lost, the owner is alerted
+   again because the money went out twice.
+3. A refund not sent yet is held. If the dispute is lost the provider already
+   took the money back, so unsent cases are cancelled by the system; if won, the
+   held refund may go ahead.
+
+**Orders in review** are settled by the owner: accept the payment
+(`acceptReviewedOrder`: purchase summary, reservation back to `paid`, then the
+MS-08 `fulfillPaidOrder`), or prepare a refund for it. Accepting is refused once a refund is approved or
+done, or a dispute is open.
+
+**Stand-in.** `createRefund` and `getRefundStatus` on the adapter; the stand-in
+keeps `stand_in_refunds`, is idempotent on the case reference, refuses to refund
+more than it captured, and can be told to lose the next call (`failNextRefundCall`).
+The console `/pay/stand-in/refund/<reference>` (admin, local database only)
+reports a refund as succeeded or failed through the real inbox. Dispute events
+are built by `buildSignedDisputeEventFor` in tests; there is no screen for them.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
 `test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
-`test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`, plus `test:checkout-intent`,
+`test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`,
+`test:refunds`, `test:disputes`, plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`. The
 payment suites only run against the local database. Orders and payment events
 cannot be deleted, so every run leaves its own rows behind there; reseed

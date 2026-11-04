@@ -756,6 +756,12 @@ model User {
   paymentReceipts                        PaymentReceipt[]                     @relation("PaymentReceiptBuyer")
   fulfillmentUsageEvents                 FulfillmentUsageEvent[]              @relation("FulfillmentUsageStudent")
   disputeExportsRequested                DisputeExport[]                      @relation("DisputeExportRequester")
+  refundCasesAsBuyer                     RefundCase[]                         @relation("RefundCaseBuyer")
+  refundCasesPrepared                    RefundCase[]                         @relation("RefundCasePreparer")
+  refundCasesApproved                    RefundCase[]                         @relation("RefundCaseApprover")
+  refundCaseEventsActed                  RefundCaseEvent[]                    @relation("RefundCaseEventActor")
+  paymentDisputesAsBuyer                 PaymentDispute[]                     @relation("PaymentDisputeBuyer")
+  paymentDisputeEventsActed              PaymentDisputeEvent[]                @relation("PaymentDisputeEventActor")
   riskAccountTier                        RiskAccountTier?
   riskDayBuckets                         RiskDayBucket[]
   riskReservations                       RiskReservation[]
@@ -3472,6 +3478,11 @@ enum PaymentEventType {
   succeeded
   failed
   expired
+  refund_succeeded
+  refund_failed
+  dispute_opened
+  dispute_won
+  dispute_lost
 
   @@map("payment_event_type")
 }
@@ -3573,6 +3584,8 @@ model PaymentOrder {
   receipt         PaymentReceipt?
   usageEvents     FulfillmentUsageEvent[]
   disputeExports  DisputeExport[]
+  refundCases     RefundCase[]
+  disputes        PaymentDispute[]
 
   @@unique([provider, providerEnvironment, providerAccount, providerReference])
   @@index([status, expiresAt])
@@ -3600,6 +3613,11 @@ model PaymentEvent {
   currency            String?             @db.VarChar(3)
   buyerId             String?             @map("buyer_id") @db.VarChar(80)
   packageCode         String?             @map("package_code") @db.VarChar(80)
+  /// Refund events: our refund case reference and the provider's refund id.
+  refundReference     String?             @map("refund_reference") @db.VarChar(40)
+  providerRefundId    String?             @map("provider_refund_id") @db.VarChar(160)
+  /// Dispute events: the provider's dispute id.
+  providerDisputeId   String?             @map("provider_dispute_id") @db.VarChar(160)
   outcome             PaymentEventOutcome
   reason              String?             @db.VarChar(160)
   bodySha256          String?             @map("body_sha256") @db.VarChar(64)
@@ -3607,8 +3625,10 @@ model PaymentEvent {
   providerOccurredAt  DateTime            @map("provider_occurred_at") @db.Timestamptz
   receivedAt          DateTime            @default(now()) @map("received_at") @db.Timestamptz
 
-  order      PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  fraudCases FraudCase[]
+  order           PaymentOrder?    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  fraudCases      FraudCase[]
+  refundCases     RefundCase[]
+  openedDisputes  PaymentDispute[]
 
   @@unique([provider, providerEnvironment, providerAccount, eventId])
   @@index([orderId, receivedAt])
@@ -4276,4 +4296,214 @@ model DisputeExport {
 
   @@index([orderId, createdAt])
   @@map("dispute_exports")
+}
+
+enum RefundReasonCategory {
+  our_fault
+  change_of_mind
+
+  @@map("refund_reason_category")
+}
+
+enum RefundCaseState {
+  prepared
+  approved
+  processing
+  completed
+  rejected
+  cancelled
+  failed
+
+  @@map("refund_case_state")
+}
+
+enum RefundMethod {
+  provider
+  manual_transfer
+
+  @@map("refund_method")
+}
+
+enum PaymentDisputeState {
+  open
+  won
+  lost
+
+  @@map("payment_dispute_state")
+}
+
+/// One refund of one captured payment (MS-09). Prepared by any verified admin,
+/// approved only by the owner, executed through the provider or recorded as a
+/// manual transfer, and complete only on a verified confirmation. Moves only
+/// through guarded steps, each with a history row first; terminal states never
+/// change. The refundable balance is reserved when the case is approved.
+model RefundCase {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Opaque key sent to the provider as the refund's idempotency key.
+  reference           String               @unique @db.VarChar(40)
+  orderId             String               @map("order_id") @db.Uuid
+  buyerId             String               @map("buyer_id") @db.Uuid
+  /// The captured payment this refunds. Usually the order's own payment.
+  providerPaymentId   String               @map("provider_payment_id") @db.VarChar(160)
+  reasonCategory      RefundReasonCategory @map("reason_category")
+  reasonCode          String               @map("reason_code") @db.VarChar(40)
+  requestNote         String               @map("request_note") @db.VarChar(1000)
+  requestChannel      String               @map("request_channel") @db.VarChar(30)
+  requestedAt         DateTime             @map("requested_at") @db.Timestamptz
+  amountRupiah        Int                  @map("amount_rupiah")
+  currency            String               @default("IDR") @db.VarChar(3)
+  state               RefundCaseState      @default(prepared)
+  version             Int                  @default(1)
+  preparedByUserId    String               @map("prepared_by_user_id") @db.Uuid
+  preparedAt          DateTime             @default(now()) @map("prepared_at") @db.Timestamptz
+  /// Decision due in 3 working days from the request (Mon-Fri, Asia/Jakarta).
+  decisionDueAt       DateTime             @map("decision_due_at") @db.Timestamptz
+  eligibilityPrepared Json                 @map("eligibility_prepared") @db.JsonB
+  approvedByUserId    String?              @map("approved_by_user_id") @db.Uuid
+  approvedAt          DateTime?            @map("approved_at") @db.Timestamptz
+  approvalReason      String?              @map("approval_reason") @db.VarChar(500)
+  /// True when the preparer and the approver are the same person (single-owner setup, G4).
+  selfApproved        Boolean?             @map("self_approved")
+  eligibilityApproved Json?                @map("eligibility_approved") @db.JsonB
+  /// Money due back 14 calendar days after approval.
+  payoutDueAt         DateTime?            @map("payout_due_at") @db.Timestamptz
+  /// The owner's explicit choice to end access when this refund completes.
+  revokeAccess        Boolean              @default(false) @map("revoke_access")
+  closedByUserId      String?              @map("closed_by_user_id") @db.Uuid
+  closedAt            DateTime?            @map("closed_at") @db.Timestamptz
+  closureReason       String?              @map("closure_reason") @db.VarChar(500)
+  method              RefundMethod?
+  providerRefundId    String?              @map("provider_refund_id") @db.VarChar(160)
+  executionAttempts   Int                  @default(0) @map("execution_attempts")
+  lastAttemptAt       DateTime?            @map("last_attempt_at") @db.Timestamptz
+  /// A provider call timed out or was lost: the result is unknown until the provider is asked.
+  outcomeUnknown      Boolean              @default(false) @map("outcome_unknown")
+  destinationMasked   String?              @map("destination_masked") @db.VarChar(80)
+  destinationHolder   String?              @map("destination_holder") @db.VarChar(10)
+  transferReference   String?              @map("transfer_reference") @db.VarChar(120)
+  proofNote           String?              @map("proof_note") @db.VarChar(1000)
+  confirmedByUserId   String?              @map("confirmed_by_user_id") @db.Uuid
+  completedAt         DateTime?            @map("completed_at") @db.Timestamptz
+  confirmationSource  String?              @map("confirmation_source") @db.VarChar(30)
+  confirmationEventId String?              @map("confirmation_event_id") @db.Uuid
+  accessEffect        String?              @map("access_effect") @db.VarChar(40)
+  /// True while the case is open: MS-10 must not delete its evidence.
+  evidenceHold        Boolean              @default(true) @map("evidence_hold")
+  lastEventId         String?              @map("last_event_id") @db.Uuid
+  updatedAt           DateTime             @default(now()) @map("updated_at") @db.Timestamptz
+
+  order             PaymentOrder      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  buyer             User              @relation("RefundCaseBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  preparedBy        User              @relation("RefundCasePreparer", fields: [preparedByUserId], references: [id], onDelete: Restrict)
+  approvedBy        User?             @relation("RefundCaseApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  confirmationEvent PaymentEvent?     @relation(fields: [confirmationEventId], references: [id], onDelete: Restrict)
+  events            RefundCaseEvent[]
+
+  @@unique([providerRefundId])
+  @@index([orderId, state])
+  @@index([state, decisionDueAt])
+  @@index([state, payoutDueAt])
+  @@map("refund_cases")
+}
+
+/// Append-only history of a refund case: prepared, approved, rejected, cancelled,
+/// execution_started, execution_unknown, execution_reconciled, completed, failed,
+/// access_effect, note.
+model RefundCaseEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId      String   @map("case_id") @db.Uuid
+  caseVersion Int      @map("case_version")
+  kind        String   @db.VarChar(30)
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorKind   String   @map("actor_kind") @db.VarChar(10)
+  note        String?  @db.Text
+  metadata    Json     @default("{}") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  refundCase RefundCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor      User?      @relation("RefundCaseEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+  @@map("refund_case_events")
+}
+
+/// A provider dispute (chargeback) on one captured payment, recorded by the owner
+/// from a provider notice or created by a provider event. An open dispute pauses
+/// access and holds evidence; a win resumes access and a loss revokes it.
+model PaymentDispute {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId           String              @map("order_id") @db.Uuid
+  buyerId           String              @map("buyer_id") @db.Uuid
+  providerPaymentId String              @map("provider_payment_id") @db.VarChar(160)
+  providerDisputeId String              @map("provider_dispute_id") @db.VarChar(160)
+  /// `owner_notice` or `provider_event`.
+  source            String              @db.VarChar(20)
+  reasonText        String              @map("reason_text") @db.VarChar(500)
+  amountRupiah      Int                 @map("amount_rupiah")
+  currency          String              @default("IDR") @db.VarChar(3)
+  noticeReceivedAt  DateTime            @map("notice_received_at") @db.Timestamptz
+  responseDueAt     DateTime?           @map("response_due_at") @db.Timestamptz
+  state             PaymentDisputeState @default(open)
+  version           Int                 @default(1)
+  /// True while open; MS-10 must not delete this order's evidence until the hold ends.
+  evidenceHold      Boolean             @default(true) @map("evidence_hold")
+  recordedByUserId  String?             @map("recorded_by_user_id") @db.Uuid
+  paymentEventId    String?             @map("payment_event_id") @db.Uuid
+  /// Whether opening this dispute paused the buyer's access (so a win resumes only what it paused).
+  accessPaused      Boolean             @default(false) @map("access_paused")
+  /// A refund was on its way or done when the dispute arrived.
+  refundInFlight    Boolean             @default(false) @map("refund_in_flight")
+  resolvedAt        DateTime?           @map("resolved_at") @db.Timestamptz
+  resolvedByUserId  String?             @map("resolved_by_user_id") @db.Uuid
+  resolutionSource  String?             @map("resolution_source") @db.VarChar(20)
+  resolutionNote    String?             @map("resolution_note") @db.VarChar(500)
+  accessEffect      String?             @map("access_effect") @db.VarChar(40)
+  lastEventId       String?             @map("last_event_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime            @default(now()) @map("updated_at") @db.Timestamptz
+
+  order        PaymentOrder          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  buyer        User                  @relation("PaymentDisputeBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  paymentEvent PaymentEvent?         @relation(fields: [paymentEventId], references: [id], onDelete: Restrict)
+  events       PaymentDisputeEvent[]
+
+  @@unique([orderId, providerDisputeId])
+  @@index([orderId, state])
+  @@index([state, responseDueAt])
+  @@map("payment_disputes")
+}
+
+/// Append-only history of a dispute: opened, resolved_won, resolved_lost, access_effect, note.
+model PaymentDisputeEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId      String   @map("dispute_id") @db.Uuid
+  disputeVersion Int      @map("dispute_version")
+  kind           String   @db.VarChar(30)
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorKind      String   @map("actor_kind") @db.VarChar(10)
+  note           String?  @db.Text
+  metadata       Json     @default("{}") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  dispute PaymentDispute @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  actor   User?          @relation("PaymentDisputeEventActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([disputeId, createdAt])
+  @@map("payment_dispute_events")
+}
+
+/// The dev stand-in provider's own refund state (MS-09). Written only when the
+/// stand-in is enabled on a local database.
+model StandInRefund {
+  reference         String    @id @db.VarChar(40)
+  providerRefundId  String    @unique @map("provider_refund_id") @db.VarChar(160)
+  providerPaymentId String    @map("provider_payment_id") @db.VarChar(160)
+  amountRupiah      Int       @map("amount_rupiah")
+  currency          String    @default("IDR") @db.VarChar(3)
+  state             String    @default("pending") @db.VarChar(12)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  settledAt         DateTime? @map("settled_at") @db.Timestamptz
+
+  @@index([providerPaymentId])
+  @@map("stand_in_refunds")
 }

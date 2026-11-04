@@ -250,8 +250,9 @@ async function recordCheckoutRefusal(
 
 type ReservationMove = "paid" | "released" | "review";
 
-const MOVE_FROM: Record<ReservationMove, Array<"pending" | "released">> = {
-  paid: ["pending"],
+const MOVE_FROM: Record<ReservationMove, Array<"pending" | "released" | "review">> = {
+  // A pending order that was paid, or one held in review that the owner accepted (MS-09).
+  paid: ["pending", "review"],
   released: ["pending"],
   // A late payment (after a confirmed expiry), or a payment held while still pending.
   review: ["released", "pending"],

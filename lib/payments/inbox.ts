@@ -9,9 +9,11 @@ import { checkOrderBlocks, type BlockCheck } from "@/lib/fraud/blocks";
 import { fulfillPaidOrder, queueGrantRetry, type FulfillOptions } from "@/lib/fulfillment/grant";
 import { FraudConfigError } from "@/lib/fraud/errors";
 import { flagBlockedAttempt, flagPaymentReview, flagQuarantinedEvent } from "@/lib/fraud/signals";
+import { applyRefundDisputeEvent, decideRefundDisputeEvent, isRefundOrDisputeKind, type EventAction } from "@/lib/refunds/events";
 
 import { writePaymentAudit } from "./audit";
 import { enqueueOutbox } from "./outbox";
+import { insertOrderPurchase } from "./purchase";
 import { moveReservation } from "./risk/reserve";
 
 type OrderState = "pending" | "paid" | "failed" | "expired" | "review";
@@ -59,13 +61,18 @@ function findMismatches(
     || order.providerAccount !== event.merchantAccount
     || order.providerEnvironment !== event.environment
   ) mismatches.push("merchant");
-  if (event.amountRupiah !== order.amountRupiah) mismatches.push("amount");
+  // A refund or dispute carries its own amount and may name a second capture;
+  // those are matched against the refund case or dispute in lib/refunds/events.ts.
+  const settlement = !isRefundOrDisputeKind(event.kind);
+  if (settlement && event.amountRupiah !== order.amountRupiah) mismatches.push("amount");
   if (event.currency !== order.currency) mismatches.push("currency");
   if (event.buyerId !== order.buyerId) mismatches.push("buyer");
   if (event.packageCode !== order.packageCode) mismatches.push("package");
   if (
-    (event.kind === "payment.succeeded" && !event.providerPaymentId)
-    || (event.providerPaymentId && order.providerReference !== null && order.providerReference !== event.providerPaymentId)
+    settlement && (
+      (event.kind === "payment.succeeded" && !event.providerPaymentId)
+      || (event.providerPaymentId && order.providerReference !== null && order.providerReference !== event.providerPaymentId)
+    )
   ) mismatches.push("payment");
 
   return mismatches;
@@ -106,6 +113,10 @@ function decidePaymentEvent(
     return { orderTo: null, outcome: "quarantined", reason: mismatches.join(",") };
   }
 
+  // Refunds and disputes never move the order: they are decided from their own
+  // records in lib/refunds/events.ts, once the order is locked.
+  if (isRefundOrDisputeKind(event.kind)) return { orderTo: null, outcome: "accepted", reason: null };
+
   if (event.kind === "payment.succeeded") {
     switch (order.status) {
       case "pending":
@@ -142,9 +153,14 @@ type ProcessResult =
   | { status: "duplicate" };
 
 const KIND_TO_TYPE = {
+  "dispute.lost": "dispute_lost",
+  "dispute.opened": "dispute_opened",
+  "dispute.won": "dispute_won",
   "payment.expired": "expired",
   "payment.failed": "failed",
   "payment.succeeded": "succeeded",
+  "refund.failed": "refund_failed",
+  "refund.succeeded": "refund_succeeded",
 } as const;
 
 /**
@@ -170,6 +186,15 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
 
     let decision = decidePaymentEvent(order, event, adapter);
 
+    // What a refund or dispute event means is read from the refund case or
+    // dispute it names, under the order lock taken above.
+    let refundAction: EventAction = { kind: "none" };
+    if (order && isRefundOrDisputeKind(event.kind) && decision.outcome !== "quarantined") {
+      const decided = await decideRefundDisputeEvent(tx, order.id, event);
+      decision = { orderTo: null, outcome: decided.outcome, reason: decided.reason };
+      refundAction = decided.action;
+    }
+
     // A payment that would be accepted is checked against the blocks once more:
     // the buyer may have been blocked since checkout started. The money has
     // arrived, so it is kept, not refused: the order goes to review, no access
@@ -193,13 +218,15 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
       INSERT INTO payment_events (
         provider, provider_environment, provider_account, event_id, type, source,
         provider_payment_id, merchant_reference, order_id, amount_rupiah, currency,
-        buyer_id, package_code, outcome, reason, body_sha256, caller_ip, provider_occurred_at
+        buyer_id, package_code, refund_reference, provider_refund_id, provider_dispute_id,
+        outcome, reason, body_sha256, caller_ip, provider_occurred_at
       )
       VALUES (
         ${adapter.id}, ${event.environment}, ${event.merchantAccount}, ${event.eventId},
         ${KIND_TO_TYPE[event.kind]}::payment_event_type, ${input.source}::payment_event_source,
         ${event.providerPaymentId}, ${event.merchantReference}, ${order?.id ?? null}::uuid,
         ${event.amountRupiah}, ${event.currency}, ${event.buyerId}, ${event.packageCode},
+        ${event.refund?.refundReference ?? null}, ${event.refund?.providerRefundId ?? null}, ${event.dispute?.providerDisputeId ?? null},
         ${decision.outcome}::payment_event_outcome, ${decision.reason},
         ${input.bodySha256 ?? null}, ${input.callerIp ?? null}::inet, ${event.occurredAt}
       )
@@ -240,19 +267,17 @@ async function processPaymentEvent(input: ProcessInput): Promise<ProcessResult> 
         orderId: order?.id ?? null,
         payload: { kind: "quarantined", paymentEventId: recorded.id, reason: decision.reason },
       });
+    } else if (order && isRefundOrDisputeKind(event.kind) && decision.outcome !== "review") {
+      // Applied in this same transaction: the stored event, the refund or
+      // dispute record, the access change and the audit event all commit together.
+      await applyRefundDisputeEvent(tx, {
+        action: refundAction,
+        event,
+        orderId: order.id,
+        recordedEventId: recorded.id,
+      });
     } else if (order && decision.orderTo === "paid") {
-      const [purchase] = await tx.$queryRaw<Array<{ id: string }>>`
-        INSERT INTO package_purchases (
-          student_id, package_code, package_name, status, affiliator_profile_id,
-          referral_code_snapshot, provider_reference, completed_at, provenance
-        )
-        SELECT o.buyer_id, o.package_code, o.package_name, 'succeeded'::package_purchase_status,
-               o.affiliator_profile_id, o.referral_code, 'order:' || o.id::text, now(),
-               'order'::package_purchase_provenance
-        FROM payment_orders o
-        WHERE o.id = ${order.id}::uuid
-        RETURNING id
-      `;
+      const purchase = { id: await insertOrderPurchase(tx, order.id) };
       await tx.$executeRaw`
         UPDATE payment_orders
         SET status = 'paid', status_changed_at = now(), paid_at = now(),

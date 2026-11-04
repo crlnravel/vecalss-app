@@ -1,11 +1,16 @@
 /**
  * "Syarat Pembelian": the plain-language terms a buyer agrees to at checkout.
  *
- * The text is built only from decisions already recorded in MS-00 and MS-08:
- * digital access, no auto-renewal, Monthly is one calendar month, Full Access
- * runs to the exam date, a full refund ends access, an open dispute pauses it,
- * and where to reach support. It does not say when a refund is granted, because
- * that is not decided.
+ * The text is built only from decisions already recorded in MS-00: digital
+ * access, no auto-renewal, Monthly is one calendar month, Full Access runs to
+ * the exam date, when and how money is refunded ("Refund eligibility", closed
+ * 4 November 2026), a full refund ends access, an open dispute pauses it, and
+ * where to reach support.
+ *
+ * Versions: an order keeps the version its buyer agreed to, and the dispute
+ * export prints that version's text, so an old version is never edited. A change
+ * is a new entry in `TERMS_VERSIONS` with a new version string. The last entry is
+ * the current one.
  *
  * The version is stored on the checkout intent and the order. Change the text
  * and the version together: an order keeps the version its buyer agreed to, and
@@ -26,7 +31,8 @@ type PurchaseTerms = {
   version: string;
 };
 
-const PURCHASE_TERMS: PurchaseTerms = {
+/** What buyers agreed to before refund rules were written down. Kept word for word. */
+const TERMS_2026_11_04: PurchaseTerms = {
   draftedOn: "2026-11-04",
   sections: [
     {
@@ -74,10 +80,42 @@ const PURCHASE_TERMS: PurchaseTerms = {
   version: "2026-11-04.1",
 };
 
-/** The text of the version an order agreed to. Only the current version exists so far. */
+/** Adds the refund rules (MS-00 "Refund eligibility"). Everything else is as in the earlier version. */
+const TERMS_2026_11_05: PurchaseTerms = {
+  ...TERMS_2026_11_04,
+  draftedOn: "2026-11-05",
+  sections: [
+    ...TERMS_2026_11_04.sections.filter((section) => section.heading !== "Pengembalian dana dan sengketa" && section.heading !== "Bantuan"),
+    {
+      body: [
+        "Kalau kesalahannya ada di pihak kami, uangmu dikembalikan penuh. Itu berlaku kalau kamu tertagih dua kali, nominal yang tertagih salah, kamu sudah bayar tetapi aksesmu tidak sampai, atau ada layanan yang tidak bisa kami sediakan.",
+        "Kalau kamu berubah pikiran, uangmu dikembalikan penuh asalkan kamu memintanya dalam 3 hari sejak pembayaran dan belum memakai fitur berbayar apa pun.",
+        "Setelah 3 hari, atau setelah kamu memakai fitur berbayar, pembelian tidak bisa dikembalikan. Itu berlaku juga untuk Full Access. Satu-satunya pengecualian adalah kesalahan di pihak kami.",
+      ],
+      heading: "Kapan uangmu dikembalikan",
+    },
+    {
+      body: [
+        "Permintaanmu kami putuskan paling lama 3 hari kerja. Kalau disetujui, uangmu kembali paling lama 14 hari kalender, dan bisa lebih lama kalau penyedia pembayaran lambat memprosesnya.",
+        "Uang kembali ke QRIS atau e-wallet yang kamu pakai kalau penyedia pembayaran bisa memprosesnya. Kalau tidak bisa, kami transfer ke rekening bank atau e-wallet atas namamu, atau atas nama orang tua atau walimu kalau kamu belum 18 tahun. Bukti transfernya kami simpan.",
+      ],
+      heading: "Berapa lama dan lewat mana",
+    },
+    TERMS_2026_11_04.sections.filter((section) => section.heading === "Pengembalian dana dan sengketa")[0],
+    TERMS_2026_11_04.sections.filter((section) => section.heading === "Bantuan")[0],
+  ],
+  version: "2026-11-05.1",
+};
+
+/** Every version that has been in force, oldest first. The last one is current. */
+const TERMS_VERSIONS: readonly PurchaseTerms[] = [TERMS_2026_11_04, TERMS_2026_11_05];
+
+const PURCHASE_TERMS: PurchaseTerms = TERMS_VERSIONS[TERMS_VERSIONS.length - 1];
+
+/** The text of the version an order agreed to. Old versions stay readable for old orders. */
 function getTermsByVersion(version: string): PurchaseTerms | null {
-  return version === PURCHASE_TERMS.version ? PURCHASE_TERMS : null;
+  return TERMS_VERSIONS.find((terms) => terms.version === version) ?? null;
 }
 
-export { PURCHASE_TERMS, getTermsByVersion };
+export { PURCHASE_TERMS, TERMS_VERSIONS, getTermsByVersion };
 export type { PurchaseTerms, TermsSection };

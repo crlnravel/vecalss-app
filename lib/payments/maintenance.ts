@@ -2,6 +2,7 @@ import "server-only";
 
 import { runFulfillmentMaintenance, type StalledResult } from "@/lib/fulfillment/stalled";
 import { purgeExpiredExportPackets } from "@/lib/disputes/export";
+import { runRefundMaintenance, type RefundMaintenanceResult } from "@/lib/refunds/maintenance";
 
 import type { PaymentProviderAdapter } from "./adapter";
 import { drainOutbox, type DrainResult, type OutboxHandlers } from "./outbox";
@@ -13,6 +14,8 @@ type PaymentMaintenanceResult = {
   /** Paid orders still waiting for access: retried, then flagged after an hour. */
   fulfillment: StalledResult;
   outbox: DrainResult;
+  /** Refunds with the provider settled from its status, and refunds that are late. */
+  refunds: RefundMaintenanceResult;
   /** Null when no payment provider is configured. */
   reconciliation: ReconcileResult | null;
 };
@@ -36,6 +39,7 @@ async function runPaymentMaintenance(deps: {
   // its receipt email is queued before the outbox drains below.
   const fulfillment = await runFulfillmentMaintenance();
   const exportPacketsPurged = await purgeExpiredExportPackets();
+  const refunds = await runRefundMaintenance({ provider: deps.provider });
 
   const outbox: DrainResult = { dead: 0, done: 0, failed: 0 };
   for (let batch = 0; batch < MAX_OUTBOX_BATCHES; batch += 1) {
@@ -46,7 +50,7 @@ async function runPaymentMaintenance(deps: {
     if (drained.done + drained.failed + drained.dead === 0) break;
   }
 
-  return { exportPacketsPurged, fulfillment, outbox, reconciliation };
+  return { exportPacketsPurged, fulfillment, outbox, reconciliation, refunds };
 }
 
 export { runPaymentMaintenance };

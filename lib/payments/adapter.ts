@@ -52,7 +52,56 @@ type ProviderPaymentStatus =
       state: ProviderPaymentState;
     };
 
-type PaymentEventKind = "payment.succeeded" | "payment.failed" | "payment.expired";
+type PaymentEventKind =
+  | "payment.succeeded"
+  | "payment.failed"
+  | "payment.expired"
+  | "refund.succeeded"
+  | "refund.failed"
+  | "dispute.opened"
+  | "dispute.won"
+  | "dispute.lost";
+
+/** What we ask the provider to give back. `refundReference` is our idempotency key for it. */
+type RefundRequest = {
+  amountRupiah: number;
+  currency: typeof PAYMENT_CURRENCY;
+  /** The captured payment being refunded (the provider's payment id). */
+  providerPaymentId: string;
+  /**
+   * Our opaque refund case reference. The provider must treat it as an
+   * idempotency key: asking again with the same reference returns the same
+   * refund and never a second one.
+   */
+  refundReference: string;
+};
+
+type ProviderRefundState = "pending" | "succeeded" | "failed";
+
+/**
+ * The provider's answer to a refund request. A definite refusal is `rejected`.
+ * An unreachable or timed-out provider is not an answer: the adapter throws, and
+ * the caller treats the outcome as unknown until it asks `getRefundStatus`.
+ */
+type RefundResult =
+  | { outcome: "accepted"; providerRefundId: string; state: ProviderRefundState }
+  | { outcome: "rejected"; reason: string };
+
+/** The provider's account of one refund, from a status lookup. */
+type ProviderRefundStatus =
+  | { found: false }
+  | {
+      amountRupiah: number;
+      currency: string;
+      environment: string;
+      found: true;
+      merchantAccount: string;
+      occurredAt: Date;
+      providerPaymentId: string;
+      providerRefundId: string;
+      refundReference: string;
+      state: ProviderRefundState;
+    };
 
 /** A provider event whose signature and freshness were verified. */
 type VerifiedPaymentEvent = {
@@ -67,6 +116,9 @@ type VerifiedPaymentEvent = {
   occurredAt: Date;
   packageCode: string | null;
   providerPaymentId: string | null;
+  /** Refund and dispute events only. */
+  dispute?: { providerDisputeId: string; reason: string | null; responseDueAt: Date | null };
+  refund?: { providerRefundId: string; refundReference: string };
 };
 
 type EventVerification =
@@ -91,9 +143,22 @@ interface PaymentProviderAdapter {
   createSession(request: PaymentSessionRequest): Promise<PaymentSession>;
   /** Looks a payment up by our reference. Throws when the provider cannot be reached. */
   getStatus(merchantReference: string): Promise<ProviderPaymentStatus>;
+  /** Asks the provider to refund a captured payment. Throws when the answer is unknown. */
+  createRefund(request: RefundRequest): Promise<RefundResult>;
+  /** Looks a refund up by our refund reference. Throws when the provider cannot be reached. */
+  getRefundStatus(refundReference: string): Promise<ProviderRefundStatus>;
   verifyAndParseEvent(input: VerifyEventInput): EventVerification;
 }
 
+/** Thrown by an adapter when a refund call may or may not have reached the provider. */
+class ProviderOutcomeUnknownError extends Error {
+  constructor(message = "The provider did not answer in time.") {
+    super(message);
+    this.name = "ProviderOutcomeUnknownError";
+  }
+}
+
+export { ProviderOutcomeUnknownError };
 export type {
   EventVerification,
   PaymentEventKind,
@@ -102,6 +167,10 @@ export type {
   PaymentSessionRequest,
   ProviderPaymentState,
   ProviderPaymentStatus,
+  ProviderRefundState,
+  ProviderRefundStatus,
+  RefundRequest,
+  RefundResult,
   VerifiedPaymentEvent,
   VerifyEventInput,
 };

@@ -23,9 +23,12 @@ type TierResult = {
  * The buyer's earliest paid order that stands. A buyer is verified only with
  * one of these AND an account old enough.
  *
- * SEAM (MS-09): refunds and disputes do not exist yet, so a paid order always
- * stands. When MS-09 adds them, this is the one place that must also exclude an
- * order with a refund or an open dispute; no other code decides who is verified.
+ * An order stands only while it has no refund and no dispute (decision G2:
+ * "no refund or dispute"). A refund counts from its approval, since that is
+ * when the money is committed to go back; a case that was only prepared,
+ * rejected, cancelled or failed does not count. A dispute counts in every
+ * state, won ones included: it happened. This is the one place that decides
+ * who is verified (MS-09).
  */
 async function findStandingPaidOrder(db: Db, userId: string) {
   const [order = null] = await db.$queryRaw<Array<{ id: string }>>`
@@ -33,6 +36,11 @@ async function findStandingPaidOrder(db: Db, userId: string) {
     FROM payment_orders o
     WHERE o.buyer_id = ${userId}::uuid
       AND o.status = 'paid'
+      AND NOT EXISTS (
+        SELECT 1 FROM refund_cases c
+        WHERE c.order_id = o.id AND c.state::text IN ('approved', 'processing', 'completed')
+      )
+      AND NOT EXISTS (SELECT 1 FROM payment_disputes d WHERE d.order_id = o.id)
     ORDER BY o.paid_at, o.id
     LIMIT 1
   `;
