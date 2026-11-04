@@ -79,11 +79,20 @@ never beats a mark.
 
 ## Adding a table later
 
-A new table works for the app straight away. If it holds evidence, add it to
-`evidence_tables` in the same migration (with the columns the runtime may
-UPDATE) and finish with `SELECT public.retention_apply_runtime_grants();`.
-`pnpm test:retention-roles` fails when a table with an immutability trigger or a
-payment-evidence name is missing from the registry.
+A new table starts with **no access for the app's role**: there are no default
+privileges for future tables (MS-19). The migration that creates it must finish
+with `SELECT public.retention_apply_runtime_grants();`, which gives an ordinary
+table full read and write, and an evidence table only what its registry row allows.
+If the table holds evidence, add it to `evidence_tables` in the same migration
+first, with the columns the runtime may UPDATE.
+
+The helper refuses to run while a table whose name starts with `payment_`,
+`refund_`, `risk_`, `fraud_`, `retention_`, `receipt_`, `fulfillment_`, `dispute_`,
+`billing_`, `legal_`, `environment_` or `checkout_` is neither in `evidence_tables`
+nor on its short reviewed list of ordinary tables (`billing_accounts`,
+`risk_flags`). So a forgotten registration stops the migration instead of opening
+the table. `pnpm test:retention-roles` enforces the same rule for every table in
+the schema and the database.
 
 ## Changing a period
 
