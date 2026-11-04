@@ -504,14 +504,18 @@ delete evidence. A failure in either step never stops the others.
 ### Holds
 
 `legal_holds` covers one order, one buyer, or one case (refund, dispute or
-fraud). Placed and released only by the owner (`FRAUD_OWNER_EMAIL`, verified
-second factor, written reason of 10 to 500 characters, re-checked against the
-database) on `/admin/fraud/orders/[orderId]`, with an audit event each. A hold
+fraud). Placed by the owner (`FRAUD_OWNER_EMAIL`, verified second factor, written
+reason of 10 to 500 characters, re-checked against the database) on
+`/admin/fraud/orders/[orderId]`, with an audit event. **Released only by the owner
+on the owner's database login**, with `pnpm retention:release-hold -- --hold <id>
+--reason "…"` (MS-19): the app's runtime login has no UPDATE on the release
+columns, so a compromised app cannot lift a hold and then run the cleanup. A hold
 is stored once and released once on the same row; both timestamps are the
 database's; nothing is deleted. The existing `evidence_hold` flags on refund
-cases and disputes hold the order as well. The database cannot tell who the
-owner is, so owner-only is enforced in the library, as for the other owner
-actions.
+cases and disputes hold the order as well. A compromised app can place holds and
+run the cleanup on records already past their period; it cannot release a hold.
+The daily job emails the owner (counts only) whenever a run scrubs or deletes
+anything.
 
 ### Restricted views and logs
 

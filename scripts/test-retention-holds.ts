@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 import { FraudAuthorityError } from "../lib/fraud/errors";
 import { RetentionError } from "../lib/retention/errors";
-import { placeLegalHold, releaseLegalHold } from "../lib/retention/holds";
+import { ReleaseHoldError, releaseHoldAsOwner } from "../lib/retention/release-hold.mjs";
+import { placeLegalHold } from "../lib/retention/holds";
 import { getOrderRetention } from "../lib/retention/status";
 import { requireOwner } from "../lib/fraud/authority";
 import { prepareRefund } from "../lib/refunds/cases";
 import { openFraudCase } from "../lib/fraud/cases";
-import { createRuntimeLogin, ownerClient, ownerQuery, shiftOrderBack } from "./retention-test-kit";
+import { createRuntimeLogin, ownerClient, ownerQuery, ownerUrl, releaseHold, shiftOrderBack } from "./retention-test-kit";
 import { cleanUp, ENV, OWNER_EMAIL, paidOrder, prisma, sessionFor, setupAuthority } from "./refund-test-kit";
 
 /**
@@ -26,6 +28,10 @@ const REASON = "Pemeriksaan sengketa dengan penyedia pembayaran";
 
 async function retentionError(work: () => Promise<unknown>, code: RetentionError["code"]) {
   await assert.rejects(work, (error: unknown) => error instanceof RetentionError && error.code === code, `expected a retention error: ${code}`);
+}
+
+async function releaseError(work: () => Promise<unknown>, code: string) {
+  await assert.rejects(work, (error: unknown) => error instanceof ReleaseHoldError && error.code === code, `expected a release error: ${code}`);
 }
 
 async function main() {
@@ -65,7 +71,8 @@ async function main() {
   // ---- Owner only ---------------------------------------------------------------------------------------------------------------
   const forged = { email: authority.otherEmail, userId: authority.otherId } as unknown as typeof owner;
   await assert.rejects(placeLegalHold(forged, { env: ENV, reason: REASON, scope: "buyer", subjectId: order.buyerId }), (error: unknown) => error instanceof FraudAuthorityError && error.code === "not_owner");
-  await assert.rejects(releaseLegalHold(forged, { env: ENV, holdId: placed.holdId, reason: "Pemeriksaan selesai tanpa temuan" }), (error: unknown) => error instanceof FraudAuthorityError && error.code === "not_owner");
+  await releaseError(() => releaseHold(placed.holdId, "Pemeriksaan selesai tanpa temuan", ""), "owner_unset");
+  await releaseError(() => releaseHold(placed.holdId, "Pemeriksaan selesai tanpa temuan", "nobody@vecalss.local"), "owner_unknown");
   assert.throws(() => requireOwner(sessionFor(authority.otherEmail, { id: authority.otherId }), ENV), (error: unknown) => error instanceof FraudAuthorityError && error.code === "not_owner");
   assert.throws(() => requireOwner(sessionFor(OWNER_EMAIL, { id: authority.ownerId, mfa: "challenge" }), ENV), (error: unknown) => error instanceof FraudAuthorityError && error.code === "mfa_required");
   assert.throws(() => requireOwner(sessionFor(OWNER_EMAIL, { id: authority.ownerId, roles: [] }), ENV), (error: unknown) => error instanceof FraudAuthorityError && error.code === "not_admin");
@@ -79,23 +86,29 @@ async function main() {
   pass("owner only: a second admin, a missing second factor, a non-admin, an unset owner and a changed owner are all refused, in the library and by the database");
 
   // ---- Releasing -------------------------------------------------------------------------------------------------------------------
-  await retentionError(() => releaseLegalHold(owner, { env: ENV, holdId: placed.holdId, reason: "pendek" }), "invalid_reason");
-  await retentionError(() => releaseLegalHold(owner, { env: ENV, holdId: randomUUID(), reason: "Pemeriksaan selesai tanpa temuan" }), "not_found");
-  await releaseLegalHold(owner, { env: ENV, holdId: placed.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
+  await releaseError(() => releaseHold(placed.holdId, "pendek"), "invalid_reason");
+  await releaseError(() => releaseHold(placed.holdId, ""), "invalid_reason");
+  await releaseError(() => releaseHold(randomUUID(), "Pemeriksaan selesai tanpa temuan"), "not_found");
+  await releaseError(() => releaseHold("not-a-uuid", "Pemeriksaan selesai tanpa temuan"), "not_found");
+  assert.equal((await prisma.legalHold.findUniqueOrThrow({ where: { id: placed.holdId } })).releasedAt, null, "no refused release left the hold released");
+  await releaseHold(placed.holdId, "Pemeriksaan selesai tanpa temuan");
   const released = await prisma.legalHold.findUniqueOrThrow({ where: { id: placed.holdId } });
   assert.ok(released.releasedAt);
   assert.equal(released.releasedByUserId, authority.ownerId);
   assert.equal(released.releaseReason, "Pemeriksaan selesai tanpa temuan");
   assert.equal(released.reason, REASON, "the original reason is kept");
-  assert.ok(await prisma.auditLog.findFirst({ where: { action: "retention.hold.released", targetId: order.id } }), "a release is audited");
-  await retentionError(() => releaseLegalHold(owner, { env: ENV, holdId: placed.holdId, reason: "Dilepas untuk kedua kalinya" }), "already_released");
+  const releaseAudit = await prisma.auditLog.findFirst({ where: { action: "retention.hold.released", targetId: order.id } });
+  assert.ok(releaseAudit, "a release is audited");
+  assert.equal(releaseAudit.actorUserId, authority.ownerId);
+  assert.equal(JSON.stringify(releaseAudit.metadata).includes("Pemeriksaan selesai"), false, "the audit event carries ids, not the written reason");
+  await releaseError(() => releaseHold(placed.holdId, "Dilepas untuk kedua kalinya"), "already_released");
   const after = await getOrderRetention(order.id);
   assert.ok(after && after.kind === "present" && !after.held && after.holds.length === 1 && after.holds[0].releasedAt, "the released hold stays in the history");
   // After a release the subject can be held again.
   const again = await placeLegalHold(owner, { env: ENV, reason: REASON, scope: "order", subjectId: order.id });
   assert.notEqual(again.holdId, placed.holdId);
-  await releaseLegalHold(owner, { env: ENV, holdId: again.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
-  pass("a hold is released once with a written reason on database time, audited, and kept in the history; the subject can be held again");
+  await releaseHold(again.holdId, "Pemeriksaan selesai tanpa temuan");
+  pass("the owner command releases a hold once with a written reason on database time, audited, and kept in the history; the subject can be held again");
 
   // ---- Append-only in the database --------------------------------------------------------------------------------------------------------
   const client = await ownerClient();
@@ -152,17 +165,18 @@ async function main() {
   ]) {
     const hold = await placeLegalHold(owner, { env: ENV, reason: REASON, ...input });
     assert.equal(await held(), true, `a ${input.scope} hold${"caseKind" in input ? ` on a ${input.caseKind} case` : ""} holds the order`);
-    await releaseLegalHold(owner, { env: ENV, holdId: hold.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
+    await releaseHold(hold.holdId, "Pemeriksaan selesai tanpa temuan");
     assert.equal(await held(), false, "released, it no longer holds");
   }
   // A hold on a case also protects a closed fraud case from deletion.
   const caseHold = await placeLegalHold(owner, { env: ENV, reason: REASON, scope: "case", caseKind: "fraud", subjectId: fraud.id });
   assert.equal((await ownerQuery<{ h: boolean }>("SELECT retention_fraud_case_held($1) AS h", [fraud.id]))[0].h, true);
-  await releaseLegalHold(owner, { env: ENV, holdId: caseHold.holdId, reason: "Pemeriksaan selesai tanpa temuan" });
+  await releaseHold(caseHold.holdId, "Pemeriksaan selesai tanpa temuan");
   await shiftOrderBack(target.id, "13 months");
   pass("holds on an order, a buyer, a refund case or a fraud case each hold the order, and a closed case's flag stops holding it");
 
-  // ---- The runtime login does the same through the same checks; the database cannot know who the owner is, so the library does ------------------------------------
+  // ---- The runtime login cannot release a hold, and the app has no way to ----------------------------------------------------------------------
+  const open = await placeLegalHold(owner, { env: ENV, reason: REASON, scope: "order", subjectId: target.id });
   const login = await createRuntimeLogin("holds");
   try {
     const runtime = await login.client();
@@ -170,13 +184,57 @@ async function main() {
       await assert.rejects(runtime.query("DELETE FROM legal_holds WHERE true"), (error: unknown) => (error as { code?: string }).code === "42501");
       await assert.rejects(runtime.query("UPDATE legal_holds SET reason = 'x' WHERE true"), (error: unknown) => (error as { code?: string }).code === "42501");
       await assert.rejects(runtime.query("TRUNCATE legal_holds"), (error: unknown) => (error as { code?: string }).code === "42501");
+      // MS-19 C-01: not even the release columns.
+      for (const sql of [
+        "UPDATE legal_holds SET released_at = now() WHERE id = $1",
+        "UPDATE legal_holds SET released_by_user_id = $2, release_reason = 'dilepas oleh aplikasi yang diretas' WHERE id = $1",
+        "UPDATE legal_holds SET released_at = now(), released_by_user_id = $2, release_reason = 'dilepas oleh aplikasi yang diretas' WHERE id = $1",
+      ]) {
+        await assert.rejects(runtime.query(sql, sql.includes("$2") ? [open.holdId, authority.ownerId] : [open.holdId]), (error: unknown) => (error as { code?: string }).code === "42501", sql);
+      }
+      // The runtime login still places holds and reads them.
+      assert.equal((await runtime.query("SELECT count(*)::int AS n FROM legal_holds WHERE id = $1", [open.holdId])).rows[0].n, 1);
+      // The release function refuses a runtime connection outright, before touching anything.
+      await releaseError(() => releaseHoldAsOwner(runtime, { holdId: open.holdId, ownerEmail: OWNER_EMAIL, reason: "Pemeriksaan selesai tanpa temuan" }), "runtime_role");
     } finally {
       await runtime.end();
     }
+    assert.equal((await prisma.legalHold.findUniqueOrThrow({ where: { id: open.holdId } })).releasedAt, null, "the hold is still open after every runtime attempt");
+
+    // The command itself: refuses on the runtime login's connection string, works on the owner's.
+    const command = (databaseUrl: string, holdId: string, reason: string) =>
+      spawnSync(process.execPath, ["scripts/release-legal-hold.mjs", "--hold", holdId, "--reason", reason], {
+        cwd: new URL("..", import.meta.url).pathname,
+        encoding: "utf8",
+        env: { ...process.env, DATABASE_URL: databaseUrl, FRAUD_OWNER_EMAIL: OWNER_EMAIL, MIGRATE_DATABASE_URL: databaseUrl },
+      });
+    const refused = command(login.url, open.holdId, "Pemeriksaan selesai tanpa temuan");
+    assert.notEqual(refused.status, 0, "the command refuses on the runtime login");
+    assert.match(refused.stderr, /runtime login/u);
+    assert.equal(refused.stderr.includes(new URL(login.url).password), false, "the refusal does not print the password");
+    const missingReason = command(ownerUrl(), open.holdId, "pendek");
+    assert.notEqual(missingReason.status, 0, "the command needs a written reason");
+    const done = command(ownerUrl(), open.holdId, "Pemeriksaan selesai tanpa temuan");
+    assert.equal(done.status, 0, done.stderr);
+    const releasedByCommand = await prisma.legalHold.findUniqueOrThrow({ where: { id: open.holdId } });
+    assert.ok(releasedByCommand.releasedAt && releasedByCommand.releasedByUserId === authority.ownerId, "the owner command released it");
+    const viaCommand = await prisma.auditLog.findFirst({ where: { action: "retention.hold.released", metadata: { path: ["holdId"], equals: open.holdId } } });
+    assert.ok(viaCommand && (viaCommand.metadata as { via?: string }).via === "owner_command", "the command wrote its audit row");
   } finally {
     await login.drop();
   }
-  pass("the runtime login cannot delete, truncate or edit holds; only a release goes through the guarded columns");
+
+  // The in-app path is gone: no library function, no server action, no button.
+  const holdsSource = readFileSync(new URL("../lib/retention/holds.ts", import.meta.url), "utf8");
+  assert.equal(/releaseLegalHold|released_at\s*=\s*now/u.test(holdsSource), false, "the app library has no release");
+  const actionsSource = readFileSync(new URL("../modules/admin/retention-actions.ts", import.meta.url), "utf8");
+  assert.equal(/release/iu.test(actionsSource), false, "the server actions have no release");
+  const panelSource = readFileSync(new URL("../modules/admin/fraud/retention-panel.tsx", import.meta.url), "utf8");
+  assert.equal(/releaseHoldAction/u.test(panelSource), false, "the panel has no release form");
+  assert.match(panelSource, /pnpm retention:release-hold/u, "the panel tells the owner how to release");
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+  assert.ok(packageJson.scripts["retention:release-hold"], "the owner command is a package script");
+  pass("the runtime login cannot release a hold; the owner command can, refuses the runtime login, and the in-app path is gone");
 
   await cleanUp();
   await prisma.$disconnect();

@@ -89,6 +89,50 @@ export function checkCronAuthorization(
   return timingSafeEqual(presented, expected) ? "ok" : "unauthorized";
 }
 
+type RetentionActivity = { changed: number; lines: string[] };
+
+/** What a retention run actually changed: counts per class, never the records themselves. */
+function summarizeRetentionActivity(retention: RetentionMaintenanceResult): RetentionActivity {
+  const lines: string[] = [];
+  let changed = 0;
+  for (const [kind, classes] of [["dibersihkan", retention.scrub], ["dihapus", retention.delete]] as const) {
+    for (const entry of classes) {
+      const counts = Object.entries(entry.counts).filter(([key, value]) => key !== "failed" && value > 0);
+      if (counts.length === 0) continue;
+      changed += counts.reduce((sum, [, value]) => sum + value, 0);
+      lines.push(`${entry.class} (${kind}): ${counts.map(([key, value]) => `${key} ${value}`).join(", ")}`);
+    }
+  }
+  return { changed, lines };
+}
+
+/**
+ * Tells the owner whenever a retention run scrubbed or deleted anything, so an
+ * unexpected deletion is noticed the day it happens. Counts only. This is a
+ * notice, not a failure: a send problem is logged and never fails the run.
+ */
+async function noticeRetentionActivity(deps: MaintenanceDeps, retention: RetentionMaintenanceResult, now: Date) {
+  const { changed, lines } = summarizeRetentionActivity(retention);
+  if (changed === 0) return;
+  if (!deps.alertTo) {
+    serverLogger.error("maintenance.retention_notice.not_configured", new Error("No maintenance alert address is set."), { area: "maintenance" });
+    return;
+  }
+
+  const day = now.toISOString().slice(0, 10);
+  const digest = createHash("sha256").update(lines.join("|")).digest("hex").slice(0, 16);
+  const result = await deps.sendAlert({
+    html: `<p>Pemeliharaan retensi hari ini membersihkan atau menghapus bukti yang sudah melewati masa simpannya.</p><ul>${lines.map((line) => `<li>${line}</li>`).join("")}</ul><p>Jumlah saja yang dikirim, tanpa isi catatan. Kalau ini tidak terduga, periksa penahanan hukum dan rincian di tabel retention_runs.</p>`,
+    idempotencyKey: `retention-activity:${day}:${digest}`,
+    subject: "Retensi Vecalss: bukti dibersihkan atau dihapus",
+    text: `Pemeliharaan retensi hari ini membersihkan atau menghapus bukti yang sudah melewati masa simpannya. ${lines.join("; ")}. Jumlah saja yang dikirim, tanpa isi catatan. Kalau ini tidak terduga, periksa penahanan hukum dan rincian di tabel retention_runs.`,
+    to: deps.alertTo,
+  });
+  if (!result.ok) {
+    serverLogger.error("maintenance.retention_notice.failed", new Error("The retention notice could not be sent."), { area: "maintenance", code: result.reason });
+  }
+}
+
 async function alertOwner(deps: MaintenanceDeps, failures: MaintenanceFailure[], now: Date, details: string[] = []) {
   if (!deps.alertTo) {
     serverLogger.error("maintenance.alert.not_configured", new Error("No maintenance alert address is set."), {
@@ -167,6 +211,11 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     try {
       retention = await deps.retention();
       if (retention.failedRows > 0) failures.push("retention_maintenance");
+      try {
+        await noticeRetentionActivity(deps, retention, now);
+      } catch (error) {
+        serverLogger.error("maintenance.retention_notice.failed", error, { area: "maintenance" });
+      }
     } catch {
       failures.push("retention_maintenance");
     }

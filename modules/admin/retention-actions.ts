@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/access";
 import { requireOwner } from "@/lib/fraud/authority";
 import { describeFraudError } from "@/lib/fraud/messages";
 import { describeRetentionError, RetentionError } from "@/lib/retention/errors";
-import { CASE_KINDS, placeLegalHold, releaseLegalHold, type CaseKind, type HoldScope } from "@/lib/retention/holds";
+import { CASE_KINDS, placeLegalHold, type CaseKind, type HoldScope } from "@/lib/retention/holds";
 import { serverLogger } from "@/lib/server-logger";
 
 /**
@@ -62,9 +62,4 @@ async function placeHoldAction(form: FormData) {
   });
 }
 
-async function releaseHoldAction(form: FormData) {
-  const holdId = text(form, "holdId");
-  await run(form, "Penahanan dilepas.", (owner) => releaseLegalHold(owner, { holdId, reason: text(form, "reason") }));
-}
-
-export { placeHoldAction, releaseHoldAction };
+export { placeHoldAction };

@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { fieldControlClassName, fieldLabelClassName } from "@/components/ui/field-constants";
 import type { OrderRetention } from "@/lib/retention/status";
-import { placeHoldAction, releaseHoldAction } from "@/modules/admin/retention-actions";
+import { placeHoldAction } from "@/modules/admin/retention-actions";
 import { Field, formatDate, formatDateTime, ownerNote, Panel, ReasonForm } from "@/modules/admin/fraud/shared";
 
 type PresentRetention = Extract<OrderRetention, { kind: "present" }>;
@@ -65,17 +65,12 @@ function RetentionPanel({
                 {SCOPE_LABELS[hold.scope]} · dipasang {formatDateTime(hold.placedAt)} oleh {hold.placedByEmail}
               </p>
               <p className="mt-0.5 break-words text-sm text-secondary-700">{hold.reason}</p>
-              <div className="mt-3">
-                <ReasonForm
-                  action={releaseHoldAction}
-                  disabled={!authority.isOwner}
-                  disabledNote={ownerNote(authority)}
-                  hidden={{ holdId: hold.id, orderId }}
-                  label="Alasan melepas penahanan"
-                  submit="Lepas penahanan"
-                  tone="outline"
-                />
-              </div>
+              <p className="mt-2 text-sm leading-5 text-secondary-600">
+                Untuk melepas penahanan ini, jalankan di komputer pemilik dengan akses basis data pemilik:
+              </p>
+              <code className="mt-1 block break-all rounded-control bg-primary-50 px-2 py-1.5 text-xs text-secondary-900">
+                {`pnpm retention:release-hold -- --hold ${hold.id} --reason "alasan melepas"`}
+              </code>
             </li>
           ))}
         </ul>

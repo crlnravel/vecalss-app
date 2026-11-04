@@ -79,15 +79,39 @@ data change.
 
 ## Holds
 
-Place and release holds on the order page (`/admin/fraud/orders/<id>`), as the
-owner with the second factor and a written reason. A hold on an order, a buyer or
-a case stops the scrub and the delete until released.
+Place a hold on the order page (`/admin/fraud/orders/<id>`), as the owner with the
+second factor and a written reason. A hold on an order, a buyer or a case stops
+the scrub and the delete until it is released.
+
+The app cannot release a hold. Only the owner can, on the owner's database login,
+from the owner's computer:
+
+```sh
+pnpm retention:release-hold -- --hold <hold id> --reason "<why, 10 to 500 characters>"
+```
+
+The command connects with `MIGRATE_DATABASE_URL` (else `DATABASE_URL`), records
+the `FRAUD_OWNER_EMAIL` account as the one who released it, writes an audit row,
+and refuses to run if the connected role is the app's runtime login. A release is
+one-way; to hold the same thing again, place a new hold. The order page lists each
+open hold with the hold id and this command.
+
+Whenever a retention run scrubs or deletes anything, the daily job emails
+`MAINTENANCE_ALERT_EMAIL` with the counts per class (never record contents), so an
+unexpected deletion is noticed the day it happens.
 
 ## Things to know
 
-- The database cannot tell who the owner is. Anything connected as the app's role
-  could write a hold row directly; the owner-only rule is enforced in the
-  application, like the other owner actions.
+- What a compromised app can and cannot do (the threat model). The app's runtime
+  login can **place** holds, and it can call the cleanup functions, which only act
+  on records already past their period (12 months for IP and device data, 2 years
+  for cases, 10 years for financial records) and not under a hold. It **cannot
+  release a hold**, because it has no UPDATE on the release columns, so it cannot
+  defeat a hold the owner placed. Placing a hold needs no database proof of who
+  the owner is; the owner-only rule for placing is enforced in the application,
+  like the other owner actions, so a compromised app can place holds that the
+  owner then has to release. The owner's own login can do everything the
+  migration role can, and is not restricted by this design.
 - The delete path also removes the `package_purchases` summary and the checkout
   intent of an expired order family, and nothing else outside it: users, the
   access ledger and `audit_logs` stay.
