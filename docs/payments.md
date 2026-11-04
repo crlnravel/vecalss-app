@@ -399,13 +399,159 @@ The console `/pay/stand-in/refund/<reference>` (admin, local database only)
 reports a refund as succeeded or failed through the real inbox. Dispute events
 are built by `buildSignedDisputeEventFor` in tests; there is no screen for them.
 
+## Evidence retention and immutability (MS-10 phase A)
+
+The orders, payment events, receipts and the rest of the evidence are kept for
+fixed periods, then removed or scrubbed by one reviewed path. The application's
+database login cannot rewrite or delete any of it, and a database marked as the
+merchant environment cannot be reset by the project's scripts. Operations
+steps (creating the login on Neon, switching Vercel, marking go-live) are in
+[`evidence-retention-ops.md`](./evidence-retention-ops.md). Migration:
+`20261106090000_evidence_retention`.
+
+### The register
+
+`retention_register_versions` and `retention_register_rules` hold the periods.
+They are versioned and append-only (no UPDATE, DELETE or TRUNCATE, even for the
+owner). A change is a new version through a reviewed migration; the maintenance
+functions always read the newest version. The tables enforce that a class
+flagged `financial` has a period in calendar months and never less than 6, and
+that a later version cannot drop the flag. Version 1 is the G4 decision of 3
+November 2026; the start events are the coordinator's defaults.
+
+| Class | Period | Starts at | After the period |
+| --- | --- | --- | --- |
+| `order_family`: orders, payment events, receipts and deliveries, usage evidence, reservations, outbox jobs, dispute exports, refund and dispute cases and their events, the purchase summary, the checkout intent | 10 years (financial) | the order's `paid_at`, else `created_at` | deleted, a whole family at a time |
+| `case_record`: refund cases and disputes | 2 years (financial) | closure; never shorter than the order's own period | deleted with the family |
+| `buyer_ip_device`: `buyer_ip`, `device_lookup_token`, `caller_ip` on events, the address on payment audit rows | 12 months | the order's `created_at` | scrubbed to null; the order stays |
+| `fraud_case`: cases, events, links, appeals | 2 years | closure | deleted |
+| `fraud_block`: lifted or expired blocks and their events | 2 years | `ended_at` | deleted |
+| `checkout_intent`: intents with no order | 30 days | `expires_at` | deleted |
+| `risk_policy`: versions and activations | 10 years | creation | deleted, unless a retained row still names the version, it is in force, or it is the newest |
+| `risk_counter`: daily limit counters | 10 years | the counter's date | deleted |
+| `security_log` | 90 days | MS-16 job | unchanged (`external`) |
+| `audit_log`, `billing_access` | not pruned | n/a | `keep` |
+
+Calendar rule: periods count on the Asia/Jakarta calendar, on database time,
+through `retention_period_end()` (Postgres intervals), never the session time
+zone. A start day the end month does not have (31 Aug plus 6 months, 29 Feb plus
+a year) ends at the first instant of the next month, so a period is never
+shorter than the one named: 31 Aug 2026 plus 6 months ends 1 March 2027, 29 Feb
+2028 plus 10 years ends 1 March 2038, 28 Feb 2027 plus 6 months ends 28 Aug 2027.
+
+**IP and device versus disputes.** The scrub never touches an order that has a
+hold, an open refund case, an open dispute, or an open fraud case. An order with
+a case keeps its IP and device evidence until the case's own period ends (2 years
+after closure) and is scrubbed afterwards if the 12 months have also passed. A
+dispute opened in month 11 therefore still has its evidence in month 13, and the
+packet says whether the IP and device sections were kept or removed
+(`retention.ipAndDevice.state`: `kept`, `removed` or `none`; packet version 3,
+older packets and their digests are unchanged).
+
+### Evidence tables and roles
+
+`evidence_tables` lists the 34 evidence tables: orders, payment events and
+outbox, receipts and deliveries, usage events, dispute exports, refund and
+dispute cases and events, reservations, day buckets and account tiers, policy
+versions and activations, fraud cases, events, links, appeals, blocks and block
+events, checkout intents, the purchase summary, `billing_access_events`,
+`audit_logs`, `legal_holds`, and the retention tables themselves. For each it
+records which columns the runtime role may still UPDATE (the ones the guarded
+transitions use).
+
+| Role | What it is |
+| --- | --- |
+| schema owner (`MIGRATE_DATABASE_URL`, falls back to `DATABASE_URL`) | runs migrations; on Neon, `neondb_owner` |
+| `vecalss_runtime` (NOLOGIN) | holds the application's privileges; the app's login role is a member |
+| the app's login (for example `vecalss_app`) | created by `scripts/setup-runtime-role.mjs`; not a superuser, owns nothing, cannot create objects |
+| `vecalss_retention` (NOLOGIN) | owns the maintenance functions; the only role the freeze triggers let scrub or delete; nobody logs in as it |
+
+The runtime role gets SELECT, INSERT and column-limited UPDATE on evidence
+tables, and no DELETE, TRUNCATE, TRIGGER or REFERENCES; ordinary tables keep full
+read and write. `retention_apply_runtime_grants()` rebuilds the grants from the
+registry; run it after any migration that adds an evidence table (new tables
+are usable by the app straight away through default privileges, and
+`test:retention-roles` fails if a table with an immutability trigger or a payment
+name is not in the registry). `retention_role_check()` reports whether the
+connected role could alter schema or delete evidence.
+
+The scrub exception in the freeze triggers is `current_user =
+'vecalss_retention'`, inside each guard function. No session setting or other
+value the runtime role can set takes part, and the runtime role cannot become
+that role.
+
+### Maintenance path
+
+`retention_run_scrub(limit)` and `retention_run_delete(limit)` are SECURITY
+DEFINER functions owned by `vecalss_retention` with a pinned `search_path`. The
+runtime role may call them; nothing else may. They read the register and the
+holds themselves, take an advisory lock (a second concurrent run says `busy`),
+clamp the batch size, and write one row per class per run to `retention_runs`
+(counts, register version, held and case-skipped totals, caller). They are
+safe to run twice. The delete path works in dependency order, a whole order
+family in one subtransaction, never deletes a row a retained row still needs
+(a family waits while a case, fraud case or hold covers it; a block waits for the
+cases that link to it), and leaves a tombstone in `retention_purges` (no personal
+data) so the order page can say the record was "removed under the retention
+policy". `retention_scrubs` records each scrubbed order. `audit_logs` rows are
+never deleted; only the address of payment rows is scrubbed.
+
+The daily job (`/api/cron/daily-maintenance`) calls both, up to 10 batches
+each, after the payment and fraud steps. In production it also runs
+`retention_role_check()` and emails the owner when the role can alter schema or
+delete evidence. A failure in either step never stops the others.
+
+### Holds
+
+`legal_holds` covers one order, one buyer, or one case (refund, dispute or
+fraud). Placed and released only by the owner (`FRAUD_OWNER_EMAIL`, verified
+second factor, written reason of 10 to 500 characters, re-checked against the
+database) on `/admin/fraud/orders/[orderId]`, with an audit event each. A hold
+is stored once and released once on the same row; both timestamps are the
+database's; nothing is deleted. The existing `evidence_hold` flags on refund
+cases and disputes hold the order as well. The database cannot tell who the
+owner is, so owner-only is enforced in the library, as for the other owner
+actions.
+
+### Restricted views and logs
+
+Raw IP and device values appear only on the owner's order page and in the
+dispute export. The server logger redacts IPv4 and IPv6 addresses and
+address, device and user-agent values. The case page, case and block lists, order
+and refund lists, and the general audit page (payment rows) show masked values
+(`203.0.*.*`, `bu***@e***.com`). The monthly report holds aggregates only.
+`test:retention-leaks` fails if a new file starts reading the address or device
+columns without being reviewed.
+
+### Reset guard
+
+The owner marks the database once at go-live with
+`pnpm env:mark-merchant -- --database <name> --note "<why>" --yes`. The mark is one
+append-only row in `environment_marks`. While it exists, `db:reset`, `db:seed`,
+every seed script, the preview reset and the assessment-prototype reset
+(`lib/retention/environment-guard.mjs`) refuse, and the guard fails closed when
+the mark cannot be read. Local and staging databases are never marked, so the
+normal local flow does not change. User deletion in the product is a soft delete
+that leaves every evidence row; a hard delete is refused by the RESTRICT foreign
+keys. `scripts/mfa-reset.mjs` stays available: real accounts need it and it
+deletes only authenticator factors.
+
+Limits: a direct `prisma migrate reset` or a database owner's own SQL is not
+stopped by a script check; the database owner can always disable a trigger. The
+protection against that is the runtime role (the app cannot do it) and the owner's
+own discipline.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
 `test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
 `test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`,
 `test:refunds`, `test:disputes`, plus `test:checkout-intent`,
-`test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`. The
-payment suites only run against the local database. Orders and payment events
+`test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`, and
+for MS-10 `test:retention-register`, `-roles`, `-runtime-smoke`, `-maintenance`,
+`-holds`, `-leaks`, `-reset-guard` and `-daily`. The payment suites only run
+against the local database. The retention suites create throwaway login roles and
+backdate evidence with the local superuser; they also run on the local database
+only. Orders and payment events
 cannot be deleted, so every run leaves its own rows behind there; reseed
 (`pnpm db:reset`) to clear them.

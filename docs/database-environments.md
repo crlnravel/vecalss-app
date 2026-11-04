@@ -155,6 +155,16 @@ DATABASE_URL="<neon-staging-url>" ./_harness/resource-guard.sh run -- rtk pnpm e
 > **Production is currently NOT AVAILABLE.**
 > PTN Pro is in active pre-release development. No production infrastructure, database cluster, or live user store is provisioned.
 
+### Runtime role and environment mark (MS-10)
+
+Production will connect as a restricted login that cannot alter schema or delete
+evidence, while migrations use `MIGRATE_DATABASE_URL` (the schema owner; falls
+back to `DATABASE_URL`, so local development is unchanged). Once the owner marks
+the database as the merchant environment, `db:reset`, `db:seed`, the seed scripts
+and the cleanup scripts refuse to run against it. See
+[`evidence-retention-ops.md`](./evidence-retention-ops.md). Local and staging
+databases are never marked and stay disposable.
+
 ### Agent Rules for Production:
 
 1. **Fail Closed:** If a command, script, or task refers to "production" database operations, fail closed and notify the user that production is not yet available.
@@ -171,5 +181,5 @@ DATABASE_URL="<neon-staging-url>" ./_harness/resource-guard.sh run -- rtk pnpm e
 | **Agent Can Read/Retrieve Data?** | **Yes** (full access) | **Yes** (non-sensitive, disposable data) | **No** (unprovisioned) |
 | **Create New Migrations** | `prisma migrate dev --name <name>` | Prohibited (author locally only) | Not available |
 | **Apply Existing Migrations** | Automatic with `migrate dev` or `prisma migrate deploy` | `prisma migrate deploy` | Not available |
-| **Reset / Reseed** | `pnpm db:reset` / `pnpm db:seed` | Allowed when needed (disposable for now) | Not available |
+| **Reset / Reseed** | `pnpm db:reset` / `pnpm db:seed` | Allowed when needed (disposable for now) | Not available; refused once the database is marked as the merchant environment |
 | **Resource Guard Requirement** | Mandatory (`./_harness/resource-guard.sh run -- rtk ...`) | Mandatory (`./_harness/resource-guard.sh run -- rtk ...`) | N/A |
