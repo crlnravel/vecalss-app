@@ -121,6 +121,11 @@ when either of these holds after the payment step:
 | `payment_reconciliation` | An open order the provider could not be asked about (error or unusable answer) **and** whose time to pay ended more than 24 hours ago. The daily job runs once a day, so such an order was already tried on an earlier run: it has been unanswered on at least two consecutive runs. | One failed lookup on an order that expired in the last 24 hours is a transient retry: counted in `reconciliation.unavailable`, no email, status stays 200. |
 | `payment_alert_dead` | A `critical_alert` outbox job that ran out of attempts and was created in the last 3 days (a job dies about two hours after it is queued, so its creation time stands in for the day it died). It is reported on each daily run for those 3 days, then stops; the dead row stays. | A dead `receipt_email` or `access_grant` job is not counted here (grant failures are flagged by the fulfillment step). |
 
+Not covered, by decision: a provider that keeps answering "still pending" for
+an order more than a day past its expiry (`reconciliation.stillPending`) raises
+no alert. Only unavailability (`payment_reconciliation`) and lost critical alerts
+(`payment_alert_dead`) do.
+
 Each of these two conditions is emailed on its own, once per day: the mail
 idempotency key is `daily-maintenance:<day>:<condition>`, so a retried cron run
 repeats the key and the mailer sends it once. Other failures keep their

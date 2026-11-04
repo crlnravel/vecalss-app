@@ -286,8 +286,9 @@ async function main() {
 
   // ---- The daily maintenance job drains the outbox, and is safe to repeat -------------------
   {
-    // The checks above park alerts on purpose. They are settled here so the daily run below is judged
-    // on its own (this is the disposable local database).
+    // The checks above park alerts on purpose, and earlier runs or other branches' versions of this suite
+    // may have left dead ones in the shared database. They are all disposable test data: settle them here
+    // so the daily run below is judged on the fixtures this run creates, not on leftovers.
     await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE kind = 'critical_alert' AND status = 'dead'`;
 
     const order = await makeOrder();
@@ -358,4 +359,9 @@ main()
     console.error(error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    // Alerts this suite parks on purpose are test data: settle them so a later run, or any suite that
+    // runs the daily job's payment step, never finds a dead critical alert left behind.
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE kind = 'critical_alert' AND status = 'dead' AND dedupe_key LIKE ${prefix} || '%'`;
+    await prisma.$disconnect();
+  });
