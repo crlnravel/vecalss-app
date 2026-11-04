@@ -26,7 +26,9 @@ async function studentMayUsePaidSurfaces(
 
 /**
  * The check a paid surface makes on entry: may this student in, and if so,
- * note the use (at most once per grant per Jakarta day, see lib/fulfillment).
+ * note the use (at most once per grant per Jakarta day, and only for current,
+ * payment-sourced access; see lib/fulfillment/usage). The switch decides who is
+ * let in, not whether use is recorded.
  * Pages that only ask "would this student be let in?" (the page that explains a
  * missing package) use `studentMayUsePaidSurfaces` and record nothing.
  */
@@ -35,8 +37,10 @@ async function enterPaidSurface(
   env: Partial<Record<string, string | undefined>> = process.env,
 ) {
   const allowed = await studentMayUsePaidSurfaces(studentId, env);
-  // With enforcement off nothing is gated, so nothing counts as use of a paid surface.
-  if (allowed && isPaidAccessEnforced(env)) await recordPaidUse(studentId);
+  // The gate decision above is the only thing the switch controls. Use is
+  // recorded either way: with the paywall off everyone is let in, and a student
+  // whose access came from a payment still leaves evidence of using it.
+  if (allowed) await recordPaidUse(studentId);
   return allowed;
 }
 

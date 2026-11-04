@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { RoleName } from "../generated/prisma/client";
 import type { SessionContext } from "../lib/auth/types";
 import { enterPaidSurface } from "../lib/billing/enforcement";
-import { grantAccess, pauseAccess, resumeAccess } from "../lib/billing/service";
+import { grantAccess, pauseAccess, resumeAccess, revokeAccess } from "../lib/billing/service";
 import { addCalendarMonths } from "../lib/billing/plans";
 import { retryFulfillment } from "../lib/fulfillment/grant";
 import { flagStalledFulfillments, runFulfillmentMaintenance } from "../lib/fulfillment/stalled";
@@ -584,16 +584,42 @@ async function main() {
     await recordPaidUse(expired.order.buyerId);
     assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { orderId: expired.order.id } }), 0);
 
-    // The paid-surface check is the hook: it records only when enforcement is on and access is paid.
+    // The paid-surface check is the hook, with the paywall off or on: the switch decides who is let in, not whether use is recorded.
     const surface = await pay();
+    const rowsFor = (orderId: string) => prisma.fulfillmentUsageEvent.count({ where: { orderId } });
+    assert.equal(await rowsFor(surface.order.id), 0, "nothing is recorded until a page view");
+    assert.equal(await enterPaidSurface(surface.order.buyerId, {}), true, "switch off: everyone is let in");
     assert.equal(await enterPaidSurface(surface.order.buyerId, {}), true);
-    assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { orderId: surface.order.id } }), 0, "enforcement off: nothing is gated, nothing is recorded");
+    assert.equal(await rowsFor(surface.order.id), 1, "switch off: a paid student's page view records one row");
+    await withTriggersOff("fulfillment_usage_events", (tx) =>
+      tx.$executeRaw`UPDATE fulfillment_usage_events SET jakarta_day = jakarta_day - 1 WHERE order_id = ${surface.order.id}::uuid`,
+    );
+    await enterPaidSurface(surface.order.buyerId, {});
+    await enterPaidSurface(surface.order.buyerId, {});
+    assert.equal(await rowsFor(surface.order.id), 2, "switch off: one row per day");
     assert.equal(await enterPaidSurface(surface.order.buyerId, { PAID_ACCESS_ENFORCED: "1" }), true);
-    assert.equal(await enterPaidSurface(surface.order.buyerId, { PAID_ACCESS_ENFORCED: "1" }), true);
-    assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { orderId: surface.order.id } }), 1);
+    assert.equal(await rowsFor(surface.order.id), 2, "switch on: the same day adds nothing");
     const stranger = await makeBuyer("stranger");
     assert.equal(await enterPaidSurface(stranger, { PAID_ACCESS_ENFORCED: "1" }), false, "no access, no entry");
-    assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { studentId: stranger } }), 0);
+    assert.equal(await enterPaidSurface(stranger, {}), true, "switch off: still let in");
+    assert.equal(await prisma.fulfillmentUsageEvent.count({ where: { studentId: stranger } }), 0, "no payment grant, no use recorded, switch on or off");
+
+    // Access an admin paused or revoked after the payment records nothing, switch on or off.
+    const admin = await makeAdminUser();
+    const paused = await pay();
+    await pauseAccess({ actorUserId: admin, idempotencyKey: `pause-${randomUUID()}`, reason: "Sengketa terbuka untuk uji", source: "admin", studentId: paused.order.buyerId });
+    await enterPaidSurface(paused.order.buyerId, {});
+    await enterPaidSurface(paused.order.buyerId, { PAID_ACCESS_ENFORCED: "1" });
+    assert.equal(await rowsFor(paused.order.id), 0, "paused access records nothing");
+    await resumeAccess({ actorUserId: admin, idempotencyKey: `resume-${randomUUID()}`, reason: "Sengketa selesai untuk uji", source: "admin", studentId: paused.order.buyerId });
+    await enterPaidSurface(paused.order.buyerId, {});
+    assert.equal(await rowsFor(paused.order.id), 1, "resumed access records again");
+
+    const revoked = await pay();
+    await revokeAccess({ actorUserId: admin, idempotencyKey: `revoke-${randomUUID()}`, reason: "Pengembalian dana penuh untuk uji", source: "admin", studentId: revoked.order.buyerId });
+    await enterPaidSurface(revoked.order.buyerId, {});
+    await enterPaidSurface(revoked.order.buyerId, { PAID_ACCESS_ENFORCED: "1" });
+    assert.equal(await rowsFor(revoked.order.id), 0, "revoked access records nothing");
     pass("usage evidence once per grant per day, never synthesized");
   }
 

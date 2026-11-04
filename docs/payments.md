@@ -273,9 +273,11 @@ trigger refuses an order whose intent has none. Change the text and the version
 together.
 
 **Usage evidence.** `fulfillment_usage_events`: written by `recordPaidUse` where
-the paid-access check passes (`enterPaidSurface`, only while
-`PAID_ACCESS_ENFORCED` is on), at most one row per grant per Asia/Jakarta day,
-only for access that came from a payment. Nothing else writes it.
+a student enters a paid surface (`enterPaidSurface`, whether or not
+`PAID_ACCESS_ENFORCED` is on; the switch only decides who is let in), at most
+one row per grant per Asia/Jakarta day, only for access that came from a payment
+and only while the student's current access is active (paused or revoked access
+records nothing). Nothing else writes it.
 
 **Dispute export.** `/admin/fraud/orders/<id>` (a "Pesanan" tab): the owner
 (`FRAUD_OWNER_EMAIL`, verified second factor) gives a written reason and gets a
