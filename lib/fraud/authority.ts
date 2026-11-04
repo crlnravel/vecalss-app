@@ -35,6 +35,7 @@ function requireAdmin(session: SessionContext | null): AdminContext {
   if (!session) throw new FraudAuthorityError("unauthenticated");
   if (session.user.mfaStatus !== "verified") throw new FraudAuthorityError("mfa_required");
   if (!session.user.roles.includes(RoleName.admin)) throw new FraudAuthorityError("not_admin");
+  if (session.user.mustChangePassword) throw new FraudAuthorityError("password_change_required");
 
   return { email: session.user.email.toLowerCase(), userId: session.user.id } as AdminContext;
 }

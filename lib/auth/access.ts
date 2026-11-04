@@ -53,6 +53,22 @@ async function redirectIfMfaPending(session: SessionContext, allowMustChangePass
   redirect(target);
 }
 
+/**
+ * A signed-in user whose temporary or reset password is still in place gets
+ * nothing but the change-password page. For staff helpers that check a role
+ * themselves (a capability, say) instead of going through requireTutorSession or
+ * requireAdminSession, which already do this.
+ */
+async function requirePasswordSettledSession(loginPath = getLoginPathForAudience("student")) {
+  const session = await requireSession(loginPath);
+
+  if (session.user.mustChangePassword) {
+    redirect("/change-password");
+  }
+
+  return session;
+}
+
 async function requireAdminSession(
   loginPath = getLoginPathForAudience("admin"),
   { allowMustChangePassword = false }: { allowMustChangePassword?: boolean } = {},
@@ -244,6 +260,7 @@ export {
   requireAdminReadOnlySession,
   requireAffiliatorSession,
   requireDeveloperSession,
+  requirePasswordSettledSession,
   requireSession,
   requireStudentSession,
   requireTutorSession,

@@ -147,7 +147,7 @@ const requireMediaSession = async (scope: MediaScope) => {
 
   const requiredRole = scope === "kapten" ? RoleName.tutor : RoleName.admin;
 
-  if (!hasRole(session, requiredRole)) {
+  if (!hasRole(session, requiredRole) || session.user.mustChangePassword) {
     throw new MediaServiceError("Kamu tidak memiliki akses ke pustaka media ini.", 403);
   }
 

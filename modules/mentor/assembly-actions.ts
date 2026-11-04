@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/access";
+import { requirePasswordSettledSession } from "@/lib/auth/access";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
 import {
   getReadyAssemblyAttachment,
@@ -17,7 +17,7 @@ import type { AssemblyAttachmentTarget, AssemblyAttachmentTestType } from "@/lib
 const archivedPackageMessage = "Paket Soal sedang diarsipkan dan tidak dapat diakses oleh Kapten.";
 
 async function assemblyManagementSession() {
-  const session = await requireSession();
+  const session = await requirePasswordSettledSession();
   requireTryoutCapability(session, "tryout.delivery.configure");
   return session;
 }

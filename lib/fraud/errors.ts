@@ -4,6 +4,7 @@ type AuthorityFailure =
   | "not_admin"
   | "not_owner"
   | "owner_unset"
+  | "password_change_required"
   | "unauthenticated";
 
 class FraudAuthorityError extends Error {

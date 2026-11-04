@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSession } from "@/lib/auth/access";
+import { unstable_rethrow } from "next/navigation";
+import { requirePasswordSettledSession } from "@/lib/auth/access";
 import { EditLeaseServiceError } from "@/lib/resource-edit-lock/service";
 import type { AuthoringEditLease } from "@/lib/serialization/authoring-lease";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
@@ -22,7 +23,7 @@ function attemptMessage(error: unknown) { return error instanceof TryoutAttemptV
 function authoringMessage(error: unknown, fallback: string) { return error instanceof TryoutValidationError || error instanceof EditLeaseServiceError ? error.message : fallback; }
 function authoringFailure(error: unknown, fallback: string) { return error instanceof EditLeaseServiceError ? { code: error.code, message: error.message, ok: false as const } : { message: authoringMessage(error, fallback), ok: false as const }; }
 type ArchivedPackageMutationResult = { code?: string; currentRevision?: number; expectedRevision?: number; message: string; ok: false; packageId?: string } | { ok: true; result: SaveReusableQuestionPackageResult };
-async function managementSession(capability: "tryout.delivery.configure" | "tryout.delivery.open" | "tryout.admission.manage" | "tryout.results.manage") { const session = await requireSession(); requireTryoutCapability(session, capability); return session; }
+async function managementSession(capability: "tryout.delivery.configure" | "tryout.delivery.open" | "tryout.admission.manage" | "tryout.results.manage") { const session = await requirePasswordSettledSession(); requireTryoutCapability(session, capability); return session; }
 async function saveTryoutAction(input: SaveTryoutInput) {
   const session = await managementSession("tryout.delivery.configure");
   let result: Awaited<ReturnType<typeof saveTryout>>;
@@ -79,6 +80,7 @@ async function calculateTryoutAttemptAction(attemptId: string, reason: string, s
     const result = await calculateTryoutAttempt(attemptId, session.user.id, reason, parsed);
     return { ok: true as const, result, receipt: result.receipt };
   } catch (error) {
+    unstable_rethrow(error); // a forced password change redirects; it is not a calculation outcome
     const confirmedRefusal = error instanceof TryoutResultValidationError || error instanceof TryoutCapabilityError;
     return { ok: false as const, confirmedRefusal, message: confirmedRefusal ? attemptMessage(error) : "Hasil perhitungan belum dapat dipastikan. Periksa status sebelum mencoba lagi." };
   }

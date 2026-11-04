@@ -865,7 +865,7 @@ function assertBannerDeliverySession(
   if (source === "published" && !session.user.roles.includes(RoleName.student)) {
     throw new BannerDeliveryError("Akses banner tidak diizinkan.", 403);
   }
-  if ((source === "draft" || source === "admin-published") && !session.user.roles.includes(RoleName.admin)) {
+  if ((source === "draft" || source === "admin-published") && (!session.user.roles.includes(RoleName.admin) || session.user.mustChangePassword)) {
     throw new BannerDeliveryError("Akses banner tidak diizinkan.", 403);
   }
 }

@@ -140,7 +140,8 @@ assert.match(access, /!allowUnpaid\s*&&\s*!\(await (?:studentMayUsePaidSurfaces|
 //            the forced password change are both checked)
 //   unpaid   a student needs it whatever their package (settings, onboarding, buying):
 //            requireStudentSession({ allowUnpaid: true }) or the buyer's own session
-//   staff    admin, Kapten, developer or affiliator only: the matching role guard
+//   staff    admin, Kapten, developer or affiliator only: the matching role guard, and a
+//            refusal while the account still has to change its password
 //   account  any signed-in or half-signed-in user acting on their own account
 //   public   before sign-in: no session exists yet
 // ---------------------------------------------------------------------------
@@ -300,6 +301,22 @@ const STAFF_GUARDS = new Set([
   "runAdmin", // modules/admin/fraud/action-helpers.ts: requireAdminSession
   "runOwner", // same file: requireAdminSession + requireOwner
 ]);
+/**
+ * Guards that also send an account with a temporary or reset password to the
+ * change-password page (lib/auth/access.ts, checked below). A staff action needs
+ * one of these, or its own mustChangePassword check, besides its role guard.
+ */
+const PASSWORD_SETTLED_GUARDS = new Set([
+  "requireAdminReadOnlySession",
+  "requireAdminSession",
+  "requireAdminStudentPreviewContext",
+  "requireAffiliatorSession",
+  "requireDeveloperSession",
+  "requirePasswordSettledSession",
+  "requireTutorSession",
+  "runAdmin",
+  "runOwner",
+]);
 const ACCOUNT_GUARDS = new Set(["getPendingSession", "requireSession", "revokeCurrentSession"]);
 /** Capabilities a student holds. Everything else in lib/tryout/capabilities.ts is management only. */
 const STUDENT_CAPABILITIES = new Set(["tryout.admission.register", "tryout.attempt.execute"]);
@@ -396,6 +413,9 @@ function guardProblem(actionClass: ActionClass, facts: Facts): string | null {
       if (!hasStaffGuard && !managementCapabilityChecked(facts)) return "has no role guard";
       // The two shared helpers are only a role guard while they check a management capability.
       if (helperNames.length && !managementCapabilityChecked(facts)) return "calls a management helper that does not check a management capability";
+      if (![...facts.names].some((name) => PASSWORD_SETTLED_GUARDS.has(name) || name === "mustChangePassword")) {
+        return "does not refuse an account that still has to change its password";
+      }
       return null;
     case "account":
       return [...facts.names].some((name) => ACCOUNT_GUARDS.has(name)) ? null : "has no session check";
@@ -532,9 +552,30 @@ assert.equal(
   1,
   "a student capability is not a staff guard",
 );
+// Before MS-19 the tryout management helpers were exactly this: a role through a capability, and
+// nothing that sent a flagged account to change its password first.
+const OLD_MANAGEMENT_SESSION = `"use server";
+async function managementSession(capability: "tryout.delivery.configure") { const session = await requireSession(); requireTryoutCapability(session, capability); return session; }
+async function duplicateTryoutAction(id: string) { const session = await managementSession("tryout.delivery.configure"); return id; }
+export { duplicateTryoutAction };
+`;
+const oldManagement = auditServerActionFile("fixture/management.ts", OLD_MANAGEMENT_SESSION, { staff: ["duplicateTryoutAction"] }).problems;
+assert.equal(oldManagement.length, 1);
+assert.match(oldManagement[0], /does not refuse an account that still has to change its password/u);
 assert.deepEqual(
-  auditServerActionFile("fixture/a.ts", `"use server";\nasync function doIt() { const session = await requireSession(); requireTryoutCapability(session, "tryout.delivery.configure"); }\nexport { doIt };\n`, { staff: ["doIt"] }).problems,
+  auditServerActionFile("fixture/management.ts", OLD_MANAGEMENT_SESSION.replace("await requireSession()", "await requirePasswordSettledSession()"), { staff: ["duplicateTryoutAction"] }).problems,
   [],
+  "the same helper behind the settled-password guard passes",
+);
+assert.deepEqual(
+  auditServerActionFile("fixture/a.ts", `"use server";\nasync function doIt() { const session = await requireSession(); if (session.user.mustChangePassword) return; requireTryoutCapability(session, "tryout.delivery.configure"); }\nexport { doIt };\n`, { staff: ["doIt"] }).problems,
+  [],
+  "an explicit mustChangePassword check counts",
+);
+assert.equal(
+  auditServerActionFile("fixture/a.ts", `"use server";\nasync function doIt() { const session = await requireSession(); requireTryoutCapability(session, "tryout.delivery.configure"); }\nexport { doIt };\n`, { staff: ["doIt"] }).problems.length,
+  1,
+  "a capability check alone does not refuse a flagged account",
 );
 assert.equal(
   auditServerActionFile("fixture/a.ts", `"use server";\nexport async function doIt() {}\nexport const other = async () => {};\n`, { public: ["doIt"] }).problems.length,
@@ -638,6 +679,47 @@ for (const file of Object.keys(ROUTE_CLASSES)) {
   if (!routeFiles.includes(file)) routeProblems.push(`${file} is in ROUTE_CLASSES but no longer exists`);
 }
 assert.deepEqual(routeProblems, [], `Route handlers without a class or a matching guard:\n${routeProblems.join("\n")}`);
+// Staff routes and the helpers they hand the request to refuse a flagged account too. The route names
+// a helper; the helper's file must carry the check.
+const functionBody = (text: string, name: string) => {
+  const start = text.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `${name} not found`);
+  const next = text.indexOf("\nasync function ", start + 1);
+  return text.slice(start, next < 0 ? undefined : next);
+};
+const accessSource = readFileSync("lib/auth/access.ts", "utf8");
+for (const guard of ["requireAdminSession", "requireAdminReadOnlySession", "requireTutorSession", "requireAffiliatorSession", "requireDeveloperSession", "requirePasswordSettledSession"]) {
+  assert.match(functionBody(accessSource, guard), /mustChangePassword/u, `${guard} refuses a flagged account`);
+}
+assert.match(functionBody(accessSource, "requireAdminStudentPreviewContext"), /requireAdminReadOnlySession/u);
+const ROUTE_HELPERS: Record<string, [file: string, pattern: RegExp]> = {
+  assertBannerDeliverySession: ["lib/banner/delivery.ts", /\|\| session\.user\.mustChangePassword/u],
+  getAdminPreviewMateriDocument: ["lib/admin/preview-read-boundary.ts", /requireAdminStudentPreviewContext/u],
+  handleEditLeaseCommand: ["lib/resource-edit-lock/http.ts", /mustChangePassword/u],
+  readTutorCsvSession: ["lib/question-bank/csv-http.ts", /mustChangePassword/u],
+  readTutorQuestionBankXlsxSession: ["lib/question-bank/csv-http.ts", /mustChangePassword/u],
+  requireAdminReadOnlySession: ["lib/auth/access.ts", /mustChangePassword/u],
+  requireAdminSession: ["lib/auth/access.ts", /mustChangePassword/u],
+  requireMediaSession: ["lib/media/repository.ts", /mustChangePassword/u],
+  requireOwner: ["lib/fraud/authority.ts", /password_change_required/u],
+  serveTryoutCalculationInspection: ["lib/tryout/result-recovery-http.ts", /mustChangePassword/u],
+  serveTryoutReadinessInspection: ["lib/tryout/result-readiness-http.ts", /mustChangePassword/u],
+};
+for (const [file, routeClass] of Object.entries(ROUTE_CLASSES)) {
+  if (routeClass !== "staff") continue;
+  const text = readFileSync(file, "utf8");
+  const helpers = Object.keys(ROUTE_HELPERS).filter((name) => new RegExp(`\\b${name}\\b`, "u").test(text));
+  assert.ok(
+    helpers.length > 0 || text.includes("mustChangePassword") || /mustChangePassword|PreviewReadBoundary/u.test(text),
+    `${file} is a staff route but names no helper that refuses a flagged account; add one to ROUTE_HELPERS or check mustChangePassword`,
+  );
+  for (const name of helpers) {
+    const [helperFile, pattern] = ROUTE_HELPERS[name];
+    assert.match(readFileSync(helperFile, "utf8"), pattern, `${helperFile}: ${name} must refuse a flagged account (used by ${file})`);
+  }
+}
+assert.match(readFileSync("app/api/mentor/question-banks/[bankId]/csv/route.ts", "utf8"), /mustChangePassword/u);
+assert.match(readFileSync("lib/admin/student-preview-reads.ts", "utf8"), /PreviewReadBoundary\.run/u);
 const participantRecovery = readFileSync("lib/tryout/participant-recovery-http.ts", "utf8");
 assert.match(participantRecovery, /paidAccessDenial\(/u, "the tryout recovery helper must keep its paid access check");
 
