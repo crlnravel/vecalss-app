@@ -75,6 +75,8 @@ type MakeOrderOptions = {
   termsVersion?: string;
   /** Insert an order that is already past its time to pay, as if created 20 minutes ago. */
   pastExpiry?: boolean;
+  /** With `pastExpiry`: its time to pay ran out this many hours ago, not 5 minutes ago. */
+  expiredHoursAgo?: number;
   referral?: boolean;
   session?: boolean;
 };
@@ -123,7 +125,8 @@ async function makeOrder(options: MakeOrderOptions = {}) {
         ${intent.id}::uuid, ${buyerId}::uuid, ${reference}, 'monthly', '2026-11', ${packageCode}, ${packageName},
         ${intent.amountRupiah}, 'IDR', ${intent.referralCode}, ${referral?.id ?? null}::uuid, 'unavailable', 'test-fixture',
         ${TEST_TERMS_VERSION}, ${provider.id}, ${provider.environment}, ${provider.merchantAccount},
-        now() - interval '20 minutes', now() - interval '5 minutes'
+        now() - interval '20 minutes' - make_interval(hours => ${options.expiredHoursAgo ?? 0}),
+        now() - interval '5 minutes' - make_interval(hours => ${options.expiredHoursAgo ?? 0})
       )
     `;
     let order = await prisma.paymentOrder.findUniqueOrThrow({ where: { intentId: intent.id } });
@@ -132,7 +135,7 @@ async function makeOrder(options: MakeOrderOptions = {}) {
       await prisma.$executeRaw`
         INSERT INTO stand_in_payments (reference, provider_payment_id, amount_rupiah, currency, metadata, expires_at)
         VALUES (${order.reference}, ${`sip_${randomUUID().replaceAll("-", "").slice(0, 20)}`}, ${order.amountRupiah}, 'IDR',
-                ${JSON.stringify({ buyerId, packageCode })}::jsonb, now() - interval '5 minutes')
+                ${JSON.stringify({ buyerId, packageCode })}::jsonb, now() - interval '5 minutes' - make_interval(hours => ${options.expiredHoursAgo ?? 0}))
       `;
       const payment = await prisma.standInPayment.findUniqueOrThrow({ where: { reference: order.reference } });
       await prisma.$executeRaw`

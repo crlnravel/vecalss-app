@@ -32,6 +32,8 @@ async function main() {
   const mismatched = await makeOrder({ pastExpiry: true, session: true });
   const providerDown = await makeOrder({ pastExpiry: true, session: true });
   const notDueYet = await makeOrder({ session: true });
+  // Unanswered for more than a day: an earlier daily run already tried it (P-04).
+  const longDown = await makeOrder({ expiredHoursAgo: 30, pastExpiry: true, session: true });
 
   await setProviderState(lostWebhook.reference, "succeeded");
   await setProviderState(providerFailed.reference, "failed");
@@ -46,7 +48,7 @@ async function main() {
     environment: provider.environment,
     getRefundStatus: (reference) => provider.getRefundStatus(reference),
     getStatus: async (reference) => {
-      if (reference === providerDown.reference) throw new Error("provider unreachable");
+      if (reference === providerDown.reference || reference === longDown.reference) throw new Error("provider unreachable");
       return provider.getStatus(reference);
     },
     id: provider.id,
@@ -57,7 +59,11 @@ async function main() {
   const first = await reconcileOpenOrders(flaky, LIMIT);
   assert.ok(first.checked >= 7, "every order past its expiry was looked at");
   assert.ok(first.stillPending >= 1);
-  assert.ok(first.unavailable >= 1);
+  assert.ok(first.unavailable >= 2);
+  // One failed lookup on a fresh order is a transient retry; the order that has been
+  // unanswered since before the previous daily run is the persistent one.
+  assert.equal(first.persistentlyUnavailable, 1);
+  assert.equal(await statusOf(longDown.id), "pending");
   assert.ok(first.resolved >= 5);
 
   // A webhook that never arrived is made up for.
@@ -105,6 +111,7 @@ async function main() {
   // The mismatched one is looked at again, and the same finding is the same event: still one record.
   assert.equal(await prisma.paymentEvent.count({ where: { orderId: mismatched.id } }), 1);
   assert.equal(await statusOf(providerDown.id), "expired", "back up, the provider says expired");
+  assert.equal(await statusOf(longDown.id), "expired", "back up, the long-unanswered order is resolved too");
 
   // ---- The webhook that arrives after reconciliation is no second payment ----------------
   const lostWebhookPaid = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: lostWebhook.id } });

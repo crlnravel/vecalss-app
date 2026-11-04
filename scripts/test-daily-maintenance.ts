@@ -167,6 +167,80 @@ const mailerDown = await runDailyMaintenance(
 );
 assert.equal(mailerDown.ok, false, "a failed alert send does not hide the failure or throw");
 
+// 4b. Payment conditions that need the owner (P-04). A transient failed lookup is quiet; an order unanswered
+// since before the previous run, and a critical alert that could not be delivered, fail the run.
+const paymentResult = (overrides: { deadCriticalAlerts?: number; persistentlyUnavailable?: number; unavailable?: number } = {}) =>
+  async () => ({
+    deadCriticalAlerts: overrides.deadCriticalAlerts ?? 0,
+    exportPacketsPurged: 0,
+    fulfillment: {},
+    outbox: { dead: 0, done: 0, failed: 0 },
+    reconciliation: {
+      checked: 5,
+      persistentlyUnavailable: overrides.persistentlyUnavailable ?? 0,
+      resolved: 0,
+      stillPending: 0,
+      unavailable: overrides.unavailable ?? 0,
+    },
+    refunds: {},
+  }) as never;
+
+const sentBefore = sent.length;
+const transient = await runDailyMaintenance(baseDeps({ payments: paymentResult({ unavailable: 4 }) }));
+assert.equal(transient.ok, true, "transient retries stay quiet");
+assert.deepEqual(transient.failures, []);
+assert.equal(sent.length, sentBefore, "and send no email");
+const handledQuietly = await handleDailyMaintenanceRequest(request(`Bearer ${SECRET}`), { run: async () => transient, secret: SECRET });
+assert.equal(handledQuietly.status, 200);
+
+const stuckReconciliation = await runDailyMaintenance(baseDeps({ payments: paymentResult({ persistentlyUnavailable: 2, unavailable: 2 }) }));
+assert.equal(stuckReconciliation.ok, false);
+assert.deepEqual(stuckReconciliation.failures, ["payment_reconciliation"]);
+assert.equal(sent.length, sentBefore + 1, "one email for the condition");
+assert.equal(sent.at(-1)?.idempotencyKey, "daily-maintenance:2026-11-03:payment_reconciliation");
+assert.match(sent.at(-1)?.text ?? "", /pengecekan status pembayaran/u);
+assert.match(sent.at(-1)?.text ?? "", /lebih dari 24 jam/u);
+const failingCron = await handleDailyMaintenanceRequest(request(`Bearer ${SECRET}`), { run: async () => stuckReconciliation, secret: SECRET });
+assert.equal(failingCron.status, 500, "the cron answers with a failure");
+
+const lostAlert = await runDailyMaintenance(baseDeps({ payments: paymentResult({ deadCriticalAlerts: 1 }) }));
+assert.deepEqual(lostAlert.failures, ["payment_alert_dead"]);
+assert.equal(lostAlert.ok, false);
+assert.equal(sent.at(-1)?.idempotencyKey, "daily-maintenance:2026-11-03:payment_alert_dead");
+assert.match(sent.at(-1)?.text ?? "", /peringatan pembayaran penting/u);
+assert.equal(sent.at(-1)?.text.includes("exploded"), false);
+
+// Both at once, with an unrelated failure: each payment condition is its own email with its own daily key,
+// and the rest keeps the key it always had, so a retried run repeats the keys rather than the emails.
+const sentMark = sent.length;
+const everything = await runDailyMaintenance(baseDeps({
+  db: brokenCleanupDb,
+  payments: paymentResult({ deadCriticalAlerts: 1, persistentlyUnavailable: 1 }),
+}));
+assert.deepEqual(everything.failures, ["security_log_cleanup", "payment_reconciliation", "payment_alert_dead"]);
+assert.deepEqual(
+  sent.slice(sentMark).map((message) => message.idempotencyKey),
+  [
+    "daily-maintenance:2026-11-03:security_log_cleanup",
+    "daily-maintenance:2026-11-03:payment_reconciliation",
+    "daily-maintenance:2026-11-03:payment_alert_dead",
+  ],
+);
+const repeatMark = sent.length;
+await runDailyMaintenance(baseDeps({
+  db: brokenCleanupDb,
+  payments: paymentResult({ deadCriticalAlerts: 1, persistentlyUnavailable: 1 }),
+}));
+assert.deepEqual(
+  sent.slice(repeatMark).map((message) => message.idempotencyKey),
+  sent.slice(sentMark, repeatMark).map((message) => message.idempotencyKey),
+  "a retried run asks for the same keys, so the mailer sends each once",
+);
+
+// A payment step that throws is still reported as before.
+const throwing = await runDailyMaintenance(baseDeps({ payments: async () => { throw new Error("exploded"); } }));
+assert.deepEqual(throwing.failures, ["payment_maintenance"]);
+
 // 5. Batch cap: a full batch means more may remain; a short batch means done.
 const batchesOf = (sizes: number[]) => {
   const queue = [...sizes];
