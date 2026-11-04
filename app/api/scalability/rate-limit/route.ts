@@ -2,6 +2,7 @@ import {
   consumeInviteRateLimit,
   getTrustedInviteIdentity,
 } from "@/lib/admin/handoffs/rate-limit";
+import { hasSimulationSecret } from "@/lib/scalability/simulation-secret";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,8 +25,7 @@ export async function GET(request: Request) {
     return notFoundResponse();
   }
 
-  const expectedSecret = process.env.SCALABILITY_SIMULATION_SECRET;
-  if (!expectedSecret || request.headers.get("x-scalability-secret") !== expectedSecret) {
+  if (!hasSimulationSecret(request)) {
     return notFoundResponse();
   }
 
