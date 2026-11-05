@@ -21,6 +21,12 @@ const RECENT_CANDIDATES = 8;
 /** Bump when the extraction changes, so cached text is read again. */
 const EXTRACTOR_VERSION = "pdfjs-legacy-5.4";
 const SECTION_TOPIC_CODE = /^materi:[a-z0-9-]+:section-[123]$/u;
+/** A PDF over this size is not read, so one large upload cannot hold a model call. */
+const PDF_MAX_BYTES = 25 * 1024 * 1024;
+/** Pages read from one PDF. Reading also stops as soon as the text reaches TEXT_CHAR_CAP. */
+const PDF_MAX_PAGES = 200;
+/** Reading and extracting one PDF gets this long. After that the lesson reports that it is not available. */
+const PDF_TIMEOUT_MS = 20_000;
 
 type ReadPdf = (objectKey: string) => Promise<Uint8Array>;
 
@@ -36,6 +42,52 @@ function tokensOf(query: string) {
   const tokens = query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 2);
   return [...new Set(tokens)].slice(0, SEARCH_TOKEN_LIMIT);
 }
+
+/** The asset fields that decide whether a lesson has text the reader can use. */
+const READABLE_ASSET_SELECT = {
+  assetType: true,
+  bodyText: true,
+  mimeType: true,
+  managedAsset: { select: { objectKey: true } },
+} as const;
+
+type ReadableAsset = {
+  assetType: string;
+  bodyText: string | null;
+  mimeType: string | null;
+  managedAsset: { objectKey: string | null } | null;
+};
+
+/**
+ * A lesson can be pinned only when it has text: a body, or a PDF attachment stored as a managed asset. The reader uses the same rule,
+ * so the `@` menu never offers a lesson that would be refused.
+ */
+export function hasReadableText(assets: ReadableAsset[]) {
+  return assets.some(
+    (asset) =>
+      Boolean(asset.bodyText?.trim()) ||
+      (asset.assetType === "attachment" && asset.mimeType === "application/pdf" && Boolean(asset.managedAsset?.objectKey)),
+  );
+}
+
+/** The fields a search hit or a recent lesson is built from, with the assets that decide whether it can be read. */
+const LESSON_SELECT = {
+  id: true,
+  code: true,
+  title: true,
+  summary: true,
+  topic: { select: { code: true, name: true, subtest: { select: { code: true, name: true } } } },
+  assets: { select: READABLE_ASSET_SELECT },
+} as const;
+
+type LessonRow = {
+  id: string;
+  code: string;
+  title: string;
+  summary: string | null;
+  topic: { code: string; name: string; subtest: { code: string; name: string } };
+  assets: ReadableAsset[];
+};
 
 export async function searchMateri({
   query,
@@ -59,43 +111,24 @@ export async function searchMateri({
     },
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
     take: SEARCH_CANDIDATES,
-    select: {
-      id: true,
-      code: true,
-      title: true,
-      summary: true,
-      topic: { select: { code: true, name: true, subtest: { select: { code: true, name: true } } } },
-    },
+    select: LESSON_SELECT,
   });
   const ranked = candidates
     .filter((lesson) => SECTION_TOPIC_CODE.test(lesson.topic.code))
+    .filter((lesson) => hasReadableText(lesson.assets))
     .filter((lesson) => !subtest?.trim() || subtestMatches(lesson.topic.subtest, subtest))
     .map((lesson) => ({ lesson, score: relevance(lesson, tokens) }))
     .filter((hit) => hit.score > 0)
     .sort((left, right) => right.score - left.score);
-  const visible = await Promise.all(ranked.map(({ lesson }) => isCatalogueLesson(lesson)));
-  return ranked
-    .filter((_, index) => visible[index])
-    .slice(0, SEARCH_LIMIT)
-    .map(({ lesson }) => hitOf(lesson));
+
+  // The catalogue is checked one lesson at a time, and the check stops at the limit, so a keystroke costs a few lookups.
+  const hits: ReturnType<typeof hitOf>[] = [];
+  for (const { lesson } of ranked) {
+    if (hits.length >= SEARCH_LIMIT) break;
+    if (await isCatalogueLesson(lesson)) hits.push(hitOf(lesson));
+  }
+  return hits;
 }
-
-/** The fields a search hit or a recent lesson is built from. */
-const LESSON_SELECT = {
-  id: true,
-  code: true,
-  title: true,
-  summary: true,
-  topic: { select: { code: true, name: true, subtest: { select: { code: true, name: true } } } },
-} as const;
-
-type LessonRow = {
-  id: string;
-  code: string;
-  title: string;
-  summary: string | null;
-  topic: { code: string; name: string; subtest: { code: string; name: string } };
-};
 
 function hitOf(lesson: LessonRow) {
   return {
@@ -128,7 +161,9 @@ export async function recentMateri({ studentId, now = new Date() }: { studentId:
     select: LESSON_SELECT,
   });
   for (const lesson of [...opened.map((row) => row.module), ...published]) {
-    if (SECTION_TOPIC_CODE.test(lesson.topic.code) && (await isCatalogueLesson(lesson))) return hitOf(lesson);
+    if (SECTION_TOPIC_CODE.test(lesson.topic.code) && hasReadableText(lesson.assets) && (await isCatalogueLesson(lesson))) {
+      return hitOf(lesson);
+    }
   }
   return null;
 }
@@ -240,6 +275,8 @@ async function lessonText({
   );
   const file = pdf?.managedAsset;
   if (!pdf || !file?.objectKey) return null;
+  // A file over the size limit is not read at all.
+  if (!pdfWithinLimits(file.sizeBytes)) return null;
   const text = await pdfText({
     moduleId,
     assetId: pdf.id,
@@ -247,6 +284,24 @@ async function lessonText({
     readPdf,
   });
   return text.trim() ? text : null;
+}
+
+/** Whether a stored PDF is small enough to read inside a model call. */
+export function pdfWithinLimits(sizeBytes: number) {
+  return Number.isFinite(sizeBytes) && sizeBytes <= PDF_MAX_BYTES;
+}
+
+/** Resolves with the work's value, or with null when the time runs out first. The work itself is not cancelled. */
+export async function withTimeout<T>(work: Promise<T>, milliseconds: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), milliseconds);
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** The extracted text is keyed by the stored file's identity, so a replaced PDF is read again and an unchanged one is not. */
@@ -270,7 +325,10 @@ async function pdfText({
   });
   if (cached?.digest === digest) return cached.text;
 
-  const text = (await extractPdfText(await readPdf(file.objectKey))).slice(0, TEXT_CHAR_CAP);
+  // A PDF that takes too long is reported as not available, and nothing is cached, so a later request can try again.
+  const extracted = await withTimeout(readPdf(file.objectKey).then(extractPdfText), PDF_TIMEOUT_MS);
+  if (extracted === null) return "";
+  const text = extracted.slice(0, TEXT_CHAR_CAP);
   await prisma.veraMateriText.upsert({
     where: { moduleAssetId: assetId },
     create: { moduleAssetId: assetId, moduleId, digest, text },
@@ -293,11 +351,19 @@ async function extractPdfText(bytes: Uint8Array): Promise<string> {
     cMapPacked: true,
   }).promise;
   const pages: string[] = [];
-  for (let number = 1; number <= document.numPages; number += 1) {
-    const page = await document.getPage(number);
-    const content = await page.getTextContent();
-    pages.push(content.items.map((item) => ("str" in item ? item.str : "")).join(" "));
+  let chars = 0;
+  try {
+    // Pages are read in order. Reading stops at the page cap, or once the text reaches the character cap.
+    const last = Math.min(document.numPages, PDF_MAX_PAGES);
+    for (let number = 1; number <= last && chars < TEXT_CHAR_CAP; number += 1) {
+      const page = await document.getPage(number);
+      const content = await page.getTextContent();
+      const text = content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
+      pages.push(text);
+      chars += text.length;
+    }
+  } finally {
+    await document.destroy();
   }
-  await document.destroy();
   return pages.join("\n\n");
 }

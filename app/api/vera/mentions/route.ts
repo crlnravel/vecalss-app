@@ -3,6 +3,7 @@ import { z } from "zod";
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
 import { serverLogger } from "@/lib/server-logger";
+import { takeMentionSearch } from "@/lib/vera/mention-throttle";
 import { searchMentions } from "@/lib/vera/sources/mentions";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,14 @@ export async function GET(request: Request) {
     return Response.json(
       { code: "forbidden", message: "Sumber Vera hanya tersedia untuk siswa." },
       { headers: responseHeaders, status: 403 },
+    );
+  }
+
+  // The search reads the catalogue, so a student who has used up the minute's searches waits before the next one.
+  if (!takeMentionSearch(session.user.id)) {
+    return Response.json(
+      { code: "rate_limited", message: "Pencarian terlalu sering. Tunggu sebentar, lalu coba lagi." },
+      { headers: { ...responseHeaders, "Retry-After": "60" }, status: 429 },
     );
   }
 

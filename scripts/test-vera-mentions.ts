@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
 import { runVeraChat, veraChatRequestSchema } from "../lib/vera/chat";
 import { VERA_LIMITS } from "../lib/vera/config";
+import { MENTION_SEARCHES_PER_MINUTE, takeMentionSearch } from "../lib/vera/mention-throttle";
 import { setVeraModelForTests } from "../lib/vera/model";
+import { hasReadableText } from "../lib/vera/sources/materi";
 import { resolveMentions, searchMentions } from "../lib/vera/sources/mentions";
 import { materiHref } from "../lib/vera/sources/types";
 import { activeMention, withoutMention } from "../modules/vera/mention-model";
@@ -313,6 +315,42 @@ try {
     false,
     "A message names at most five sources",
   );
+
+  // The `@` menu offers a lesson only when the reader can use its text: a body, or a PDF attachment stored as a managed asset.
+  assert.equal(hasReadableText([{ assetType: "text", bodyText: "Isi materi", mimeType: null, managedAsset: null }]), true);
+  assert.equal(
+    hasReadableText([
+      { assetType: "attachment", bodyText: null, mimeType: "application/pdf", managedAsset: { objectKey: "materi.pdf" } },
+    ]),
+    true,
+  );
+  assert.equal(
+    hasReadableText([
+      { assetType: "attachment", bodyText: null, mimeType: "application/pdf", managedAsset: { objectKey: null } },
+    ]),
+    false,
+    "A PDF with no stored file cannot be read",
+  );
+  assert.equal(
+    hasReadableText([{ assetType: "video", bodyText: null, mimeType: "video/mp4", managedAsset: { objectKey: "klip.mp4" } }]),
+    false,
+    "A video is not a text source",
+  );
+  assert.equal(
+    hasReadableText([{ assetType: "text", bodyText: "   ", mimeType: null, managedAsset: null }]),
+    false,
+    "Blank text is not text",
+  );
+
+  // The mention search allows a student a fixed number of searches a minute, then refuses until the next minute.
+  const throttleStart = Date.parse("2026-11-04T03:00:00Z");
+  const throttled = crypto.randomUUID();
+  for (let search = 0; search < MENTION_SEARCHES_PER_MINUTE; search += 1) {
+    assert.equal(takeMentionSearch(throttled, throttleStart), true, "Searches within the limit are allowed");
+  }
+  assert.equal(takeMentionSearch(throttled, throttleStart + 1_000), false, "The search after the limit is refused in that minute");
+  assert.equal(takeMentionSearch(throttled, throttleStart + 60_000), true, "A new minute starts a new allowance");
+  assert.equal(takeMentionSearch(crypto.randomUUID(), throttleStart), true, "Another student's searches are counted apart");
 
   console.log("Vera mentions checks passed.");
 } finally {

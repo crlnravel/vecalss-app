@@ -8,7 +8,7 @@ import { prisma } from "../lib/prisma";
 import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { getKuisAttemptReview, listKuisAttempts } from "../lib/vera/sources/kuis";
-import { readMateri, searchMateri } from "../lib/vera/sources/materi";
+import { pdfWithinLimits, readMateri, searchMateri, withTimeout } from "../lib/vera/sources/materi";
 import { getTryoutResultReview, listTryoutResults, readListedRows, type ResultReader } from "../lib/vera/sources/tryout";
 import { materiHref } from "../lib/vera/sources/types";
 import { guarded } from "../lib/vera/tools";
@@ -610,6 +610,17 @@ try {
   assert.equal(Number(longFirst.outputTokens), 10_000);
   assert.equal(Number(longFirst.costUsdMicros), 5_100, "A finished step that cost more than the reserve is charged in full");
   assert.equal(Number(longFirst.credits), 2.2);
+
+  // PDF limits: a file over 25 MB is not read at all. Work that runs past its time limit gives up with null, so the lesson reports
+  // that it is not available instead of holding a model call.
+  assert.equal(pdfWithinLimits(1_024), true, "A small PDF is read");
+  assert.equal(pdfWithinLimits(26 * 1024 * 1024), false, "A PDF over 25 MB is not read");
+  assert.equal(await withTimeout(Promise.resolve("selesai"), 1_000), "selesai", "Work inside its time limit keeps its value");
+  assert.equal(
+    await withTimeout(new Promise<string>((resolve) => setTimeout(() => resolve("terlambat"), 300)), 20),
+    null,
+    "Work that runs past its time limit reports null",
+  );
 
   console.log("Vera tools checks passed.");
 } finally {
