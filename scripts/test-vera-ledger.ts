@@ -115,6 +115,25 @@ async function insertSettled({
   });
 }
 
+/** Monthly USD micros, counted the way the admission check counts them: settled rows at their cost, open reservations at their reserve. */
+async function monthUsdMicros(studentId: string, now: Date) {
+  const rows = await prisma.veraUsageEvent.findMany({
+    where: { studentId, status: { in: ["reserved", "settled", "failed"] }, createdAt: { gte: monthWindow(now).start } },
+    select: { status: true, costUsdMicros: true, reservedUsdMicros: true },
+  });
+  return rows.reduce((sum, row) => sum + Number(row.status === "settled" ? row.costUsdMicros : row.reservedUsdMicros), 0);
+}
+
+/** Week and month credits, and monthly USD micros, as the limits count them. */
+async function ledgerTotals(studentId: string, now: Date) {
+  const snapshot = await getVeraUsageSnapshot({ studentId, now });
+  return { week: snapshot.week.used, month: snapshot.month.used, monthUsdMicros: await monthUsdMicros(studentId, now) };
+}
+
+function tenth(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
 async function expectLimit(promise: Promise<unknown>, code: VeraLimitCode) {
   await assert.rejects(
     promise,
@@ -403,8 +422,14 @@ try {
     reservedUsdMicros: BigInt(4_700),
     createdAt: staleAt,
   });
+  const beforeStale = await ledgerTotals(studentId, now);
   const otherStale = await prisma.veraUsageEvent.create({ data: staleReservation(otherStudent.id), select: { id: true } });
   const ownStale = await prisma.veraUsageEvent.create({ data: staleReservation(studentId), select: { id: true } });
+  // Before the sweep, the stale row counts in every window. The sweep has to take it out again.
+  const withStale = await ledgerTotals(studentId, now);
+  assert.equal(withStale.week, tenth(beforeStale.week + 2), "Before the sweep, the stale reservation counts toward the week");
+  assert.equal(withStale.month, tenth(beforeStale.month + 2), "Before the sweep, the stale reservation counts toward the month");
+  assert.equal(withStale.monthUsdMicros, beforeStale.monthUsdMicros + 4_700, "Before the sweep, the stale reservation counts toward the monthly USD total");
   const fresh = await reserveVeraCredits({ studentId, effort: "cepat", model: "test", now });
   // The sweep releases the stale row free, so it stops counting: only the fresh reservation's 2 credits are in the day total.
   const swept = await prisma.veraUsageEvent.findUniqueOrThrow({
@@ -415,6 +440,12 @@ try {
   assert.equal(Number(swept.credits), 0, "A released stale reservation is charged nothing");
   assert.equal(swept.errorCode, "stale", "The released row records why it was released");
   assert.equal((await getVeraUsageSnapshot({ studentId, now })).day.used, 2, "Only the fresh reservation counts toward the day");
+  // After the sweep the swept row adds nothing: the totals are those from before the stale row, plus the fresh reservation alone.
+  const freshRow = await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: fresh.eventId }, select: { credits: true, reservedUsdMicros: true } });
+  const afterSweep = await ledgerTotals(studentId, now);
+  assert.equal(afterSweep.week, tenth(beforeStale.week + Number(freshRow.credits)), "The swept row counts toward no week total");
+  assert.equal(afterSweep.month, tenth(beforeStale.month + Number(freshRow.credits)), "The swept row counts toward no month total");
+  assert.equal(afterSweep.monthUsdMicros, beforeStale.monthUsdMicros + Number(freshRow.reservedUsdMicros), "The swept row counts toward no monthly USD total");
   // A late settle on the released row still charges the real amount, and the day total counts it once.
   await settleVeraUsage({
     eventId: ownStale.id,
@@ -431,6 +462,11 @@ try {
   assert.equal(Number(lateSettled.credits), 0.1, "A late settle charges the real amount");
   assert.equal(Number(lateSettled.costUsdMicros), 100);
   assert.equal((await getVeraUsageSnapshot({ studentId, now })).day.used, 2.1, "The late charge counts once, next to the fresh reservation");
+  // The late charge raises each window by exactly the settled amount, credits and USD micros alike.
+  const afterLate = await ledgerTotals(studentId, now);
+  assert.equal(afterLate.week, tenth(afterSweep.week + Number(lateSettled.credits)), "A late settle raises the week by exactly the settled credits");
+  assert.equal(afterLate.month, tenth(afterSweep.month + Number(lateSettled.credits)), "A late settle raises the month by exactly the settled credits");
+  assert.equal(afterLate.monthUsdMicros, afterSweep.monthUsdMicros + Number(lateSettled.costUsdMicros), "A late settle raises the monthly USD total by exactly the settled micros");
   await releaseVeraReservation({ eventId: fresh.eventId, errorCode: "test", now });
   assert.equal(
     (await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: otherStale.id }, select: { status: true } })).status,
