@@ -172,8 +172,10 @@ export function VeraPageModule({
       }
       void refreshUsage();
       sessions.refresh();
-      // The title is written after the response, so the list asks again once it has had a moment.
+      // The title is written after the response, and it can take several seconds. The list asks again shortly after, then twice more.
       window.setTimeout(() => sessions.refresh(), 2_500);
+      window.setTimeout(() => sessions.refresh(), 6_000);
+      window.setTimeout(() => sessions.refresh(), 10_000);
     },
     onError: () => {
       void refreshUsage();
@@ -237,9 +239,10 @@ export function VeraPageModule({
     router.push(`/vera-ai?c=${id}`);
   }
 
+  // The nonce gives the page a new key, so a new session never reuses the thread on screen, even when the URL already reads ?c=new.
   function newSession() {
     setSessionsOpen(false);
-    router.push("/vera-ai?c=new");
+    router.push(`/vera-ai?c=new&n=${Date.now()}`);
   }
 
   function deleteSession(id: string) {

@@ -12,15 +12,17 @@ import { VeraPageModule } from "@/modules/vera/VeraPageModule";
 
 /**
  * `?c=<id>` opens that session, `?c=new` opens an empty one, and no valid parameter opens the latest session.
+ * `?c=new&n=<nonce>` opens a new session even when the page already shows one. "Sesi baru" adds the nonce.
  * `?tab=studio&doc=<id>` opens the Studio tab with that document open.
  */
 export default async function VeraAiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string; tab?: string; doc?: string }>;
+  searchParams: Promise<{ c?: string; tab?: string; doc?: string; n?: string }>;
 }) {
-  const [session, { c, tab, doc }] = await Promise.all([requireStudentSession(), searchParams]);
+  const [session, { c, tab, doc, n }] = await Promise.all([requireStudentSession(), searchParams]);
   const studentId = session.user.id;
+  const nonce = n && /^\d{1,16}$/u.test(n) ? n : "";
   const explicit = c === "new" ? "new" : c && isUuid(c) ? c : undefined;
   const initialTab = tab === "studio" ? "studio" : "chat";
   const [notificationFeed, initialUsage, initialSessions, latestConversationId, initialStudioDocs, initialStudioDocument] =
@@ -38,8 +40,8 @@ export default async function VeraAiPage({
   return (
     <CourseWorkspaceShell activeLabel="Vera AI" breadcrumbLabel="Vera AI" notificationFeed={notificationFeed} session={session} showSearch={false}>
       <VeraPageModule
-        // A new key remounts the page when the session, the tab or the open document changes, so each starts from its own state.
-        key={`${conversation?.id ?? "new"}:${initialTab}:${initialStudioDocument?.id ?? ""}`}
+        // A new key remounts the page when the session, the tab, the open document or the nonce changes, so each starts from its own state.
+        key={`${conversation?.id ?? "new"}:${initialTab}:${initialStudioDocument?.id ?? ""}:${nonce}`}
         conversationId={conversation?.id ?? null}
         initialMessages={conversation?.messages ?? []}
         initialSessions={initialSessions}
