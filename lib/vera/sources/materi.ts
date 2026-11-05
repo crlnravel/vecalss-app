@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { dirname, join, sep } from "node:path";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { getPublishedLesson } from "@/lib/materi/repository";
 import { readMediaObject } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +38,17 @@ function visibleMateriWhere(now: Date) {
     topic: { isActive: true, parentTopicId: null, subtest: { isActive: true } },
   };
 }
+
+/**
+ * The assets a search can read: text in the lesson's body, or a PDF attachment stored in the library. The query leaves out empty bodies,
+ * and hasReadableText drops blank ones after it. Doing this in the query keeps the candidate cap for readable lessons only.
+ */
+const READABLE_ASSET_WHERE: Prisma.ModuleAssetWhereInput = {
+  OR: [
+    { bodyText: { not: "" } },
+    { assetType: "attachment", mimeType: "application/pdf", managedAsset: { objectKey: { not: null } } },
+  ],
+};
 
 function tokensOf(query: string) {
   const tokens = query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 2);
@@ -108,7 +120,10 @@ export async function searchMateri({
   const candidates = await prisma.module.findMany({
     where: {
       ...visibleMateriWhere(now),
-      ...(subtestQuery ? { AND: [{ topic: { subtest: subtestWhere(subtestQuery) } }] } : {}),
+      AND: [
+        { assets: { some: READABLE_ASSET_WHERE } },
+        ...(subtestQuery ? [{ topic: { subtest: subtestWhere(subtestQuery) } }] : []),
+      ],
       ...(tokens.length > 0
         ? {
             OR: tokens.flatMap((token) => [

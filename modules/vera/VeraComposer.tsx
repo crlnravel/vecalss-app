@@ -22,7 +22,9 @@ import {
   flattenGroups,
   MENTION_LIMIT,
   sameMention,
+  shouldDismissOnSpace,
   withoutMention,
+  type CompletedSearch,
   type MentionCandidate,
   type MentionChip,
   type MentionGroups,
@@ -72,6 +74,8 @@ export function VeraComposer({
   const anchorRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | undefined>(undefined);
   const requestRef = useRef(0);
+  // The last search that finished, so the menu can tell a dead end from a search that is still running.
+  const completedSearchRef = useRef<CompletedSearch | null>(null);
 
   const items = flattenGroups(groups);
   const menuOpen = menu !== null && menu.start !== dismissedAt;
@@ -92,6 +96,7 @@ export function VeraComposer({
       const response = await fetch(`/api/vera/mentions?q=${encodeURIComponent(query)}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Search failed with ${response.status}`);
       const next = (await response.json()) as MentionGroups;
+      completedSearchRef.current = { query, count: flattenGroups(next).length };
       if (request === requestRef.current) {
         setGroups(next);
         setActiveIndex(0);
@@ -113,7 +118,7 @@ export function VeraComposer({
       setDismissedAt(null);
       return;
     }
-    if (value.endsWith(" ") && !loading && items.length === 0) setDismissedAt(mention.start);
+    if (value.endsWith(" ") && shouldDismissOnSpace(mention.query, completedSearchRef.current)) setDismissedAt(mention.start);
     queueSearch(mention.query);
   }
 

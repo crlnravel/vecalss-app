@@ -55,3 +55,15 @@ export function chipFrom(candidate: MentionCandidate): MentionChip {
 export function sameMention(left: { type: VeraMentionType; id: string }, right: { type: VeraMentionType; id: string }) {
   return left.type === right.type && left.id === right.id;
 }
+
+/** The last search that finished: the query it was for, and how many candidates it returned in all. */
+export type CompletedSearch = { query: string; count: number };
+
+/**
+ * Whether typing a space closes the menu. Only a finished search that found nothing closes it, and only for the words typed so far or a
+ * shorter part of them. A search still in flight, or none yet, leaves the menu open, so fast typing keeps its results.
+ */
+export function shouldDismissOnSpace(query: string, completed: CompletedSearch | null): boolean {
+  if (!completed || completed.count > 0 || completed.query === "") return false;
+  return query.startsWith(completed.query);
+}

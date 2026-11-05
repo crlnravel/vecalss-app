@@ -9,7 +9,7 @@ import { setVeraModelForTests } from "../lib/vera/model";
 import { hasReadableText } from "../lib/vera/sources/materi";
 import { resolveMentions, searchMentions } from "../lib/vera/sources/mentions";
 import { materiHref } from "../lib/vera/sources/types";
-import { activeMention, withoutMention } from "../modules/vera/mention-model";
+import { activeMention, shouldDismissOnSpace, withoutMention } from "../modules/vera/mention-model";
 import {
   answerChunks,
   conversationIdFrom,
@@ -27,6 +27,15 @@ import {
 if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
   throw new Error("test:vera-mentions only runs against the local dev database on 127.0.0.1:55432.");
 }
+
+// The `@` menu: a multi-word query stays one mention, and a space closes the menu only after a finished search found nothing.
+assert.deepEqual(activeMention("@premis kl", 10), { start: 0, query: "premis kl" }, "A multi-word query stays one mention");
+assert.equal(shouldDismissOnSpace("premis ", null), false, "With no finished search, fast typing keeps the menu open");
+assert.equal(shouldDismissOnSpace("premis ", { query: "premis", count: 0 }), true, "A finished empty search closes the menu on a space");
+assert.equal(shouldDismissOnSpace("premis kl ", { query: "premis", count: 0 }), true, "A finished empty search for a prefix closes it too");
+assert.equal(shouldDismissOnSpace("premis ", { query: "premis", count: 3 }), false, "Results keep the menu open");
+assert.equal(shouldDismissOnSpace("premis ", { query: "zzz", count: 0 }), false, "An empty search for other words does not close it");
+assert.equal(shouldDismissOnSpace("premis ", { query: "", count: 0 }), false, "An empty search for no words does not close it");
 
 /** The pinned budget in characters: the token budget times the rate the prompt window uses. */
 const PINNED_BUDGET_CHARS = VERA_LIMITS.maxPinnedTokens * 4;

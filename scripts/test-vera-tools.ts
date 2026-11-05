@@ -510,6 +510,28 @@ try {
   );
   assert.deepEqual(await searchMateri({ query: " " }), [], "Without words or a subtest, nothing is found");
 
+  // The 24-candidate pool is taken after the readable filter, so 25 newer unreadable matches cannot hide a readable lesson.
+  const capToken = `vcap${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+  const olderReadable = await createModule({
+    code: `vera-tools-o-${capToken}`,
+    title: `Materi uji ${capToken} lama`,
+    status: "published",
+    assets: [pdfAsset, { assetType: "text", bodyText: `Materi uji ${capToken} punya isi.` }],
+  });
+  await prisma.module.update({ where: { id: olderReadable.id }, data: { publishedAt: new Date(past.getTime() - 86_400_000) } });
+  for (let index = 0; index < 25; index += 1) {
+    await createModule({
+      code: `vera-tools-n${index}-${capToken}`,
+      title: `Materi uji ${capToken} tanpa berkas ${index}`,
+      status: "published",
+      assets: [{ assetType: "attachment", mimeType: "application/pdf", originalName: "belum.pdf" }],
+    });
+  }
+  assert.ok(
+    (await searchMateri({ query: capToken })).some((hit) => hit.moduleId === olderReadable.id),
+    "A readable lesson is still found behind 25 newer unreadable matches",
+  );
+
   // Tryout: a result that is not released yet by its date is invisible, and so is another student's result.
   assert.deepEqual(
     await listTryoutResults({ studentId: owned.studentId, limit: 5, now: new Date(0) }),
