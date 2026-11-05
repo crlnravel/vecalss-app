@@ -201,6 +201,35 @@ try {
   );
   assert.equal(await prisma.veraUsageEvent.count({ where: { conversationId: titledId, kind: "title" } }), 1);
 
+  // A title model that reasons before it writes still names the session. Its cap must leave room for the title after the
+  // reasoning. A cap no larger than the reasoning leaves no text, and so no title.
+  const REASONING_TOKENS = 60;
+  const reasoningFirst = new MockLanguageModelV4({
+    doGenerate: async (options) => {
+      const writes = (options.maxOutputTokens ?? 0) > REASONING_TOKENS;
+      return {
+        content: writes ? [{ type: "text", text: "Latihan Persentase" }] : [],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: {
+          inputTokens: { total: 20, noCache: 20, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: {
+            total: writes ? REASONING_TOKENS + 4 : REASONING_TOKENS,
+            text: writes ? 4 : 0,
+            reasoning: REASONING_TOKENS,
+          },
+        },
+        warnings: [],
+      };
+    },
+  });
+  const reasoningSession = await finishedSession(testStudent.id);
+  setVeraModelForTests(reasoningFirst);
+  assert.equal(
+    await titleConversation({ studentId: testStudent.id, conversationId: reasoningSession }),
+    "Latihan Persentase",
+    "A title call that reasons first still names the session",
+  );
+
   // A title the student already set is left alone.
   const renamedFirst = await finishedSession(testStudent.id, "Nama sendiri");
   assert.equal(

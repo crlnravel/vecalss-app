@@ -11,7 +11,8 @@ import { getVeraPrices } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
 
 const TITLE_CHARS = 60;
-const TITLE_OUTPUT_TOKENS = 30;
+// The title model reasons before it writes. At 30 tokens a low-effort call spent the whole cap on reasoning and returned no title.
+const TITLE_OUTPUT_TOKENS = 300;
 const CONTEXT_CHARS = 600;
 const TITLE_INSTRUCTIONS = [
   "Tulis judul singkat untuk percakapan belajar ini dalam bahasa Indonesia.",
