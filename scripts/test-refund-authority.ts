@@ -16,7 +16,7 @@ import { executeProviderRefund } from "../lib/refunds/execute";
 import { flagStalledRefunds } from "../lib/refunds/maintenance";
 import { listRecentRefunds, listRefundRecords } from "../lib/refunds/records";
 import { deliver } from "./payment-test-kit";
-import { ENV, FULL_REASON, cleanUp, paidOrder, prisma, provider, refundCase, setupAuthority, withTriggersOff } from "./refund-test-kit";
+import { ENV, FULL_REASON, cleanUp, paidOrder, prisma, provider, refundCase, settleRunRefunds, setupAuthority, withTriggersOff } from "./refund-test-kit";
 
 /**
  * MS-18: the refund reason `authority_order`. The database refuses an authority
@@ -383,7 +383,6 @@ async function main() {
     pass("retention treats an authority case as a refund case: hold while open, two years from closure");
   }
 
-  await cleanUp();
   console.log(`Authority refund checks passed: ${checks.join("; ")}.`);
 }
 
@@ -392,4 +391,14 @@ main()
     console.error(error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    // Whether the run passed or stopped halfway, it leaves no open refund or late-refund case behind.
+    try {
+      await cleanUp();
+      await settleRunRefunds();
+    } catch (error) {
+      console.error(error);
+      process.exitCode = 1;
+    }
+    await prisma.$disconnect();
+  });
