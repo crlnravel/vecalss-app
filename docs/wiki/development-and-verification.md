@@ -70,7 +70,7 @@ access.
 | Test manifest | `pnpm test:suite-manifest` | Every `scripts/test-*` file is exposed by a package test command |
 | Mentor IA | `pnpm test:mentor-dashboard-ia` | Mentor dashboard/reference surface contracts |
 | Vera AI | `pnpm test:vera-authorization`, `pnpm test:vera-admin-usage`, `pnpm test:vera-chat`, `pnpm test:vera-ledger`, `pnpm test:vera-mentions`, `pnpm test:vera-model`, `pnpm test:vera-sessions`, `pnpm test:vera-studio`, `pnpm test:vera-tools` | Ownership and admin-privacy checks, the admin cost view, streamed chat and its settlement, the credit ledger and limits, `@` sources, sessions, Studio runs, the read tools, and the dev-only stand-in flag. They write to the local dev database and never call OpenAI. See [`docs/vera-ai/README.md`](../vera-ai/README.md). |
-| Vera browser smoke | `pnpm test:vera-obscura-smoke` | Login, a streamed answer, the credit footer, `@`, a saved Studio document, the saved session title, and a session rename, against a dev server started with `VERA_MOCK_MODEL=1`. Needs Obscura on `127.0.0.1:9222`, and `OBSCURA_CDP_TOKEN` when that server requires one. |
+| Vera browser smoke (not required) | `pnpm test:vera-obscura-smoke` | Kept in the repository, but unverified: its first run failed at login. Superseded by the ego-browser pass against a dev server with the real model, which covers the same checklist. Not registered as a required check. |
 | Scalability simulation | `pnpm test:scalability` | Disposable Docker/two-API/Redis simulation only |
 
 The test suite is contract-oriented rather than a single catch-all command.

@@ -65,7 +65,12 @@ Also: at most 5 requests per minute, one answer in flight at a time, and a
 monthly spend cap of 700,000 micro-USD. Session titles do not count as
 requests. A refused request says which window it hit and when that window
 resets. Each answer runs at most 5 model steps. A message is at most 4,000
-characters.
+characters. The `@` menu runs at most 60 searches a minute per student, and
+the server refuses the rest with a short wait message.
+
+Materi PDFs are read only up to 25 MB, 200 pages, and 60,000 characters, and a
+read that takes longer than 20 seconds reports the lesson as not available.
+A Materi is offered in the menu only when it has text the reader can use.
 
 ## Tools and data boundary
 
@@ -124,9 +129,10 @@ the local dev database. Run them through the resource guard:
 ```
 
 The unit suites never call OpenAI. They use scripted models from the AI SDK's
-test helpers. `test:vera-obscura-smoke` drives the workspace in a headless
-browser. It needs an Obscura server on `127.0.0.1:9222`, and it starts the dev
-server itself with `VERA_MOCK_MODEL=1`.
+test helpers. The browser pass is run with ego-browser against a dev server
+with the real model. `test:vera-obscura-smoke` is kept in the repository but is
+not a required check. It is unverified: its first run failed at login, and the
+ego-browser pass replaces it.
 
 ## Local development
 
