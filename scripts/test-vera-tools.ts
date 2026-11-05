@@ -9,6 +9,7 @@ import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { getKuisAttemptReview, listKuisAttempts } from "../lib/vera/sources/kuis";
 import { pdfWithinLimits, readMateri, searchMateri, withTimeout } from "../lib/vera/sources/materi";
+import { newestFirst, newestResultOf, resultTime } from "../lib/vera/sources/result-time";
 import { getTryoutResultReview, listTryoutResults, readListedRows, type ResultReader } from "../lib/vera/sources/tryout";
 import { materiHref } from "../lib/vera/sources/types";
 import { guarded } from "../lib/vera/tools";
@@ -374,6 +375,49 @@ try {
     releaseAt: past,
   });
 
+  // Result times: an immediate Kuis is dated by its submit time, and a scheduled one by its release time. A later release ranks above an earlier immediate one.
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+  const immediateSubmitted = hoursAgo(2);
+  const scheduledReleased = hoursAgo(1);
+  const earlierImmediate = await prisma.standaloneQuizAttempt.create({
+    data: {
+      participationId: ownParticipation.id,
+      attemptNo: 7,
+      status: "submitted",
+      attemptState: "submitted",
+      scoringState: "scored",
+      releaseState: "released",
+      releaseAt: null,
+      policySnapshot: kuisPolicy,
+      formItemOrder: [],
+      score: 75,
+      correctCount: 3,
+      wrongCount: 2,
+      unansweredCount: 0,
+      submittedAt: immediateSubmitted,
+    },
+    select: { id: true },
+  });
+  const laterScheduled = await prisma.standaloneQuizAttempt.create({
+    data: {
+      participationId: ownParticipation.id,
+      attemptNo: 8,
+      status: "scored",
+      attemptState: "submitted",
+      scoringState: "scored",
+      releaseState: "scheduled",
+      releaseAt: scheduledReleased,
+      policySnapshot: kuisPolicy,
+      formItemOrder: [],
+      score: 85,
+      correctCount: 4,
+      wrongCount: 1,
+      unansweredCount: 0,
+      submittedAt: hoursAgo(3),
+    },
+    select: { id: true },
+  });
+
   // Materi in one course: a PDF lesson, a lesson with body text, a draft, and one with no readable file. The last two stay hidden.
   const topic = await findSectionTopic("penalaran-umum");
   const courseSlug = topic.code.split(":")[1];
@@ -583,8 +627,8 @@ try {
   };
   const listedRows = await readListedRows(
     [
-      { id: owned.id, score: null, releaseAt: past, tryout: { title: "Tryout uji released" } },
-      { id: reviewAttemptId, score: null, releaseAt: past, tryout: { title: "Tryout uji ditinjau" } },
+      { id: owned.id, score: null, releaseAt: past, submittedAt: null, createdAt: past, tryout: { title: "Tryout uji released" } },
+      { id: reviewAttemptId, score: null, releaseAt: past, submittedAt: null, createdAt: past, tryout: { title: "Tryout uji ditinjau" } },
     ],
     owned.studentId,
     readWithReview,
@@ -627,6 +671,55 @@ try {
   assert.deepEqual(hidden.items, [], "Hidden correctness returns no item answers");
   assert.match(hidden.limitation ?? "", /Kunci jawaban belum dibuka/, "The limitation says why");
   assert.equal(hidden.correct, 4, "The score facts are still shown");
+
+  // Order: a result is dated by its release time, or by its submit time when it has no release time. The list runs newest first.
+  const ordered = await listKuisAttempts({ studentId: testStudent.id, limit: 20 });
+  const positionOf = (attemptId: string) => ordered.findIndex((row) => row.attemptId === attemptId);
+  assert.ok(positionOf(earlierImmediate.id) >= 0 && positionOf(laterScheduled.id) >= 0, "Both new Kuis results are listed");
+  assert.ok(
+    positionOf(laterScheduled.id) < positionOf(earlierImmediate.id),
+    "A Kuis released later ranks above an immediate one submitted before that release",
+  );
+  assert.equal(ordered[positionOf(earlierImmediate.id)].date, immediateSubmitted.toISOString(), "An immediate Kuis is dated by its submit time");
+  assert.equal(ordered[positionOf(laterScheduled.id)].date, scheduledReleased.toISOString(), "A scheduled Kuis is dated by its release time");
+  assert.ok(ordered.every((row) => !Number.isNaN(Date.parse(row.date))), "Every listed Kuis has a date");
+  const instants = ordered.map((row) => Date.parse(row.date));
+  assert.deepEqual(instants, [...instants].sort((left, right) => right - left), "The Kuis list runs newest first");
+  assert.ok(
+    (await listTryoutResults({ studentId: owned.studentId, limit: 5 })).every((row) => !Number.isNaN(Date.parse(row.date))),
+    "Every listed Tryout result has a date",
+  );
+
+  // Across kinds: a Kuis released today ranks above a Tryout released yesterday, and "latest" is the newest result of either kind.
+  const yesterdayDate = hoursAgo(26);
+  const kuisAboveTryout = newestResultOf([
+    { type: "tryout", id: "tryout-kemarin", date: yesterdayDate.toISOString() },
+    { type: "kuis", id: earlierImmediate.id, date: immediateSubmitted.toISOString() },
+  ]);
+  assert.equal(kuisAboveTryout?.id, earlierImmediate.id, "An immediate Kuis submitted today ranks above a Tryout released yesterday");
+  const newestOfBoth = newestResultOf([
+    { type: "tryout", id: "tryout-kemarin", date: yesterdayDate.toISOString() },
+    { type: "kuis", id: earlierImmediate.id, date: immediateSubmitted.toISOString() },
+    { type: "kuis", id: laterScheduled.id, date: scheduledReleased.toISOString() },
+  ]);
+  assert.equal(newestOfBoth?.id, laterScheduled.id, "'Latest' picks the newest result of either kind");
+
+  // A result with no release time is dated by its submit time, and one with neither by when it started. No date is ever missing.
+  const startedLongAgo = hoursAgo(48);
+  assert.deepEqual(
+    newestFirst([
+      { id: "dengan-jadwal", releaseAt: scheduledReleased, submittedAt: null, createdAt: startedLongAgo },
+      { id: "tanpa-jadwal", releaseAt: null, submittedAt: yesterdayDate, createdAt: startedLongAgo },
+      { id: "hanya-mulai", releaseAt: null, submittedAt: null, createdAt: startedLongAgo },
+    ]).map((row) => row.id),
+    ["dengan-jadwal", "tanpa-jadwal", "hanya-mulai"],
+    "A result with no release time is dated by its submit time, then by when it started",
+  );
+  assert.equal(
+    resultTime({ releaseAt: null, submittedAt: null, createdAt: startedLongAgo }).toISOString(),
+    startedLongAgo.toISOString(),
+    "A result with neither time is dated by when it started",
+  );
 
   // The model asks for the owner's Tryout list, and the answer keeps the link the tool returned.
   setVeraModelForTests(

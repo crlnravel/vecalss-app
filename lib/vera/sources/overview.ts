@@ -4,20 +4,23 @@ import { prisma } from "@/lib/prisma";
 import { releasedKuisAttemptWhere, releasedTryoutAttemptWhere } from "./authorization";
 import { listKuisAttempts } from "./kuis";
 import { listTryoutResults } from "./tryout";
+import { newestFirst } from "./result-time";
 
 /** How many recent Kuis attempts feed the accuracy by subtest. */
 const ACCURACY_SAMPLE = 200;
 
 /** Recent results, totals and Kuis accuracy by subtest: enough to orient an answer before a detailed read. */
 export async function getLearningOverview({ studentId, now = new Date() }: { studentId: string; now?: Date }) {
-  const [kuis, tryouts, sample, kuisAttempts, tryoutResults] = await Promise.all([
+  const [kuis, tryouts, recentKuis, kuisAttempts, tryoutResults] = await Promise.all([
     listKuisAttempts({ studentId, limit: 5, now }),
     listTryoutResults({ studentId, limit: 3, now }),
     prisma.standaloneQuizAttempt.findMany({
       where: releasedKuisAttemptWhere(studentId, now),
-      orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
-      take: ACCURACY_SAMPLE,
       select: {
+        id: true,
+        releaseAt: true,
+        submittedAt: true,
+        createdAt: true,
         correctCount: true,
         wrongCount: true,
         unansweredCount: true,
@@ -27,6 +30,7 @@ export async function getLearningOverview({ studentId, now = new Date() }: { stu
     prisma.standaloneQuizAttempt.count({ where: releasedKuisAttemptWhere(studentId, now) }),
     prisma.tryoutAttempt.count({ where: releasedTryoutAttemptWhere(studentId, now) }),
   ]);
+  const sample = newestFirst(recentKuis).slice(0, ACCURACY_SAMPLE);
 
   const bySubtest = new Map<string, { subtest: string; questions: number; correct: number }>();
   for (const attempt of sample) {

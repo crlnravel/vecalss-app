@@ -6,6 +6,7 @@ import { releasedKuisAttemptWhere, releasedTryoutAttemptWhere } from "./authoriz
 import { getKuisAttemptReview, kuisSource, type KuisAttemptReview } from "./kuis";
 import { readMateri, recentMateri, searchMateri } from "./materi";
 import { getTryoutResultReview } from "./tryout";
+import { newestFirst } from "./result-time";
 import { getStudioDocument } from "../studio-documents";
 import {
   clip,
@@ -94,18 +95,21 @@ async function materiCandidates(studentId: string, term: string, now: Date): Pro
 
 async function kuisCandidates(studentId: string, term: string, now: Date): Promise<MentionCandidate[]> {
   const base = releasedKuisAttemptWhere(studentId, now);
-  const rows = await prisma.standaloneQuizAttempt.findMany({
-    where: term
-      ? { ...base, participation: { studentId, quiz: { status: "published", title: { contains: term, mode: "insensitive" } } } }
-      : base,
-    orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
-    take: term ? GROUP_LIMIT : RECENT_KUIS,
-    select: {
-      id: true,
-      score: true,
-      participation: { select: { quiz: { select: { slug: true, title: true, subtest: { select: { code: true } } } } } },
-    },
-  });
+  const rows = newestFirst(
+    await prisma.standaloneQuizAttempt.findMany({
+      where: term
+        ? { ...base, participation: { studentId, quiz: { status: "published", title: { contains: term, mode: "insensitive" } } } }
+        : base,
+      select: {
+        id: true,
+        score: true,
+        releaseAt: true,
+        submittedAt: true,
+        createdAt: true,
+        participation: { select: { quiz: { select: { slug: true, title: true, subtest: { select: { code: true } } } } } },
+      },
+    }),
+  ).slice(0, term ? GROUP_LIMIT : RECENT_KUIS);
   return rows.map((row): MentionCandidate => ({
     type: "kuis",
     id: row.id,
@@ -117,14 +121,14 @@ async function kuisCandidates(studentId: string, term: string, now: Date): Promi
 
 async function tryoutCandidates(studentId: string, term: string, now: Date): Promise<MentionCandidate[]> {
   const base = releasedTryoutAttemptWhere(studentId, now);
-  const rows = await prisma.tryoutAttempt.findMany({
-    where: term
-      ? { ...base, tryout: { status: "published", publishedAt: { lte: now }, title: { contains: term, mode: "insensitive" } } }
-      : base,
-    orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
-    take: term ? GROUP_LIMIT : RECENT_TRYOUT,
-    select: { id: true, score: true, tryout: { select: { title: true } } },
-  });
+  const rows = newestFirst(
+    await prisma.tryoutAttempt.findMany({
+      where: term
+        ? { ...base, tryout: { status: "published", publishedAt: { lte: now }, title: { contains: term, mode: "insensitive" } } }
+        : base,
+      select: { id: true, score: true, releaseAt: true, submittedAt: true, createdAt: true, tryout: { select: { title: true } } },
+    }),
+  ).slice(0, term ? GROUP_LIMIT : RECENT_TRYOUT);
   return rows.map((row): MentionCandidate => ({
     type: "tryout",
     id: row.id,
