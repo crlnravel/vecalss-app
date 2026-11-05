@@ -2,22 +2,23 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import { ToolStep } from "@/components/ai-elements/tool";
+import { Button } from "@/components/ui/button";
+import { showToast } from "@/components/ui/toast";
 import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/vera/credits-shared";
 import { STUDIO_TOOLS, type StudioRequest } from "@/lib/vera/studio";
 import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
-import { cn } from "@/lib/utils";
 import { useVeraStudioDocs } from "@/modules/vera/use-vera-studio";
 import { VeraStudioDocCards, VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioTools } from "@/modules/vera/VeraStudioTools";
 
-const RUN_FAILED = "Dokumen belum bisa disusun sekarang. Coba lagi.";
+const RUN_FAILED = "Dokumen belum bisa disusun sekarang.";
 
 /** The server sends a JSON body with a friendly message for refusals. Anything else gets the generic line. */
 function runErrorMessage(error: Error): string {
@@ -47,6 +48,8 @@ export function VeraStudioPanel({
 }) {
   const docs = useVeraStudioDocs(initialDocuments);
   const [openDoc, setOpenDoc] = useState<StudioDocument | null>(initialDocument);
+  // The last request is kept, so the retry in a failure toast can send it again.
+  const lastRequest = useRef<StudioRequest | null>(null);
   // The run is described entirely by the request body (tool, input and effort), so only that body is sent.
   const transport = useMemo(
     () =>
@@ -56,11 +59,22 @@ export function VeraStudioPanel({
       }),
     [],
   );
-  const { messages, sendMessage, status, stop, error } = useChat<UIMessage>({
+  const { messages, sendMessage, status, stop } = useChat<UIMessage>({
     id: "vera-studio",
     transport,
     onFinish: () => {
       void docs.refresh();
+    },
+    onError: (error) => {
+      showToast(runErrorMessage(error), {
+        variant: "error",
+        action: {
+          label: "Coba lagi",
+          onClick: () => {
+            if (lastRequest.current) run(lastRequest.current);
+          },
+        },
+      });
     },
   });
 
@@ -72,6 +86,7 @@ export function VeraStudioPanel({
   const previewSaved = docs.documents.some((doc) => doc.id === previewDocumentId);
 
   function run(request: StudioRequest) {
+    lastRequest.current = request;
     void sendMessage({ text: STUDIO_TOOLS[request.tool].label }, { body: request });
   }
 
@@ -92,11 +107,14 @@ export function VeraStudioPanel({
       <VeraStudioTools busy={busy} estimate={estimate} onRun={run} />
 
       {preview || busy ? (
-        <section aria-label="Pratinjau dokumen" className="rounded-2xl border border-border bg-card p-4">
+        <section
+          aria-label="Pratinjau dokumen"
+          className="rounded-card border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]"
+        >
           <p className="mb-3 text-xs text-muted-foreground" role="status">
             {busy ? "Vera sedang menyusun dokumen…" : previewSaved ? "Dokumen tersimpan. Lihat di daftar di bawah." : null}
           </p>
-          <div className="space-y-3 text-sm leading-relaxed">
+          <div className="max-w-[68ch] space-y-3 break-words text-base leading-[1.7]">
             {(preview?.parts ?? []).map((part, index) => {
               if (isToolUIPart(part)) {
                 return (
@@ -124,21 +142,15 @@ export function VeraStudioPanel({
             })}
           </div>
           {busy ? (
-            <button className={cn("mt-3 text-xs text-muted-foreground underline")} onClick={() => void stop()} type="button">
+            <Button className="mt-4" onClick={() => void stop()} size="sm" type="button" variant="outline">
               Hentikan
-            </button>
+            </Button>
           ) : null}
         </section>
       ) : null}
 
-      {error ? (
-        <p className="text-sm text-muted-foreground" role="alert">
-          {runErrorMessage(error)}
-        </p>
-      ) : null}
-
       <section aria-labelledby="vera-studio-docs" className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-secondary-950" id="vera-studio-docs">
+        <h2 className="font-heading text-base font-extrabold tracking-[-0.02em] text-voyage-ink" id="vera-studio-docs">
           Dokumen
         </h2>
         {docs.error ? (

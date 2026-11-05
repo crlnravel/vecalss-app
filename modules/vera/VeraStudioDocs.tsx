@@ -43,11 +43,11 @@ export function VeraStudioDocCards({
     return <p className="text-sm text-muted-foreground">Belum ada dokumen. Buat satu dari pilihan di atas.</p>;
   }
   return (
-    <ul aria-label="Dokumen tersimpan" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <ul aria-label="Dokumen tersimpan" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {documents.map((doc) => (
         <li key={doc.id}>
           <button
-            className="flex w-full flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted/40"
+            className="flex h-full w-full min-w-0 flex-col gap-3 rounded-card border border-primary-100 bg-white p-5 text-left shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color] hover:border-primary-200 focus-visible:border-voyage-leaf focus-visible:ring-3 focus-visible:ring-voyage-leaf/35 focus-visible:outline-none motion-reduce:transition-none"
             onClick={() => onOpen(doc.id)}
             type="button"
           >
@@ -59,8 +59,8 @@ export function VeraStudioDocCards({
                 </Badge>
               )}
             </span>
-            <span className="text-sm font-semibold text-secondary-950">{doc.title}</span>
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <span className="font-heading text-base font-extrabold tracking-[-0.02em] text-voyage-ink">{doc.title}</span>
+            <span className="mt-auto text-xs text-muted-foreground tabular-nums">
               {DATE_TIME.format(new Date(doc.createdAt))} · {formatCredits(doc.credits)} kredit
             </span>
           </button>
@@ -70,7 +70,7 @@ export function VeraStudioDocCards({
   );
 }
 
-/** One document in a fullscreen dialog, with its sources and the two actions: ask Vera about it, or delete it after confirming. */
+/** One document in a centred panel, with its sources and the two actions: ask Vera about it, or delete it after confirming. */
 export function VeraStudioDocDialog({
   doc,
   onClose,
@@ -91,7 +91,7 @@ export function VeraStudioDocDialog({
         }}
         open={doc !== null}
       >
-        <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-4 overflow-hidden rounded-none p-4 sm:p-6">
+        <DialogContent className="flex max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-[52rem] flex-col gap-4 overflow-hidden rounded-panel p-5 sm:max-w-[52rem] sm:p-6">
           {doc ? (
             <>
               <DialogHeader>
@@ -99,7 +99,7 @@ export function VeraStudioDocDialog({
                 <DialogDescription>{summaryLine(doc)}</DialogDescription>
               </DialogHeader>
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <div className="space-y-3 break-words text-sm leading-relaxed">
+                <div className="max-w-[68ch] space-y-3 break-words text-base leading-[1.7]">
                   {doc.complete ? null : (
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge size="xs" tone="attention">
