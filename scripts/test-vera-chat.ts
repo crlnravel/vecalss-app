@@ -5,9 +5,12 @@ import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
 import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
+import { VERA_LIMITS } from "../lib/vera/config";
 import { VERA_ERROR_STATUS, VeraError } from "../lib/vera/errors";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { trimHistory } from "../lib/vera/prompt";
+
+import { answerChunks, toolCallChunks } from "./vera-test-support";
 
 // These checks write rows, so they only run against the disposable local dev database.
 if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
@@ -271,6 +274,27 @@ try {
     trimHistory([message("a", 400), message("b", 400), message("c", 40)], 150).map((item) => item.id),
     ["b", "c"],
   );
+
+  // A model that asks for a tool on every step it is offered tools for. The last step is offered none, so the answer still ends with text.
+  const offeredTools: number[] = [];
+  setVeraModelForTests(
+    new MockLanguageModelV4({
+      doStream: async (options) => {
+        const offered = options.tools?.length ?? 0;
+        offeredTools.push(offered);
+        const chunks = offered > 0 ? toolCallChunks("get_learning_overview", {}) : answerChunks(["Jawaban akhir tanpa alat."]);
+        return { stream: simulateReadableStream({ initialDelayInMs: 0, chunkDelayInMs: 0, chunks }) };
+      },
+    }),
+  );
+  const toolEvents = await readEvents(
+    await runVeraChat({ studentId: failureStudentId, input: userInput("Ringkas kemajuanku"), signal: new AbortController().signal }),
+  );
+  createdConversationIds.push(conversationIdFrom(toolEvents));
+  assert.ok(streamedText(toolEvents).includes("Jawaban akhir tanpa alat."), "The answer ends with the text written on the last step");
+  assert.equal(offeredTools.length, VERA_LIMITS.maxSteps, "The chat takes its full step count");
+  assert.equal(offeredTools.at(-1), 0, "The last step is offered no tools");
+  assert.ok(offeredTools.slice(0, -1).every((count) => count > 0), "Every earlier step is offered its tools");
 
   console.log("Vera chat checks passed.");
 } finally {

@@ -52,7 +52,10 @@ export const VERA_LIMITS = {
   concurrentAnswers: 1,
   spendCapMicroUsd: 700_000,
   microUsdPerCredit: 2_350,
+  /** Most model steps a chat answer may take. The last step runs without tools, so the answer always ends with text. */
   maxSteps: 5,
+  /** Most model steps a Studio document may take. A document reads more sources than an answer, so it gets more room. */
+  studioMaxSteps: 8,
   maxInputTokensPerStep: 16_000,
   /** Most tool output a single step can add to the next step's input. Each reader's output is bounded well below this. */
   maxToolOutputTokensPerStep: 8_000,

@@ -159,6 +159,7 @@ export function VeraPageModule({
     }
   }
 
+  const [stoppedMessageId, setStoppedMessageId] = useState<string | null>(null);
   const { messages, sendMessage, status, stop, error, regenerate } = useChat<UIMessage>({
     id: chatId,
     messages: initialMessages,
@@ -333,7 +334,7 @@ export function VeraPageModule({
                 <ChatThread className="mx-auto w-full max-w-3xl">
                   {messages.map((message) => (
                     <ChatTurn key={message.id} messageId={message.id} fromUser={message.role === "user"}>
-                      <ThreadMessage message={message} />
+                      <ThreadMessage message={message} stopping={message.id === stoppedMessageId} />
                     </ChatTurn>
                   ))}
                 </ChatThread>
@@ -365,7 +366,12 @@ export function VeraPageModule({
                   historyChars={historyChars}
                   onEffortChange={changeEffort}
                   onSend={submitComposer}
-                  onStop={() => void stop()}
+                  onStop={() => {
+                    // The server saves a stopped answer with a marker. Marking it at once matches that, without waiting for a reload.
+                    const streaming = messages.at(-1);
+                    if (streaming?.role === "assistant") setStoppedMessageId(streaming.id);
+                    void stop();
+                  }}
                   prices={usage.prices}
                   status={status}
                 />
@@ -444,7 +450,7 @@ function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
   );
 }
 
-function ThreadMessage({ message }: { message: UIMessage }) {
+function ThreadMessage({ message, stopping = false }: { message: UIMessage; stopping?: boolean }) {
   if (message.role === "user") {
     const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
     const mentions = (message.metadata as { mentions?: ResolvedMention[] } | undefined)?.mentions ?? [];
@@ -460,7 +466,7 @@ function ThreadMessage({ message }: { message: UIMessage }) {
     );
   }
 
-  const stopped = message.parts.some(
+  const stopped = stopping || message.parts.some(
     (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
   );
   const credits = (message.metadata as { credits?: number } | undefined)?.credits;

@@ -30,7 +30,7 @@ import {
   type StudioRequest,
 } from "./studio";
 import { createVeraTools } from "./tools";
-import { trackAnswerUsage } from "./usage-tracker";
+import { finalStepControl, trackAnswerUsage } from "./usage-tracker";
 
 /** The Kuis attempt or Tryout result a review reads, with the link the document keeps to it. */
 type ResolvedTarget = ReviewTarget & { source: VeraSource };
@@ -82,6 +82,7 @@ export async function runVeraStudio({
     const instructions = `${buildVeraInstructions({ firstName, now })}\n\n${studioInstructions(request.tool)}`;
 
     const usage = trackAnswerUsage({ eventId, effort, prices });
+    const finalStep = finalStepControl({ maxSteps: VERA_LIMITS.studioMaxSteps, effort, prices });
     const result = streamText({
       model,
       instructions,
@@ -90,7 +91,8 @@ export async function runVeraStudio({
       maxOutputTokens: effort.maxOutputTokens,
       maxRetries: 1,
       tools: createVeraTools({ studentId, now }),
-      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
+      prepareStep: finalStep.prepareStep,
+      stopWhen: [isStepCount(VERA_LIMITS.studioMaxSteps), finalStep.stopWhen],
       providerOptions: {
         openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
       },

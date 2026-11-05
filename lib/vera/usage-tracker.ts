@@ -38,20 +38,50 @@ function tallyOf(steps: Array<{ usage: LanguageModelUsage }>): UsageTally {
 }
 
 /**
- * Stops before the next step could carry the answer past its ceiling. A step after a tool call reads everything the last step
- * read and wrote, plus up to one step's worth of tool output, and it may use its full output cap.
+ * The most input the next step can read, from the steps before it. A step reads everything the last step read and wrote, plus up to
+ * one step's worth of tool output. The first step reads at most the per-step input budget.
  */
-export function ceilingReached(steps: Array<{ usage: LanguageModelUsage }>, effort: UsageLimits, prices: VeraPrices) {
-  const ceilingMicros = effort.ceilingCredits * VERA_LIMITS.microUsdPerCredit;
+function nextStepInputTokens(steps: Array<{ usage: LanguageModelUsage }>) {
   const last = steps.at(-1)?.usage;
-  const nextInputTokens = last
+  return last
     ? (last.inputTokens ?? 0) + (last.outputTokens ?? 0) + VERA_LIMITS.maxToolOutputTokensPerStep
     : VERA_LIMITS.maxInputTokensPerStep;
-  const worstStepMicros = costUsdMicros(
-    { noCacheInputTokens: nextInputTokens, cachedInputTokens: 0, outputTokens: effort.maxOutputTokens },
-    prices,
-  );
-  return costUsdMicros(tallyOf(steps), prices) >= ceilingMicros - worstStepMicros;
+}
+
+/**
+ * Decides how a run ends, and that it ends with written text. Every step before the last may use tools. The last step is the step at
+ * `maxSteps`, or the first step after which another step might no longer fit under the ceiling. That step runs with tools off, so the
+ * model has to write its answer. A run stops once that step is done, or when not even one more worst-case step fits.
+ *
+ * A tool step runs only if the step after it still fits. Its input can grow by one step's output and tool output, so the check uses a
+ * worst case one step further on. Once a step has run, the next one therefore fits under the ceiling, and so does the final step.
+ */
+export function finalStepControl({ maxSteps, effort, prices }: { maxSteps: number; effort: UsageLimits; prices: VeraPrices }) {
+  const ceilingMicros = effort.ceilingCredits * VERA_LIMITS.microUsdPerCredit;
+  const worstStepMicros = (steps: Array<{ usage: LanguageModelUsage }>, extraInputTokens: number) =>
+    costUsdMicros(
+      {
+        noCacheInputTokens: nextStepInputTokens(steps) + extraInputTokens,
+        cachedInputTokens: 0,
+        outputTokens: effort.maxOutputTokens,
+      },
+      prices,
+    );
+  let finalStepNumber: number | null = null;
+  return {
+    prepareStep: ({ stepNumber, steps }: { stepNumber: number; steps: Array<{ usage: LanguageModelUsage }> }) => {
+      const spentMicros = costUsdMicros(tallyOf(steps), prices);
+      const nextMicros = worstStepMicros(steps, 0);
+      const stepAfterNextMicros = worstStepMicros(steps, effort.maxOutputTokens + VERA_LIMITS.maxToolOutputTokensPerStep);
+      if (stepNumber < maxSteps - 1 && spentMicros + nextMicros + stepAfterNextMicros <= ceilingMicros) return {};
+      finalStepNumber = stepNumber;
+      return { toolChoice: "none" as const, activeTools: [] };
+    },
+    stopWhen: ({ steps }: { steps: Array<{ usage: LanguageModelUsage }> }) => {
+      if (finalStepNumber !== null && steps.length > finalStepNumber) return true;
+      return costUsdMicros(tallyOf(steps), prices) + worstStepMicros(steps, 0) > ceilingMicros;
+    },
+  };
 }
 
 /**
@@ -94,7 +124,6 @@ export function trackAnswerUsage({ eventId, effort, prices }: { eventId: string;
   return {
     creditsForAnswer,
     outcome: () => outcome,
-    stopWhen: ({ steps }: { steps: Array<{ usage: LanguageModelUsage }> }) => ceilingReached(steps, effort, prices),
     onChunk: ({ chunk }: { chunk: { type: string } }) => {
       if (!settled && !CONTROL_PART_TYPES.has(chunk.type)) unfinishedStepStarted = true;
     },

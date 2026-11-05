@@ -64,7 +64,9 @@ Windows are calendar windows in Asia/Jakarta (WIB).
 Also: at most 5 requests per minute, one answer in flight at a time, and a
 monthly spend cap of 700,000 micro-USD. Session titles do not count as
 requests. A refused request says which window it hit and when that window
-resets. Each answer runs at most 5 model steps. A message is at most 4,000
+resets. A chat answer runs at most 5 model steps, and a Studio document at most 8.
+The last step runs without tools, so every answer ends with text. A message is at
+most 4,000
 characters. The `@` menu runs at most 60 searches a minute per student, and
 the server refuses the rest with a short wait message.
 

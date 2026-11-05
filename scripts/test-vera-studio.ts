@@ -1,11 +1,13 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 
-import { MockLanguageModelV4 } from "ai/test";
+import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
+import { VERA_LIMITS } from "../lib/vera/config";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { VeraLimitError } from "../lib/vera/ledger";
+import { dayWindow } from "../lib/vera/windows";
 import { resolveMentions, searchMentions } from "../lib/vera/sources/mentions";
 import { listTryoutResults } from "../lib/vera/sources/tryout";
 import { deleteStudioDocument, getStudioDocument, listStudioDocuments } from "../lib/vera/studio-documents";
@@ -73,6 +75,7 @@ function settledStudioUsage(studentId: string, count: number) {
 const createdDocumentIds: string[] = [];
 let testStudentId: string | null = null;
 let streamStudentId: string | null = null;
+let finalStepStudentId: string | null = null;
 
 try {
   // Each tool accepts its own options and refuses anything else.
@@ -127,6 +130,9 @@ try {
   // The owner of a released Tryout result runs the tools, so the tools have real results to read and link.
   const owned = await findReleasedTryout();
   const ownerId = owned.studentId;
+  // The released Tryout belongs to the demo student, and the day's limit counts each student's own runs. Clear that student's usage
+  // from today first, so the limit reflects these checks alone and cannot refuse them.
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: ownerId, createdAt: { gte: dayWindow(new Date()).start } } });
   const latest = (await listTryoutResults({ studentId: ownerId, limit: 1 }))[0];
   assert.ok(latest, "The owner has a released result to review");
 
@@ -358,6 +364,48 @@ try {
   );
   assert.equal(await prisma.veraStudioDocument.count({ where: { studentId: testStudent.id } }), 0, "A refused run saves nothing");
 
+  // A model that asks for a tool on every step it is offered tools for. The last step is offered none, so the document still ends
+  // with its text, and it is saved complete after the full Studio step count.
+  const finalStudent = await prisma.user.upsert({
+    where: { email: "vera-studio-final-step-test@vecalss.local" },
+    update: {},
+    create: { email: "vera-studio-final-step-test@vecalss.local", fullName: "Vera Studio Final Step Test", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  finalStepStudentId = finalStudent.id;
+  await prisma.veraStudioDocument.deleteMany({ where: { studentId: finalStudent.id } });
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: finalStudent.id } });
+  const offeredTools: number[] = [];
+  setVeraModelForTests(
+    new MockLanguageModelV4({
+      doStream: async (options) => {
+        const offered = options.tools?.length ?? 0;
+        offeredTools.push(offered);
+        const chunks =
+          offered > 0 ? toolCallChunks("get_learning_overview", {}) : answerChunks(["## Hari 1\n\nDokumen akhir tanpa alat."]);
+        return { stream: simulateReadableStream({ initialDelayInMs: 0, chunkDelayInMs: 0, chunks }) };
+      },
+    }),
+  );
+  const finalEvents = await readEvents(
+    await runVeraStudio({
+      studentId: finalStudent.id,
+      request: parseRequest({ tool: "study_route", input: { minutesPerDay: 30 } }),
+      signal: new AbortController().signal,
+    }),
+  );
+  const finalDocumentId = documentIdFrom(finalEvents);
+  createdDocumentIds.push(finalDocumentId);
+  const finalDocument = await waitFor(
+    () => getStudioDocument({ studentId: finalStudent.id, id: finalDocumentId }),
+    "the final-step document to be saved",
+  );
+  assert.equal(finalDocument.complete, true, "A run that ends on its text step is saved complete");
+  assert.ok(finalDocument.markdown.includes("Dokumen akhir tanpa alat"), "The text written on the last step is saved");
+  assert.equal(offeredTools.length, VERA_LIMITS.studioMaxSteps, "The run takes its full Studio step count");
+  assert.equal(offeredTools.at(-1), 0, "The last step is offered no tools");
+  assert.ok(offeredTools.slice(0, -1).every((count) => count > 0), "Every earlier step is offered its tools");
+
   console.log("Vera studio checks passed.");
 } finally {
   setVeraModelForTests(undefined);
@@ -367,6 +415,10 @@ try {
   if (streamStudentId) {
     await prisma.veraStudioDocument.deleteMany({ where: { studentId: streamStudentId } });
     await prisma.veraUsageEvent.deleteMany({ where: { studentId: streamStudentId } });
+  }
+  if (finalStepStudentId) {
+    await prisma.veraStudioDocument.deleteMany({ where: { studentId: finalStepStudentId } });
+    await prisma.veraUsageEvent.deleteMany({ where: { studentId: finalStepStudentId } });
   }
   await prisma.$disconnect();
 }

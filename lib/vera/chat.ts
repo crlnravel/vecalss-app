@@ -36,7 +36,7 @@ import { resolveMentions } from "./sources/mentions";
 import { collectSources, uniqueSources, VERA_MENTION_TYPES, type VeraSource } from "./sources/types";
 import { createVeraTools } from "./tools";
 import { scheduleConversationTitle } from "./titles";
-import { trackAnswerUsage } from "./usage-tracker";
+import { finalStepControl, trackAnswerUsage } from "./usage-tracker";
 
 export const veraChatRequestSchema = z.object({
   conversationId: z.uuid().optional(),
@@ -148,6 +148,7 @@ export async function runVeraChat({
   let response: Response;
   try {
     const usage = trackAnswerUsage({ eventId, effort, prices });
+    const finalStep = finalStepControl({ maxSteps: VERA_LIMITS.maxSteps, effort, prices });
     const result = streamText({
       model,
       instructions,
@@ -156,7 +157,8 @@ export async function runVeraChat({
       maxOutputTokens: effort.maxOutputTokens,
       maxRetries: 1,
       tools: createVeraTools({ studentId, now }),
-      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
+      prepareStep: finalStep.prepareStep,
+      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), finalStep.stopWhen],
       providerOptions: {
         openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
       },
