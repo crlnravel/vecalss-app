@@ -2,9 +2,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -13,26 +14,37 @@ import remarkMath from "remark-math";
 import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
 import { Reasoning } from "@/components/ai-elements/reasoning";
 import { Sources } from "@/components/ai-elements/sources";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { ToolStep } from "@/components/ai-elements/tool";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Message, MessageContent } from "@/components/ui/message";
-import { Menu, Sparkles } from "@/lib/icons";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { showToast } from "@/components/ui/toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { SessionContext } from "@/lib/auth/types";
+import { PanelLeftOpen, Plus } from "@/lib/icons";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
-import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
-import { collectSources, studioDocumentHref, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
+import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
+import {
+  collectSources,
+  studioDocumentHref,
+  uniqueSources,
+  type ResolvedMention,
+  type VeraSource,
+} from "@/lib/vera/sources/types";
 import { cn } from "@/lib/utils";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraStudioPanel } from "@/modules/vera/VeraStudioPanel";
-import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
+import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 
 const STARTER_PROMPTS = [
@@ -43,7 +55,8 @@ const STARTER_PROMPTS = [
 ];
 
 const DEFAULT_EFFORT: VeraEffortId = "seimbang";
-const UNAVAILABLE_ANSWER = "Vera belum bisa menjawab sekarang. Coba kirim lagi.";
+const UNAVAILABLE_ANSWER = "Vera belum bisa menjawab sekarang.";
+const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
 
 type VeraTab = "chat" | "studio";
 
@@ -101,6 +114,11 @@ function answerErrorMessage(error: Error): string {
 
 export function VeraPageModule({
   studentId,
+  session,
+  firstName,
+  notificationFeed,
+  returnHref,
+  returnLabel,
   conversationId: initialConversationId,
   initialMessages,
   initialSessions,
@@ -110,6 +128,11 @@ export function VeraPageModule({
   initialUsage,
 }: {
   studentId: string;
+  session: SessionContext;
+  firstName: string | null;
+  notificationFeed: StudentNotificationFeed;
+  returnHref: string;
+  returnLabel: string;
   conversationId: string | null;
   initialMessages: UIMessage[];
   initialSessions: VeraSessionSummary[];
@@ -126,6 +149,8 @@ export function VeraPageModule({
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [chatId] = useState(() => initialConversationId ?? crypto.randomUUID());
   const [usage, setUsage] = useState(initialUsage);
+  // Messages already on the page when it opens do not animate in again.
+  const [restoredIds] = useState(() => new Set(initialMessages.map((message) => message.id)));
   const sessions = useVeraSessions(initialSessions);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -160,7 +185,7 @@ export function VeraPageModule({
   }
 
   const [stoppedMessageId, setStoppedMessageId] = useState<string | null>(null);
-  const { messages, sendMessage, status, stop, error, regenerate } = useChat<UIMessage>({
+  const { messages, sendMessage, status, stop, regenerate } = useChat<UIMessage>({
     id: chatId,
     messages: initialMessages,
     transport,
@@ -178,8 +203,12 @@ export function VeraPageModule({
       window.setTimeout(() => sessions.refresh(), 6_000);
       window.setTimeout(() => sessions.refresh(), 10_000);
     },
-    onError: () => {
+    onError: (error) => {
       void refreshUsage();
+      showToast(answerErrorMessage(error), {
+        variant: "error",
+        action: { label: "Coba lagi", onClick: () => void regenerate() },
+      });
     },
   });
 
@@ -266,59 +295,111 @@ export function VeraPageModule({
   };
 
   return (
-    <div className="flex min-h-[calc(100svh-8rem)] min-w-0 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-2">
-        <h1 className="text-lg font-semibold text-secondary-950">Vera AI</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Dialog onOpenChange={setSessionsOpen} open={sessionsOpen}>
-            <DialogTrigger render={<Button className="md:hidden" size="sm" type="button" variant="outline" />}>
-              <Menu />
-              Sesi
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Sesi Vera</DialogTitle>
-                <DialogDescription>Pilih sesi untuk dilanjutkan, atau mulai sesi baru.</DialogDescription>
-              </DialogHeader>
-              <VeraSessionsPanel {...panel} />
-            </DialogContent>
-          </Dialog>
-          <VeraUsagePopover onOpen={() => void refreshUsage()} usage={usage} />
-          <div role="tablist" aria-label="Bagian Vera" className="flex rounded-full bg-muted p-1">
-            <TabButton selected={tab === "chat"} onClick={() => setTab("chat")}>
-              Chat
-            </TabButton>
-            <TabButton selected={tab === "studio"} onClick={() => setTab("studio")}>
-              Studio
-            </TabButton>
-          </div>
-        </div>
-      </header>
+    <Tabs className="flex min-h-0 flex-1 flex-col gap-3" onValueChange={(value) => setTab(value as VeraTab)} value={tab}>
+      <VeraWorkspaceHeader
+        notificationFeed={notificationFeed}
+        onOpenSessions={() => setSessionsOpen(true)}
+        onRefreshUsage={() => void refreshUsage()}
+        returnHref={returnHref}
+        returnLabel={returnLabel}
+        session={session}
+        usage={usage}
+      />
 
-      <div className="flex min-h-0 min-w-0 flex-1 gap-6 px-4">
-        <aside className={cn("hidden shrink-0 md:block", sidebarOpen ? "w-64" : "w-10")}>
-          <div className="flex items-start gap-2">
-            {sidebarOpen ? (
-              <div className="min-w-0 flex-1">
-                <VeraSessionsPanel {...panel} />
-              </div>
-            ) : null}
-            <Button
-              aria-expanded={sidebarOpen}
-              aria-label={sidebarOpen ? "Sembunyikan sesi" : "Tampilkan sesi"}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              size="icon-sm"
-              type="button"
-              variant="quiet"
-            >
-              <Menu />
-            </Button>
-          </div>
-        </aside>
+      <div className="flex min-h-0 flex-1 gap-3">
+        {sidebarOpen ? (
+          <aside
+            aria-label="Sesi Vera"
+            className="hidden w-[264px] shrink-0 flex-col rounded-panel border border-primary-100 bg-white p-3 md:flex"
+          >
+            <VeraSessionsPanel {...panel} onCollapse={() => setSidebarOpen(false)} />
+          </aside>
+        ) : (
+          <aside
+            aria-label="Sesi Vera"
+            className="hidden w-14 shrink-0 flex-col items-center gap-2 rounded-panel border border-primary-100 bg-white p-2 md:flex"
+          >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="Tampilkan sesi"
+                    onClick={() => setSidebarOpen(true)}
+                    size="icon"
+                    type="button"
+                    variant="quiet"
+                  />
+                }
+              >
+                <PanelLeftOpen />
+              </TooltipTrigger>
+              <TooltipContent side="right">Tampilkan sesi</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={<Button aria-label="Sesi baru" onClick={newSession} size="icon" type="button" variant="outline" />}
+              >
+                <Plus />
+              </TooltipTrigger>
+              <TooltipContent side="right">Sesi baru</TooltipContent>
+            </Tooltip>
+          </aside>
+        )}
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          {tab === "studio" ? (
-            <div className="mx-auto w-full max-w-5xl py-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <TabsContent className="flex min-h-0 flex-1 flex-col" value="chat">
+            {messages.length === 0 ? (
+              <EmptyState
+                disabled={blocked !== null || busy}
+                firstName={firstName}
+                onPick={(text) => send(text)}
+              />
+            ) : (
+              <ChatThread className="mx-auto w-full max-w-3xl">
+                {messages.map((message) => (
+                  <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
+                    <ThreadMessage
+                      fresh={!restoredIds.has(message.id)}
+                      message={message}
+                      stopping={message.id === stoppedMessageId}
+                    />
+                  </ChatTurn>
+                ))}
+              </ChatThread>
+            )}
+
+            <div className="mx-auto w-full max-w-3xl px-1 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              {blocked ? (
+                <p
+                  className="mb-2 rounded-card border border-student-status-attention-border bg-student-status-attention-bg px-4 py-3 text-sm text-student-status-attention-fg"
+                  role="status"
+                >
+                  {blocked}
+                </p>
+              ) : null}
+              <VeraComposer
+                blocked={blocked}
+                effort={effort}
+                historyChars={historyChars}
+                initialChips={composerSeed?.chips ?? []}
+                key={composerSeed?.key ?? 0}
+                onEffortChange={changeEffort}
+                onSend={submitComposer}
+                onStop={() => {
+                  // The server saves a stopped answer with a marker. Marking it at once matches that, without waiting for a reload.
+                  const streaming = messages.at(-1);
+                  if (streaming?.role === "assistant") setStoppedMessageId(streaming.id);
+                  void stop();
+                }}
+                prices={usage.prices}
+                status={status}
+              />
+              <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
+            </div>
+          </TabsContent>
+
+          <TabsContent className="flex min-h-0 flex-1 flex-col overflow-y-auto" value="studio">
+            <div className="mx-auto w-full max-w-[78rem] px-4 py-5 md:px-6 md:py-6">
               <VeraStudioPanel
                 initialDocument={initialStudioDocument}
                 initialDocuments={initialStudioDocs}
@@ -326,105 +407,63 @@ export function VeraPageModule({
                 prices={usage.prices}
               />
             </div>
-          ) : (
-            <>
-              {messages.length === 0 ? (
-                <EmptyState onPick={(text) => blocked === null && !busy && send(text)} />
-              ) : (
-                <ChatThread className="mx-auto w-full max-w-3xl">
-                  {messages.map((message) => (
-                    <ChatTurn key={message.id} messageId={message.id} fromUser={message.role === "user"}>
-                      <ThreadMessage message={message} stopping={message.id === stoppedMessageId} />
-                    </ChatTurn>
-                  ))}
-                </ChatThread>
-              )}
-
-              {error ? (
-                <div
-                  role="alert"
-                  className="mx-auto mb-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm"
-                >
-                  <span>{answerErrorMessage(error)}</span>
-                  <Button onClick={() => regenerate()} size="sm" type="button" variant="outline">
-                    Coba lagi
-                  </Button>
-                </div>
-              ) : null}
-
-              <div className="mx-auto w-full max-w-3xl pb-4 pt-2">
-                {blocked ? (
-                  <p role="status" className="mb-2 text-sm text-muted-foreground">
-                    {blocked}
-                  </p>
-                ) : null}
-                <VeraComposer
-                  blocked={blocked}
-                  effort={effort}
-                  initialChips={composerSeed?.chips ?? []}
-                  key={composerSeed?.key ?? 0}
-                  historyChars={historyChars}
-                  onEffortChange={changeEffort}
-                  onSend={submitComposer}
-                  onStop={() => {
-                    // The server saves a stopped answer with a marker. Marking it at once matches that, without waiting for a reload.
-                    const streaming = messages.at(-1);
-                    if (streaming?.role === "assistant") setStoppedMessageId(streaming.id);
-                    void stop();
-                  }}
-                  prices={usage.prices}
-                  status={status}
-                />
-                <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
-              </div>
-            </>
-          )}
+          </TabsContent>
         </div>
       </div>
-    </div>
+
+      <Sheet onOpenChange={setSessionsOpen} open={sessionsOpen}>
+        <SheetContent side="left">
+          <SheetHeader>
+            <SheetTitle>Sesi Vera</SheetTitle>
+            <SheetDescription>Pilih sesi untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+            <VeraSessionsPanel {...panel} />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </Tabs>
   );
 }
 
-function TabButton({
-  selected,
-  onClick,
-  children,
+function EmptyState({
+  disabled,
+  firstName,
+  onPick,
 }: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
+  disabled: boolean;
+  firstName: string | null;
+  onPick: (text: string) => void;
 }) {
   return (
-    <button
-      aria-selected={selected}
-      className={cn(
-        "min-h-11 rounded-full px-4 text-sm font-medium transition-colors motion-reduce:transition-none",
-        selected ? "bg-card text-secondary-950 shadow-sm" : "text-muted-foreground hover:text-secondary-950",
-      )}
-      onClick={onClick}
-      role="tab"
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-function EmptyState({ onPick }: { onPick: (text: string) => void }) {
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-6 px-4 py-10 text-center">
-      <span className="flex size-14 items-center justify-center rounded-full border border-border bg-card text-secondary-950">
-        <Sparkles />
-      </span>
-      <div>
-        <p className="text-lg font-semibold text-secondary-950">Halo, aku Vera.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Tanya apa saja soal belajarmu, aku bantu jelaskan pelan-pelan.</p>
-      </div>
-      <Suggestions className="w-full justify-center">
-        {STARTER_PROMPTS.map((prompt) => (
-          <Suggestion key={prompt} onClick={onPick} suggestion={prompt} />
-        ))}
-      </Suggestions>
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
+      <Empty className="max-w-2xl gap-6 p-0">
+        <EmptyMedia className="relative mb-0 size-[80px] overflow-hidden rounded-pill">
+          <Image alt="" className="object-contain" fill sizes="80px" src={MASCOT_SRC} />
+        </EmptyMedia>
+        <EmptyHeader className="max-w-xl gap-2">
+          <EmptyTitle className="text-[1.5rem] font-extrabold tracking-[-0.035em] text-voyage-ink">
+            {firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?"}
+          </EmptyTitle>
+          <EmptyDescription>Tanya apa saja soal belajarmu, aku bantu jelaskan pelan-pelan.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="max-w-2xl">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+            {STARTER_PROMPTS.map((prompt) => (
+              <Button
+                className="h-auto min-h-[44px] w-full justify-start py-2.5 text-left whitespace-normal"
+                disabled={disabled}
+                key={prompt}
+                onClick={() => onPick(prompt)}
+                type="button"
+                variant="outline"
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        </EmptyContent>
+      </Empty>
     </div>
   );
 }
@@ -450,15 +489,30 @@ function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
   );
 }
 
-function ThreadMessage({ message, stopping = false }: { message: UIMessage; stopping?: boolean }) {
+function ThreadMessage({
+  message,
+  stopping = false,
+  fresh = false,
+}: {
+  message: UIMessage;
+  stopping?: boolean;
+  fresh?: boolean;
+}) {
+  // A turn that arrives during the session eases in. Under reduced motion it appears at once.
+  const enter = fresh
+    ? "animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none"
+    : undefined;
+
   if (message.role === "user") {
     const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
     const mentions = (message.metadata as { mentions?: ResolvedMention[] } | undefined)?.mentions ?? [];
     return (
-      <Message align="end">
+      <Message align="end" className={enter}>
         <MessageContent className="flex flex-col items-end gap-2">
           <Bubble align="end" variant="muted">
-            <BubbleContent>{text}</BubbleContent>
+            <BubbleContent className="text-base leading-[1.6] whitespace-pre-wrap text-accent-foreground">
+              {text}
+            </BubbleContent>
           </Bubble>
           {mentions.length > 0 ? <MentionLinks mentions={mentions} /> : null}
         </MessageContent>
@@ -466,9 +520,11 @@ function ThreadMessage({ message, stopping = false }: { message: UIMessage; stop
     );
   }
 
-  const stopped = stopping || message.parts.some(
-    (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
-  );
+  const stopped =
+    stopping ||
+    message.parts.some(
+      (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
+    );
   const credits = (message.metadata as { credits?: number } | undefined)?.credits;
   // Links come from the pinned sources the server accepted and from the tool results the answer used. Both only point at pages
   // the student could open.
@@ -476,8 +532,14 @@ function ThreadMessage({ message, stopping = false }: { message: UIMessage; stop
   const toolOutputs = message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []));
   const sources = uniqueSources([...pinnedSources, ...collectSources(toolOutputs)]);
   return (
-    <Message align="start">
-      <MessageContent className="w-full min-w-0 space-y-3 text-sm leading-relaxed">
+    <Message align="start" className={cn("gap-3", enter)}>
+      <span
+        aria-hidden="true"
+        className="relative mt-0.5 size-[32px] shrink-0 overflow-hidden rounded-pill border border-primary-100 bg-white"
+      >
+        <Image alt="" className="object-contain" fill sizes="32px" src={MASCOT_SRC} />
+      </span>
+      <MessageContent className="min-w-0 gap-3 text-base leading-[1.7] text-foreground">
         {message.parts.map((part, index) => {
           if (part.type === "reasoning") {
             return <Reasoning key={index} streaming={part.state === "streaming"} text={part.text} />;
@@ -494,7 +556,10 @@ function ThreadMessage({ message, stopping = false }: { message: UIMessage; stop
           }
           if (part.type === "text") {
             return (
-              <div className="min-w-0 space-y-2 break-words" key={index}>
+              <div
+                className="min-w-0 max-w-[68ch] break-words [&_a]:font-semibold [&_a]:text-voyage-deep [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded-indicator [&_code]:bg-secondary-50 [&_code]:px-1 [&_h1]:font-heading [&_h1]:text-lg [&_h1]:font-extrabold [&_h2]:font-heading [&_h2]:font-extrabold [&_h3]:font-heading [&_h3]:font-bold [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-control [&_pre]:bg-secondary-50 [&_pre]:p-3 [&_strong]:font-semibold [&_table]:block [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-5"
+                key={index}
+              >
                 <ReactMarkdown
                   rehypePlugins={[[rehypeKatex, { strict: "ignore", throwOnError: false }]]}
                   remarkPlugins={[remarkGfm, remarkMath]}
