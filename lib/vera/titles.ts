@@ -44,8 +44,9 @@ function tokensOf(usage: LanguageModelUsage): VeraTokenUsage {
 }
 
 /**
- * Titles a session from its first question and answer. The title call costs no credits, so it is logged as a settled title event
- * with zero credits. A failure keeps the default title and reaches no one. A title the student already changed is left alone.
+ * Titles a session from its first question, and from its first answer when one was saved. The title call costs no credits, so it is
+ * logged as a settled title event with zero credits. A failure keeps the default title and reaches no one. A title the student already
+ * changed is left alone.
  */
 export async function titleConversation({
   studentId,
@@ -64,21 +65,22 @@ export async function titleConversation({
     });
     if (!model || !session) return null;
 
-    // Only the first answer earns a title: exactly one answer may exist, and the first message is the student's question.
-    const answers = await prisma.veraMessage.count({ where: { conversationId, role: "assistant" } });
-    if (answers !== 1) return null;
+    // The first message is the student's question, and it is saved before the answer streams. A stopped answer may not be saved yet,
+    // so the answer is used only when it is there.
     const [question, answer] = await prisma.veraMessage.findMany({
       where: { conversationId },
       orderBy: { createdAt: "asc" },
       take: 2,
       select: { role: true, parts: true },
     });
-    if (question?.role !== "user" || answer?.role !== "assistant") return null;
+    if (question?.role !== "user") return null;
+    const questionText = `Pertanyaan siswa: ${textOf(question.parts).slice(0, CONTEXT_CHARS)}`;
+    const answerText = answer?.role === "assistant" ? textOf(answer.parts).trim() : "";
 
     const result = await generateText({
       model,
       instructions: TITLE_INSTRUCTIONS,
-      prompt: `Pertanyaan siswa: ${textOf(question.parts).slice(0, CONTEXT_CHARS)}\n\nJawaban Vera: ${textOf(answer.parts).slice(0, CONTEXT_CHARS)}`,
+      prompt: answerText ? `${questionText}\n\nJawaban Vera: ${answerText.slice(0, CONTEXT_CHARS)}` : questionText,
       maxOutputTokens: TITLE_OUTPUT_TOKENS,
       providerOptions: { openai: { reasoningEffort: "low", store: false } },
     });

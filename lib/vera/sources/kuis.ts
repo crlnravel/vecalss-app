@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getStandaloneQuizResult } from "@/lib/quiz/repository";
 import { quizSubjects } from "@/modules/quiz/data";
 import { kuisReviewVisibility, releasedKuisAttemptWhere } from "./authorization";
+import { newestFirst, resultTime } from "./result-time";
 import {
   isUuid,
   kuisResultHref,
@@ -41,28 +42,31 @@ export async function listKuisAttempts({
   now?: Date;
 }) {
   const base = releasedKuisAttemptWhere(studentId, now);
-  const rows = await prisma.standaloneQuizAttempt.findMany({
-    where: subtest?.trim()
-      ? { ...base, participation: { studentId, quiz: { status: "published", subtest: subtestWhere(subtest) } } }
-      : base,
-    orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
-    take: limit,
-    select: {
-      id: true,
-      score: true,
-      correctCount: true,
-      wrongCount: true,
-      unansweredCount: true,
-      releaseAt: true,
-      participation: {
-        select: { quiz: { select: { slug: true, title: true, subtest: { select: { code: true } } } } },
+  // Prisma cannot order by the result time, so the rows are sorted here, before the limit.
+  const rows = newestFirst(
+    await prisma.standaloneQuizAttempt.findMany({
+      where: subtest?.trim()
+        ? { ...base, participation: { studentId, quiz: { status: "published", subtest: subtestWhere(subtest) } } }
+        : base,
+      select: {
+        id: true,
+        score: true,
+        correctCount: true,
+        wrongCount: true,
+        unansweredCount: true,
+        releaseAt: true,
+        submittedAt: true,
+        createdAt: true,
+        participation: {
+          select: { quiz: { select: { slug: true, title: true, subtest: { select: { code: true } } } } },
+        },
       },
-    },
-  });
+    }),
+  ).slice(0, limit);
   return rows.map((row) => ({
     attemptId: row.id,
     title: row.participation.quiz.title,
-    date: row.releaseAt?.toISOString() ?? null,
+    date: resultTime(row).toISOString(),
     score: row.score,
     correct: row.correctCount ?? 0,
     wrong: row.wrongCount ?? 0,

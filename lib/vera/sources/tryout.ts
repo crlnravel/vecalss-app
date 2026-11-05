@@ -8,6 +8,7 @@ import {
   TryoutResultValidationError,
 } from "@/lib/tryout/result-repository";
 import { releasedTryoutAttemptWhere } from "./authorization";
+import { newestFirst, resultTime } from "./result-time";
 import { isUuid, reviewItem, subtestMatches, tryoutResultHref, type VeraSource, type VeraToolError } from "./types";
 
 const REVIEW_ITEM_LIMIT = 20;
@@ -25,13 +26,15 @@ export type ListedAttempt = {
   id: string;
   score: Prisma.Decimal | null;
   releaseAt: Date | null;
+  submittedAt: Date | null;
+  createdAt: Date;
   tryout: { title: string };
 };
 
 export type TryoutListRow = {
   attemptId: string;
   title: string;
-  date: string | null;
+  date: string;
   finalScore: number | null;
   status: "released" | "under_review";
   subtests: Array<{ subtest: string; score: number | null }> | null;
@@ -58,7 +61,7 @@ async function listedRow(row: ListedAttempt, studentId: string, readResult: Resu
   const base = {
     attemptId: row.id,
     title: row.tryout.title,
-    date: row.releaseAt?.toISOString() ?? null,
+    date: resultTime(row).toISOString(),
     finalScore: row.score === null ? null : Number(row.score),
     source: { type: "tryout", id: row.id, label: row.tryout.title, href: tryoutResultHref(row.id) } satisfies VeraSource,
   };
@@ -85,12 +88,13 @@ export async function listTryoutResults({
   limit: number;
   now?: Date;
 }): Promise<TryoutListRow[]> {
-  const rows = await prisma.tryoutAttempt.findMany({
-    where: releasedTryoutAttemptWhere(studentId, now),
-    orderBy: [{ releaseAt: "desc" }, { id: "asc" }],
-    take: limit,
-    select: { id: true, score: true, releaseAt: true, tryout: { select: { title: true } } },
-  });
+  // Prisma cannot order by the result time, so the rows are sorted here, before the limit.
+  const rows = newestFirst(
+    await prisma.tryoutAttempt.findMany({
+      where: releasedTryoutAttemptWhere(studentId, now),
+      select: { id: true, score: true, releaseAt: true, submittedAt: true, createdAt: true, tryout: { select: { title: true } } },
+    }),
+  ).slice(0, limit);
   return readListedRows(rows, studentId);
 }
 

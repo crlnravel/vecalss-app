@@ -19,6 +19,7 @@ import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens } from "./prompt";
 import { getKuisAttemptReview, listKuisAttempts } from "./sources/kuis";
 import { getTryoutResultReview, listTryoutResults } from "./sources/tryout";
+import { newestResultOf } from "./sources/result-time";
 import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
 import { saveStudioDocument } from "./studio-documents";
 import {
@@ -169,11 +170,10 @@ async function newestResult(studentId: string, now: Date): Promise<ReviewTarget 
     listKuisAttempts({ studentId, limit: 1, now }),
     listTryoutResults({ studentId, limit: 1, now }),
   ]);
-  const candidates = [
+  const newest = newestResultOf([
     ...kuis.map((row) => ({ type: "kuis" as const, id: row.attemptId, date: row.date })),
     ...tryout.map((row) => ({ type: "tryout" as const, id: row.attemptId, date: row.date })),
-  ].sort((left, right) => (right.date ?? "").localeCompare(left.date ?? ""));
-  const newest = candidates[0];
+  ]);
   return newest ? { type: newest.type, id: newest.id } : null;
 }
 

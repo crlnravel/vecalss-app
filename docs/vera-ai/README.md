@@ -14,7 +14,9 @@ answer is billed in credits.
   stays within a fixed token budget. A source the student may not read is
   refused and the chip says so.
 - **Sessions.** A sidebar lists the student's sessions, newest first. A session
-  can be renamed, archived, or deleted. The first answer names the session.
+  can be renamed, archived, or deleted. The first question names the session,
+  with the first answer as extra context when it was saved, so a stopped first
+  answer still gets a title.
 - **Studio.** Three tools write a saved document with its sources and its
   credit charge: Analisis Kelemahan, Rute Belajar 7 Hari, and Bahas Soal Salah.
   "Tanya Vera soal ini" pins a document into a new chat message.
