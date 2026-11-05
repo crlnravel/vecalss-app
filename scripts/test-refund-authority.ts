@@ -265,7 +265,7 @@ async function main() {
     const listed = (await listRecentRefunds(prisma, 100)).find((item) => item.id === overdue.caseId);
     assert.equal(listed?.overdue, true, "the refund list shows it late on the authority's deadline");
 
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     const flagged = await prisma.fraudCase.findFirstOrThrow({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } });
     const evidence = flagged.evidence as { authorityDeadlineOverdue: boolean; decisionOverdue: boolean };
     assert.equal(evidence.authorityDeadlineOverdue, true);
@@ -274,13 +274,13 @@ async function main() {
     // A buyer refund with the same dates is not late; neither is an authority case whose deadline is ahead.
     const fine = await prepare(order.id, { amountRupiah: 1000, authorityDeadlineAt: new Date(Date.now() + 2 * dayMs) });
     const plain = await prepareRefund(admin, { amountRupiah: 1000, orderId: order.id, reasonCode: "wrong_amount", requestChannel: "email", requestNote: NOTE });
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: { in: [`refund:${fine.caseId}`, `refund:${plain.caseId}`] } } }), 0);
 
     // Approved after its deadline has passed: the payout was due at the deadline, so it is late at once.
     await approve(overdue.caseId);
     assert.ok((await refundCase(overdue.caseId)).payoutDueAt!.getTime() < Date.now(), "the payout was due at the authority's deadline");
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     const again = await prisma.fraudCase.findFirstOrThrow({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } });
     assert.equal((again.evidence as { payoutOverdue: boolean }).payoutOverdue, true);
     assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } }), 1, "one case per refund");

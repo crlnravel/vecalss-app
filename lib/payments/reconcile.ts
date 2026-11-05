@@ -55,7 +55,7 @@ async function findOpenOrdersPastExpiry(provider: PaymentProviderAdapter, limit:
            expires_at <= now() - make_interval(hours => ${OVERDUE_HOURS}::int) AS overdue
     FROM payment_orders
     WHERE status = 'pending' AND provider = ${provider.id} AND expires_at <= now()
-    ORDER BY expires_at
+    ORDER BY updated_at, id
     LIMIT ${limit}
   `;
 }
@@ -167,6 +167,9 @@ async function reconcileOpenOrders(
         area: "payments",
       });
     }
+    // Every check counts, whatever the answer, so orders the provider cannot settle
+    // yet take turns (least recently checked first) instead of crowding out the rest.
+    await prisma.$executeRaw`UPDATE payment_orders SET updated_at = now() WHERE id = ${order.id}::uuid AND status = 'pending'`;
   }
 
   return result;

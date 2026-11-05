@@ -11,7 +11,7 @@ import { deliver, makeOrder, prisma, provider, signedEventFor, withStatusAnswer 
  * webhook. Our clock passing the expiry never expires an order by itself.
  */
 
-const LIMIT = { limit: 500 };
+const LIMIT = { limit: 100_000 };
 
 const statusOf = async (id: string) => (await prisma.paymentOrder.findUniqueOrThrow({ where: { id } })).status;
 const setProviderState = (reference: string, state: "failed" | "pending" | "succeeded", options: { extendExpiry?: boolean } = {}) =>
@@ -216,6 +216,31 @@ async function main() {
     ["quarantined", "accepted"],
     "both findings are kept",
   );
+
+  // ---- Orders the provider cannot settle yet take turns ----------------------------------
+  // Least recently checked first, and every check counts, even one the provider could not
+  // answer, so a long list of stuck orders cannot keep a newer one out of the batch for good.
+  const turnA = await makeOrder({ pastExpiry: true, session: true });
+  const turnB = await makeOrder({ pastExpiry: true, session: true });
+  await setProviderState(turnA.reference, "pending", { extendExpiry: true });
+  await setProviderState(turnB.reference, "pending", { extendExpiry: true });
+  await prisma.$executeRaw`UPDATE payment_orders SET updated_at = now() - interval '300 days' WHERE id = ${turnA.id}::uuid`;
+  await prisma.$executeRaw`UPDATE payment_orders SET updated_at = now() - interval '200 days' WHERE id = ${turnB.id}::uuid`;
+  const asked: string[] = [];
+  const recording: PaymentProviderAdapter = Object.create(provider, {
+    getStatus: {
+      value: async (reference: string) => {
+        asked.push(reference);
+        if (reference === turnB.reference) throw new Error("provider unreachable");
+        return provider.getStatus(reference);
+      },
+    },
+  });
+  await reconcileOpenOrders(recording, { limit: 1 });
+  await reconcileOpenOrders(recording, { limit: 1 });
+  assert.deepEqual(asked, [turnA.reference, turnB.reference], "a stuck order does not keep the next one out of the batch");
+  const checked = await prisma.paymentOrder.findUniqueOrThrow({ where: { id: turnB.id }, select: { updatedAt: true } });
+  assert.ok(Date.now() - checked.updatedAt.getTime() < 3_600_000, "a check the provider could not answer still counts");
 
   console.log("Payment reconciliation checks passed.");
 }

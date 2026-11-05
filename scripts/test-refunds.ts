@@ -12,7 +12,7 @@ import { approveRefund, cancelRefund, prepareRefund, rejectRefund } from "../lib
 import { evaluateEligibility } from "../lib/refunds/eligibility";
 import { RefundError } from "../lib/refunds/errors";
 import { executeProviderRefund, reconcileRefund, recordManualTransfer, requireMaskedDestination } from "../lib/refunds/execute";
-import { flagStalledRefunds, runRefundMaintenance } from "../lib/refunds/maintenance";
+import { flagStalledRefunds, reconcileProcessingRefunds, runRefundMaintenance } from "../lib/refunds/maintenance";
 import { acceptReviewedOrder } from "../lib/refunds/review";
 import { requireOwner } from "../lib/fraud/authority";
 import { deliver } from "./payment-test-kit";
@@ -47,6 +47,9 @@ const pass = (name: string) => checks.push(name);
 
 const NOTE = "Pembeli menulis lewat WhatsApp dan minta uangnya dikembalikan.";
 const dayMs = 86_400_000;
+
+/** Wide enough for every late refund that earlier local runs left in the database. */
+const EVERY_LATE_REFUND = 100_000;
 
 async function refundError(work: () => Promise<unknown>, code: string) {
   await assert.rejects(work, (error: unknown) => error instanceof RefundError && error.code === code, `expected a refund error: ${code}`);
@@ -585,10 +588,42 @@ async function main() {
 
     // The daily job settles what is with the provider by itself.
     await prisma.$executeRaw`UPDATE stand_in_refunds SET state = 'succeeded', settled_at = now() WHERE reference = ${(await refundCase(third.caseId)).reference}`;
+    // Checked longest ago, so it is in the batch whatever earlier local runs left behind.
+    await prisma.$executeRaw`UPDATE refund_cases SET updated_at = now() - interval '400 days' WHERE id = ${third.caseId}::uuid`;
     const maintenance = await runRefundMaintenance({ provider });
     assert.ok(maintenance.reconciled.completed >= 1);
     assert.equal((await refundCase(third.caseId)).state, "completed");
     pass("timeout means unknown: reconcile before retry; lost confirmation settled from status");
+
+    // Refunds the provider cannot settle yet take turns: the least recently checked go first and
+    // every check counts, even one the provider could not answer, so they cannot crowd out the rest.
+    const turnA = await prepare((await paidOrder()).id, "wrong_amount");
+    const turnB = await prepare((await paidOrder()).id, "wrong_amount");
+    for (const [item, days] of [[turnA, 300], [turnB, 200]] as const) {
+      await approve(item.caseId);
+      await execute(item.caseId);
+      await prisma.$executeRaw`UPDATE refund_cases SET updated_at = now() - make_interval(days => ${days}::int) WHERE id = ${item.caseId}::uuid`;
+    }
+    const referenceA = (await refundCase(turnA.caseId)).reference;
+    const referenceB = (await refundCase(turnB.caseId)).reference;
+    const asked: string[] = [];
+    const recording: PaymentProviderAdapter = Object.create(provider, {
+      getRefundStatus: {
+        value: async (reference: string) => {
+          asked.push(reference);
+          if (reference === referenceB) throw new ProviderOutcomeUnknownError();
+          return provider.getRefundStatus(reference);
+        },
+      },
+    });
+    await reconcileProcessingRefunds(recording, 1);
+    await reconcileProcessingRefunds(recording, 1);
+    assert.deepEqual(asked, [referenceA, referenceB], "a stuck refund does not keep the next one out of the batch");
+    assert.ok(Date.now() - (await refundCase(turnB.caseId)).updatedAt.getTime() < 3_600_000, "a check the provider could not answer still counts");
+    await prisma.$executeRaw`UPDATE stand_in_refunds SET state = 'succeeded', settled_at = now() WHERE reference IN (${referenceA}, ${referenceB})`;
+    assert.equal((await reconcileRefund(turnA.caseId, { provider })).result, "completed");
+    assert.equal((await reconcileRefund(turnB.caseId, { provider })).result, "completed");
+    pass("refunds the provider cannot settle yet take turns in the daily batch");
   }
 
   // ---- Manual transfer: the owner records destination, reference and proof ----------------------------------
@@ -742,13 +777,13 @@ async function main() {
     const order = await paidOrder();
     const prepared = await prepare(order.id, "wrong_amount");
     assert.equal((await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${prepared.caseId}` } })), 0);
-    await flagStalledRefunds();
+    await flagStalledRefunds(EVERY_LATE_REFUND);
     assert.equal((await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${prepared.caseId}` } })), 0, "not late yet");
 
     // The decision deadline passes (the deadline column is frozen; the test moves it with the guard off).
     await withTriggersOff("refund_cases", (tx) => tx.$executeRaw`UPDATE refund_cases SET decision_due_at = now() - interval '1 hour' WHERE id = ${prepared.caseId}::uuid`);
-    await flagStalledRefunds();
-    await flagStalledRefunds();
+    await flagStalledRefunds(EVERY_LATE_REFUND);
+    await flagStalledRefunds(EVERY_LATE_REFUND);
     const cases = await prisma.fraudCase.findMany({ where: { signal: "refund_stalled", subjectKey: `refund:${prepared.caseId}` } });
     assert.equal(cases.length, 1, "one case, however often the job runs");
     assert.equal(cases[0].orderId, order.id);
@@ -760,16 +795,22 @@ async function main() {
     const done = await prepare(order.id, "wrong_amount", { amountRupiah: 1000 });
     await withTriggersOff("refund_cases", (tx) => tx.$executeRaw`UPDATE refund_cases SET decision_due_at = now() - interval '1 hour' WHERE id = ${done.caseId}::uuid`);
     await rejectRefund(owner, { caseId: done.caseId, expectedVersion: 1, reason: "Tidak ada kesalahan di pihak kami." }, ENV);
-    await flagStalledRefunds();
+    await flagStalledRefunds(EVERY_LATE_REFUND);
     assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${done.caseId}` } }), 0);
 
     // An approved refund not paid within 14 days is flagged on the payout deadline.
     const payout = await prepare(order.id, "wrong_amount", { amountRupiah: 2000 });
     await approve(payout.caseId);
     await withTriggersOff("refund_cases", (tx) => tx.$executeRaw`UPDATE refund_cases SET payout_due_at = now() - interval '1 minute' WHERE id = ${payout.caseId}::uuid`);
-    await flagStalledRefunds();
+    await flagStalledRefunds(EVERY_LATE_REFUND);
     const payoutCase = await prisma.fraudCase.findFirstOrThrow({ where: { signal: "refund_stalled", subjectKey: `refund:${payout.caseId}` } });
     assert.equal((payoutCase.evidence as { payoutOverdue: boolean }).payoutOverdue, true);
+
+    // A late refund with no case yet goes ahead of older ones that have one, so open cases cannot hide it.
+    const newlyLate = await prepare(order.id, "wrong_amount", { amountRupiah: 500 });
+    await withTriggersOff("refund_cases", (tx) => tx.$executeRaw`UPDATE refund_cases SET decision_due_at = now() - interval '1 hour' WHERE id = ${newlyLate.caseId}::uuid`);
+    await flagStalledRefunds(1);
+    assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${newlyLate.caseId}` } }), 1, "the unflagged refund comes first");
     pass("a stalled refund opens a refund_stalled case");
   }
 

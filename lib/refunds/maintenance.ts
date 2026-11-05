@@ -22,7 +22,8 @@ const BATCH = 50;
  * MS-07 `refund_stalled` case: the "refunds pending more than 3 working days"
  * rule of the daily review. An authority order that set an earlier deadline is
  * late once that deadline passes, approved or not. One case per refund while it
- * is open. Judged on database time.
+ * is open. Judged on database time. Late refunds with no open case go first, so
+ * a long list of cases already open cannot hide a new one behind the limit.
  */
 async function flagStalledRefunds(limit = 100): Promise<number> {
   const late = await prisma.$queryRaw<Array<{
@@ -31,11 +32,14 @@ async function flagStalledRefunds(limit = 100): Promise<number> {
     SELECT id, order_id AS "orderId", buyer_id AS "buyerId", state::text AS state,
            (decision_due_at <= now()) AS "decisionDue", (payout_due_at IS NOT NULL AND payout_due_at <= now()) AS "payoutDue",
            (authority_deadline_at IS NOT NULL AND authority_deadline_at <= now()) AS "authorityDue"
-    FROM refund_cases
+    FROM refund_cases c
     WHERE state IN ('prepared', 'approved', 'processing')
       AND (decision_due_at <= now() OR (payout_due_at IS NOT NULL AND payout_due_at <= now())
         OR (authority_deadline_at IS NOT NULL AND authority_deadline_at <= now()))
-    ORDER BY decision_due_at
+    ORDER BY EXISTS (
+        SELECT 1 FROM fraud_cases f
+        WHERE f.signal = 'refund_stalled' AND f.subject_key = 'refund:' || c.id::text AND f.state <> 'closed'
+      ), decision_due_at
     LIMIT ${limit}
   `;
 
@@ -57,13 +61,15 @@ async function flagStalledRefunds(limit = 100): Promise<number> {
 /**
  * Asks the provider about every refund that is with it, so a refund whose
  * confirmation was lost, or whose request timed out, is settled from the
- * provider's own account. Each one is safe to repeat.
+ * provider's own account. Each one is safe to repeat. The least recently checked
+ * go first and every check counts, whatever the answer, so refunds the provider
+ * cannot settle yet take turns instead of crowding the rest out of the batch.
  */
 async function reconcileProcessingRefunds(provider: PaymentProviderAdapter, limit = BATCH) {
   const open = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT c.id FROM refund_cases c JOIN payment_orders o ON o.id = c.order_id
     WHERE c.state = 'processing' AND o.provider = ${provider.id}
-    ORDER BY c.last_attempt_at NULLS FIRST
+    ORDER BY c.updated_at, c.id
     LIMIT ${limit}
   `;
   const result = { checked: open.length, completed: 0, failed: 0, unavailable: 0 };
@@ -77,6 +83,7 @@ async function reconcileProcessingRefunds(provider: PaymentProviderAdapter, limi
       result.unavailable += 1;
       serverLogger.error("refunds.reconcile.failed", error instanceof Error ? error : new Error("refund reconcile failed"), { area: "payments" });
     }
+    await prisma.$executeRaw`UPDATE refund_cases SET updated_at = now() WHERE id = ${id}::uuid AND state = 'processing'`;
   }
   return result;
 }
