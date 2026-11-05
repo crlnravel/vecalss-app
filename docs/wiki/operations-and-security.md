@@ -73,7 +73,8 @@ it starts generating is charged its completed steps plus an estimate for the
 step that was cut off, because the provider bills generation once it starts. A
 run that fails before any output is released and charged nothing. The day, week,
 and month limits are enforced before the provider is called, so a refused
-request costs nothing.
+request costs nothing. A reservation that never settles, for example after a
+server crash, is released after ten minutes, free.
 
 The `OPENAI_API_KEY` secret stays server-side. Local development calls the real
 OpenAI API whenever that key is set, so use `VERA_MOCK_MODEL=1` for offline work.

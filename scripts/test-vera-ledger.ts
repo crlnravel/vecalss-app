@@ -406,12 +406,32 @@ try {
   const otherStale = await prisma.veraUsageEvent.create({ data: staleReservation(otherStudent.id), select: { id: true } });
   const ownStale = await prisma.veraUsageEvent.create({ data: staleReservation(studentId), select: { id: true } });
   const fresh = await reserveVeraCredits({ studentId, effort: "cepat", model: "test", now });
+  // The sweep releases the stale row free, so it stops counting: only the fresh reservation's 2 credits are in the day total.
+  const swept = await prisma.veraUsageEvent.findUniqueOrThrow({
+    where: { id: ownStale.id },
+    select: { status: true, credits: true, errorCode: true },
+  });
+  assert.equal(swept.status, "released", "This student's stale reservation is released by their own request");
+  assert.equal(Number(swept.credits), 0, "A released stale reservation is charged nothing");
+  assert.equal(swept.errorCode, "stale", "The released row records why it was released");
+  assert.equal((await getVeraUsageSnapshot({ studentId, now })).day.used, 2, "Only the fresh reservation counts toward the day");
+  // A late settle on the released row still charges the real amount, and the day total counts it once.
+  await settleVeraUsage({
+    eventId: ownStale.id,
+    usage: { noCacheInputTokens: 500, cachedInputTokens: 0, outputTokens: 100, reasoningTokens: 0, steps: 1 },
+    chargedMicros: 100,
+    errorCode: null,
+    now,
+  });
+  const lateSettled = await prisma.veraUsageEvent.findUniqueOrThrow({
+    where: { id: ownStale.id },
+    select: { status: true, credits: true, costUsdMicros: true },
+  });
+  assert.equal(lateSettled.status, "settled", "A late settle on a released row settles it");
+  assert.equal(Number(lateSettled.credits), 0.1, "A late settle charges the real amount");
+  assert.equal(Number(lateSettled.costUsdMicros), 100);
+  assert.equal((await getVeraUsageSnapshot({ studentId, now })).day.used, 2.1, "The late charge counts once, next to the fresh reservation");
   await releaseVeraReservation({ eventId: fresh.eventId, errorCode: "test", now });
-  assert.equal(
-    (await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: ownStale.id }, select: { status: true } })).status,
-    "failed",
-    "This student's stale reservation is swept by their own request",
-  );
   assert.equal(
     (await prisma.veraUsageEvent.findUniqueOrThrow({ where: { id: otherStale.id }, select: { status: true } })).status,
     "reserved",

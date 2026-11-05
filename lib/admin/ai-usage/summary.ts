@@ -11,8 +11,9 @@ export const ADMIN_USAGE_STUDENT_LIMIT = 100;
 const MICRO_USD_PER_USD = 1_000_000;
 
 /**
- * What a usage row cost. A settled row costs what the provider billed. A failed row, a reservation that was never settled, keeps its
- * reserve, the same conservative charge the ledger's spend cap counts. A released row cost nothing.
+ * What a usage row cost. A settled row costs what the provider billed, and a released row cost nothing. The ledger's sweep releases a
+ * stale reservation free, so no new row reaches failed. The failed branch stays for older rows the sweep marked failed at their reserve,
+ * and it counts that reserve, as the ledger's spend cap does.
  */
 const BILLED_USD_MICROS = Prisma.sql`CASE WHEN status = 'settled' THEN cost_usd_micros WHEN status = 'failed' THEN reserved_usd_micros ELSE 0 END`;
 

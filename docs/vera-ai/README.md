@@ -44,7 +44,8 @@ the settled charge replaces it. A completed step is charged what the provider
 reported. A run that was stopped or failed is charged its completed steps plus
 an estimate for the step that was cut off: its input, and the output it streamed
 at about four characters a token. A run that streamed nothing is released and
-charged nothing.
+charged nothing. A reservation that never settles, for example after a server
+crash, is released after ten minutes, free.
 
 | Effort | Reasoning | Output cap | Reserve | Ceiling |
 | --- | --- | ---: | ---: | ---: |

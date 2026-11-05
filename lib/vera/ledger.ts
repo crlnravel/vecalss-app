@@ -132,15 +132,19 @@ async function readTotals(db: Prisma.TransactionClient, studentId: string, now: 
 }
 
 /**
- * Marks this student's stale reservations as failed. They keep their reserved
- * amount, which is the conservative charge. The filter on student_id keeps the
- * update on the (studentId, createdAt) index, and other students are swept
- * on their own requests.
+ * Releases this student's stale reservations, free. A reservation still open
+ * after the stale window never settled: its request was lost, for example to a
+ * server crash, so there is nothing to bill. The row becomes released with
+ * credits 0 and the error code "stale", and it stops counting toward the day,
+ * week, month, and USD totals. A late settle on the same row still charges the
+ * real amount, because settleVeraUsage updates by id. The filter on student_id
+ * keeps the update on the (studentId, createdAt) index, and other students are
+ * swept on their own requests.
  */
 async function sweepStaleReservations(db: Prisma.TransactionClient, studentId: string, now: Date) {
   await db.$executeRaw`
     UPDATE vera_usage_events
-    SET status = 'failed', credits = reserved_credits, settled_at = ${now}
+    SET status = 'released', credits = 0, error_code = 'stale', settled_at = ${now}
     WHERE student_id = ${studentId}::uuid
       AND status = 'reserved'
       AND created_at < ${new Date(now.getTime() - STALE_RESERVATION_MS)}
