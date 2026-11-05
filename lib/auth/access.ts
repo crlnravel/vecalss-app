@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import { isAdminStudentPreviewEnabled } from "@/lib/config";
-import { enterPaidSurface } from "@/lib/billing/enforcement";
+import { PaidUseEvidenceUnavailableError, enterPaidSurface } from "@/lib/billing/enforcement";
 import {
   AdminStudentPreviewUnavailableError,
   createAdminStudentPreviewContext,
@@ -169,8 +169,13 @@ async function requireStudentSession({
     redirect("/onboarding");
   }
 
-  if (!allowUnpaid && !(await enterPaidSurface(session.user.id))) {
-    redirect(PAID_ACCESS_PATH);
+  if (!allowUnpaid) {
+    try {
+      if (!(await enterPaidSurface(session.user.id))) redirect(PAID_ACCESS_PATH);
+    } catch (error) {
+      if (error instanceof PaidUseEvidenceUnavailableError) redirect(`${PAID_ACCESS_PATH}?notice=try-again`);
+      throw error;
+    }
   }
 
   return session;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ReferenceEmptyState } from "@/components/dashboard";
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { LockKeyhole } from "@/lib/icons";
+import { LockKeyhole, RefreshCw } from "@/lib/icons";
 import type { AccessStatus } from "@/lib/billing/service";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -31,14 +31,17 @@ const COPY: Record<Exclude<AccessStatus, "active">, { description: string; title
 
 function PaidAccessRequiredPageModule({
   notificationFeed,
+  retryMessage,
   session,
   status,
 }: {
   notificationFeed: StudentNotificationFeed;
+  retryMessage?: string;
   session: SessionContext;
   status: Exclude<AccessStatus, "active">;
 }) {
   const copy = COPY[status];
+  const title = retryMessage ? "Halaman belum bisa dibuka" : copy.title;
 
   return (
     <StudentWorkspaceShell
@@ -48,18 +51,20 @@ function PaidAccessRequiredPageModule({
       session={session}
     >
       <section
-        aria-label={copy.title}
+        aria-label={title}
+        aria-live={retryMessage ? "polite" : undefined}
         className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "mx-auto mt-6 w-full max-w-2xl p-4 sm:p-8")}
+        role={retryMessage ? "status" : undefined}
       >
         <ReferenceEmptyState
           action={(
-            <Link className={buttonVariants({ size: "lg" })} href="/pricing">
-              Lihat paket
+            <Link className={buttonVariants({ size: "lg" })} href={retryMessage ? "/akses-paket" : "/pricing"}>
+              {retryMessage ? "Coba lagi" : "Lihat paket"}
             </Link>
           )}
-          description={copy.description}
-          icon={LockKeyhole}
-          title={copy.title}
+          description={retryMessage ?? copy.description}
+          icon={retryMessage ? RefreshCw : LockKeyhole}
+          title={title}
         />
       </section>
     </StudentWorkspaceShell>

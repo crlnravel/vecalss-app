@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 
 type Db = Pick<typeof prisma, "$executeRaw">;
+type Logger = Pick<typeof serverLogger, "error">;
 
 /**
  * Records that a student really used a paid surface, for dispute evidence.
@@ -21,13 +22,12 @@ type Db = Pick<typeof prisma, "$executeRaw">;
  * Access an admin granted (no payment, nothing to dispute) records nothing.
  * Nothing else writes this table; usage is never made up.
  *
- * Evidence must not cost a student a page, so a failure is logged and swallowed.
- * But a swallowed failure must not read as "not used" later (change-of-mind
- * eligibility counts use), so a failed write also records a durable usage
- * evidence gap for the student, once per Jakarta day; eligibility treats a gap
- * after the payment as use. If even that cannot be written, it is logged.
+ * A failed event write records a durable usage evidence gap for the student,
+ * once per Jakarta day; eligibility treats a gap after the payment as use. If
+ * neither write succeeds, return false so the caller does not serve the paid
+ * surface without evidence. Both failures are logged.
  */
-async function recordPaidUse(studentId: string, db: Db = prisma) {
+async function recordPaidUse(studentId: string, db: Db = prisma, logger: Logger = serverLogger) {
   try {
     await db.$executeRaw`
       INSERT INTO fulfillment_usage_events (grant_event_id, order_id, student_id, jakarta_day)
@@ -48,8 +48,9 @@ async function recordPaidUse(studentId: string, db: Db = prisma) {
         )
       ON CONFLICT (grant_event_id, jakarta_day) DO NOTHING
     `;
+    return true;
   } catch (error) {
-    serverLogger.error("fulfillment.usage.record_failed", error instanceof Error ? error : new Error("usage record failed"), {
+    logger.error("fulfillment.usage.record_failed", error instanceof Error ? error : new Error("usage record failed"), {
       area: "fulfillment",
     });
     try {
@@ -57,10 +58,12 @@ async function recordPaidUse(studentId: string, db: Db = prisma) {
         INSERT INTO fulfillment_usage_gaps (student_id) VALUES (${studentId}::uuid)
         ON CONFLICT (student_id, jakarta_day) DO NOTHING
       `;
+      return true;
     } catch (gapError) {
-      serverLogger.error("fulfillment.usage.gap_failed", gapError instanceof Error ? gapError : new Error("usage gap record failed"), {
+      logger.error("fulfillment.usage.gap_failed", gapError instanceof Error ? gapError : new Error("usage gap record failed"), {
         area: "fulfillment",
       });
+      return false;
     }
   }
 }

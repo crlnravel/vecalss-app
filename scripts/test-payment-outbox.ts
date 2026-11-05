@@ -9,6 +9,7 @@ import {
   countRecentDeadCriticalAlerts,
   drainOutbox,
   enqueueOutbox,
+  reapExhaustedOutboxJobs,
   type OutboxHandlers,
 } from "../lib/payments/outbox";
 import { createPaymentOutboxHandlers, describeReason } from "../lib/payments/outbox-handlers";
@@ -218,9 +219,19 @@ async function main() {
     await prisma.$executeRaw`UPDATE payment_outbox SET status = 'dead' WHERE id = ${deadReceipt.id}::uuid`;
     assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline, "a dead receipt is not a lost alert");
     const old = await job();
-    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'dead', created_at = now() - interval '10 days' WHERE id = ${old.id}::uuid`;
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'dead', created_at = now() - interval '10 days', dead_at = now() - interval '10 days' WHERE id = ${old.id}::uuid`;
     assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline, "an old one has been reported already");
+
+    const lateDeath = await job({ maxAttempts: 1 });
+    await prisma.$executeRaw`UPDATE payment_outbox SET attempts = 1, created_at = now() - interval '4 days', leased_until = NULL WHERE id = ${lateDeath.id}::uuid`;
+    assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline, "an old pending job is not reported before it dies");
+    await reapExhaustedOutboxJobs(prisma, filter);
+    const deadLateDeath = await reload(lateDeath.id);
+    assert.equal(deadLateDeath.status, "dead");
+    assert.ok(deadLateDeath.deadAt, "the dead transition is timestamped");
+    assert.equal(await countRecentDeadCriticalAlerts(prisma), baseline + 1, "a critical alert that dies after three days is reported from its death time");
     await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id IN (${deadReceipt.id}::uuid, ${old.id}::uuid)`;
+    await prisma.$executeRaw`UPDATE payment_outbox SET status = 'done' WHERE id = ${lateDeath.id}::uuid`;
   }
 
   // ---- Handlers -----------------------------------------------------------------------------

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import type { SessionContext } from "../lib/auth/types";
-import { PURCHASE_TERMS } from "../lib/fulfillment/terms";
+import { PURCHASE_TERMS, termsOpenForCheckout } from "../lib/fulfillment/terms";
 import { handlePaymentEventRequest } from "../lib/payments/inbox-http";
 import { getPaymentProvider, getStandInProvider, isStandInAllowed } from "../lib/payments/provider";
 import { STAND_IN_DEFAULT_SECRET, StandInProvider } from "../lib/payments/stand-in/provider";
@@ -34,17 +34,13 @@ const NEON = "postgresql://user:pass@ep-spring-unit-ao75v221-pooler.c-2.ap-south
 async function main() {
   // ---- When the stand-in may run ---------------------------------------------------
   const allowed = [
-    { DATABASE_URL: LOCAL, NODE_ENV: "development" },
-    { DATABASE_URL: LOCAL, NODE_ENV: "test" },
-    { DATABASE_URL: "postgresql://u:p@localhost:5432/x", NODE_ENV: "development" },
-    { DATABASE_URL: "postgresql://u:p@[::1]:5432/x", NODE_ENV: undefined },
-    // The app's own address may be any loopback host; an unset one defaults to localhost.
-    { APP_BASE_URL: "http://localhost:3000", DATABASE_URL: LOCAL, NODE_ENV: "development" },
-    { APP_BASE_URL: "http://127.0.0.1:5023", DATABASE_URL: LOCAL, NODE_ENV: "development" },
-    { APP_BASE_URL: "http://[::1]:3000", DATABASE_URL: LOCAL, NODE_ENV: "test" },
+    { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" },
+    { APP_BASE_URL: "http://localhost:3000", DATABASE_URL: LOCAL, NODE_ENV: "test", PAYMENT_STAND_IN_LOCAL: "1" },
+    { APP_BASE_URL: "http://127.0.0.1:5023", DATABASE_URL: "postgresql://u:p@localhost:5432/x", NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" },
+    { APP_BASE_URL: "http://[::1]:3000", DATABASE_URL: "postgresql://u:p@[::1]:5432/x", NODE_ENV: undefined, PAYMENT_STAND_IN_LOCAL: "1" },
     // Variables a workstation can carry that are not platform markers.
-    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL_TOKEN: "x", VERCEL_PROJECT_ID: "p", VERCEL_ORG_ID: "o" },
-    { DATABASE_URL: LOCAL, NODE_ENV: "development", VERCEL: "" },
+    { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1", VERCEL_TOKEN: "x", VERCEL_PROJECT_ID: "p", VERCEL_ORG_ID: "o" },
+    { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1", VERCEL: "" },
   ];
   for (const env of allowed) assert.equal(isStandInAllowed(env), true, JSON.stringify(env));
 
@@ -55,6 +51,10 @@ async function main() {
     { DATABASE_URL: undefined, NODE_ENV: "development" },
     { DATABASE_URL: "", NODE_ENV: "development" },
     { DATABASE_URL: "not a url", NODE_ENV: "development" },
+    // A self-hosted public runtime can look local unless it opts in explicitly.
+    { DATABASE_URL: "postgresql://u:p@host.docker.internal:5432/x", NODE_ENV: "development" },
+    { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development" },
+    { DATABASE_URL: LOCAL, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" },
     { DATABASE_URL: "postgresql://u:p@localhost.evil.example:5432/x", NODE_ENV: "development" },
     { DATABASE_URL: "postgresql://u:p@127.0.0.1.evil.example:5432/x", NODE_ENV: "development" },
     { DATABASE_URL: "postgresql://u:p@db.internal.example:5432/x", NODE_ENV: "development" },
@@ -79,7 +79,7 @@ async function main() {
   for (const env of refused) assert.equal(isStandInAllowed(env), false, JSON.stringify(env));
 
   // ---- Which provider is configured -------------------------------------------------
-  const local = { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development" };
+  const local = { APP_BASE_URL: WORKSTATION_ORIGIN, DATABASE_URL: LOCAL, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" };
   assert.equal(getPaymentProvider({ ...local }), null, "nothing selected, nothing configured");
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: "" }), null);
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: "e2pay" }), null, "E2Pay's adapter does not exist yet");
@@ -88,7 +88,7 @@ async function main() {
   assert.equal(getPaymentProvider({ ...local, PAYMENT_PROVIDER: " Stand-In " })?.id, "stand-in");
   for (const env of refused) {
     assert.equal(
-      getPaymentProvider({ ...env, APP_BASE_URL: (env as { APP_BASE_URL?: string }).APP_BASE_URL ?? WORKSTATION_ORIGIN, PAYMENT_PROVIDER: "stand-in" }),
+      getPaymentProvider({ ...env, PAYMENT_PROVIDER: "stand-in" }),
       null,
       `the stand-in is refused: ${JSON.stringify(env)}`,
     );
@@ -98,7 +98,7 @@ async function main() {
   // The factory, the pay console and the refund console get the stand-in from the same
   // helper, and its fixed fallback secret is unusable once the gate fails.
   for (const env of refused) {
-    const asked = { ...env, APP_BASE_URL: env.APP_BASE_URL ?? WORKSTATION_ORIGIN, PAYMENT_PROVIDER: "stand-in" };
+    const asked = { ...env, PAYMENT_PROVIDER: "stand-in" };
     assert.equal(getStandInProvider(asked), null, `the console helper is refused: ${JSON.stringify(env)}`);
     assert.throws(
       () => new StandInProvider({ appBaseUrl: WORKSTATION_ORIGIN, env: asked }),
@@ -111,6 +111,14 @@ async function main() {
   assert.ok(getStandInProvider({ ...local, PAYMENT_PROVIDER: "stand-in" }) instanceof StandInProvider);
   assert.ok(new StandInProvider({ appBaseUrl: WORKSTATION_ORIGIN, env: { ...local } }), "the fallback works on a workstation");
   assert.equal(STAND_IN_DEFAULT_SECRET.length > 0, true);
+  assert.equal(termsOpenForCheckout(getPaymentProvider({ ...local, PAYMENT_PROVIDER: "stand-in" })?.id), true, "draft terms stay open for the opted-in local stand-in");
+  const remoteStandIn = {
+    DATABASE_URL: "postgresql://u:p@host.docker.internal:5432/x",
+    NODE_ENV: "development",
+    PAYMENT_PROVIDER: "stand-in",
+  };
+  assert.equal(getPaymentProvider(remoteStandIn), null, "a self-hosted remote runtime without the opt-in has no stand-in provider");
+  assert.equal(termsOpenForCheckout(getPaymentProvider(remoteStandIn)?.id), false, "draft terms stay closed when the stand-in gate is closed");
   // A remote process cannot reach the fallback by leaving the secret unset either.
   assert.equal(
     getPaymentProvider({ ...local, PAYMENT_PROVIDER: "stand-in", VERCEL: "1" }),
@@ -135,6 +143,7 @@ async function main() {
     const base = {
       APP_BASE_URL: WORKSTATION_ORIGIN,
       PAYMENT_PROVIDER: "stand-in",
+      PAYMENT_STAND_IN_LOCAL: "1",
       PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode,
       PRICING_PACKAGE_CODE_FULL_UTBK: packageCode,
       PRICING_PACKAGE_CODE_MONTHLY: packageCode,

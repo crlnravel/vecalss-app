@@ -416,6 +416,7 @@ async function postThroughHandler(buyerId: string, options: { cookie?: string; o
     APP_BASE_URL: APP_ORIGIN,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: "test",
+    PAYMENT_STAND_IN_LOCAL: "1",
     PRICING_PACKAGE_CODE_FULL_MANDIRI: packageCode,
     PRICING_PACKAGE_CODE_FULL_UTBK: packageCode,
     PRICING_PACKAGE_CODE_MONTHLY: packageCode,

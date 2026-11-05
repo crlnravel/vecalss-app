@@ -59,6 +59,7 @@ async function reapExhaustedOutboxJobs(db: Db, filter: OutboxFilter = {}) {
     SET status = 'dead',
         leased_until = NULL,
         lease_owner = NULL,
+        dead_at = now(),
         last_error = 'The worker stopped during the last allowed attempt.'
     WHERE status = 'pending'
       AND attempts >= max_attempts
@@ -124,6 +125,7 @@ async function failOutboxJob(db: Db, job: OutboxJob, workerId: string, error: st
         next_run_at = now() + make_interval(secs => LEAST(60 * power(2, ${job.attempts - 1}::double precision), ${OUTBOX_MAX_BACKOFF_SECONDS}::double precision)),
         leased_until = NULL,
         lease_owner = NULL,
+        dead_at = CASE WHEN ${dead} THEN now() ELSE dead_at END,
         last_error = ${error.slice(0, 200)}
     WHERE id = ${job.id}::uuid AND lease_owner = ${workerId}
   `;
@@ -164,9 +166,8 @@ async function drainOutbox(
 
 /**
  * How long a parked critical alert keeps counting as an open problem. A job
- * dies about two hours after it is queued (eight attempts, backoff doubling
- * from a minute), so its creation time stands in for the day it died; the
- * daily run therefore reports it on each of its next three runs, then stops.
+ * keeps counting as an open problem for three days from the moment it becomes
+ * dead; the daily run therefore reports it on each of those runs, then stops.
  * The dead row itself stays, for the operator panel and the audit trail.
  */
 const DEAD_ALERT_REPORT_DAYS = 3;
@@ -177,7 +178,7 @@ async function countRecentDeadCriticalAlerts(db: Db) {
     SELECT count(*)::bigint AS count
     FROM payment_outbox
     WHERE kind = 'critical_alert' AND status = 'dead'
-      AND created_at > now() - make_interval(days => ${DEAD_ALERT_REPORT_DAYS}::int)
+      AND dead_at > now() - make_interval(days => ${DEAD_ALERT_REPORT_DAYS}::int)
   `;
   return Number(row?.count ?? 0);
 }

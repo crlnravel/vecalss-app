@@ -292,6 +292,7 @@ async function main() {
     const packageCode = await getPackageCode();
     const env = {
       APP_BASE_URL: APP_ORIGIN,
+      PAYMENT_STAND_IN_LOCAL: "1",
       // The suite only runs on the local database, which is what lets the stand-in run without a proxy.
       DATABASE_URL: process.env.DATABASE_URL,
       NODE_ENV: "test",

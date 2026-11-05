@@ -3658,6 +3658,7 @@ model PaymentOutbox {
   leaseOwner  String?             @map("lease_owner") @db.VarChar(64)
   lastError   String?             @map("last_error") @db.VarChar(200)
   createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  deadAt      DateTime?           @map("dead_at") @db.Timestamptz
   completedAt DateTime?           @map("completed_at") @db.Timestamptz
 
   @@index([status, nextRunAt])

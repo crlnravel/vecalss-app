@@ -257,7 +257,8 @@ async function main() {
       }
     }
     // The page that explains a missing package has nothing to say while the switch is off.
-    assert.equal(await redirectTarget(await get("/akses-paket", cookies.none)), "/dashboard");
+    const offAccessPage = await get("/akses-paket", cookies.none);
+    assert.equal(await redirectTarget(offAccessPage), "/dashboard");
 
     const ids = actionIds();
     for (const action of PAID_ACTIONS) {
@@ -274,6 +275,12 @@ async function main() {
   server = startServer("1");
   try {
     await waitForServer();
+
+    const retryState = await get("/akses-paket?notice=try-again", cookies.active);
+    assert.equal(retryState.status, 200);
+    const retryMarkup = await retryState.text();
+    assert.match(retryMarkup, /Halaman belum bisa dibuka/u);
+    assert.match(retryMarkup, /Coba lagi/u);
 
     // Pages: a student without running access is sent to the explanation, one with access gets in.
     for (const path of PAID_PAGES) {

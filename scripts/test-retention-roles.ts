@@ -362,6 +362,8 @@ async function main() {
           await client.end();
         }
       };
+      await probeFor(`GRANT vecalss_runtime TO ${extraRole} WITH ADMIN OPTION`, "runtime_admin_option");
+      await admin.query(`REVOKE ADMIN OPTION FOR vecalss_runtime FROM ${extraRole}`);
       await probeFor(`GRANT DELETE ON payment_events TO ${extraRole}`, "delete:payment_events");
       await admin.query(`REVOKE DELETE ON payment_events FROM ${extraRole}`);
       await probeFor(`GRANT TRUNCATE ON audit_logs TO ${extraRole}`, "truncate:audit_logs");
@@ -386,7 +388,7 @@ async function main() {
     } finally {
       await admin.end();
     }
-    pass("the production role check passes the restricted login and flags a superuser, an owner, schema CREATE, DELETE, TRUNCATE, TRIGGER, whole-table or stray UPDATE, and maintenance-role membership");
+    pass("the production role check passes the restricted login and flags a superuser, an owner, runtime ADMIN OPTION, schema CREATE, DELETE, TRUNCATE, TRIGGER, whole-table or stray UPDATE, and maintenance-role membership");
   } finally {
     await runtime.end().catch(() => undefined);
     for (const item of [login, extra]) await item.drop().catch(() => undefined);

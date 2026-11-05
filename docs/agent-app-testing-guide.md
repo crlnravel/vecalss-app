@@ -75,7 +75,7 @@ Students can be required to hold a running package before they use the learning 
 
 ### Payments (stand-in provider)
 
-Checkout needs a payment provider; with none configured it stays closed and shows the paused notice. For local testing set `PAYMENT_PROVIDER=stand-in` (it only works on a local `DATABASE_URL`) and the three `PRICING_PACKAGE_CODE_*` variables to a published package code, then check out as the seeded student from `/pricing`. The test pay page lets you pay, fail or expire the payment. Orders and payment events cannot be deleted, so test checkouts stay in the dev database until it is reseeded. See `docs/payments.md`.
+Checkout needs a payment provider; with none configured it stays closed and shows the paused notice. For local testing set `PAYMENT_PROVIDER=stand-in` and `PAYMENT_STAND_IN_LOCAL=1` in your local environment, with `APP_BASE_URL` explicitly set to a loopback URL such as `http://localhost:5023`. The database host must be `localhost`, `127.0.0.1` or `::1`; `host.docker.internal` does not qualify. Keep the opt-in out of every deployed environment. Then set the three `PRICING_PACKAGE_CODE_*` variables to a published package code and check out as the seeded student from `/pricing`. The test pay page lets you pay, fail or expire the payment. Orders and payment events cannot be deleted, so test checkouts stay in the dev database until it is reseeded. See `docs/payments.md`.
 
 ### Additional Cohort Students (Multi-User & Leaderboard Tests)
 

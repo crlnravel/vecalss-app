@@ -16,7 +16,7 @@ import { executeProviderRefund } from "../lib/refunds/execute";
 import { flagStalledRefunds } from "../lib/refunds/maintenance";
 import { listRecentRefunds, listRefundRecords } from "../lib/refunds/records";
 import { deliver } from "./payment-test-kit";
-import { ENV, FULL_REASON, cleanUp, paidOrder, prisma, provider, refundCase, setupAuthority, withTriggersOff } from "./refund-test-kit";
+import { ENV, FULL_REASON, cleanUp, paidOrder, prisma, provider, refundCase, settleRunRefunds, setupAuthority, withTriggersOff } from "./refund-test-kit";
 
 /**
  * MS-18: the refund reason `authority_order`. The database refuses an authority
@@ -265,7 +265,7 @@ async function main() {
     const listed = (await listRecentRefunds(prisma, 100)).find((item) => item.id === overdue.caseId);
     assert.equal(listed?.overdue, true, "the refund list shows it late on the authority's deadline");
 
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     const flagged = await prisma.fraudCase.findFirstOrThrow({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } });
     const evidence = flagged.evidence as { authorityDeadlineOverdue: boolean; decisionOverdue: boolean };
     assert.equal(evidence.authorityDeadlineOverdue, true);
@@ -274,13 +274,13 @@ async function main() {
     // A buyer refund with the same dates is not late; neither is an authority case whose deadline is ahead.
     const fine = await prepare(order.id, { amountRupiah: 1000, authorityDeadlineAt: new Date(Date.now() + 2 * dayMs) });
     const plain = await prepareRefund(admin, { amountRupiah: 1000, orderId: order.id, reasonCode: "wrong_amount", requestChannel: "email", requestNote: NOTE });
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: { in: [`refund:${fine.caseId}`, `refund:${plain.caseId}`] } } }), 0);
 
     // Approved after its deadline has passed: the payout was due at the deadline, so it is late at once.
     await approve(overdue.caseId);
     assert.ok((await refundCase(overdue.caseId)).payoutDueAt!.getTime() < Date.now(), "the payout was due at the authority's deadline");
-    await flagStalledRefunds();
+    await flagStalledRefunds(100_000);
     const again = await prisma.fraudCase.findFirstOrThrow({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } });
     assert.equal((again.evidence as { payoutOverdue: boolean }).payoutOverdue, true);
     assert.equal(await prisma.fraudCase.count({ where: { signal: "refund_stalled", subjectKey: `refund:${overdue.caseId}` } }), 1, "one case per refund");
@@ -383,7 +383,6 @@ async function main() {
     pass("retention treats an authority case as a refund case: hold while open, two years from closure");
   }
 
-  await cleanUp();
   console.log(`Authority refund checks passed: ${checks.join("; ")}.`);
 }
 
@@ -392,4 +391,14 @@ main()
     console.error(error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    // Whether the run passed or stopped halfway, it leaves no open refund or late-refund case behind.
+    try {
+      await cleanUp();
+      await settleRunRefunds();
+    } catch (error) {
+      console.error(error);
+      process.exitCode = 1;
+    }
+    await prisma.$disconnect();
+  });

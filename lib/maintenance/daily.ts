@@ -69,7 +69,7 @@ const failureLabels: Record<MaintenanceFailure, string> = {
   fraud_maintenance: "tinjauan fraud harian",
   payment_alert_dead: "peringatan pembayaran penting yang tidak berhasil terkirim",
   payment_maintenance: "pemeriksaan dan antrean pembayaran",
-  payment_reconciliation: "pengecekan status pembayaran ke penyedia pembayaran yang berulang gagal",
+  payment_reconciliation: "pesanan yang belum terkonfirmasi penyedia lebih dari 24 jam setelah batas bayar",
   redis: "Redis",
   retention_maintenance: "pemangkasan dan pembersihan bukti sesuai kebijakan retensi",
   runtime_role: "peran basis data aplikasi (masih bisa mengubah skema atau menghapus bukti)",
@@ -138,14 +138,14 @@ async function noticeRetentionActivity(deps: MaintenanceDeps, retention: Retenti
 }
 
 /**
- * Payment conditions that need the owner on their own: each is emailed once a
- * day by itself, whatever else failed that day, so a second condition appearing
- * later in the day (or on a retried run) never hides behind the first one's key.
+ * Conditions that need their own owner alert: each is emailed once a day by
+ * itself, whatever else failed, so later conditions keep their own idempotency
+ * key and cannot hide behind an earlier alert.
  */
-const PAYMENT_CONDITIONS = ["payment_alert_dead", "payment_reconciliation"] as const satisfies readonly MaintenanceFailure[];
+const STANDALONE_CONDITIONS = ["payment_alert_dead", "payment_reconciliation", "security_log_cleanup"] as const satisfies readonly MaintenanceFailure[];
 
-function isPaymentCondition(failure: MaintenanceFailure): failure is (typeof PAYMENT_CONDITIONS)[number] {
-  return (PAYMENT_CONDITIONS as readonly MaintenanceFailure[]).includes(failure);
+function isStandaloneCondition(failure: MaintenanceFailure): failure is (typeof STANDALONE_CONDITIONS)[number] {
+  return (STANDALONE_CONDITIONS as readonly MaintenanceFailure[]).includes(failure);
 }
 
 async function sendOwnerAlert(
@@ -186,11 +186,11 @@ async function alertOwner(
   conditionDetails: Partial<Record<MaintenanceFailure, string[]>> = {},
 ) {
   const day = now.toISOString().slice(0, 10);
-  const general = failures.filter((failure) => !isPaymentCondition(failure));
+  const general = failures.filter((failure) => !isStandaloneCondition(failure));
 
   // One alert per day and failure set, so a retried run does not send twice.
   if (general.length > 0) await sendOwnerAlert(deps, general, details, `daily-maintenance:${day}:${general.join(",")}`);
-  for (const condition of failures.filter(isPaymentCondition)) {
+  for (const condition of failures.filter(isStandaloneCondition)) {
     await sendOwnerAlert(deps, [condition], conditionDetails[condition] ?? [], `daily-maintenance:${day}:${condition}`);
   }
 }
@@ -210,6 +210,7 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
   let cleanup: MaintenanceResult["cleanup"] = null;
   try {
     cleanup = await purgeSecurityLogs(deps.db);
+    if (Object.values(cleanup).some((table) => !table.complete)) failures.push("security_log_cleanup");
   } catch {
     failures.push("security_log_cleanup");
   }
@@ -280,6 +281,9 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     const conditionDetails: Partial<Record<MaintenanceFailure, string[]>> = {
       payment_alert_dead: [`Jumlah peringatan yang gagal terkirim dalam beberapa hari terakhir: ${payments?.deadCriticalAlerts ?? 0}. Periksa antrean pembayaran di panel admin.`],
       payment_reconciliation: [`Jumlah pesanan yang statusnya belum bisa dicek ke penyedia pembayaran selama lebih dari 24 jam sejak batas bayarnya lewat: ${payments?.reconciliation?.persistentlyUnavailable ?? 0}. Pesanan itu masih dianggap terbuka sampai statusnya jelas.`],
+      security_log_cleanup: Object.entries(cleanup ?? {})
+        .filter(([, table]) => !table.complete)
+        .map(([name, table]) => `${name}: ${table.deleted} baris (batas batch tercapai).`),
     };
     await alertOwner(deps, failures, now, details, conditionDetails);
   }

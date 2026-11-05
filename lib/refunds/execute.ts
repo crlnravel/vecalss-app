@@ -32,13 +32,31 @@ type ExecuteResult =
   | { reason: string; result: "rejected" }
   | { result: "unknown" };
 
-function sameFacts(row: RefundCaseRow, status: Extract<ProviderRefundStatus, { found: true }>, provider: PaymentProviderAdapter) {
-  return status.amountRupiah === row.amountRupiah
+type RefundOrderIdentity = {
+  provider: string;
+  providerAccount: string;
+  providerEnvironment: string;
+};
+
+function adapterMatchesOrder(order: RefundOrderIdentity, provider: PaymentProviderAdapter) {
+  return provider.id === order.provider
+    && provider.merchantAccount === order.providerAccount
+    && provider.environment === order.providerEnvironment;
+}
+
+function sameFacts(
+  row: RefundCaseRow,
+  status: Extract<ProviderRefundStatus, { found: true }>,
+  order: RefundOrderIdentity,
+  provider: PaymentProviderAdapter,
+) {
+  return adapterMatchesOrder(order, provider)
+    && status.merchantAccount === order.providerAccount
+    && status.environment === order.providerEnvironment
+    && status.amountRupiah === row.amountRupiah
     && status.currency === row.currency
     && status.providerPaymentId === row.providerPaymentId
-    && status.refundReference === row.reference
-    && status.merchantAccount === provider.merchantAccount
-    && status.environment === provider.environment;
+    && status.refundReference === row.reference;
 }
 
 /**
@@ -230,6 +248,23 @@ async function reconcileRefund(
     const row = await lockRefundCase(tx, caseId);
     if (row.state !== "processing") return { result: "unchanged" };
 
+    const [order = null] = await tx.$queryRaw<Array<RefundOrderIdentity>>`
+      SELECT provider, provider_account AS "providerAccount", provider_environment AS "providerEnvironment"
+      FROM payment_orders WHERE id = ${row.orderId}::uuid
+    `;
+
+    if (!order || !adapterMatchesOrder(order, deps.provider)) {
+      await insertRefundEvent(tx, {
+        actor,
+        caseId: row.id,
+        caseVersion: row.version,
+        kind: "note",
+        metadata: { reason: "provider_status_mismatch" },
+        note: "Status dari penyedia tidak cocok dengan kasus ini, jadi tidak dipakai.",
+      });
+      return { result: "mismatch" };
+    }
+
     if (!status.found) {
       // The provider has no record: the request never arrived. Allow another attempt.
       if (!row.outcomeUnknown || row.providerRefundId) return { result: "unchanged" };
@@ -244,7 +279,7 @@ async function reconcileRefund(
       return { result: "not_seen" };
     }
 
-    if (!sameFacts(row, status, deps.provider) || (row.providerRefundId && row.providerRefundId !== status.providerRefundId)) {
+    if (!sameFacts(row, status, order, deps.provider) || (row.providerRefundId && row.providerRefundId !== status.providerRefundId)) {
       await insertRefundEvent(tx, {
         actor,
         caseId: row.id,

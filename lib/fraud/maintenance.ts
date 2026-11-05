@@ -14,9 +14,14 @@ type DailySummary = {
   blocksEndingSoon: number;
   casesOpen: { critical: number; high: number; low: number; medium: number; total: number };
   day: string;
+  refunds: {
+    approvedLast24Hours: { count: number; references: string[] };
+    completedLast24Hours: { count: number; references: string[] };
+    manualTransfersConfirmedLast24Hours: { count: number; references: string[] };
+  };
 };
 
-/** The numbers the owner's daily email reports. Counts only: no identifiers. */
+/** The owner's daily email totals, with refund references for review. */
 async function buildDailySummary(): Promise<DailySummary> {
   const [row] = await prisma.$queryRaw<Array<{
     appealsOverdue: number;
@@ -30,6 +35,12 @@ async function buildDailySummary(): Promise<DailySummary> {
     manual: number;
     medium: number;
     open: number;
+    refundsApproved: number;
+    refundsApprovedReferences: string;
+    refundsCompleted: number;
+    refundsCompletedReferences: string;
+    manualTransfersConfirmed: number;
+    manualTransfersConfirmedReferences: string;
   }>>`
     SELECT
       (SELECT count(*) FROM fraud_appeals WHERE state = 'pending' AND due_at < now())::int AS "appealsOverdue",
@@ -44,8 +55,25 @@ async function buildDailySummary(): Promise<DailySummary> {
       (SELECT count(*) FROM fraud_cases WHERE state <> 'closed' AND severity = 'high')::int AS high,
       (SELECT count(*) FROM fraud_cases WHERE state <> 'closed' AND severity = 'medium')::int AS medium,
       (SELECT count(*) FROM fraud_cases WHERE state <> 'closed' AND severity = 'low')::int AS low,
+      (SELECT count(*) FROM refund_cases WHERE approved_at >= now() - interval '24 hours' AND approved_at <= now())::int AS "refundsApproved",
+      COALESCE((SELECT string_agg(reference, ', ' ORDER BY approved_at DESC, reference)
+        FROM refund_cases WHERE approved_at >= now() - interval '24 hours' AND approved_at <= now()), '') AS "refundsApprovedReferences",
+      (SELECT count(*) FROM refund_cases WHERE completed_at >= now() - interval '24 hours' AND completed_at <= now())::int AS "refundsCompleted",
+      COALESCE((SELECT string_agg(reference, ', ' ORDER BY completed_at DESC, reference)
+        FROM refund_cases WHERE completed_at >= now() - interval '24 hours' AND completed_at <= now()), '') AS "refundsCompletedReferences",
+      (SELECT count(*) FROM refund_cases
+        WHERE completed_at >= now() - interval '24 hours' AND completed_at <= now() AND method = 'manual_transfer'
+          AND confirmation_source = 'owner_manual' AND confirmed_by_user_id IS NOT NULL)::int AS "manualTransfersConfirmed",
+      COALESCE((SELECT string_agg(reference, ', ' ORDER BY completed_at DESC, reference)
+        FROM refund_cases WHERE completed_at >= now() - interval '24 hours' AND completed_at <= now() AND method = 'manual_transfer'
+          AND confirmation_source = 'owner_manual' AND confirmed_by_user_id IS NOT NULL), '') AS "manualTransfersConfirmedReferences",
       to_char(risk_jakarta_day(now()), 'YYYY-MM-DD') AS day
   `;
+
+  const caseActivity = (count: number, references: string): { count: number; references: string[] } => ({
+    count,
+    references: references ? references.split(', ') : [],
+  });
 
   return {
     appealsOverdue: row.appealsOverdue,
@@ -54,6 +82,11 @@ async function buildDailySummary(): Promise<DailySummary> {
     blocksEndingSoon: row.ending,
     casesOpen: { critical: row.critical, high: row.high, low: row.low, medium: row.medium, total: row.open },
     day: row.day,
+    refunds: {
+      approvedLast24Hours: caseActivity(row.refundsApproved, row.refundsApprovedReferences),
+      completedLast24Hours: caseActivity(row.refundsCompleted, row.refundsCompletedReferences),
+      manualTransfersConfirmedLast24Hours: caseActivity(row.manualTransfersConfirmed, row.manualTransfersConfirmedReferences),
+    },
   };
 }
 
@@ -61,23 +94,42 @@ function summaryHasNews(summary: DailySummary) {
   return summary.casesOpen.total > 0
     || summary.blocksCreatedLastDay.automatic + summary.blocksCreatedLastDay.manual > 0
     || summary.blocksEndingSoon > 0
-    || summary.appealsPending > 0;
+    || summary.appealsPending > 0
+    || summary.refunds.approvedLast24Hours.count > 0
+    || summary.refunds.completedLast24Hours.count > 0
+    || summary.refunds.manualTransfersConfirmedLast24Hours.count > 0;
 }
 
-/** The email, in plain Indonesian. It links to the queue and lists no identifiers. */
+function escapeHtml(value: string) {
+  const replacements: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  };
+  return value.replace(/[&<>"']/gu, (character) => replacements[character] ?? character);
+}
+
+/** The email, in plain Indonesian. Case references are included as review pointers. */
 function buildSummaryEmail(summary: DailySummary, to: string): EmailMessage {
   const { casesOpen } = summary;
+  const refundLine = (label: string, activity: { count: number; references: string[] }) =>
+    `${label}: ${activity.count}${activity.references.length > 0 ? ` (kasus: ${activity.references.join(", ")})` : ""}.`;
   const lines = [
     `Ringkasan fraud Vecalss untuk ${summary.day}.`,
     `Kasus terbuka: ${casesOpen.total} (kritis ${casesOpen.critical}, tinggi ${casesOpen.high}, sedang ${casesOpen.medium}, rendah ${casesOpen.low}).`,
     `Blokir baru dalam 24 jam terakhir: ${summary.blocksCreatedLastDay.manual} manual, ${summary.blocksCreatedLastDay.automatic} otomatis (menunggu tinjauan).`,
     `Blokir yang segera berakhir atau perlu ditinjau dalam 3 hari: ${summary.blocksEndingSoon}.`,
     `Banding menunggu keputusan: ${summary.appealsPending}${summary.appealsOverdue > 0 ? `, ${summary.appealsOverdue} melewati batas 3 hari kerja` : ""}.`,
+    refundLine("Pengembalian dana disetujui dalam 24 jam", summary.refunds.approvedLast24Hours),
+    refundLine("Pengembalian dana selesai dalam 24 jam", summary.refunds.completedLast24Hours),
+    refundLine("Transfer manual dikonfirmasi dalam 24 jam", summary.refunds.manualTransfersConfirmedLast24Hours),
     `Buka antrean kasus: ${getAppBaseUrl()}/admin/fraud`,
   ];
 
   return {
-    html: lines.map((line) => `<p>${line}</p>`).join(""),
+    html: lines.map((line) => `<p>${escapeHtml(line)}</p>`).join(""),
     // One summary per day, so a retried run does not send twice.
     idempotencyKey: `fraud-summary:${summary.day}`,
     subject: `Vecalss: ringkasan fraud ${summary.day}`,
@@ -117,7 +169,15 @@ async function runFraudMaintenance(deps: FraudMaintenanceDeps): Promise<FraudMai
   await prisma.$transaction((tx) =>
     writeFraudAudit(tx, {
       action: "fraud.daily_review.completed",
-      metadata: { automaticBlocks: daily.automaticBlocks, emailed, openCases: summary.casesOpen.total, signals: daily.signals },
+      metadata: {
+        automaticBlocks: daily.automaticBlocks,
+        emailed,
+        manualTransfersConfirmed: summary.refunds.manualTransfersConfirmedLast24Hours.count,
+        openCases: summary.casesOpen.total,
+        refundsApproved: summary.refunds.approvedLast24Hours.count,
+        refundsCompleted: summary.refunds.completedLast24Hours.count,
+        signals: daily.signals,
+      },
       targetId: null,
       targetType: "system",
     }),
