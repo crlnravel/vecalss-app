@@ -31,11 +31,11 @@ export default async function AdminAiOverviewPage() {
               Pemakaian tertinggi bulan ini
             </h2>
             <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/admin/ai/usage">
-              Lihat semua mahasiswa
+              Lihat semua siswa
             </Link>
           </div>
           <VeraUsageStudentTable
-            caption={`${OVERVIEW_STUDENTS} mahasiswa dengan pemakaian Vera tertinggi bulan ini`}
+            caption={`${OVERVIEW_STUDENTS} siswa dengan pemakaian Vera tertinggi bulan ini`}
             students={usage.students.slice(0, OVERVIEW_STUDENTS)}
           />
         </section>

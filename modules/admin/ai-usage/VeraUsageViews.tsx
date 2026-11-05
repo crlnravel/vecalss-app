@@ -47,7 +47,7 @@ export function VeraUsageStudentTable({ caption, students }: { caption: string; 
         <TableCaption className="sr-only">{caption}</TableCaption>
         <TableHeader>
           <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-            <TableHead className={HEAD_CELL}>Mahasiswa</TableHead>
+            <TableHead className={HEAD_CELL}>Siswa</TableHead>
             <TableHead className={HEAD_CELL}>Hari ini</TableHead>
             <TableHead className={HEAD_CELL}>Minggu ini</TableHead>
             <TableHead className={HEAD_CELL}>Bulan ini</TableHead>

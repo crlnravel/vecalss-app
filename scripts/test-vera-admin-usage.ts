@@ -83,6 +83,31 @@ try {
     "The table carries counts, credits and costs only, never message content",
   );
 
+  // A week that starts in last month keeps its days in the week column, while the month column counts only this month.
+  const boundary = await prisma.user.upsert({
+    where: { email: "vera-admin-usage-boundary@vecalss.local" },
+    update: {},
+    create: { email: "vera-admin-usage-boundary@vecalss.local", fullName: "Vera Admin Usage Boundary", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  testIds.push(boundary.id);
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: boundary.id } });
+  // 1 November 2026 is a Sunday, so its ISO week began on Monday 26 October, in the previous month.
+  const boundaryNow = new Date("2026-11-01T03:00:00Z");
+  const lastMonth = new Date("2026-10-28T03:00:00Z");
+  const thisMonth = new Date("2026-11-01T04:00:00Z");
+  await prisma.veraUsageEvent.createMany({
+    data: [
+      { studentId: boundary.id, kind: "chat", status: "settled", model: "test", reservedCredits: 2, credits: 2, reservedUsdMicros: BigInt(2000), costUsdMicros: BigInt(1000), createdAt: lastMonth, settledAt: lastMonth },
+      { studentId: boundary.id, kind: "chat", status: "settled", model: "test", reservedCredits: 1, credits: 1, reservedUsdMicros: BigInt(500), costUsdMicros: BigInt(500), createdAt: thisMonth, settledAt: thisMonth },
+    ],
+  });
+  const boundaryUsage = await getAdminVeraUsage({ now: boundaryNow, studentIds: [boundary.id] });
+  assert.equal(boundaryUsage.students.length, 1, "The student is listed for this month's activity");
+  assert.equal(boundaryUsage.students[0].week.credits, 3, "The week column counts last month's days that fall in this week");
+  assert.equal(boundaryUsage.students[0].month.credits, 1, "The month column counts only this month");
+  assert.equal(boundaryUsage.students[0].day.credits, 1, "The day column counts only today");
+
   console.log("Vera admin usage checks passed.");
 } finally {
   if (testIds.length > 0) await prisma.veraUsageEvent.deleteMany({ where: { studentId: { in: testIds } } });

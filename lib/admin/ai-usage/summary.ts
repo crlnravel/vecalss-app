@@ -145,18 +145,21 @@ async function studentRows({
   monthStart: Date;
   studentIds?: string[];
 }): Promise<StudentRow[]> {
+  // The scan starts at the earlier of the week and the month, so a week that began last month keeps its days. Month totals
+  // filter on the month alone, and only students with activity this month are listed.
   return prisma.$queryRaw<StudentRow[]>`
     SELECT
       student_id,
       COALESCE(SUM(credits) FILTER (WHERE created_at >= ${dayStart}), 0) AS day_credits,
       COALESCE(SUM(credits) FILTER (WHERE created_at >= ${weekStart}), 0) AS week_credits,
-      COALESCE(SUM(credits), 0) AS month_credits,
-      COALESCE(SUM(${BILLED_USD_MICROS}), 0) AS month_usd_micros,
+      COALESCE(SUM(credits) FILTER (WHERE created_at >= ${monthStart}), 0) AS month_credits,
+      COALESCE(SUM(${BILLED_USD_MICROS}) FILTER (WHERE created_at >= ${monthStart}), 0) AS month_usd_micros,
       MAX(created_at) FILTER (WHERE kind <> 'title' AND status IN ('settled', 'failed')) AS last_request_at
     FROM vera_usage_events
-    WHERE created_at >= ${monthStart}
+    WHERE created_at >= LEAST(${weekStart}::timestamptz, ${monthStart}::timestamptz)
       ${studentFilter(studentIds)}
     GROUP BY student_id
+    HAVING COUNT(*) FILTER (WHERE created_at >= ${monthStart}) > 0
     ORDER BY month_credits DESC, student_id
     LIMIT ${ADMIN_USAGE_STUDENT_LIMIT}
   `;
