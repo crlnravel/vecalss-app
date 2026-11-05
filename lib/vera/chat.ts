@@ -150,7 +150,6 @@ export async function runVeraChat({
     // The first step reads the instructions and the model messages, so its input is estimated from both.
     const usage = trackAnswerUsage({
       eventId,
-      effort,
       prices,
       firstStepInputTokens: estimateTokens(instructions + JSON.stringify(modelMessages)),
     });

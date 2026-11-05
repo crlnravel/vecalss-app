@@ -6,7 +6,6 @@ import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
 import { runVeraChat } from "../lib/vera/chat";
-import { VERA_EFFORTS } from "../lib/vera/config";
 import {
   costUsdMicros,
   creditsForUsage,
@@ -203,12 +202,11 @@ try {
       outputTokenDetails: { textTokens: outputTokens, reasoningTokens: 0 },
       totalTokens: inputTokens + outputTokens,
     }) as unknown as LanguageModelUsage;
-  const cepatEffort = VERA_EFFORTS.cepat;
   const prices = VERA_DEFAULT_PRICES;
 
   // A cut-off first step costs its estimated input and the output it streamed: 50 characters, about 13 tokens. That is below the reserve.
   const firstEvent = await reservedAnswer();
-  const firstAnswer = trackAnswerUsage({ eventId: firstEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  const firstAnswer = trackAnswerUsage({ eventId: firstEvent.id, prices, firstStepInputTokens: 1_000 });
   firstAnswer.onChunk({ chunk: { type: "text-delta", text: "a".repeat(30) } });
   firstAnswer.onChunk({ chunk: { type: "text-delta", text: "b".repeat(20) } });
   await firstAnswer.onAbort();
@@ -225,7 +223,7 @@ try {
   // output, and the tool result it read. The token columns keep the finished step only.
   const toolOutput = { hits: [{ title: "Materi uji", href: "/courses/penalaran-umum/uji" }] };
   const secondEvent = await reservedAnswer();
-  const secondAnswer = trackAnswerUsage({ eventId: secondEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 900 });
+  const secondAnswer = trackAnswerUsage({ eventId: secondEvent.id, prices, firstStepInputTokens: 900 });
   secondAnswer.onChunk({ chunk: { type: "tool-input-delta", delta: "x".repeat(20) } });
   secondAnswer.onChunk({ chunk: { type: "tool-result", output: toolOutput } });
   secondAnswer.onStepEnd({ usage: stepUsage(1_000, 20) });
@@ -248,11 +246,11 @@ try {
 
   // A longer partial answer costs more than a shorter one cut off at the same point.
   const shortEvent = await reservedAnswer();
-  const shortAnswer = trackAnswerUsage({ eventId: shortEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  const shortAnswer = trackAnswerUsage({ eventId: shortEvent.id, prices, firstStepInputTokens: 1_000 });
   shortAnswer.onChunk({ chunk: { type: "text-delta", text: "z".repeat(8) } });
   await shortAnswer.onAbort();
   const longEvent = await reservedAnswer();
-  const longAnswer = trackAnswerUsage({ eventId: longEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  const longAnswer = trackAnswerUsage({ eventId: longEvent.id, prices, firstStepInputTokens: 1_000 });
   longAnswer.onChunk({ chunk: { type: "text-delta", text: "z".repeat(400) } });
   await longAnswer.onAbort();
   const shortRow = await settledRow(shortEvent.id);
@@ -261,7 +259,7 @@ try {
 
   // A completed answer is charged its provider-reported cost, as before.
   const doneEvent = await reservedAnswer();
-  const doneAnswer = trackAnswerUsage({ eventId: doneEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  const doneAnswer = trackAnswerUsage({ eventId: doneEvent.id, prices, firstStepInputTokens: 1_000 });
   doneAnswer.onChunk({ chunk: { type: "text-delta", text: "Oke." } });
   doneAnswer.onStepEnd({ usage: stepUsage(500, 100) });
   await doneAnswer.onEnd();
@@ -276,7 +274,7 @@ try {
 
   // A provider failure before any output releases the reservation, and nothing is billed.
   const failedEvent = await reservedAnswer();
-  const failedAnswer = trackAnswerUsage({ eventId: failedEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  const failedAnswer = trackAnswerUsage({ eventId: failedEvent.id, prices, firstStepInputTokens: 1_000 });
   await failedAnswer.onError();
   const failedRow = await settledRow(failedEvent.id);
   assert.equal(failedRow.status, "released", "A failure before any output releases the reservation");

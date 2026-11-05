@@ -115,12 +115,10 @@ function resultChars(output: unknown) {
  */
 export function trackAnswerUsage({
   eventId,
-  effort,
   prices,
   firstStepInputTokens,
 }: {
   eventId: string;
-  effort: UsageLimits;
   prices: VeraPrices;
   /** The first step's input, estimated from its instructions and model messages. */
   firstStepInputTokens: number;

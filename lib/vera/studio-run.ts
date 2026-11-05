@@ -85,7 +85,6 @@ export async function runVeraStudio({
     const requestMessages = [{ role: "user" as const, content: studioRequestText(request, target ?? undefined) }];
     const usage = trackAnswerUsage({
       eventId,
-      effort,
       prices,
       firstStepInputTokens: estimateTokens(instructions + JSON.stringify(requestMessages)),
     });
