@@ -128,7 +128,7 @@ Default operational lifecycle for all software engineering work:
 | Notifications | `lib/notifications/`, `app/notifications/` |
 | Media | `lib/media/`, `modules/media/` |
 | Landing / marketing | `modules/home/`, `modules/about/`, `app/about/`, `app/faq/` |
-| Vera AI | `modules/vera-ai/`, `app/vera-ai/` |
+| Vera AI | `modules/vera/`, `app/vera-ai/` |
 | Design tokens & styling | `design-tokens/`, `DESIGN.md`, `app/globals.css` |
 | Database schema & environments | `docs/database-environments.md`, `prisma/schema.prisma`, `docker-compose.dev.yml` |
 | App testing & seeded credentials | `docs/agent-app-testing-guide.md`, `prisma/seed.mjs` |
