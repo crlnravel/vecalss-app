@@ -36,6 +36,15 @@ export interface ObscuraConnectionOptions {
 }
 
 /**
+ * Newer Obscura images refuse to expose CDP without a token (OBSCURA_CDP_TOKEN on the server). When this process has the same token in
+ * OBSCURA_CDP_TOKEN, every request sends it as a bearer token.
+ */
+export function obscuraHeaders(): Record<string, string> | undefined {
+  const token = process.env.OBSCURA_CDP_TOKEN?.trim();
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+}
+
+/**
  * Returns the configured Obscura CDP endpoint URL.
  */
 export function getObscuraCdpEndpoint(overrideEndpoint?: string): string {
@@ -62,7 +71,7 @@ export async function isObscuraRunning(
 
       const req = http.get(
         `http://${host}:${port}/json/version`,
-        { timeout: timeoutMs },
+        { timeout: timeoutMs, headers: obscuraHeaders() },
         (res) => {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             resolve(true);
@@ -107,6 +116,7 @@ export async function connectObscura(
 
   const browser = await chromium.connectOverCDP(endpoint, {
     timeout: timeoutMs,
+    headers: obscuraHeaders(),
   });
 
   const context = await browser.newContext(

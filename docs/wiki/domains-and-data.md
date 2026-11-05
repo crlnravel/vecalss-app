@@ -17,7 +17,7 @@ or querying a model.
 | Tryout | `TryoutPackage`, sections/items/options, admissions/assignments, the one delivery session per Tryout, attempts/runs/answers, releases | Published content is pinned by immutable `AssessmentRelease`; operations read through safe participant projections. |
 | Learning signals | topic/subtest performance and recommendations | Feeds learner-facing progress and recommendation boundaries; do not infer product claims from fixture data. |
 | Commerce and referrals | `BillingAccount`, `PackagePurchase`, `AffiliatorProfile`, referral attribution and purchase-evidence routes | Succeeded package purchases retain provider reference/evidence and may be attributed to an active Affiliator referral identity. |
-| Vera AI | `AiConversation`, `AiMessage`, `AiRequest`, `AiRequestAttempt`, `AiContextToolInvocation`, `AiRequestSource`, `AiContextPack`, `AiQuotaCalendar`, `AiUsageWindow`, `AiRequestUsageReservation`, `AiBillingCorrectionEvent`, policy bundles/audit, lifecycle/export/retention, context/source, artifacts, adaptive practice | Encrypted/digested message envelopes and automatic-tool traces, request idempotency/fingerprints, versioned credit/USD reservations, append-only billing corrections, immutable request evidence, privacy-safe admin aggregates, and lifecycle governance. |
+| Vera AI | `VeraConversation`, `VeraMessage`, `VeraUsageEvent`, `VeraStudioDocument`, `VeraMateriText` | Messages keep their parts and mentions. Usage events hold counts, tokens, credits, and costs, never text. Studio documents keep their markdown, sources, and input. `VeraMateriText` caches the text extracted from a Materi PDF, keyed by a digest. |
 | Media and CMS | `Asset`, `MediaFolder`, announcements, landing sections | Media scope/state and signed preview/thumbnail paths are validated before exposure. |
 
 ## Assessment invariants
@@ -88,55 +88,35 @@ existing direct/fixed routes remain compatible.
 
 ## Vera AI data boundary
 
-Vera AI has both learner-facing and administrator-facing surfaces. The admin
-control plane aggregates requests, quota, reliability, incidents, providers,
-routing, cost, and policy bundles without returning student conversation text.
-Privacy suppression is applied to small cohorts and complementary groups. The
-request service tracks idempotency, fingerprints, retry state, provider/routing
-metadata, quota reservations, retention, and lifecycle operations. Changes to
-these boundaries belong in `lib/vera-ai/` and `lib/admin/ai/`, not in route
+Vera AI has a learner surface at `/vera-ai` and an administrator cost view at
+`/admin/ai` and `/admin/ai/usage`. A student's conversations and Studio
+documents are stored as text, and only that student can read them. A usage
+event holds the kind, status, effort, model, tokens, credits, USD cost, and
+error code, and never any text. The administrator view reads counts, credits,
+and costs only, so no prompt, answer, or document text reaches an admin screen.
+
+Read tools return only the student's own data and released or visible learning
+content. The rules are in `lib/vera/sources/authorization.ts`, and pinned
+sources are checked in `lib/vera/sources/mentions.ts`. Changes to these
+boundaries belong in `lib/vera/` and `lib/admin/ai-usage/`, not in route
 components alone.
 
-### Learner MVP and provider boundary
+### Provider boundary
 
-The current Vera learner contract enables `chat`, `review`, `analysis`, and
-`route`. `ptn`, `summary`, and `drill` remain explicitly deferred and return a
-feature-disabled response; the MVP has no provider-backed artifact-apply
-registry. The legacy cohort may select released/owned context, while the
-automatic cohort sends no source IDs and uses one closed
-`retrieve_released_learning_context` call. Documents and uploads remain
-rejected. History is bounded, the context pack is certified before provider
-dispatch, and automatic invocation arguments/results are encrypted. The source
-of truth is `lib/vera-ai/contracts.ts`, `context-pack.ts`,
-`context-tool-contracts.ts`, `context-query-registry.ts`, and
-`context-tool-invocation.ts`.
+Answers come from the OpenAI Responses API through `lib/vera/model.ts`. The
+model id is `VERA_OPENAI_MODEL` (default `gpt-6-luna`). The key is
+`OPENAI_API_KEY`. Without a key, Vera answers `503 vera_unavailable` before any
+work starts. `VERA_MOCK_MODEL=1` swaps in the local stand-in outside production.
+The tools and the rest of the Vera contract are in
+[`docs/vera-ai/README.md`](../vera-ai/README.md).
 
-The paid provider path is release-gated. The approved manifest pins OpenRouter
-direct routing to the Relace upstream and model
-`deepseek/deepseek-v4-flash-0731`, with data collection denied, ZDR requested,
-an explicit max-price policy, and a checked certifier artifact under
-`certifiers/`. Live transport is not enabled merely by
-having a provider module: the live flag, API key, manifest, privacy evidence,
-and endpoint metadata must all validate.
+### Credit ledger
 
-### Credit/USD quota ledger
-
-`lib/vera-ai/quota-v2.ts` defines the scheduled `vera_credit_usd_v2` ledger for
-`Asia/Jakarta`: chat/review consume one credit, analysis/route consume two;
-daily, ISO-week, and monthly windows are persisted through
-`AiQuotaCalendar`/`AiUsageWindow`; reservations are linked to each request by
-`AiRequestUsageReservation`. The v2 cutover is scheduled for
-`2026-09-30T17:00:00Z`; before that instant the policy resolver selects the
-legacy `vera_quota_v1` ledger. The v2 monthly guard combines credit limits with
-integer USD-micro exposure and monetary-debt state.
-
-Provider cost accounting parses decimal lexemes without JavaScript `Number`,
-rounds to integer USD micros once, and preserves reserved/settled/unknown/
-released/overrun conservation. `AiBillingCorrectionEvent` is append-only and
-records later evidence without rewriting the original request lineage.
-
-`workers/vera-ai-reconciliation-worker.ts` claims due attempts with leases,
-polls the generation endpoint when configured, and marks evidence unknown at
-the settlement deadline when it cannot be recovered. Its batch, lease,
-concurrency, timeout, and backoff bounds are part of the worker contract; it
-must not log prompts, provider URLs, or payloads.
+`lib/vera/ledger.ts` reserves credits before each model call, settles the
+usage when the run ends, and checks the day, week, and month windows, the burst
+and busy limits, and the monthly USD cap. `lib/vera/usage-tracker.ts` decides
+what a run charges, and `lib/vera/credits-shared.ts` holds the prices. Session
+titles are recorded with zero credits, so they count toward spend but never
+toward requests. The windows are Asia/Jakarta calendar windows
+(`lib/vera/windows.ts`). The numbers are in
+[`docs/vera-ai/README.md`](../vera-ai/README.md).

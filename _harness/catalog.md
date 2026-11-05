@@ -58,7 +58,7 @@ app route → authorization + data loading → domain/service logic in lib/ → 
 | `modules/mentor/` | Kapten/tutor dashboard and workspace |
 | `modules/media/` | Media asset management |
 | `modules/home/` | Landing page and public marketing |
-| `modules/vera-ai/` | Vera AI assistant surface |
+| `modules/vera/` | Vera AI assistant surface |
 | `modules/portal/` | Portal surfaces |
 | `modules/loading/` | Loading states and skeletons |
 

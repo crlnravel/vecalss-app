@@ -51,57 +51,33 @@ the explicit rollback switch.
 
 ## Vera AI privacy and governance
 
-Vera AI messages use encrypted/digested envelopes with compatibility handling
-for legacy records. Requests carry idempotency/fingerprint and retry metadata,
-provider/routing state, quota reservations, and retention/lifecycle controls.
-The admin control plane reports operational aggregates, not student
-conversation text, and suppresses small cohorts and complementary groups when
-privacy thresholds are not met.
+Vera messages, Studio documents, and their sources are readable only by the
+student who owns them. Every Vera route checks the session and the owner before
+it reads or writes, and a foreign or malformed id reads as missing. The
+authorization checks are in `scripts/test-vera-authorization.ts`.
 
-The backend/API policy boundary supports immutable/versioned bundles,
-validation, preview, dual approval, scheduled activation, rollback, and audit
-paths. The canonical `/admin/ai/policies` page now loads actor-scoped policy
-metadata server-side and renders `modules/admin/AiPolicyPageModule.tsx` inside
-the admin shell. Its draft, validation, preview, approval, scheduling,
-activation, rollback, and retention-extension controls call the corresponding
-`/api/admin/ai-policy/*` endpoints and honor the returned mutation capability.
-Browser verification remains a separate permission-gated step. Provider screens
-mask credential fingerprints. Any new AI metric or admin endpoint must preserve
-the admitted/rejected taxonomy and privacy-safe projection boundary.
+The admin cost view (`/admin/ai`, `/admin/ai/usage`) reads usage counts,
+credits, and costs. It never reads messages, prompts, answers, or document text.
+Any new admin Vera metric must keep that boundary.
 
-The learner boundary is deliberately narrower than the historical Vera model;
-the exact feature, budget, and rollout contract is recorded in
-[`docs/vera-ai/mvp.md`](../vera-ai/mvp.md):
-`chat`, `review`, `analysis`, and `route` are the enabled MVP features;
-`ptn`, `summary`, and `drill` are rejected as feature-disabled until their
-contracts are promoted. Context and history budgets are enforced before
-dispatch, and artifact apply has no enabled registry in the MVP. In the
-automatic-context cohort, the browser supplies no source IDs: the server
-executes one closed released-learning-context tool, persists encrypted
-invocation evidence, and disables tools on the final answer turn. The rollout
-is off in development and can only advance through the approved cohort gates;
-the legacy manual path remains the rollback path.
+A Studio document that was cut off or failed after some text keeps only that
+text, and it is marked incomplete ("Belum selesai").
 
-The `vera_credit_usd_v2` ledger reserves weighted credits and integer USD
-micros across daily, ISO-week, and monthly `Asia/Jakarta` windows. It is
-scheduled to become effective at `2026-09-30T17:00:00Z`; the policy resolver
-uses `vera_quota_v1` before that cutover. A request's provider attempt records
-retain dispatch/generation evidence, while reservation settlement preserves
-known, unknown, released, and overrun outcomes. The reconciliation worker is
-lease-based, bounded, and payload-free in logs; absent generation evidence is
-conservatively marked unknown at the fixed settlement deadline.
+The learner tools are read-only and scoped to the student (see
+[`docs/vera-ai/README.md`](../vera-ai/README.md) for the tool list). The
+`VERA_MOCK_MODEL` stand-in never reaches the network, and production ignores
+the flag. `test:vera-model` checks that.
 
-The live paid-provider path is gated by a validated release manifest and
-certifier evidence. It pins the approved OpenRouter/Relace route and model,
-privacy flags, and max-price policy; a live flag alone cannot bypass the
-manifest or evidence checks. See the MVP contract and
-[`domains-and-data.md`](domains-and-data.md) for the data model and
-[`development-and-verification.md`](development-and-verification.md) for the
-worker and contract commands. Automatic context additionally requires the
-function-tool canary, serializer/input-bound evidence, exact provider identity,
-and two-stage usage/cost reconciliation. Capability, privacy, citation, or
-unknown-settlement drift blocks new automatic admissions rather than falling
-back to an uncertified provider or ungrounded answer.
+Credits are settled per run in `lib/vera/ledger.ts`. A run that is cut off after
+it starts generating is charged its completed steps plus an estimate for the
+step that was cut off, because the provider bills generation once it starts. A
+run that fails before any output is released and charged nothing. The day, week,
+and month limits are enforced before the provider is called, so a refused
+request costs nothing. A reservation that never settles, for example after a
+server crash, is released after ten minutes, free.
+
+The `OPENAI_API_KEY` secret stays server-side. Local development calls the real
+OpenAI API whenever that key is set, so use `VERA_MOCK_MODEL=1` for offline work.
 
 ## Media, workers, and headers
 

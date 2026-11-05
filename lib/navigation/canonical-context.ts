@@ -502,7 +502,7 @@ export function buildStudentAttemptHref(attemptId: string, options: { returnTo?:
   return appendQuery(`/tryout/attempt/${encodeSegment(attemptId)}${options.result ? "/result" : ""}`, params);
 }
 
-export function buildAdminAiRoute(tab: "overview" | "policies" | "providers" | "reliability" | "usage", query?: NavigationQueryInput) {
+export function buildAdminAiRoute(tab: "overview" | "usage", query?: NavigationQueryInput) {
   const path = tab === "overview" ? "/admin/ai" : `/admin/ai/${tab}`;
   if (!query) return path;
   const params = new URLSearchParams();
@@ -510,7 +510,7 @@ export function buildAdminAiRoute(tab: "overview" | "policies" | "providers" | "
   return appendQuery(path, params);
 }
 
-export function buildAdminAiAliasTarget(tab: "policies" | "usage", query?: NavigationQueryInput) {
+export function buildAdminAiAliasTarget(tab: "usage", query?: NavigationQueryInput) {
   return buildAdminAiRoute(tab, query);
 }
 

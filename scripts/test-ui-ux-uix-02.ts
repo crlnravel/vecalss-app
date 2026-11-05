@@ -128,15 +128,6 @@ excludes(kuisDetail, "Assembly Kuis", "Standalone Kuis detail must not expose as
 excludes(kuisDetail, "Bank Soal Kuis", "Standalone Kuis detail must not expose Bank Soal source UI.");
 excludes(kuisDetail, "Kelola sumber", "Standalone Kuis detail must not expose source-management navigation.");
 
-const vera = read("modules/vera-ai/VeraAiPageModule.tsx");
-includes(vera, 'dataState === "live"', "Vera actions and workspace must require live server data.");
-includes(vera, 'setDataState("unavailable")', "Vera must identify unavailable server data.");
-includes(vera, "setBackendError(veraErrorMessage(caught))", "Vera must retain actionable recovery when server hydration fails.");
-includes(vera, "setUsage(null)", "Vera must clear stale usage when hydration fails.");
-includes(vera, "Data penggunaan belum tersedia dari server.", "Vera usage must disclose unavailable server data.");
-excludes(vera, "DAILY_TOKEN_USAGE", "Vera must not fabricate a fallback quota usage value.");
-excludes(vera, "DAILY_TOKEN_LIMIT", "Vera must not fabricate a fallback quota limit value.");
-
 const tryoutBuilder = read("modules/mentor/KaptenTryoutBuilderPageModule.tsx");
 const tryoutRepository = read("lib/tryout/repository.ts");
 const tryoutActions = read("modules/mentor/tryout-actions.ts");

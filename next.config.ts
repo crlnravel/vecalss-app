@@ -58,6 +58,11 @@ const nextConfig: NextConfig = {
       "node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-linux-x64/**/*",
       "node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/**/*",
     ],
+    // The Vera Materi reader hands pdf.js the font and character-map folders by path, so the tracer cannot see them.
+    "/api/vera/**": [
+      "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/standard_fonts/**/*",
+      "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/cmaps/**/*",
+    ],
   },
   output: "standalone",
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],

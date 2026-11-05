@@ -1,151 +1,115 @@
+import "dotenv/config";
 import assert from "node:assert/strict";
 
-import { buildAdminUsageDto } from "@/lib/admin/ai-usage/aggregate";
-import { localDateToUtc, parseAdminUsageQuery, reportCost } from "@/lib/admin/ai-usage/validation";
-import type {
-  VeraAdminAdmissionDbRow,
-  VeraAdminReportDbRow,
-  VeraReportPolicy,
-} from "@/lib/admin/ai-usage/types";
+import { getAdminVeraUsage } from "../lib/admin/ai-usage/summary";
+import { prisma } from "../lib/prisma";
+import { VERA_IDR_PER_USD, VERA_LIMITS } from "../lib/vera/config";
 
-function expectThrows(action: () => unknown, message: string) {
-  assert.throws(action, message);
+// These checks write rows, so they only run against the disposable local dev database.
+if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
+  throw new Error("test:vera-admin-usage only runs against the local dev database on 127.0.0.1:55432.");
 }
 
-function requestRow(index: number, status: VeraAdminReportDbRow["status"], createdAt = new Date("2026-08-20T03:00:00.000Z")): VeraAdminReportDbRow {
-  return {
-    id: `request-${index}`,
-    studentId: `student-${index}`,
-    createdAt,
-    featureKey: "vera.chat",
-    gateway: index === 5 ? null : "mock",
-    upstreamProvider: "mock",
-    model: index === 5 ? null : "mock",
-    status,
-    inputTokens: index === 0 ? null : 10,
-    outputTokens: index === 0 ? null : 20,
-    quotaUnitsReserved: 4,
-    quotaUnitsConsumed: status === "pending" || status === "staged" ? 0 : 4,
-    quotaOverrunUnits: index === 3 ? 2 : 0,
-    tokenUsageState: index === 0 ? "unknown" : "known",
-    usageAccountingState: index === 3 ? "overrun_debt" : "known",
-    latencyMs: status === "pending" || status === "staged" ? null : 100 + index * 10,
-    timeToFirstTokenMs: status === "pending" || status === "staged" ? null : 40 + index,
-    settlementDeadlineAt: status === "pending" || status === "staged" ? new Date("2026-08-20T03:30:00.000Z") : null,
-  };
+const emails = ["vera-admin-usage-a@vecalss.local", "vera-admin-usage-b@vecalss.local"];
+let testIds: string[] = [];
+
+try {
+  const students = await Promise.all(
+    emails.map((email) =>
+      prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: { email, fullName: "Vera Admin Usage Test", passwordHash: "test-only" },
+        select: { id: true },
+      }),
+    ),
+  );
+  const [heavy, light] = students;
+  testIds = students.map((student) => student.id);
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: { in: testIds } } });
+
+  const before = await getAdminVeraUsage();
+  const now = new Date();
+  const later = new Date(now.getTime() + 1_000);
+  await prisma.veraUsageEvent.createMany({
+    data: [
+      // A settled chat answer: a request.
+      { studentId: heavy.id, kind: "chat", status: "settled", model: "test", reservedCredits: 2, credits: 2, reservedUsdMicros: BigInt(2000), costUsdMicros: BigInt(1000), createdAt: now, settledAt: now },
+      // A settled Studio run: a request.
+      { studentId: heavy.id, kind: "studio", status: "settled", model: "test", reservedCredits: 5, credits: 5, reservedUsdMicros: BigInt(11750), costUsdMicros: BigInt(3000), createdAt: now, settledAt: now },
+      // A session title: its cost counts, but it is not a request and not the last request.
+      { studentId: heavy.id, kind: "title", status: "settled", model: "test", reservedCredits: 0, credits: 0, reservedUsdMicros: BigInt(0), costUsdMicros: BigInt(300), createdAt: later, settledAt: later },
+      // A released reservation: nothing was generated, so nothing counts.
+      { studentId: heavy.id, kind: "chat", status: "released", model: "test", reservedCredits: 2, credits: 0, reservedUsdMicros: BigInt(4000), costUsdMicros: BigInt(0), createdAt: now, settledAt: now },
+      // A reservation that was never settled: the reserve is the charge.
+      { studentId: heavy.id, kind: "chat", status: "failed", model: "test", reservedCredits: 3, credits: 3, reservedUsdMicros: BigInt(7000), costUsdMicros: BigInt(0), createdAt: now, settledAt: now },
+      // A reservation still in flight: it counts toward nothing yet.
+      { studentId: heavy.id, kind: "chat", status: "reserved", model: "test", reservedCredits: 2, credits: 0, reservedUsdMicros: BigInt(9999), costUsdMicros: BigInt(0), createdAt: now },
+      // The second student: one settled chat answer.
+      { studentId: light.id, kind: "chat", status: "settled", model: "test", reservedCredits: 1, credits: 1, reservedUsdMicros: BigInt(500), costUsdMicros: BigInt(500), createdAt: now, settledAt: now },
+    ],
+  });
+
+  // The whole platform moves by exactly what the test wrote: 4 requests, 11 credits, and USD 0.0118 (title cost included).
+  const after = await getAdminVeraUsage();
+  assert.equal(after.month.requests - before.month.requests, 4, "Titles, released and in-flight rows are not requests");
+  assert.ok(Math.abs(after.month.credits - before.month.credits - 11) < 1e-9, "Credits add up across the students");
+  assert.ok(Math.abs(after.month.usd - before.month.usd - 0.0118) < 1e-9, "Spend includes title cost and the failed reserve");
+  assert.ok(
+    Math.abs(after.month.idr - after.month.usd * VERA_IDR_PER_USD) < 1e-6,
+    "Rupiah is the dollar total at the configured rate",
+  );
+
+  // Per student, the table reads the same rows: heaviest first, each window against its own limit.
+  const scoped = await getAdminVeraUsage({ studentIds: testIds });
+  assert.equal(scoped.students.length, 2);
+  assert.equal(scoped.activeStudents, 2);
+  assert.equal(scoped.month.requests, 4);
+  const [first, second] = scoped.students;
+  assert.equal(first.studentId, heavy.id, "The heaviest student comes first");
+  assert.equal(second.studentId, light.id);
+  assert.equal(first.month.credits, 10, "Settled and failed credits count; released and in-flight rows do not");
+  assert.equal(first.day.credits, 10);
+  assert.equal(first.week.credits, 10);
+  assert.ok(Math.abs(first.monthUsd - 0.0113) < 1e-9, "The student's spend is the sum of its rows' costs");
+  assert.equal(first.lastRequestAt, now.toISOString(), "A session title is not the last request");
+  assert.equal(first.day.limit, VERA_LIMITS.day.hardCredits);
+  assert.equal(first.week.limit, VERA_LIMITS.week.hardCredits);
+  assert.equal(first.month.limit, VERA_LIMITS.month.hardCredits);
+  assert.equal(second.month.credits, 1);
+  assert.deepEqual(
+    Object.keys(first).sort(),
+    ["day", "email", "lastRequestAt", "month", "monthUsd", "name", "studentId", "week"],
+    "The table carries counts, credits and costs only, never message content",
+  );
+
+  // A week that starts in last month keeps its days in the week column, while the month column counts only this month.
+  const boundary = await prisma.user.upsert({
+    where: { email: "vera-admin-usage-boundary@vecalss.local" },
+    update: {},
+    create: { email: "vera-admin-usage-boundary@vecalss.local", fullName: "Vera Admin Usage Boundary", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  testIds.push(boundary.id);
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: boundary.id } });
+  // 1 November 2026 is a Sunday, so its ISO week began on Monday 26 October, in the previous month.
+  const boundaryNow = new Date("2026-11-01T03:00:00Z");
+  const lastMonth = new Date("2026-10-28T03:00:00Z");
+  const thisMonth = new Date("2026-11-01T04:00:00Z");
+  await prisma.veraUsageEvent.createMany({
+    data: [
+      { studentId: boundary.id, kind: "chat", status: "settled", model: "test", reservedCredits: 2, credits: 2, reservedUsdMicros: BigInt(2000), costUsdMicros: BigInt(1000), createdAt: lastMonth, settledAt: lastMonth },
+      { studentId: boundary.id, kind: "chat", status: "settled", model: "test", reservedCredits: 1, credits: 1, reservedUsdMicros: BigInt(500), costUsdMicros: BigInt(500), createdAt: thisMonth, settledAt: thisMonth },
+    ],
+  });
+  const boundaryUsage = await getAdminVeraUsage({ now: boundaryNow, studentIds: [boundary.id] });
+  assert.equal(boundaryUsage.students.length, 1, "The student is listed for this month's activity");
+  assert.equal(boundaryUsage.students[0].week.credits, 3, "The week column counts last month's days that fall in this week");
+  assert.equal(boundaryUsage.students[0].month.credits, 1, "The month column counts only this month");
+  assert.equal(boundaryUsage.students[0].day.credits, 1, "The day column counts only today");
+
+  console.log("Vera admin usage checks passed.");
+} finally {
+  if (testIds.length > 0) await prisma.veraUsageEvent.deleteMany({ where: { studentId: { in: testIds } } });
+  await prisma.$disconnect();
 }
-
-function admissionRow(index: number, reason: VeraAdminAdmissionDbRow["reason"]): VeraAdminAdmissionDbRow {
-  return {
-    id: `admission-${index}`,
-    studentId: `student-${index}`,
-    occurredAt: new Date("2026-08-20T03:01:00.000Z"),
-    featureKey: "vera.chat",
-    gateway: "mock",
-    upstreamProvider: "mock",
-    model: "mock",
-    reason,
-  };
-}
-
-const fixedNow = new Date("2026-08-26T04:00:00.000Z");
-const query = parseAdminUsageQuery(new URLSearchParams({
-  from: "2026-08-20",
-  to: "2026-08-21",
-  timezone: "Asia/Jakarta",
-  include: "dailyTrend,byFeature,byModel,byStatus,incidents,comparison",
-}), fixedNow);
-
-assert.equal(query.dayCount, 1);
-assert.equal(reportCost(query.include), 10);
-assert.equal(reportCost(new Set()), 1);
-assert.equal(reportCost(new Set(["dailyTrend", "byFeature", "byModel", "byStatus", "incidents", "comparison"])), 10);
-
-const nySpringStart = localDateToUtc("2024-03-10", "America/New_York");
-const nySpringEnd = localDateToUtc("2024-03-11", "America/New_York");
-assert.equal(nySpringEnd.getTime() - nySpringStart.getTime(), 23 * 60 * 60 * 1000, "spring DST day is 23 hours");
-const nyFallStart = localDateToUtc("2024-11-03", "America/New_York");
-const nyFallEnd = localDateToUtc("2024-11-04", "America/New_York");
-assert.equal(nyFallEnd.getTime() - nyFallStart.getTime(), 25 * 60 * 60 * 1000, "fall DST day is 25 hours");
-
-expectThrows(() => parseAdminUsageQuery(new URLSearchParams({ from: "2026-08-01", to: "2026-09-02" }), fixedNow), "31-day maximum");
-expectThrows(() => parseAdminUsageQuery(new URLSearchParams({ from: "2026-08-01T00:00:00Z", to: "2026-08-02" }), fixedNow), "whole local dates only");
-expectThrows(() => parseAdminUsageQuery(new URLSearchParams({ from: "2026-08-01", to: "2026-08-02", timezone: "Mars/Olympus" }), fixedNow), "IANA timezone allowlist");
-
-const currentRequests = [
-  requestRow(0, "succeeded"),
-  requestRow(1, "succeeded"),
-  requestRow(2, "fallback"),
-  requestRow(3, "failed"),
-  requestRow(4, "pending"),
-  requestRow(5, "staged"),
-];
-const previousRequests = Array.from({ length: 6 }, (_, index) => requestRow(index, "succeeded", new Date("2026-08-19T03:00:00.000Z")));
-const currentAdmissions = [
-  admissionRow(0, "quota"),
-  admissionRow(1, "quota"),
-  admissionRow(2, "burst"),
-  admissionRow(3, "concurrency"),
-  admissionRow(4, "redis_unavailable"),
-  admissionRow(5, "quota_overrun_lock"),
-];
-const policy: VeraReportPolicy = {
-  bundleVersion: "vera-policy-test",
-  effectiveAt: new Date("2026-08-01T00:00:00.000Z"),
-  reportConfig: { unitLimit: 60, requestLimit: 10, minimumGroupSize: 5, maxRangeDays: 31 },
-};
-const built = buildAdminUsageDto({
-  query,
-  sources: {
-    requests: currentRequests,
-    admissions: currentAdmissions,
-    previousRequests,
-    previousAdmissions: currentAdmissions,
-    now: fixedNow,
-    lastUpdatedAt: new Date("2026-08-26T03:59:00.000Z"),
-  },
-  policy,
-  scheduledPolicy: null,
-});
-
-assert.equal(built.dto.summary.state, "ready");
-assert.equal(built.dto.summary.rows[0]?.requests, 6, "pending and staged remain in headline request count");
-assert.equal(built.dto.summary.rows[0]?.terminalRequests, 4, "terminal denominator excludes pending and staged");
-assert.equal(built.dto.summary.rows[0]?.successRate, 2 / 4);
-assert.equal(built.dto.summary.rows[0]?.promptTokens, 30, "null token usage is excluded rather than coerced to zero");
-assert.equal(built.dto.summary.rows[0]?.unknownUsage, 1);
-assert.equal(built.dto.summary.rows[0]?.overrunDebtUnits, 2);
-assert.equal(built.dto.byFeature.state, "suppressed", "unsafe feature partition is suppressed with complement protection");
-assert.equal(built.dto.incidents.state, "suppressed", "incident cohorts use the same k=5 complement rule");
-assert.equal(built.dto.comparison.state, "suppressed", "current/previous comparison applies one union complement boundary");
-assert.equal(built.dto.freshness.state, "fresh");
-assert.equal(built.outcome, "suppressed");
-assert.equal(JSON.stringify(built.dto).includes("request-"), false, "DTO must not contain request identifiers");
-assert.equal(JSON.stringify(built.dto).includes("student-"), false, "DTO must not contain student identifiers");
-
-// A daily trend with six affected students and one complement must not be
-// widened into a ready/coarsened row. Repeat the same query to prove the
-// suppression decision is deterministic and cannot be differenced into a
-// hidden cohort value.
-const trendQuery = parseAdminUsageQuery(new URLSearchParams({
-  from: "2026-08-20",
-  to: "2026-08-22",
-  timezone: "Asia/Jakarta",
-  include: "dailyTrend,comparison",
-}), fixedNow);
-const adversarialRows = Array.from({ length: 7 }, (_, index) => requestRow(index, "succeeded", new Date(index < 6 ? "2026-08-20T03:00:00.000Z" : "2026-08-21T03:00:00.000Z")));
-const adversarialPrevious = Array.from({ length: 7 }, (_, index) => requestRow(index, "succeeded", new Date("2026-08-19T03:00:00.000Z")));
-const adversarialSources = {
-  requests: adversarialRows,
-  admissions: [],
-  previousRequests: adversarialPrevious,
-  now: fixedNow,
-  lastUpdatedAt: new Date("2026-08-26T03:59:00.000Z"),
-};
-const adversarialA = buildAdminUsageDto({ query: trendQuery, sources: adversarialSources, policy, scheduledPolicy: null });
-const adversarialB = buildAdminUsageDto({ query: trendQuery, sources: adversarialSources, policy, scheduledPolicy: null });
-assert.equal(adversarialA.dto.dailyTrend.state, "suppressed", "6-of-7 daily trend cannot coarsen around a one-student complement");
-assert.equal(adversarialA.dto.comparison.state, "suppressed", "6-of-7 comparison cannot expose current/previous complements");
-assert.deepEqual(adversarialB.dto, adversarialA.dto, "repeated adversarial queries must return the same suppression boundary");
-
-console.log("vera admin usage unit checks passed");

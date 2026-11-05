@@ -1,7 +1,7 @@
 # PTN Pro project wiki
 
-> Source snapshot: 23 September 2026 after the automatic-context rollout and
-> gate-snapshot migration work. This wiki describes
+> Source snapshot: 2 November 2026, after the Vera OpenAI rebuild on the
+> `feat/vera-openai` branch. This wiki describes
 > the tracked repository state at that snapshot; source code, `PRODUCT.md`,
 > `DESIGN.md`, and the Prisma schema remain authoritative when this snapshot
 > becomes stale. The shared worktree also contains unrelated uncommitted
@@ -21,7 +21,7 @@ content author), and Administrator.
 - [Development and verification](development-and-verification.md) — setup, guarded commands, current contract suites, and known verification limits.
 - [Operations and security](operations-and-security.md) — authentication, preview safety, assessment releases, media, and AI privacy.
 - [Current state](current-state.md) — recent completed slices, evidence, caveats, and follow-up work.
-- [Vera AI MVP](../vera-ai/mvp.md) — launch features, context boundary, credit/USD budget, provider contract, and rollout checklist.
+- [Vera AI](../vera-ai/README.md) — what Vera does, its environment, credits and limits, tools and data boundary, and how to run its checks.
 
 ## Product at a glance
 
@@ -33,7 +33,7 @@ flowchart LR
     Tryout --> Results[Results and\nnext steps]
     Kapten[Kapten\nContent author] --> Authoring[Materi, Kuis,\nBank Soal, Tryout, Media]
     Authoring --> Materi
-    Admin[Administrator] --> Operations[Enrollment, imports,\nnotifications, audit, AI control plane]
+    Admin[Administrator] --> Operations[Enrollment, imports,\nnotifications, audit, Vera cost view]
     Affiliator[Affiliator] --> Referrals[Referral codes and\nattributed purchases]
     Vera[Vera AI] --> Voyager
     Operations --> Vera
@@ -42,7 +42,7 @@ flowchart LR
 The student loop is intentionally connected to the content-authoring and
 assessment workspaces. The Kapten workspace is a CMS-like authoring surface,
 not a student-management dashboard. Administrator screens handle operations
-and governance, including the Vera AI control plane; the separate Affiliator
+and governance, including the Vera AI cost view; the separate Affiliator
 workspace handles referral attribution and purchase visibility.
 
 ## Source hierarchy
@@ -71,9 +71,5 @@ tree.
 
 The wiki intentionally links to existing deep guides instead of duplicating
 them. [`docs/tryout-creation-guide.md`](../tryout-creation-guide.md) remains
-the detailed Indonesian Tryout authoring guide, and
-[`docs/vera-ai/openrouter-free-poc.md`](../vera-ai/openrouter-free-poc.md)
-remains the provider POC note.
-The paid-MVP contract is in
-[`docs/vera-ai/mvp.md`](../vera-ai/mvp.md); the free POC is development-only
-and does not inherit the paid provider's privacy guarantees.
+the detailed Indonesian Tryout authoring guide. The Vera AI reference is
+[`docs/vera-ai/README.md`](../vera-ai/README.md).

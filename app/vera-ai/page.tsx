@@ -1,32 +1,56 @@
-import { Suspense } from "react";
+// KaTeX styles load only with the Vera page, which is where math answers appear.
+import "katex/dist/katex.min.css";
 
 import { requireStudentSession } from "@/lib/auth/access";
-import { canonicalContextMessage, parseStudentContext, type NavigationQueryValue } from "@/lib/navigation/canonical-context";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
+import { getConversationWithMessages, getLatestConversationId, listSessions } from "@/lib/vera/conversations";
+import { getVeraUsageSnapshot } from "@/lib/vera/ledger";
+import { isUuid } from "@/lib/vera/sources/types";
+import { getStudioDocument, listStudioDocuments } from "@/lib/vera/studio-documents";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
-import { VeraAiPageModule } from "@/modules/vera-ai/VeraAiPageModule";
+import { VeraPageModule } from "@/modules/vera/VeraPageModule";
 
-export default async function VeraAiPage({ searchParams }: { searchParams: Promise<Record<string, NavigationQueryValue>> }) {
-  const session = await requireStudentSession();
-  const [notificationFeed, query] = await Promise.all([
-    getStudentNotificationFeed({ userId: session.user.id }),
-    searchParams,
-  ]);
-  const context = parseStudentContext(query);
-  if (context.issues.length) {
-    return (
-      <CourseWorkspaceShell activeLabel="Vera AI" breadcrumbLabel="Vera AI" notificationFeed={notificationFeed} session={session} showSearch={false}>
-        <section aria-labelledby="vera-context-unavailable" className="rounded-3xl border border-student-status-danger-border bg-student-status-danger-bg px-5 py-8 text-student-status-danger-fg" role="alert">
-          <h1 className="text-lg font-semibold" id="vera-context-unavailable">Konteks Vera tidak tersedia</h1>
-          <p className="mt-2 text-sm leading-6">{canonicalContextMessage(context.issues)}</p>
-        </section>
-      </CourseWorkspaceShell>
-    );
-  }
+/**
+ * `?c=<id>` opens that session, `?c=new` opens an empty one, and no valid parameter opens the latest session.
+ * `?c=new&n=<nonce>` opens a new session even when the page already shows one. "Sesi baru" adds the nonce.
+ * `?tab=studio&doc=<id>` opens the Studio tab with that document open.
+ */
+export default async function VeraAiPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ c?: string; tab?: string; doc?: string; n?: string }>;
+}) {
+  const [session, { c, tab, doc, n }] = await Promise.all([requireStudentSession(), searchParams]);
+  const studentId = session.user.id;
+  const nonce = n && /^\d{1,16}$/u.test(n) ? n : "";
+  const explicit = c === "new" ? "new" : c && isUuid(c) ? c : undefined;
+  const initialTab = tab === "studio" ? "studio" : "chat";
+  const [notificationFeed, initialUsage, initialSessions, latestConversationId, initialStudioDocs, initialStudioDocument] =
+    await Promise.all([
+      getStudentNotificationFeed({ userId: studentId }),
+      getVeraUsageSnapshot({ studentId }),
+      listSessions({ studentId, archived: false }),
+      explicit === undefined ? getLatestConversationId(studentId) : Promise.resolve(null),
+      listStudioDocuments({ studentId }),
+      initialTab === "studio" && doc && isUuid(doc) ? getStudioDocument({ studentId, id: doc }) : Promise.resolve(null),
+    ]);
+  const conversationId = explicit === "new" ? null : (explicit ?? latestConversationId);
+  const conversation = conversationId ? await getConversationWithMessages(studentId, conversationId) : null;
 
   return (
-    <Suspense fallback={<div className="student-page-canvas min-h-svh" />}>
-      <VeraAiPageModule notificationFeed={notificationFeed} returnToHref={context.returnTo} session={session} />
-    </Suspense>
+    <CourseWorkspaceShell activeLabel="Vera AI" breadcrumbLabel="Vera AI" notificationFeed={notificationFeed} session={session} showSearch={false}>
+      <VeraPageModule
+        // A new key remounts the page when the session, the tab, the open document or the nonce changes, so each starts from its own state.
+        key={`${conversation?.id ?? "new"}:${initialTab}:${initialStudioDocument?.id ?? ""}:${nonce}`}
+        conversationId={conversation?.id ?? null}
+        initialMessages={conversation?.messages ?? []}
+        initialSessions={initialSessions}
+        initialStudioDocs={initialStudioDocs}
+        initialStudioDocument={initialStudioDocument}
+        initialTab={initialTab}
+        initialUsage={initialUsage}
+        studentId={studentId}
+      />
+    </CourseWorkspaceShell>
   );
 }

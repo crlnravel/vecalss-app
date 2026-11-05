@@ -5231,7 +5231,7 @@ async function getStandaloneQuizAttempt(
       policy,
       quiz: { ...quiz, ...policy },
     };
-  });
+  }, { maxWait: 5_000, timeout: 15_000 });
 }
 
 async function saveStandaloneQuizAnswer(
@@ -5807,7 +5807,7 @@ async function getStandaloneQuizResult(
       title: quiz.title,
       totalQuestions,
     };
-  });
+  }, { maxWait: 5_000, timeout: 15_000 });
 }
 
 async function getStandaloneQuizAttemptId(

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+
+import { ADMIN_USAGE_STUDENT_LIMIT, getAdminVeraUsage } from "@/lib/admin/ai-usage/summary";
 import { requireAdminSession } from "@/lib/auth/access";
-import { AiUsagePageModule } from "@/modules/admin/ai/AiUsagePageModule";
+import { VeraUsageNote, VeraUsageStudentTable, VeraUsageTotalCards } from "@/modules/admin/ai-usage/VeraUsageViews";
+import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +13,28 @@ export const metadata: Metadata = {
 
 export default async function AdminAiUsagePage() {
   const session = await requireAdminSession();
-  return <AiUsagePageModule session={session} />;
+  const usage = await getAdminVeraUsage();
+  const listed = Math.min(usage.activeStudents, ADMIN_USAGE_STUDENT_LIMIT);
+
+  return (
+    <PortalShell activeAdminSection="ai-usage" audience="admin" description="Pemakaian Vera AI bulan ini, per siswa." session={session} title="Pemakaian">
+      <div className="flex flex-col gap-8">
+        <VeraUsageTotalCards label="Bulan ini" totals={usage.month} />
+
+        <section aria-labelledby="vera-students" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-secondary-950" id="vera-students">
+              Per siswa
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {usage.activeStudents} siswa memakai Vera bulan ini. Daftar menampilkan {listed} dengan pemakaian tertinggi.
+            </p>
+          </div>
+          <VeraUsageStudentTable caption="Pemakaian Vera AI per siswa bulan ini" students={usage.students} />
+        </section>
+
+        <VeraUsageNote generatedAt={usage.generatedAt} />
+      </div>
+    </PortalShell>
+  );
 }

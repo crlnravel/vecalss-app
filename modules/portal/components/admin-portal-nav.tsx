@@ -33,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "ai" | "students" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "docs" | "table-demo";
+type AdminSection = "overview" | "ai" | "students" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "student-banners" | "docs" | "table-demo";
 
 type AdminNavigationItem = {
   href: string;

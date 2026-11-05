@@ -1,20 +1,17 @@
 # Current state and handoff
 
-> Snapshot recorded 23 September 2026 after the automatic-context rollout,
-> per-student gate, and gate-snapshot migration work. Re-check `git status`,
-> migration status, and harness tracking before another implementation slice.
-> This page does not absorb concurrent uncommitted product edits.
+> Snapshot recorded 2 November 2026, after the Vera OpenAI rebuild on
+> `feat/vera-openai`. Re-check `git status`, migration status, and harness
+> tracking before another implementation slice. This page does not absorb
+> concurrent uncommitted product edits.
 
 ## Implemented or materially advanced
 
 | Area | Current source evidence | Status and boundary |
 | --- | --- | --- |
-| Vera learner MVP | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), [`docs/vera-ai/automatic-context.md`](../vera-ai/automatic-context.md), `lib/vera-ai/contracts.ts`, `context-pack.ts`, `studio-contracts.ts` | Enabled features are `chat`, `review`, `analysis`, and `route`; context/history budgets and typed outputs are enforced. Automatic context is implemented behind an off-by-default rollout gate; the legacy manual path remains available while the gate is off. `ptn`, `summary`, and `drill` remain explicitly feature-disabled, and no provider-backed apply registry is enabled. |
-| Vera conversation lifecycle | `modules/vera-ai/VeraAiPageModule.tsx`, `lib/vera-ai/learner-service.ts`, `app/api/vera-ai/conversations/` | Session titles are renamed inline from the `Sesi` sidebar. Sessions can be reversibly archived/restored; delete continues through the idempotent lifecycle purge path. Local development ignores the paid provider flag and uses the gated free POC or local mock path. |
-| Vera credit/USD admission | `lib/vera-ai/quota-v2.ts`, `billing.ts`, `admission-service.ts`, `prisma/schema.prisma` | Daily/ISO-week/month windows, weighted credits, USD-micro exposure, monetary debt, idempotent reservation settlement, and append-only billing corrections are implemented. The v2 ledger is scheduled for `2026-09-30T17:00:00Z`; before then the policy resolver selects `vera_quota_v1`. |
-| Vera paid provider | [`docs/vera-ai/mvp.md`](../vera-ai/mvp.md), `lib/vera-ai/provider.ts`, `certifiers/`, `scripts/test-vera-paid-provider.ts` | Release-gated OpenRouter direct routing to Relace and `deepseek/deepseek-v4-flash-0731`, with privacy/max-price/certifier evidence checks and generation-cost reconciliation. A live flag or API key alone is insufficient. |
-| Vera reconciliation worker | `workers/vera-ai-reconciliation-worker.ts`, `package.json` | Lease-based claims, bounded concurrency, generation evidence polling, conservative unknown settlement, and correction lineage are implemented. Deployment/readiness and secret configuration still need environment-specific verification. |
-| Vera admin control plane | `/admin/ai/*`, `/admin/ai/policies`, `modules/admin/AiPolicyPageModule.tsx`, `/api/admin/ai-policy/*` | The canonical policy page is wired to actor-scoped backend metadata and draft/validate/preview/approve/schedule/activate/rollback/retention endpoints. Browser verification remains permission-gated. |
+| Vera AI | [`docs/vera-ai/README.md`](../vera-ai/README.md), `lib/vera/`, `modules/vera/`, `app/vera-ai/`, `app/api/vera/` | Streamed chat on OpenAI with three effort levels, `@` sources, sessions (rename, archive, delete, and a title after the first answer), and Studio with three tools that save documents. Real answers need `OPENAI_API_KEY`. Built on `feat/vera-openai` and not pushed. |
+| Vera credit ledger | `lib/vera/ledger.ts`, `usage-tracker.ts`, `credits-shared.ts`, `windows.ts` | Each run reserves credits before the model is called and settles them when it ends. Day, week, and month limits, the burst and busy limits, and the monthly USD cap are checked when the reservation is taken. |
+| Vera admin cost view | `/admin/ai`, `/admin/ai/usage`, `lib/admin/ai-usage/summary.ts` | Requests, credits, and USD (with IDR) for the day and the month, and a per-student table with each limit's usage. It shows counts and costs, never message text. Not yet checked in a browser. |
 | Admin-import worker | `workers/admin-import-worker.ts`, `lib/admin/imports/runtime.ts`, `dispatch.ts` | Readiness/heartbeat, bounded BullMQ dispatch, stale-claim/queue-job repair, row-claim reaping, and retention cleanup are implemented; worker credentials and disposable smoke URLs still require an approved environment. |
 | Kuis versioning | `StandaloneQuizVersion`, Kuis version migrations, `lib/quiz/repository.ts`, `lib/quiz/versioning-runtime.ts` | Persistence and default runtime cutover are now in place. Draft revision checks, semantic digests, idempotent publication, active/superseded versions, version-scoped items/participations, and historical attempt pinning are implemented. `KUIS_VERSIONING_CUTOVER=disabled` is an explicit rollback switch. |
 | Tryout lifecycle | `AssessmentRelease`, delivery/admission/attempt/result repositories | The release boundary remains immutable and deterministic: Ready assembly → release → admission/session → seven runs → scoring/result release. Preview reads and explicit preview restarts remain separate. |
@@ -28,14 +25,10 @@ The repository exposes focused evidence for the latest boundaries:
 - Kuis storage/runtime: `test:standalone-quiz-version-storage`,
   `test:standalone-quiz-version-runtime`, `test:kuis-versioning`, and
   `test:assessment-answer-contract`;
-- Vera MVP: `test:vera-mvp-contracts`, `test:vera-auto-context-foundation`,
-  `test:vera-auto-context-orchestrator`, `test:vera-auto-context-ui`, and
-  `test:vera-auto-context-operations`;
-- Vera billing/worker: `test:vera-billing-v2`,
-  `vera:reconciliation-worker:check`;
-- Vera paid provider: `test:vera-paid-provider`;
-- Tryout release/scoring/participant contracts and the existing admin AI
-  control-plane suite;
+- Vera AI: the `test:vera-*` suites listed in
+  [`development-and-verification.md`](development-and-verification.md), and
+  `test:vera-obscura-smoke` for the browser path;
+- Tryout release/scoring/participant contracts;
 - focused operational-primitive, mentor, media, authoring, and suite-manifest
   contracts documented in [`development-and-verification.md`](development-and-verification.md).
 
@@ -54,18 +47,34 @@ Guarded contract evidence recorded on 22 September 2026:
   `scripts/test-kuis-assembly-binding.ts:101` because the current editor does
   not contain the asserted `Buka Bank Soal` copy. No source or test fix was
   made during this verification pass.
-- **Passed Vera contracts:** `test:admin-ai-control-plane` (30 checks),
-  `test:vera-mvp-contracts`, `test:vera-billing-v2`,
-  `test:vera-paid-provider` (6 checks), and
-  `vera:reconciliation-worker:check` (worker typecheck).
 
 Every command was launched serially through
 `_harness/resource-guard.sh run -- rtk pnpm ...`; the failures were
-source/contract drift, not resource or environment blockers. This run did not
+source/contract drift, not resource or environment blockers. That pass did not
 include full lint/build, Prisma status or migrations, live worker execution,
 or browser verification. Passing source contracts do not prove that a
-configured database has applied the 71 migration files, that provider secrets
-and release evidence are deployed, or that the live UI renders correctly.
+configured database has applied the 90 migration folders, that provider secrets
+are deployed, or that the live UI renders correctly.
+
+### Vera rebuild evidence (2 November 2026)
+
+Observed in this pass, on the local dev database (`127.0.0.1:55432`), with the
+OpenAI API never called:
+
+- Passed: `tsc --noEmit`, and ESLint on every Vera, admin, and test file the
+  pass touched.
+- Passed: `test:vera-studio`, `test:vera-admin-usage`, and `test:vera-model`
+  on their final code. `test:vera-chat`, `test:vera-ledger`,
+  `test:vera-authorization`, `test:vera-tools`, `test:vera-mentions`, and
+  `test:vera-sessions` passed before the admin view and the dev stand-in flag
+  were added, and they have not run since.
+- Failed: `test:vera-obscura-smoke`. The browser submitted the login form, and
+  the dev server answered `POST /login 200`, but the page never reached
+  `/dashboard`. The cause is not yet known. One hypothesis is that the login
+  page did not hydrate in Obscura, because it reached the dev server as
+  `host.docker.internal`.
+- Not run: the full `pnpm lint`, `pnpm build`, and a browser check by a person.
+  The pdf.js trace in the standalone build is therefore unverified.
 
 ## Shared-worktree ownership
 
@@ -79,9 +88,9 @@ uncommitted paths observed outside this wiki were:
 - `scripts/test-tryout-authoring-workspace.ts`;
 - `public/mascott.webm` and the untracked `public/mascot.webm`.
 
-This refresh edits only `docs/wiki/*`. Do not stage or reset the paths above;
-they belong to other work. Harness memory/tracking files were not changed by
-this wiki update.
+This refresh edits only `docs/wiki/*` and `docs/vera-ai/*`. Do not stage or
+reset the paths above; they belong to other work. Harness memory/tracking files
+were not changed by this wiki update.
 
 ## Remaining work map
 
@@ -89,17 +98,16 @@ this wiki update.
    against the intended disposable/staging database, then apply or verify the
    current migration set as an explicitly owned operation. Do not infer this
    from migration filenames.
-2. **Vera worker readiness.** Supply the deployment-owned HMAC/encryption,
-   OpenRouter, generation-evidence, Redis, and disposable-test settings as
-   appropriate; run the worker typecheck and a controlled one-cycle/readiness
-   check. Confirm logs contain only operational counters, not payloads.
-3. **Paid-provider release operations.** Revalidate the manifest, certifier
-   artifact, privacy evidence, price snapshot, and expiry before enabling live
-   traffic. Keep the provider disabled when any evidence is missing.
-4. **Browser acceptance.** Request explicit permission with routes, role, and
-   checklist before checking `/admin/ai/policies`, `/vera-ai`, Kuis, Tryout
-   delivery, or the deferred mentor rollout surfaces. No browser result is
-   implied by this page.
+2. **Vera smoke.** Make `test:vera-obscura-smoke` pass. The first run logged in,
+   but the browser stayed on `/login`. Confirm whether the login page hydrates
+   when Obscura loads it from `host.docker.internal`, since Next's dev-origin
+   checks may block its scripts there.
+3. **Production build.** Run `pnpm build`, then check that the Vera API routes'
+   trace files list the pdf.js `standard_fonts` and `cmaps` folders.
+4. **Browser acceptance.** Ask for explicit permission before any ego-browser
+   check, naming the routes (`/vera-ai` and `/admin/ai/usage`), the roles
+   (Voyager and Admin), and the checklist. No browser result is implied by this
+   page.
 5. **Known deferred slices.** Keep the admin-import English-copy baseline,
    rich searchable-selector/custom-chip migration, and any feature-specific
    UI polish separate from the completed contracts above.

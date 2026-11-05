@@ -1786,9 +1786,8 @@ async function deleteQuestionBank(
     }
     const modifierId = actorId;
 
-    const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount, sourcePackageCount, sourcePackageVersionCount, scopedPackageVersionCount] = await Promise.all([
+    const [sourceQuizCount, referencedQuestionCount, referencedOptionCount, sourcePackageCount, sourcePackageVersionCount, scopedPackageVersionCount] = await Promise.all([
       tx.standaloneQuiz.count({ where: { sourceBankId: id } }),
-      tx.adaptivePracticeSession.count({ where: { fallbackQuestionBankId: id } }),
       tx.question.count({
         where: {
           questionBankId: id,
@@ -1798,7 +1797,6 @@ async function deleteQuestionBank(
             { tryoutItems: { some: {} } },
             { quizAnswers: { some: {} } },
             { dailyMissionQuestion: { some: {} } },
-            { adaptivePracticeAnswers: { some: {} } },
             { reusablePackageItems: { some: {} } },
             { reusablePackageVersionItems: { some: {} } },
           ],
@@ -1820,7 +1818,7 @@ async function deleteQuestionBank(
       tx.reusableQuestionPackageVersionBankScope.count({ where: { questionBankId: id } }),
     ]);
 
-    if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount || sourcePackageCount || sourcePackageVersionCount || scopedPackageVersionCount) {
+    if (sourceQuizCount || referencedQuestionCount || referencedOptionCount || sourcePackageCount || sourcePackageVersionCount || scopedPackageVersionCount) {
       throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan dalam kuis, Tryout, atau sesi belajar.");
     }
 
