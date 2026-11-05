@@ -222,7 +222,7 @@ try {
   assert.ok(JSON.stringify(stoppedAnswer.parts).includes("data-vera-status"), "The partial answer is marked as stopped");
   assert.ok(JSON.stringify(stoppedAnswer.parts).includes("Ini "), "The partial answer keeps the streamed text");
 
-  // Aborting after generation started still charges: the first step was cut off, so the reserve is the charge.
+  // Aborting after generation started still charges: the cut-off step costs its estimated input and the output it streamed.
   const stoppedUsage = await waitFor(
     () =>
       prisma.veraUsageEvent
@@ -234,8 +234,16 @@ try {
     "the stopped answer's usage to settle",
   );
   assert.equal(stoppedUsage.status, "settled", "An aborted answer that started generating is settled, not released");
-  assert.equal(Number(stoppedUsage.credits), 2, "An aborted first step is charged the cepat reserve");
+  assert.ok(
+    Number(stoppedUsage.credits) >= 0.1 && Number(stoppedUsage.credits) < 2,
+    "An aborted first step is charged what it streamed, below the cepat reserve",
+  );
   assert.equal(stoppedUsage.errorCode, "aborted", "The settled row records why the answer ended early");
+  const stoppedAnswerRow = await prisma.veraMessage.findFirst({
+    where: { conversationId: stoppedConversationId, role: "assistant" },
+    select: { credits: true },
+  });
+  assert.equal(Number(stoppedAnswerRow?.credits), Number(stoppedUsage.credits), "The stopped answer shows the charge it settled");
 
   // A provider failure before any output releases the reservation: nothing was generated, so nothing is billed.
   setVeraModelForTests(

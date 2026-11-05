@@ -280,7 +280,7 @@ try {
   assert.equal(Number(setupUsage?.credits), 0, "A released setup failure is charged nothing");
   assert.equal(await prisma.veraStudioDocument.count({ where: { studentId: streamId } }), 0, "A setup failure saves no document");
 
-  // A run cut off after its first words keeps them as an incomplete document, and is charged the Mendalam reserve.
+  // A run cut off after its first words keeps them as an incomplete document, and is charged for the words it streamed.
   setVeraModelForTests(
     scriptedModel([{ chunks: answerChunks(["Bagian pertama dokumen ", "yang belum selesai ditulis."]), chunkDelayInMs: 40 }]),
   );
@@ -292,7 +292,10 @@ try {
   const cutDocument = await waitFor(() => getStudioDocument({ studentId: streamId, id: cutId }), "the cut-off document to be saved");
   assert.equal(cutDocument.complete, false, "A run cut off after some text is kept as incomplete");
   assert.ok(cutDocument.markdown.includes("Bagian pertama dokumen"), "The words written before the cut are kept");
-  assert.equal(cutDocument.credits, 5, "A cut-off run is charged the Mendalam reserve");
+  assert.ok(
+    cutDocument.credits >= 0.1 && cutDocument.credits < 5,
+    "A cut-off run is charged for what it streamed, below the Mendalam reserve",
+  );
   const cutUsage = await waitFor(
     () =>
       prisma.veraUsageEvent.findFirst({
@@ -326,7 +329,10 @@ try {
   const broken = await waitFor(() => getStudioDocument({ studentId: streamId, id: brokenId }), "the interrupted document to be saved");
   assert.equal(broken.complete, false, "A failure after some text is kept as incomplete");
   assert.ok(broken.markdown.includes("Rute yang sempat tersusun"), "The words written before the failure are kept");
-  assert.equal(broken.credits, 5, "A failed run that wrote text is charged the Mendalam reserve");
+  assert.ok(
+    broken.credits >= 0.1 && broken.credits < 5,
+    "A failed run that wrote text is charged for what it streamed, below the Mendalam reserve",
+  );
   const brokenUsage = await waitFor(
     () =>
       prisma.veraUsageEvent.findFirst({

@@ -69,10 +69,11 @@ The learner tools are read-only and scoped to the student (see
 the flag. `test:vera-model` checks that.
 
 Credits are settled per run in `lib/vera/ledger.ts`. A run that is cut off after
-it starts generating is charged at least its effort's reserve, because the
-provider bills generation once it starts. A run that fails before any output is
-released and charged nothing. The day, week, and month limits are enforced
-before the provider is called, so a refused request costs nothing.
+it starts generating is charged its completed steps plus an estimate for the
+step that was cut off, because the provider bills generation once it starts. A
+run that fails before any output is released and charged nothing. The day, week,
+and month limits are enforced before the provider is called, so a refused
+request costs nothing.
 
 The `OPENAI_API_KEY` secret stays server-side. Local development calls the real
 OpenAI API whenever that key is set, so use `VERA_MOCK_MODEL=1` for offline work.

@@ -260,7 +260,7 @@ export async function settleVeraUsage({
 }: {
   eventId: string;
   usage: VeraTokenUsage & { reasoningTokens: number; steps: number };
-  /** Defaults to the provider cost of the recorded tokens. Pass a floor for a step that was cut off. */
+  /** Defaults to the provider cost of the recorded tokens. A cut-off answer passes its charge, which includes an estimate for the cut-off step. */
   chargedMicros?: number;
   /** Null for a finished answer. "aborted" or "error" marks an answer that ended early. */
   errorCode?: string | null;

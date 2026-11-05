@@ -34,26 +34,23 @@ export function creditsForUsage(usage: VeraTokenUsage, prices: VeraPrices = VERA
 export type SettlementCharge = { kind: "release" } | { kind: "settle"; chargedMicros: number };
 
 /**
- * What an answer costs when it ends. OpenAI bills tokens as soon as generation
- * starts, so a step that began producing output but never finished is charged
- * at least the effort's reserve. An answer that produced no output is released.
+ * What an answer costs when it ends. Its completed steps cost what the provider
+ * reported. A step cut off after it began streaming costs `cutOffMicros`, an
+ * estimate of its input and of the output it streamed, because OpenAI bills
+ * generation once it starts. An answer that streamed nothing at all is released.
  */
 export function settlementCharge({
   actualMicros,
   completedSteps,
-  unfinishedStepStarted,
-  reserveCredits,
+  cutOffMicros,
 }: {
   actualMicros: number;
   completedSteps: number;
-  unfinishedStepStarted: boolean;
-  reserveCredits: number;
+  /** The estimate for the cut-off step, or null when it streamed nothing. */
+  cutOffMicros: number | null;
 }): SettlementCharge {
-  if (completedSteps === 0 && !unfinishedStepStarted) return { kind: "release" };
-  if (unfinishedStepStarted) {
-    return { kind: "settle", chargedMicros: Math.max(actualMicros, reserveCredits * VERA_LIMITS.microUsdPerCredit) };
-  }
-  return { kind: "settle", chargedMicros: actualMicros };
+  if (completedSteps === 0 && cutOffMicros === null) return { kind: "release" };
+  return { kind: "settle", chargedMicros: actualMicros + (cutOffMicros ?? 0) };
 }
 
 const SYSTEM_TOKENS = 1_200;

@@ -16,7 +16,7 @@ import { VERA_EFFORTS, VERA_LIMITS } from "./config";
 import { VeraError } from "./errors";
 import { getVeraPrices, releaseVeraReservation, reserveVeraCredits } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
-import { buildVeraInstructions } from "./prompt";
+import { buildVeraInstructions, estimateTokens } from "./prompt";
 import { getKuisAttemptReview, listKuisAttempts } from "./sources/kuis";
 import { getTryoutResultReview, listTryoutResults } from "./sources/tryout";
 import { collectSources, uniqueSources, type VeraSource } from "./sources/types";
@@ -81,12 +81,19 @@ export async function runVeraStudio({
     const firstName = student?.fullName?.trim().split(/\s+/)[0] || "siswa";
     const instructions = `${buildVeraInstructions({ firstName, now })}\n\n${studioInstructions(request.tool)}`;
 
-    const usage = trackAnswerUsage({ eventId, effort, prices });
+    // The request is the first step's only message, so its input is estimated from it and from the instructions.
+    const requestMessages = [{ role: "user" as const, content: studioRequestText(request, target ?? undefined) }];
+    const usage = trackAnswerUsage({
+      eventId,
+      effort,
+      prices,
+      firstStepInputTokens: estimateTokens(instructions + JSON.stringify(requestMessages)),
+    });
     const finalStep = finalStepControl({ maxSteps: VERA_LIMITS.studioMaxSteps, effort, prices });
     const result = streamText({
       model,
       instructions,
-      messages: [{ role: "user", content: studioRequestText(request, target ?? undefined) }],
+      messages: requestMessages,
       abortSignal: signal,
       maxOutputTokens: effort.maxOutputTokens,
       maxRetries: 1,

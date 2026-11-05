@@ -39,9 +39,12 @@ cost (micro-USD) = noCacheInput x 0.10 + cachedInput x 0.01 + output x 0.50
 credits          = cost / 2,350, rounded up to 0.1
 ```
 
-One credit is USD 0.00235. Before each model step the effort's reserve is
-held. A step that started but was cut off is charged at least its reserve. A
-run that wrote no output is released and charged nothing.
+One credit is USD 0.00235. Before a request the effort's reserve is held, and
+the settled charge replaces it. A completed step is charged what the provider
+reported. A run that was stopped or failed is charged its completed steps plus
+an estimate for the step that was cut off: its input, and the output it streamed
+at about four characters a token. A run that streamed nothing is released and
+charged nothing.
 
 | Effort | Reasoning | Output cap | Reserve | Ceiling |
 | --- | --- | ---: | ---: | ---: |

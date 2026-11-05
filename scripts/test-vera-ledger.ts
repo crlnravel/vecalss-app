@@ -1,10 +1,12 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
 
+import type { LanguageModelUsage } from "ai";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
 import { runVeraChat } from "../lib/vera/chat";
+import { VERA_EFFORTS } from "../lib/vera/config";
 import {
   costUsdMicros,
   creditsForUsage,
@@ -13,6 +15,7 @@ import {
   formatCredits,
   formatCreditRange,
   settlementCharge,
+  VERA_DEFAULT_PRICES,
 } from "../lib/vera/credits-shared";
 import {
   getVeraUsageSnapshot,
@@ -23,6 +26,7 @@ import {
   type VeraLimitCode,
 } from "../lib/vera/ledger";
 import { setVeraModelForTests } from "../lib/vera/model";
+import { trackAnswerUsage } from "../lib/vera/usage-tracker";
 import { dayWindow, monthWindow, weekWindow } from "../lib/vera/windows";
 
 // These checks write rows, so they only run against the disposable local dev database.
@@ -138,33 +142,147 @@ try {
   assert.ok(range.low >= 0.1 && range.high >= range.low, "The estimate range is ordered");
   assert.equal(formatCredits(0.6), "0,6");
 
-  // Settlement after a cut-off step. OpenAI bills generation once it starts, so a cut-off step is charged at least the reserve.
+  // Settlement. A completed step costs what the provider reported. A step cut off after it streamed costs an estimate on top of that,
+  // because OpenAI bills generation once it starts. An answer that streamed nothing is released.
   assert.deepEqual(
-    settlementCharge({ actualMicros: 0, completedSteps: 0, unfinishedStepStarted: false, reserveCredits: 3 }),
+    settlementCharge({ actualMicros: 0, completedSteps: 0, cutOffMicros: null }),
     { kind: "release" },
     "No output at all releases the reservation",
   );
   assert.deepEqual(
-    settlementCharge({ actualMicros: 0, completedSteps: 0, unfinishedStepStarted: true, reserveCredits: 3 }),
-    { kind: "settle", chargedMicros: 7_050 },
-    "An aborted first step is charged the reserve (3 credits)",
+    settlementCharge({ actualMicros: 0, completedSteps: 0, cutOffMicros: 107 }),
+    { kind: "settle", chargedMicros: 107 },
+    "A cut-off first step is charged its estimate",
   );
   assert.deepEqual(
-    settlementCharge({ actualMicros: 1_000, completedSteps: 1, unfinishedStepStarted: true, reserveCredits: 3 }),
-    { kind: "settle", chargedMicros: 7_050 },
-    "A finished step plus a cut-off second step is charged at least the reserve",
+    settlementCharge({ actualMicros: 110, completedSteps: 1, cutOffMicros: 1_000 }),
+    { kind: "settle", chargedMicros: 1_110 },
+    "A finished step plus a cut-off second step is charged both",
   );
   assert.deepEqual(
-    settlementCharge({ actualMicros: 9_000, completedSteps: 1, unfinishedStepStarted: true, reserveCredits: 3 }),
-    { kind: "settle", chargedMicros: 9_000 },
-    "A higher actual cost is charged in full",
-  );
-  assert.deepEqual(
-    settlementCharge({ actualMicros: 500, completedSteps: 1, unfinishedStepStarted: false, reserveCredits: 3 }),
+    settlementCharge({ actualMicros: 500, completedSteps: 1, cutOffMicros: null }),
     { kind: "settle", chargedMicros: 500 },
     "Finished steps are charged their exact cost",
   );
   assert.equal(formatCreditRange({ low: 0.3, high: 1.2 }), "≈ 0,3–1,2 kredit");
+
+  // The tracker settles through the ledger, one reserved answer per case. The rows are written directly, so the limits do not apply.
+  const trackedStudent = await prisma.user.upsert({
+    where: { email: "vera-ledger-tracker@vecalss.local" },
+    update: {},
+    create: { email: "vera-ledger-tracker@vecalss.local", fullName: "Vera Ledger Tracker", passwordHash: "test-only" },
+    select: { id: true },
+  });
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: trackedStudent.id } });
+  const reservedAnswer = () =>
+    prisma.veraUsageEvent.create({
+      data: {
+        studentId: trackedStudent.id,
+        kind: "chat",
+        status: "reserved",
+        effort: "cepat",
+        model: "test",
+        reservedCredits: 2,
+        credits: 2,
+        reservedUsdMicros: BigInt(4_700),
+        createdAt: new Date(),
+      },
+      select: { id: true },
+    });
+  const settledRow = (eventId: string) =>
+    prisma.veraUsageEvent.findUniqueOrThrow({
+      where: { id: eventId },
+      select: { status: true, costUsdMicros: true, credits: true, errorCode: true, steps: true, inputTokens: true, outputTokens: true },
+    });
+  // A step's usage in the shape the SDK reports it. Only the fields the tracker reads are filled in.
+  const stepUsage = (inputTokens: number, outputTokens: number) =>
+    ({
+      inputTokens,
+      inputTokenDetails: { noCacheTokens: inputTokens, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      outputTokens,
+      outputTokenDetails: { textTokens: outputTokens, reasoningTokens: 0 },
+      totalTokens: inputTokens + outputTokens,
+    }) as unknown as LanguageModelUsage;
+  const cepatEffort = VERA_EFFORTS.cepat;
+  const prices = VERA_DEFAULT_PRICES;
+
+  // A cut-off first step costs its estimated input and the output it streamed: 50 characters, about 13 tokens. That is below the reserve.
+  const firstEvent = await reservedAnswer();
+  const firstAnswer = trackAnswerUsage({ eventId: firstEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  firstAnswer.onChunk({ chunk: { type: "text-delta", text: "a".repeat(30) } });
+  firstAnswer.onChunk({ chunk: { type: "text-delta", text: "b".repeat(20) } });
+  await firstAnswer.onAbort();
+  const firstRow = await settledRow(firstEvent.id);
+  const firstMicros = costUsdMicros({ noCacheInputTokens: 1_000, cachedInputTokens: 0, outputTokens: 13 }, prices);
+  assert.equal(firstRow.status, "settled", "An aborted first step that streamed is settled");
+  assert.equal(Number(firstRow.costUsdMicros), firstMicros, "A cut-off first step costs its estimated input and the output it streamed");
+  assert.equal(Number(firstRow.credits), creditsFromMicros(firstMicros));
+  assert.ok(firstMicros < 4_700, "The estimate is below the cepat reserve of 2 credits");
+  assert.equal(firstRow.errorCode, "aborted");
+  assert.equal(firstRow.steps, 0, "No step completed");
+
+  // A finished tool step is charged what it cost. The cut-off step after it is estimated from its input: the step before it, that step's
+  // output, and the tool result it read. The token columns keep the finished step only.
+  const toolOutput = { hits: [{ title: "Materi uji", href: "/courses/penalaran-umum/uji" }] };
+  const secondEvent = await reservedAnswer();
+  const secondAnswer = trackAnswerUsage({ eventId: secondEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 900 });
+  secondAnswer.onChunk({ chunk: { type: "tool-input-delta", delta: "x".repeat(20) } });
+  secondAnswer.onChunk({ chunk: { type: "tool-result", output: toolOutput } });
+  secondAnswer.onStepEnd({ usage: stepUsage(1_000, 20) });
+  secondAnswer.onChunk({ chunk: { type: "text-delta", text: "y".repeat(30) } });
+  await secondAnswer.onAbort();
+  const secondRow = await settledRow(secondEvent.id);
+  const finishedMicros = costUsdMicros({ noCacheInputTokens: 1_000, cachedInputTokens: 0, outputTokens: 20 }, prices);
+  const cutOffMicros = costUsdMicros(
+    {
+      noCacheInputTokens: 1_000 + 20 + Math.ceil(JSON.stringify(toolOutput).length / 4),
+      cachedInputTokens: 0,
+      outputTokens: Math.ceil(30 / 4),
+    },
+    prices,
+  );
+  assert.equal(Number(secondRow.costUsdMicros), finishedMicros + cutOffMicros, "A finished step is charged, plus the estimate for the cut-off step");
+  assert.equal(secondRow.steps, 1, "Only the finished step counts as a completed step");
+  assert.equal(secondRow.inputTokens, 1_000, "The token columns keep the finished step's provider count");
+  assert.equal(secondRow.outputTokens, 20);
+
+  // A longer partial answer costs more than a shorter one cut off at the same point.
+  const shortEvent = await reservedAnswer();
+  const shortAnswer = trackAnswerUsage({ eventId: shortEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  shortAnswer.onChunk({ chunk: { type: "text-delta", text: "z".repeat(8) } });
+  await shortAnswer.onAbort();
+  const longEvent = await reservedAnswer();
+  const longAnswer = trackAnswerUsage({ eventId: longEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  longAnswer.onChunk({ chunk: { type: "text-delta", text: "z".repeat(400) } });
+  await longAnswer.onAbort();
+  const shortRow = await settledRow(shortEvent.id);
+  const longRow = await settledRow(longEvent.id);
+  assert.ok(Number(longRow.costUsdMicros) > Number(shortRow.costUsdMicros), "A longer partial costs more than a shorter one");
+
+  // A completed answer is charged its provider-reported cost, as before.
+  const doneEvent = await reservedAnswer();
+  const doneAnswer = trackAnswerUsage({ eventId: doneEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  doneAnswer.onChunk({ chunk: { type: "text-delta", text: "Oke." } });
+  doneAnswer.onStepEnd({ usage: stepUsage(500, 100) });
+  await doneAnswer.onEnd();
+  const doneRow = await settledRow(doneEvent.id);
+  assert.equal(doneRow.status, "settled");
+  assert.equal(
+    Number(doneRow.costUsdMicros),
+    costUsdMicros({ noCacheInputTokens: 500, cachedInputTokens: 0, outputTokens: 100 }, prices),
+    "A completed answer is charged its provider-reported cost",
+  );
+  assert.equal(doneRow.errorCode, null, "A completed answer records no error");
+
+  // A provider failure before any output releases the reservation, and nothing is billed.
+  const failedEvent = await reservedAnswer();
+  const failedAnswer = trackAnswerUsage({ eventId: failedEvent.id, effort: cepatEffort, prices, firstStepInputTokens: 1_000 });
+  await failedAnswer.onError();
+  const failedRow = await settledRow(failedEvent.id);
+  assert.equal(failedRow.status, "released", "A failure before any output releases the reservation");
+  assert.equal(Number(failedRow.credits), 0);
+  assert.equal(failedRow.errorCode, "error");
+  await prisma.veraUsageEvent.deleteMany({ where: { studentId: trackedStudent.id } });
 
   // Windows in WIB, including the day, week and month edges.
   assert.equal(dayWindow(new Date("2026-11-03T23:59:59+07:00")).start.toISOString(), "2026-11-02T17:00:00.000Z");

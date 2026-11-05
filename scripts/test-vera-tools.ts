@@ -675,17 +675,18 @@ try {
   assert.ok(!storedJson.includes(owned.tryout.title), "The stored answer never shows the refused result");
   assert.equal(foreignAnswer.sources, null, "The refused answer lists no source");
 
-  // Cut off during a second step. The finished tool step is billed, and the answer is billed at least the cepat reserve (2 credits).
+  // Cut off during a second step. The finished tool step is billed at its cost, and the cut-off step adds an estimate on top of it.
   const shortConversationId = await cutOffAfterToolStep(testStudent.id, [100, 1_000]);
   createdConversationIds.push(shortConversationId);
   const shortFirst = await settledUsage(shortConversationId);
   assert.equal(shortFirst.status, "settled", "An answer cut off after generation started is settled");
   assert.equal(shortFirst.errorCode, "aborted");
   assert.equal(shortFirst.steps, 1, "Only the finished tool step counts as a completed step");
-  assert.equal(Number(shortFirst.costUsdMicros), 4_700, "A cut-off step is charged the reserve when the finished step cost less");
-  assert.equal(Number(shortFirst.credits), 2);
+  // The finished step alone costs 510 micro-USD (100 input and 1,000 output tokens), so the estimate is what lifts the charge above it.
+  assert.ok(Number(shortFirst.costUsdMicros) > 510, "The cut-off step adds its estimate to the finished step's cost");
+  assert.ok(Number(shortFirst.credits) < 2, "A short finished step and its estimate cost less than the cepat reserve");
 
-  // When the finished step cost more than the reserve, the charge is what it actually cost.
+  // A finished step that cost more than the reserve is charged in full, and the cut-off estimate adds to it.
   const longConversationId = await cutOffAfterToolStep(testStudent.id, [1_000, 10_000]);
   createdConversationIds.push(longConversationId);
   const longFirst = await settledUsage(longConversationId);
@@ -694,8 +695,8 @@ try {
   assert.equal(longFirst.steps, 1);
   assert.equal(Number(longFirst.inputTokens), 1_000);
   assert.equal(Number(longFirst.outputTokens), 10_000);
-  assert.equal(Number(longFirst.costUsdMicros), 5_100, "A finished step that cost more than the reserve is charged in full");
-  assert.equal(Number(longFirst.credits), 2.2);
+  assert.ok(Number(longFirst.costUsdMicros) > 5_100, "The cut-off estimate adds to a finished step that cost more than the reserve");
+  assert.ok(Number(longFirst.credits) >= 2.2);
 
   // PDF limits: a file over 25 MB is not read at all. Work that runs past its time limit gives up with null, so the lesson reports
   // that it is not available instead of holding a model call.
