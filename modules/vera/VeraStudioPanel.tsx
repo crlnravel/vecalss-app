@@ -3,10 +3,6 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 
 import { ToolStep } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
@@ -15,6 +11,7 @@ import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/v
 import { STUDIO_TOOLS, type StudioRequest } from "@/lib/vera/studio";
 import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
 import { useVeraStudioDocs } from "@/modules/vera/use-vera-studio";
+import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
 import { VeraStudioDocCards, VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioTools } from "@/modules/vera/VeraStudioTools";
 
@@ -114,7 +111,7 @@ export function VeraStudioPanel({
           <p className="mb-3 text-xs text-muted-foreground" role="status">
             {busy ? "Vera sedang menyusun dokumen…" : previewSaved ? "Dokumen tersimpan. Lihat di daftar di bawah." : null}
           </p>
-          <div className="max-w-[68ch] space-y-3 break-words text-base leading-[1.7]">
+          <div className="max-w-[68ch] space-y-3 text-base leading-[1.7]">
             {(preview?.parts ?? []).map((part, index) => {
               if (isToolUIPart(part)) {
                 return (
@@ -127,16 +124,7 @@ export function VeraStudioPanel({
                 );
               }
               if (part.type === "text") {
-                return (
-                  <div className="min-w-0 break-words" key={index}>
-                    <ReactMarkdown
-                      rehypePlugins={[[rehypeKatex, { strict: "ignore", throwOnError: false }]]}
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                    >
-                      {part.text}
-                    </ReactMarkdown>
-                  </div>
-                );
+                return <VeraMarkdown key={index}>{part.text}</VeraMarkdown>;
               }
               return null;
             })}

@@ -6,10 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 
 import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
 import { Reasoning } from "@/components/ai-elements/reasoning";
@@ -42,6 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
+import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraStudioPanel } from "@/modules/vera/VeraStudioPanel";
 import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
@@ -556,17 +553,9 @@ function ThreadMessage({
           }
           if (part.type === "text") {
             return (
-              <div
-                className="min-w-0 max-w-[68ch] break-words [&_a]:font-semibold [&_a]:text-voyage-deep [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded-indicator [&_code]:bg-secondary-50 [&_code]:px-1 [&_h1]:font-heading [&_h1]:text-lg [&_h1]:font-extrabold [&_h2]:font-heading [&_h2]:font-extrabold [&_h3]:font-heading [&_h3]:font-bold [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-control [&_pre]:bg-secondary-50 [&_pre]:p-3 [&_strong]:font-semibold [&_table]:block [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-5"
-                key={index}
-              >
-                <ReactMarkdown
-                  rehypePlugins={[[rehypeKatex, { strict: "ignore", throwOnError: false }]]}
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                >
-                  {part.text}
-                </ReactMarkdown>
-              </div>
+              <VeraMarkdown className="max-w-[68ch]" key={index}>
+                {part.text}
+              </VeraMarkdown>
             );
           }
           return null;
