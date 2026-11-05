@@ -20,11 +20,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import { Ellipsis } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { cn } from "@/lib/utils";
 
-/** One session in the sidebar: open it, rename it inline, archive or restore it, or delete it after a confirmation. */
+/** One session in the list: open it, rename it inline, archive or restore it, or delete it after a confirmation. */
 export function VeraSessionRow({
   session,
   active,
@@ -59,7 +60,7 @@ export function VeraSessionRow({
     return (
       <input
         aria-label="Nama sesi"
-        className="h-10 w-full min-w-0 rounded-lg border border-border bg-card px-2 text-sm"
+        className={fieldControlClassName}
         maxLength={120}
         onBlur={commit}
         onChange={(event) => setDraft(event.target.value)}
@@ -81,10 +82,15 @@ export function VeraSessionRow({
 
   return (
     <>
-      <div className={cn("flex items-center gap-1 rounded-lg pr-1", active && "bg-muted")}>
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-control pr-1 transition-colors motion-reduce:transition-none",
+          active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60",
+        )}
+      >
         <button
           aria-current={active ? "true" : undefined}
-          className="min-w-0 flex-1 truncate px-2 py-2 text-left text-sm"
+          className="min-h-[44px] min-w-0 flex-1 truncate rounded-control px-3 text-left text-sm font-medium"
           onClick={() => onOpen(session.id)}
           type="button"
         >
@@ -93,7 +99,7 @@ export function VeraSessionRow({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button aria-label={`Aksi untuk sesi ${session.title}`} size="icon-sm" type="button" variant="quiet" />
+              <Button aria-label={`Aksi untuk sesi ${session.title}`} size="icon" type="button" variant="quiet" />
             }
           >
             <Ellipsis />

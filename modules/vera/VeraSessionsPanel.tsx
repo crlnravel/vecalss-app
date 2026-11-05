@@ -1,13 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Plus } from "@/lib/icons";
+import { SunkenTabButton } from "@/components/ui/sunken-tabs";
+import { PanelLeftClose, Plus } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
-import { cn } from "@/lib/utils";
 import type { SessionView } from "@/modules/vera/use-vera-sessions";
 import { VeraSessionRow } from "@/modules/vera/VeraSessionRow";
 
-/** The session list, the archive toggle and the new-session button. The desktop sidebar and the mobile dialog both use it. */
+/** The new-session button, the Aktif and Arsip filters, and the list. The desktop panel and the mobile sheet both use it. */
 export function VeraSessionsPanel({
   view,
   sessions,
@@ -20,6 +20,7 @@ export function VeraSessionsPanel({
   onRename,
   onArchive,
   onDelete,
+  onCollapse,
 }: {
   view: SessionView;
   sessions: VeraSessionSummary[];
@@ -32,38 +33,56 @@ export function VeraSessionsPanel({
   onRename: (id: string, title: string) => void;
   onArchive: (id: string, toArchive: boolean) => void;
   onDelete: (id: string) => void;
+  /** Only the desktop panel can fold into the icon rail, so only it passes this. */
+  onCollapse?: () => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-secondary-950">Sesi</h2>
-        <Button onClick={onNew} size="sm" type="button" variant="outline">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Button className="flex-1" onClick={onNew} type="button">
           <Plus />
           Sesi baru
         </Button>
+        {onCollapse ? (
+          <Button aria-label="Sembunyikan sesi" onClick={onCollapse} size="icon" type="button" variant="quiet">
+            <PanelLeftClose />
+          </Button>
+        ) : null}
       </div>
 
-      <div aria-label="Tampilan sesi" className="flex rounded-full bg-muted p-1" role="tablist">
-        <ViewButton onClick={() => onViewChange("active")} selected={view === "active"}>
-          Sesi
-        </ViewButton>
-        <ViewButton onClick={() => onViewChange("archived")} selected={view === "archived"}>
+      <div aria-label="Tampilan sesi" className="grid grid-cols-2 gap-1.5" role="group">
+        <SunkenTabButton
+          aria-pressed={view === "active"}
+          layout="equal"
+          onClick={() => onViewChange("active")}
+          selected={view === "active"}
+          type="button"
+        >
+          Aktif
+        </SunkenTabButton>
+        <SunkenTabButton
+          aria-pressed={view === "archived"}
+          layout="equal"
+          onClick={() => onViewChange("archived")}
+          selected={view === "archived"}
+          type="button"
+        >
           Arsip
-        </ViewButton>
+        </SunkenTabButton>
       </div>
 
       {error ? (
-        <p className="text-sm text-muted-foreground" role="alert">
+        <p className="px-1 text-sm text-muted-foreground" role="alert">
           {error}
         </p>
       ) : null}
 
-      {loading && sessions.length === 0 ? <p className="text-sm text-muted-foreground">Memuat…</p> : null}
+      {loading && sessions.length === 0 ? <p className="px-1 text-sm text-muted-foreground">Memuat…</p> : null}
       {!loading && sessions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{view === "archived" ? "Belum ada arsip." : "Belum ada sesi."}</p>
+        <p className="px-1 text-sm text-muted-foreground">{view === "archived" ? "Belum ada arsip." : "Belum ada sesi."}</p>
       ) : null}
 
-      <ul className="flex flex-col gap-1 overflow-y-auto">
+      <ul className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
         {sessions.map((session) => (
           <li key={session.id}>
             <VeraSessionRow
@@ -78,30 +97,5 @@ export function VeraSessionsPanel({
         ))}
       </ul>
     </div>
-  );
-}
-
-function ViewButton({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      aria-selected={selected}
-      className={cn(
-        "min-h-9 flex-1 rounded-full px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
-        selected ? "bg-card text-secondary-950 shadow-sm" : "text-muted-foreground hover:text-secondary-950",
-      )}
-      onClick={onClick}
-      role="tab"
-      type="button"
-    >
-      {children}
-    </button>
   );
 }
