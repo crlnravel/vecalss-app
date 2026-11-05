@@ -61,6 +61,27 @@ async function finishedSession(studentId: string, title?: string) {
   return conversationId;
 }
 
+/** A session whose first question is saved. An answer is saved too when one is given, and an empty answer is a stopped one with no text. */
+async function questionSession(studentId: string, question: string, answer?: string) {
+  const conversationId = await createConversation(studentId);
+  createdConversationIds.push(conversationId);
+  const asked = new Date();
+  await appendMessages(conversationId, [
+    { id: `u-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text: question }], createdAt: asked },
+  ]);
+  if (answer !== undefined) {
+    await appendMessages(conversationId, [
+      {
+        id: `a-${crypto.randomUUID()}`,
+        role: "assistant",
+        parts: answer ? [{ type: "text", text: answer }] : [],
+        createdAt: new Date(asked.getTime() + 1_000),
+      },
+    ]);
+  }
+  return conversationId;
+}
+
 try {
   const testStudent = await prisma.user.upsert({
     where: { email: "vera-sessions-test@vecalss.local" },
@@ -239,6 +260,40 @@ try {
   );
   const kept = await prisma.veraConversation.findUnique({ where: { id: renamedFirst }, select: { title: true } });
   assert.equal(kept?.title, "Nama sendiri");
+
+  // A stopped first answer can leave only the question saved, or an answer with no text. Either way the session is titled from the question.
+  const questionOnly = await questionSession(testStudent.id, `Pertanyaan ${token} tanpa jawaban`);
+  setVeraModelForTests(sessionModel("Judul dari pertanyaan"));
+  assert.equal(
+    await titleConversation({ studentId: testStudent.id, conversationId: questionOnly }),
+    "Judul dari pertanyaan",
+    "A session with only the question is titled from it",
+  );
+  const questionEvent = await prisma.veraUsageEvent.findFirst({
+    where: { conversationId: questionOnly, kind: "title" },
+    select: { status: true, credits: true },
+  });
+  assert.equal(questionEvent?.status, "settled");
+  assert.equal(Number(questionEvent?.credits), 0, "The title from the question costs no credits");
+  const emptyAnswer = await questionSession(testStudent.id, `Pertanyaan ${token} dengan jawaban kosong`, "");
+  assert.equal(
+    await titleConversation({ studentId: testStudent.id, conversationId: emptyAnswer }),
+    "Judul dari pertanyaan",
+    "A stopped answer with no text is titled from the question",
+  );
+  assert.equal(
+    await titleConversation({ studentId: testStudent.id, conversationId: questionOnly }),
+    null,
+    "A session titled from the question is not titled again",
+  );
+  assert.equal(await prisma.veraUsageEvent.count({ where: { conversationId: questionOnly, kind: "title" } }), 1);
+  const renamedQuestion = await questionSession(testStudent.id, `Pertanyaan ${token} diganti`);
+  await updateSession({ studentId: testStudent.id, conversationId: renamedQuestion, title: "Nama sendiri" });
+  assert.equal(
+    await titleConversation({ studentId: testStudent.id, conversationId: renamedQuestion }),
+    null,
+    "A session the student renamed keeps the student's name",
+  );
 
   // The title is one clean line, no quotes, no closing full stop, at most 60 characters.
   assert.equal(cleanTitle('  "Persentase  bertingkat".  '), "Persentase bertingkat");
