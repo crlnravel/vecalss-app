@@ -1,30 +1,34 @@
 import * as React from "react";
 
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/components/ui/input-group";
+import { Button } from "@/components/ui/button";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import { ArrowUp, Stop } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
-/** Mirrors the AI Elements Prompt Input: a form around an input group, with a submit or stop action. */
+/** Mirrors the AI Elements Prompt Input: a white card around a sunken field, with a submit or stop action. */
 export type PromptInputStatus = "ready" | "submitted" | "streaming" | "error";
 
 function PromptInput({ className, ...props }: React.ComponentProps<"form">) {
   return <form className={cn("w-full", className)} {...props} />;
 }
 
-function PromptInputBody({ className, ...props }: React.ComponentProps<typeof InputGroup>) {
-  return <InputGroup className={cn("h-auto rounded-3xl bg-card", className)} {...props} />;
+function PromptInputBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-2 rounded-card border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)]",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 /** Enter sends the message; Shift+Enter adds a line. */
-function PromptInputTextarea({ className, onKeyDown, ...props }: React.ComponentProps<typeof InputGroupTextarea>) {
+function PromptInputTextarea({ className, onKeyDown, ...props }: React.ComponentProps<"textarea">) {
   return (
-    <InputGroupTextarea
-      className={cn("max-h-40 min-h-16 p-3", className)}
+    <textarea
+      className={cn(fieldControlClassName, "field-sizing-content max-h-40 resize-none", className)}
       onKeyDown={(event) => {
         onKeyDown?.(event);
         if (event.defaultPrevented) return;
@@ -38,8 +42,8 @@ function PromptInputTextarea({ className, onKeyDown, ...props }: React.Component
   );
 }
 
-function PromptInputFooter({ className, ...props }: React.ComponentProps<typeof InputGroupAddon>) {
-  return <InputGroupAddon align="block-end" className={cn("justify-between gap-2 px-3 pb-3", className)} {...props} />;
+function PromptInputFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return <div className={cn("flex items-center justify-between gap-2", className)} {...props} />;
 }
 
 function PromptInputSubmit({
@@ -48,37 +52,37 @@ function PromptInputSubmit({
   disabled,
   className,
   ...props
-}: Omit<React.ComponentProps<typeof InputGroupButton>, "onClick"> & {
+}: Omit<React.ComponentProps<typeof Button>, "onClick"> & {
   status?: PromptInputStatus;
   onStop?: () => void;
 }) {
   if (status === "submitted" || status === "streaming") {
     return (
-      <InputGroupButton
+      <Button
         aria-label="Hentikan jawaban"
-        className={cn("rounded-full", className)}
+        className={cn("shrink-0", className)}
         onClick={onStop}
-        size="icon-sm"
+        size="icon"
         type="button"
         variant="outline"
         {...props}
       >
         <Stop weight="fill" />
-      </InputGroupButton>
+      </Button>
     );
   }
   return (
-    <InputGroupButton
+    <Button
       aria-label="Kirim pesan"
-      className={cn("rounded-full", className)}
+      className={cn("shrink-0", className)}
       disabled={disabled}
-      size="icon-sm"
+      size="icon"
       type="submit"
       variant="default"
       {...props}
     >
       <ArrowUp weight="bold" />
-    </InputGroupButton>
+    </Button>
   );
 }
 
