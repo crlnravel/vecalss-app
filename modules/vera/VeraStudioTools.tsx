@@ -2,17 +2,11 @@
 
 import { type ReactNode, useRef, useState } from "react";
 
+import { ReferenceSelectField } from "@/components/dashboard/reference-select-field";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { fieldControlClassName } from "@/components/ui/field-constants";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
-import { type AppIcon, ChevronDown, Compass, ListChecks, Target } from "@/lib/icons";
+import { type AppIcon, Compass, ListChecks, Target } from "@/lib/icons";
 import { STUDY_ROUTE_MINUTES, STUDIO_TOOLS, type StudioRequest } from "@/lib/vera/studio";
 import { quizSubjects } from "@/modules/quiz/data";
 import type { MentionCandidate, MentionGroups } from "@/modules/vera/mention-model";
@@ -20,6 +14,11 @@ import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 150;
 const ALL_SUBTESTS = "semua";
+const SUBTEST_OPTIONS = [
+  { label: "Semua subtes", value: ALL_SUBTESTS },
+  ...quizSubjects.map((subject) => ({ label: subject.title, value: subject.title })),
+];
+const MINUTE_OPTIONS = STUDY_ROUTE_MINUTES.map((value) => ({ label: `${value} menit`, value: String(value) }));
 
 type PickedResult = { type: "kuis" | "tryout"; id: string; label: string };
 
@@ -83,19 +82,13 @@ export function VeraStudioTools({
         icon={Target}
         label={STUDIO_TOOLS.weakness_analysis.label}
       >
-        <ToolOption label="Fokus subtes" valueLabel={subtest || "Semua subtes"}>
-          <DropdownMenuRadioGroup
-            onValueChange={(next) => setSubtest(next === ALL_SUBTESTS ? "" : next)}
-            value={subtest || ALL_SUBTESTS}
-          >
-            <DropdownMenuRadioItem value={ALL_SUBTESTS}>Semua subtes</DropdownMenuRadioItem>
-            {quizSubjects.map((subject) => (
-              <DropdownMenuRadioItem key={subject.title} value={subject.title}>
-                {subject.title}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </ToolOption>
+        <ReferenceSelectField
+          id="vera-studio-subtes"
+          label="Fokus subtes"
+          onValueChange={(next) => setSubtest(next === ALL_SUBTESTS ? "" : next)}
+          options={SUBTEST_OPTIONS}
+          value={subtest || ALL_SUBTESTS}
+        />
       </ToolCard>
 
       <ToolCard
@@ -113,18 +106,13 @@ export function VeraStudioTools({
         icon={Compass}
         label={STUDIO_TOOLS.study_route.label}
       >
-        <ToolOption label="Menit per hari" valueLabel={`${minutes} menit`}>
-          <DropdownMenuRadioGroup
-            onValueChange={(next) => setMinutes(Number(next) as (typeof STUDY_ROUTE_MINUTES)[number])}
-            value={String(minutes)}
-          >
-            {STUDY_ROUTE_MINUTES.map((value) => (
-              <DropdownMenuRadioItem key={value} value={String(value)}>
-                {value} menit
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </ToolOption>
+        <ReferenceSelectField
+          id="vera-studio-menit"
+          label="Menit per hari"
+          onValueChange={(next) => setMinutes(Number(next) as (typeof STUDY_ROUTE_MINUTES)[number])}
+          options={MINUTE_OPTIONS}
+          value={String(minutes)}
+        />
       </ToolCard>
 
       <ToolCard
@@ -239,26 +227,5 @@ function ToolCard({
         {action}
       </div>
     </article>
-  );
-}
-
-/** A Studio option: a labelled trigger that opens the shared dropdown menu. */
-function ToolOption({ children, label, valueLabel }: { children: ReactNode; label: string; valueLabel: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-heading text-xs font-semibold tracking-[0.04em] text-secondary-600">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label={`${label}: ${valueLabel}`}
-          render={<Button className="w-full justify-between" variant="outline" />}
-        >
-          <span className="truncate">{valueLabel}</span>
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
-          {children}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   );
 }
