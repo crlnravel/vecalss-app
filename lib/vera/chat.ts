@@ -93,12 +93,9 @@ export async function runVeraChat({
     history = conversation.messages;
   }
 
-  // Pinned sources are read before anything is reserved or written, so a refused source costs nothing.
-  const pinned = await resolveMentions({ studentId, mentions: input.mentions, now });
-  const mentionSources = pinned.accepted.flatMap((mention) => (mention.source ? [mention.source] : []));
   const effort = VERA_EFFORTS[input.effort];
   const prices = getVeraPrices();
-  // A refused request throws here, before the conversation or the message is written and before the provider is called.
+  // A refused request throws here, before any pinned source is read, before anything is written, and before the provider is called.
   const { eventId } = await reserveVeraCredits({
     studentId,
     effort: input.effort,
@@ -111,9 +108,14 @@ export async function runVeraChat({
   let conversationId: string;
   let instructions: string;
   let modelMessages: ModelMessage[];
+  // The pinned sources the server could open. They are read only after the reservation is taken.
+  let mentionSources: VeraSource[] = [];
   // Set only when this request created the session, so a failed setup can take that empty session back out.
   let createdConversationId: string | null = null;
   try {
+    // Any failure in this block releases the reservation, so a broken setup never holds the student's limit.
+    const pinned = await resolveMentions({ studentId, mentions: input.mentions, now });
+    mentionSources = pinned.accepted.flatMap((mention) => (mention.source ? [mention.source] : []));
     conversationId = input.conversationId ?? (await createConversation(studentId));
     if (!input.conversationId) {
       createdConversationId = conversationId;
@@ -143,59 +145,68 @@ export async function runVeraChat({
     throw error;
   }
 
+  let response: Response;
+  try {
+    const usage = trackAnswerUsage({ eventId, effort, prices });
+    const result = streamText({
+      model,
+      instructions,
+      messages: modelMessages,
+      abortSignal: signal,
+      maxOutputTokens: effort.maxOutputTokens,
+      maxRetries: 1,
+      tools: createVeraTools({ studentId, now }),
+      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
+      providerOptions: {
+        openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
+      },
+      onChunk: usage.onChunk,
+      onStepEnd: usage.onStepEnd,
+      onEnd: usage.onEnd,
+      onAbort: usage.onAbort,
+      onError: usage.onError,
+    });
+
+    const stream = toUIMessageStream({
+      stream: result.stream,
+      originalMessages: [userMessage],
+      generateMessageId: () => crypto.randomUUID(),
+      messageMetadata: ({ part }) => {
+        if (part.type === "start") return { conversationId, effort: input.effort, sources: mentionSources };
+        if (part.type === "finish") return { effort: input.effort, credits: usage.creditsForAnswer() };
+        return undefined;
+      },
+      onError: () => "Vera belum bisa menjawab sekarang. Coba kirim lagi.",
+      onEnd: async ({ messages, isAborted, isCancelled }) => {
+        await persistAnswer({
+          studentId,
+          conversationId,
+          messages,
+          effort: input.effort,
+          credits: usage.creditsForAnswer(),
+          stopped: isAborted || isCancelled === true,
+          mentionSources,
+        });
+      },
+    });
+
+    response = createUIMessageStreamResponse({
+      stream,
+      consumeSseStream: consumeStream,
+      headers: { "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" },
+    });
+  } catch (error) {
+    // The stream never started, so nothing else will settle the reservation. Release it here.
+    await releaseVeraReservation({ eventId, errorCode: "setup_failed", now });
+    if (createdConversationId) await discardEmptyConversation({ studentId, conversationId: createdConversationId });
+    throw error;
+  }
+
   // The first answer of a session is titled once the response has finished. Later answers keep the title.
   if (!history.some((message) => message.role === "assistant")) {
     scheduleConversationTitle({ studentId, conversationId });
   }
-
-  const usage = trackAnswerUsage({ eventId, effort, prices });
-  const result = streamText({
-    model,
-    instructions,
-    messages: modelMessages,
-    abortSignal: signal,
-    maxOutputTokens: effort.maxOutputTokens,
-    maxRetries: 1,
-    tools: createVeraTools({ studentId, now }),
-    stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
-    providerOptions: {
-      openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
-    },
-    onChunk: usage.onChunk,
-    onStepEnd: usage.onStepEnd,
-    onEnd: usage.onEnd,
-    onAbort: usage.onAbort,
-    onError: usage.onError,
-  });
-
-  const stream = toUIMessageStream({
-    stream: result.stream,
-    originalMessages: [userMessage],
-    generateMessageId: () => crypto.randomUUID(),
-    messageMetadata: ({ part }) => {
-      if (part.type === "start") return { conversationId, effort: input.effort, sources: mentionSources };
-      if (part.type === "finish") return { effort: input.effort, credits: usage.creditsForAnswer() };
-      return undefined;
-    },
-    onError: () => "Vera belum bisa menjawab sekarang. Coba kirim lagi.",
-    onEnd: async ({ messages, isAborted, isCancelled }) => {
-      await persistAnswer({
-        studentId,
-        conversationId,
-        messages,
-        effort: input.effort,
-        credits: usage.creditsForAnswer(),
-        stopped: isAborted || isCancelled === true,
-        mentionSources,
-      });
-    },
-  });
-
-  return createUIMessageStreamResponse({
-    stream,
-    consumeSseStream: consumeStream,
-    headers: { "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" },
-  });
+  return response;
 }
 
 /**

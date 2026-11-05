@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { serverLogger } from "@/lib/server-logger";
 import { VERA_EFFORTS, VERA_LIMITS } from "./config";
 import { VeraError } from "./errors";
-import { getVeraPrices, reserveVeraCredits } from "./ledger";
+import { getVeraPrices, releaseVeraReservation, reserveVeraCredits } from "./ledger";
 import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions } from "./prompt";
 import { getKuisAttemptReview, listKuisAttempts } from "./sources/kuis";
@@ -36,9 +36,9 @@ import { trackAnswerUsage } from "./usage-tracker";
 type ResolvedTarget = ReviewTarget & { source: VeraSource };
 
 /**
- * Runs one Studio tool and streams its document. The reservation is taken before the model is called. Once the run has written any
- * text, its document is saved, marked incomplete when the run was cut off or failed. A run that wrote no text saves nothing. Its usage
- * is settled either way.
+ * Runs one Studio tool and streams its document. The reservation is taken before anything is read and before the model is called.
+ * Once the run has written any text, its document is saved, marked incomplete when the run was cut off or failed. A run that wrote no
+ * text saves nothing. Its usage is settled either way, and a run that fails before it streams releases its reservation.
  */
 export async function runVeraStudio({
   studentId,
@@ -56,16 +56,9 @@ export async function runVeraStudio({
     throw new VeraError("vera_unavailable", "Vera sedang tidak tersedia. Coba lagi nanti.");
   }
 
-  // A review must name a result the student may read. Nothing is reserved for a request that cannot run.
-  const target =
-    request.tool === "wrong_answer_review" ? await resolveReviewTarget(studentId, request.input.target, now) : null;
-  if (request.tool === "wrong_answer_review" && !target) {
-    throw new VeraError("not_found", "Belum ada hasil yang bisa dibahas.");
-  }
-
   const effort = VERA_EFFORTS[request.effort];
   const prices = getVeraPrices();
-  // A refused run throws here, before anything is written and before the provider is called.
+  // A refused run throws here, before anything is read or written and before the provider is called.
   const { eventId } = await reserveVeraCredits({
     studentId,
     effort: request.effort,
@@ -74,62 +67,75 @@ export async function runVeraStudio({
     now,
   });
 
-  const documentId = crypto.randomUUID();
-  const title = studioTitle(request.tool, now);
-  const student = await prisma.user.findUnique({ where: { id: studentId }, select: { fullName: true } });
-  const firstName = student?.fullName?.trim().split(/\s+/)[0] || "siswa";
-  const instructions = `${buildVeraInstructions({ firstName, now })}\n\n${studioInstructions(request.tool)}`;
+  try {
+    // A review must name a result the student may read. The reads run after the reservation, and a failure releases it.
+    const target =
+      request.tool === "wrong_answer_review" ? await resolveReviewTarget(studentId, request.input.target, now) : null;
+    if (request.tool === "wrong_answer_review" && !target) {
+      throw new VeraError("not_found", "Belum ada hasil yang bisa dibahas.");
+    }
 
-  const usage = trackAnswerUsage({ eventId, effort, prices });
-  const result = streamText({
-    model,
-    instructions,
-    messages: [{ role: "user", content: studioRequestText(request, target ?? undefined) }],
-    abortSignal: signal,
-    maxOutputTokens: effort.maxOutputTokens,
-    maxRetries: 1,
-    tools: createVeraTools({ studentId, now }),
-    stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
-    providerOptions: {
-      openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
-    },
-    onChunk: usage.onChunk,
-    onStepEnd: usage.onStepEnd,
-    onEnd: usage.onEnd,
-    onAbort: usage.onAbort,
-    onError: usage.onError,
-  });
+    const documentId = crypto.randomUUID();
+    const title = studioTitle(request.tool, now);
+    const student = await prisma.user.findUnique({ where: { id: studentId }, select: { fullName: true } });
+    const firstName = student?.fullName?.trim().split(/\s+/)[0] || "siswa";
+    const instructions = `${buildVeraInstructions({ firstName, now })}\n\n${studioInstructions(request.tool)}`;
 
-  const stream = toUIMessageStream({
-    stream: result.stream,
-    originalMessages: [] as UIMessage[],
-    generateMessageId: () => crypto.randomUUID(),
-    messageMetadata: ({ part }) => {
-      if (part.type === "start") return { documentId, tool: request.tool, title };
-      if (part.type === "finish") return { credits: usage.creditsForAnswer() };
-      return undefined;
-    },
-    onError: () => "Dokumen belum bisa disusun sekarang. Coba lagi.",
-    onEnd: async ({ messages }) => {
-      await saveRun({
-        studentId,
-        eventId,
-        documentId,
-        request,
-        title,
-        messages,
-        credits: usage.creditsForAnswer() ?? 0,
-        complete: usage.outcome() === "completed",
-        extraSources: target ? [target.source] : [],
-      });
-    },
-  });
+    const usage = trackAnswerUsage({ eventId, effort, prices });
+    const result = streamText({
+      model,
+      instructions,
+      messages: [{ role: "user", content: studioRequestText(request, target ?? undefined) }],
+      abortSignal: signal,
+      maxOutputTokens: effort.maxOutputTokens,
+      maxRetries: 1,
+      tools: createVeraTools({ studentId, now }),
+      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), usage.stopWhen],
+      providerOptions: {
+        openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
+      },
+      onChunk: usage.onChunk,
+      onStepEnd: usage.onStepEnd,
+      onEnd: usage.onEnd,
+      onAbort: usage.onAbort,
+      onError: usage.onError,
+    });
 
-  return createUIMessageStreamResponse({
-    stream,
-    consumeSseStream: consumeStream,
-    headers: { "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" },
-  });
+    const stream = toUIMessageStream({
+      stream: result.stream,
+      originalMessages: [] as UIMessage[],
+      generateMessageId: () => crypto.randomUUID(),
+      messageMetadata: ({ part }) => {
+        if (part.type === "start") return { documentId, tool: request.tool, title };
+        if (part.type === "finish") return { credits: usage.creditsForAnswer() };
+        return undefined;
+      },
+      onError: () => "Dokumen belum bisa disusun sekarang. Coba lagi.",
+      onEnd: async ({ messages }) => {
+        await saveRun({
+          studentId,
+          eventId,
+          documentId,
+          request,
+          title,
+          messages,
+          credits: usage.creditsForAnswer() ?? 0,
+          complete: usage.outcome() === "completed",
+          extraSources: target ? [target.source] : [],
+        });
+      },
+    });
+
+    return createUIMessageStreamResponse({
+      stream,
+      consumeSseStream: consumeStream,
+      headers: { "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" },
+    });
+  } catch (error) {
+    // Nothing has streamed yet, so nothing else will settle the reservation. Release it here.
+    await releaseVeraReservation({ eventId, errorCode: "setup_failed", now });
+    throw error;
+  }
 }
 
 /**

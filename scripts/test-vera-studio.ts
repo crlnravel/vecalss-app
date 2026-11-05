@@ -10,7 +10,7 @@ import { resolveMentions, searchMentions } from "../lib/vera/sources/mentions";
 import { listTryoutResults } from "../lib/vera/sources/tryout";
 import { deleteStudioDocument, getStudioDocument, listStudioDocuments } from "../lib/vera/studio-documents";
 import { runVeraStudio } from "../lib/vera/studio-run";
-import { keepToolLinks, studioRequestSchema, studioTitle } from "../lib/vera/studio";
+import { keepToolLinks, studioRequestSchema, studioTitle, type StudioRequest } from "../lib/vera/studio";
 import {
   answerChunks,
   findReleasedTryout,
@@ -249,6 +249,30 @@ try {
   assert.equal(failedRun.status, "released", "A failure before any text releases the reservation");
   assert.equal(Number(failedRun.credits), 0);
   assert.equal(await prisma.veraStudioDocument.count({ where: { studentId: streamId } }), 0, "A failure before any text saves nothing");
+
+  // A run that fails after its reservation and before it streams (here, a tool the Studio does not know) releases the reservation.
+  // Without the release, the student would stay blocked until the stale sweep, and then be charged the whole reserve. This block
+  // runs after the count above, because its own usage row would otherwise change that count.
+  setVeraModelForTests(scriptedModel([{ chunks: answerChunks(["Tidak pernah dipakai."]) }]));
+  const setupSince = new Date(Date.now() - 1_000);
+  await assert.rejects(
+    runVeraStudio({
+      studentId: streamId,
+      request: { tool: "unknown_tool", input: {}, effort: "mendalam" } as unknown as StudioRequest,
+      signal: new AbortController().signal,
+    }),
+    (error: unknown) => error instanceof TypeError,
+    "A tool the Studio does not know fails during setup",
+  );
+  const setupUsage = await prisma.veraUsageEvent.findFirst({
+    where: { studentId: streamId, kind: "studio", createdAt: { gte: setupSince } },
+    orderBy: { createdAt: "desc" },
+    select: { status: true, errorCode: true, credits: true },
+  });
+  assert.equal(setupUsage?.status, "released", "A setup failure after the reservation releases it");
+  assert.equal(setupUsage?.errorCode, "setup_failed", "The released row records the setup failure");
+  assert.equal(Number(setupUsage?.credits), 0, "A released setup failure is charged nothing");
+  assert.equal(await prisma.veraStudioDocument.count({ where: { studentId: streamId } }), 0, "A setup failure saves no document");
 
   // A run cut off after its first words keeps them as an incomplete document, and is charged the Mendalam reserve.
   setVeraModelForTests(
