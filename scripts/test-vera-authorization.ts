@@ -107,10 +107,12 @@ assert.deepEqual(materi.assets, { some: { assetType: "attachment", mimeType: "ap
 
 const kuis = releasedKuisAttemptWhere(studentId, afterClose);
 assert.deepEqual(kuis.participation, { studentId, quiz: { status: "published" } });
-assert.equal(kuis.status, "scored");
+assert.deepEqual(kuis.status, { in: ["submitted", "auto_submitted", "scored"] });
 assert.equal(kuis.scoringState, "scored");
-assert.equal(kuis.releaseState, "released");
-assert.deepEqual(kuis.releaseAt, { lte: afterClose });
+assert.deepEqual(kuis.OR, [
+  { releaseState: "released" },
+  { releaseState: "scheduled", releaseAt: { lte: afterClose } },
+]);
 
 const tryout = releasedTryoutAttemptWhere(studentId, afterClose);
 assert.equal(tryout.studentId, studentId);

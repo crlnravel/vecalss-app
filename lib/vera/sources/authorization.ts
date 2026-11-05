@@ -18,14 +18,16 @@ export function publishedMateriWhere(now: Date): Prisma.ModuleWhereInput {
   };
 }
 
-/** The student's own Kuis attempts that are scored and released. */
+/**
+ * The student's own Kuis attempts that the result pages show: submitted or scored, and released. A scheduled release counts once its
+ * time has passed. An immediate release has no time at all, so it is matched by its state alone.
+ */
 export function releasedKuisAttemptWhere(studentId: string, now: Date): Prisma.StandaloneQuizAttemptWhereInput {
   return {
     participation: { studentId, quiz: { status: "published" } },
-    status: "scored",
+    status: { in: ["submitted", "auto_submitted", "scored"] },
     scoringState: "scored",
-    releaseState: "released",
-    releaseAt: { lte: now },
+    OR: [{ releaseState: "released" }, { releaseState: "scheduled", releaseAt: { lte: now } }],
   };
 }
 

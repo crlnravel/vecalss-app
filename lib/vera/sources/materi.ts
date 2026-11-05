@@ -8,7 +8,7 @@ import { getPublishedLesson } from "@/lib/materi/repository";
 import { readMediaObject } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
 import { publishedMateriWhere } from "./authorization";
-import { courseSlugOf, isUuid, materiHref, subtestMatches, type VeraSource, type VeraToolError } from "./types";
+import { courseSlugOf, isUuid, materiHref, subtestWhere, type VeraSource, type VeraToolError } from "./types";
 
 const PART_CHARS = 8_000;
 const TEXT_CHAR_CAP = 60_000;
@@ -89,25 +89,37 @@ type LessonRow = {
   assets: ReadableAsset[];
 };
 
+/**
+ * Readable Materi that match the words, by their title, topic, summary or subtest. A subtest narrows the search to its lessons,
+ * and a subtest with no words lists them, newest first.
+ */
 export async function searchMateri({
-  query,
-  subtest,
+  query = "",
+  subtest = "",
   now = new Date(),
 }: {
-  query: string;
+  query?: string;
   subtest?: string;
   now?: Date;
 }) {
   const tokens = tokensOf(query);
-  if (tokens.length === 0) return [];
+  const subtestQuery = subtest.trim();
+  if (tokens.length === 0 && !subtestQuery) return [];
   const candidates = await prisma.module.findMany({
     where: {
       ...visibleMateriWhere(now),
-      OR: tokens.flatMap((token) => [
-        { title: { contains: token, mode: "insensitive" as const } },
-        { summary: { contains: token, mode: "insensitive" as const } },
-        { topic: { name: { contains: token, mode: "insensitive" as const } } },
-      ]),
+      ...(subtestQuery ? { AND: [{ topic: { subtest: subtestWhere(subtestQuery) } }] } : {}),
+      ...(tokens.length > 0
+        ? {
+            OR: tokens.flatMap((token) => [
+              { title: { contains: token, mode: "insensitive" as const } },
+              { summary: { contains: token, mode: "insensitive" as const } },
+              { topic: { name: { contains: token, mode: "insensitive" as const } } },
+              { topic: { subtest: { code: { contains: token, mode: "insensitive" as const } } } },
+              { topic: { subtest: { name: { contains: token, mode: "insensitive" as const } } } },
+            ]),
+          }
+        : {}),
     },
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
     take: SEARCH_CANDIDATES,
@@ -116,9 +128,8 @@ export async function searchMateri({
   const ranked = candidates
     .filter((lesson) => SECTION_TOPIC_CODE.test(lesson.topic.code))
     .filter((lesson) => hasReadableText(lesson.assets))
-    .filter((lesson) => !subtest?.trim() || subtestMatches(lesson.topic.subtest, subtest))
-    .map((lesson) => ({ lesson, score: relevance(lesson, tokens) }))
-    .filter((hit) => hit.score > 0)
+    .map((lesson) => ({ lesson, score: tokens.length > 0 ? relevance(lesson, tokens) : 0 }))
+    .filter((hit) => tokens.length === 0 || hit.score > 0)
     .sort((left, right) => right.score - left.score);
 
   // The catalogue is checked one lesson at a time, and the check stops at the limit, so a keystroke costs a few lookups.
@@ -176,17 +187,22 @@ async function isCatalogueLesson(lesson: { code: string; topic: { code: string }
   return Boolean(await getPublishedLesson(courseSlugOf(lesson.topic.code), lesson.code));
 }
 
-/** A title match counts most, then the topic, then the summary. */
+/** A title match counts most, then the topic, then the summary. The subtest's code or name counts least. */
 function relevance(
-  lesson: { title: string; summary: string | null; topic: { name: string } },
+  lesson: { title: string; summary: string | null; topic: { name: string; subtest: { code: string; name: string } } },
   tokens: string[],
 ) {
   const title = lesson.title.toLowerCase();
   const topic = lesson.topic.name.toLowerCase();
   const summary = (lesson.summary ?? "").toLowerCase();
+  const subtest = [lesson.topic.subtest.code, lesson.topic.subtest.name].join(" ").toLowerCase();
   return tokens.reduce(
     (sum, token) =>
-      sum + (title.includes(token) ? 3 : 0) + (topic.includes(token) ? 2 : 0) + (summary.includes(token) ? 1 : 0),
+      sum +
+      (title.includes(token) ? 3 : 0) +
+      (topic.includes(token) ? 2 : 0) +
+      (summary.includes(token) ? 1 : 0) +
+      (subtest.includes(token) ? 1 : 0),
     0,
   );
 }

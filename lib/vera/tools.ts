@@ -69,9 +69,15 @@ export function createVeraTools({ studentId, now = new Date() }: { studentId: st
         guarded("get_tryout_result_review", () => getTryoutResultReview({ studentId, ...input, now })),
     }),
     search_materi: tool({
-      description: "Cari Materi PTN Pro yang sudah diterbitkan dengan kata kunci.",
+      description:
+        "Cari Materi PTN Pro yang sudah diterbitkan dengan kata kunci, termasuk nama subtes. Jika hanya subtes yang diisi, daftar Materi subtes itu, yang paling baru dulu.",
       inputSchema: z.object({
-        query: z.string().trim().min(2).max(200).describe("Kata kunci, misalnya nama topik."),
+        query: z
+          .string()
+          .trim()
+          .max(200)
+          .optional()
+          .describe("Kata kunci, misalnya nama topik atau subtes. Boleh kosong jika subtes diisi."),
         subtest,
       }),
       execute: (input) => guarded("search_materi", async () => ({ hits: await searchMateri({ ...input, now }) })),

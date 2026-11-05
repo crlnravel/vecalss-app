@@ -187,16 +187,23 @@ async function findReleasedTryout() {
   throw new Error("test:vera-tools needs a released Tryout result in the dev database. Seed the local dev data first.");
 }
 
-/** A top-level Materi section topic, so the test lessons sit where the catalogue shows them. */
-async function findSectionTopic() {
+/** A top-level Materi section topic, so the test lessons sit where the catalogue shows them. A course slug picks that course. */
+async function findSectionTopic(course?: string) {
   const topics = await prisma.topic.findMany({
-    where: { code: { startsWith: "materi:" }, parentTopicId: null, isActive: true, subtest: { isActive: true } },
-    select: { id: true, code: true },
+    where: {
+      code: { startsWith: course ? `materi:${course}:` : "materi:" },
+      parentTopicId: null,
+      isActive: true,
+      subtest: { isActive: true },
+    },
+    select: { id: true, code: true, subtest: { select: { code: true, name: true } } },
     take: 200,
   });
   const topic = topics.find((candidate) => /^materi:[a-z0-9-]+:section-[123]$/u.test(candidate.code));
   if (!topic) {
-    throw new Error("test:vera-tools needs a Materi section topic in the dev database. Seed the local dev data first.");
+    throw new Error(
+      `test:vera-tools needs a Materi section topic${course ? ` for ${course}` : ""} in the dev database. Seed the local dev data first.`,
+    );
   }
   return topic;
 }
@@ -288,36 +295,87 @@ try {
     },
     select: { id: true },
   });
-  const releasedKuisAttempt = async (studentId: string, score: number) => {
-    const participation = await prisma.standaloneQuizParticipation.create({
+  const participationFor = (studentId: string) =>
+    prisma.standaloneQuizParticipation.create({
       data: { quizId: quiz.id, studentId, policySnapshot: kuisPolicy },
       select: { id: true },
     });
-    return prisma.standaloneQuizAttempt.create({
+  /** One attempt under a participation. Its status, scoring and release states decide whether the student can see it. */
+  const kuisAttemptFor = (
+    participationId: string,
+    attemptNo: number,
+    score: number,
+    state: {
+      status: "submitted" | "scored";
+      scoringState: "scored" | "review_required";
+      releaseState: "released" | "scheduled" | "hidden";
+      releaseAt: Date | null;
+    },
+  ) =>
+    prisma.standaloneQuizAttempt.create({
       data: {
-        participationId: participation.id,
-        attemptNo: 1,
-        status: "scored",
+        participationId,
+        attemptNo,
+        ...state,
         attemptState: "submitted",
-        scoringState: "scored",
-        releaseState: "released",
         policySnapshot: kuisPolicy,
         formItemOrder: [],
         score,
         correctCount: 4,
         wrongCount: 1,
         unansweredCount: 0,
-        releaseAt: past,
         submittedAt: past,
       },
       select: { id: true },
     });
-  };
-  const ownKuis = await releasedKuisAttempt(testStudent.id, 80);
-  const foreignKuis = await releasedKuisAttempt(owned.studentId, 60);
+  const ownParticipation = await participationFor(testStudent.id);
+  const ownKuis = await kuisAttemptFor(ownParticipation.id, 1, 80, {
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "released",
+    releaseAt: past,
+  });
+  const foreignParticipation = await participationFor(owned.studentId);
+  const foreignKuis = await kuisAttemptFor(foreignParticipation.id, 1, 60, {
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "released",
+    releaseAt: past,
+  });
+  // The test student's other attempts on the same quiz, one for each state that decides whether a student sees a result.
+  const immediate = await kuisAttemptFor(ownParticipation.id, 2, 70, {
+    status: "submitted",
+    scoringState: "scored",
+    releaseState: "released",
+    releaseAt: null,
+  });
+  const scheduledDue = await kuisAttemptFor(ownParticipation.id, 3, 70, {
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "scheduled",
+    releaseAt: past,
+  });
+  const scheduledLater = await kuisAttemptFor(ownParticipation.id, 4, 70, {
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "scheduled",
+    releaseAt: new Date(Date.now() + 86_400_000),
+  });
+  const underReview = await kuisAttemptFor(ownParticipation.id, 5, 70, {
+    status: "scored",
+    scoringState: "review_required",
+    releaseState: "released",
+    releaseAt: past,
+  });
+  const stillHidden = await kuisAttemptFor(ownParticipation.id, 6, 70, {
+    status: "scored",
+    scoringState: "scored",
+    releaseState: "hidden",
+    releaseAt: past,
+  });
 
-  // Materi: one PDF lesson, one lesson with body text, and one draft that must stay invisible.
-  const topic = await findSectionTopic();
+  // Materi in one course: a PDF lesson, a lesson with body text, a draft, and one with no readable file. The last two stay hidden.
+  const topic = await findSectionTopic("penalaran-umum");
   const courseSlug = topic.code.split(":")[1];
   const pdf = minimalPdf(`Materi uji ${token} tentang logika`);
   const file = await prisma.asset.create({
@@ -389,6 +447,12 @@ try {
     status: "draft",
     assets: [pdfAsset],
   });
+  const unreadable = await createModule({
+    code: `vera-tools-u-${token}`,
+    title: `Materi uji ${token} tanpa berkas`,
+    status: "published",
+    assets: [{ assetType: "attachment", mimeType: "application/pdf", originalName: "belum-ada.pdf" }],
+  });
 
   let storageReads = 0;
   const readPdf = async (objectKey: string) => {
@@ -426,10 +490,25 @@ try {
   const hitIds = hits.map((hit) => hit.moduleId);
   assert.ok(hitIds.includes(plain.id) && hitIds.includes(withBody.id), "Published Materi that match are found");
   assert.ok(!hitIds.includes(draft.id), "A draft Materi is invisible to search");
+  assert.ok(!hitIds.includes(unreadable.id), "A published Materi with no readable text is not offered by search");
   const plainHit = hits.find((hit) => hit.moduleId === plain.id);
   assert.equal(plainHit?.source.href, materiHref(topic.code, plain.code), "The hit links to the lesson page");
   assert.ok(await getPublishedLesson(courseSlug, plain.code), "The Materi link opens a published lesson");
   assert.deepEqual(await readMateri({ moduleId: draft.id }), { error: "not_found" }, "A draft Materi is invisible to reads");
+
+  // A subtest's name finds its readable lessons, even when the lesson's own words do not name it.
+  const byName = (await searchMateri({ query: topic.subtest.name })).map((hit) => hit.moduleId);
+  assert.ok(byName.includes(plain.id) && byName.includes(withBody.id), "Readable Materi are found by their subtest name");
+  // A subtest on its own lists its readable Materi, and leaves out drafts and lessons with no readable text.
+  const browse = await searchMateri({ subtest: topic.subtest.code.toLowerCase() });
+  const browseIds = browse.map((hit) => hit.moduleId);
+  assert.ok(browseIds.includes(plain.id) && browseIds.includes(withBody.id), "A subtest on its own lists its readable Materi");
+  assert.ok(browse.every((hit) => hit.subtest === topic.subtest.name), "A subtest listing holds only that subtest's Materi");
+  assert.ok(
+    !browseIds.includes(draft.id) && !browseIds.includes(unreadable.id),
+    "A subtest listing leaves out drafts and Materi with no readable text",
+  );
+  assert.deepEqual(await searchMateri({ query: " " }), [], "Without words or a subtest, nothing is found");
 
   // Tryout: a result that is not released yet by its date is invisible, and so is another student's result.
   assert.deepEqual(
@@ -513,6 +592,13 @@ try {
   const ownKuisList = await listKuisAttempts({ studentId: testStudent.id, limit: 10 });
   assert.ok(ownKuisList.some((row) => row.attemptId === ownKuis.id), "A student's own Kuis attempt is listed");
   assert.ok(!ownKuisList.some((row) => row.attemptId === foreignKuis.id), "Another student's Kuis attempt is not listed");
+  // The list follows the result pages: released at once, or scheduled and past its release time. Nothing else is listed.
+  const listedKuis = new Set(ownKuisList.map((row) => row.attemptId));
+  assert.ok(listedKuis.has(immediate.id), "A Kuis released at once, with no release date, is listed");
+  assert.ok(listedKuis.has(scheduledDue.id), "A Kuis whose scheduled release time has passed is listed");
+  assert.ok(!listedKuis.has(scheduledLater.id), "A Kuis whose release time has not come is not listed");
+  assert.ok(!listedKuis.has(underReview.id), "A Kuis still under review is not listed");
+  assert.ok(!listedKuis.has(stillHidden.id), "A Kuis whose result is still hidden is not listed");
   const hidden = reviewOf(await getKuisAttemptReview({ studentId: testStudent.id, attemptId: ownKuis.id }));
   assert.equal(hidden.reviewAvailable, true);
   assert.equal(hidden.correctnessVisible, false);
