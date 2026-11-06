@@ -11,12 +11,20 @@ import {
 import { cn } from "@/lib/utils";
 
 /** Thread with auto-scroll. It follows the reply while the reader stays at the live edge. */
-function ChatThread({ className, children }: { className?: string; children: React.ReactNode }) {
+function ChatThread({
+  className,
+  contentClassName = "flex flex-col gap-4 px-4 py-6",
+  children,
+}: {
+  className?: string;
+  contentClassName?: string;
+  children: React.ReactNode;
+}) {
   return (
     <MessageScrollerProvider autoScroll>
       <MessageScroller className={cn("relative flex min-h-0 flex-1 flex-col", className)}>
         <MessageScrollerViewport className="min-h-0 flex-1">
-          <MessageScrollerContent className="flex flex-col gap-4 px-4 py-6">{children}</MessageScrollerContent>
+          <MessageScrollerContent className={contentClassName}>{children}</MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton className="absolute bottom-3 left-1/2 -translate-x-1/2" />
       </MessageScroller>

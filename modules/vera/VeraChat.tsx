@@ -70,7 +70,7 @@ export function VeraChat({
 
       <div className="flex min-h-0 flex-1 flex-col pt-4">
         {messages.length > 0 ? (
-          <ChatThread className="mx-auto w-full max-w-[760px]">
+          <ChatThread className="w-full" contentClassName="flex flex-col gap-4 px-0 py-6">
             {messages.map((message) => (
               <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
                 <ThreadMessage
@@ -126,20 +126,23 @@ export function VeraChat({
   );
 }
 
-/** The `@` sources a student pinned. A source the server could not open says so instead of linking. */
+/**
+ * The `@` sources a student pinned. The chips wrap inside the message and a long label ends in an ellipsis. A source the server could
+ * not open says so instead of linking.
+ */
 function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex max-w-full min-w-0 flex-wrap justify-end gap-2">
       {mentions.map((mention) =>
         mention.status === "accepted" && mention.source ? (
-          <Link className="max-w-full min-w-0" href={mention.source.href} key={`${mention.type}:${mention.id}`}>
-            <Badge className="max-w-full min-w-0 truncate" size="sm" tone="info">
-              {mention.label}
+          <Link className="min-w-0 max-w-full" href={mention.source.href} key={`${mention.type}:${mention.id}`}>
+            <Badge className="max-w-full min-w-0 shrink" size="sm" tone="info">
+              <span className="min-w-0 truncate">{mention.label}</span>
             </Badge>
           </Link>
         ) : (
-          <Badge key={`${mention.type}:${mention.id}`} size="sm" tone="attention">
-            {`${mention.label}: tidak bisa dibuka`}
+          <Badge className="max-w-full min-w-0 shrink" key={`${mention.type}:${mention.id}`} size="sm" tone="attention">
+            <span className="min-w-0 truncate">{`${mention.label}: tidak bisa dibuka`}</span>
           </Badge>
         ),
       )}
@@ -209,7 +212,7 @@ function ThreadMessage({
           }
           if (part.type === "text") {
             return (
-              <VeraMarkdown className="max-w-[68ch]" key={index}>
+              <VeraMarkdown className="max-w-[70ch]" key={index}>
                 {part.text}
               </VeraMarkdown>
             );
