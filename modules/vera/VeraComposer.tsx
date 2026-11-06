@@ -1,6 +1,15 @@
 "use client";
 
-import { useId, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import {
   PromptInput,
@@ -32,11 +41,15 @@ import {
 
 /** The search waits this long after the last keystroke before it asks the server. */
 const SEARCH_DEBOUNCE_MS = 150;
+/** The placeholder moves to the next suggested question this often. */
+const EXAMPLE_INTERVAL_MS = 4_000;
+const DEFAULT_PLACEHOLDER = "Tanya Vera… ketik @ untuk menyebut Materi, Kuis, atau Tryout";
 
 export type ComposerSubmit = { text: string; chips: MentionChip[] };
 
 /**
  * The message box: the text, the sources pinned with `@`, the effort, and the credit estimate. Sending is handed to the page.
+ * `examples` rotates the placeholder through suggested questions, and `leading` sits at the bottom-left, such as the Studio tool chips.
  */
 export function VeraComposer({
   effort,
@@ -48,6 +61,8 @@ export function VeraComposer({
   onSend,
   onStop,
   initialChips = [],
+  examples,
+  leading,
 }: {
   effort: VeraEffortId;
   onEffortChange: (effort: VeraEffortId) => void;
@@ -59,6 +74,8 @@ export function VeraComposer({
   onStop: () => void;
   // Sources already pinned when the composer mounts, such as a Studio document the student asked Vera about.
   initialChips?: MentionChip[];
+  examples?: readonly string[];
+  leading?: ReactNode;
 }) {
   const [input, setInput] = useState("");
   const [chips, setChips] = useState<MentionChip[]>(initialChips);
@@ -69,6 +86,7 @@ export function VeraComposer({
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [limitReached, setLimitReached] = useState(false);
+  const [exampleIndex, setExampleIndex] = useState(0);
   const listboxId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -77,6 +95,13 @@ export function VeraComposer({
   // The last search that finished, so the menu can tell a dead end from a search that is still running.
   const completedSearchRef = useRef<CompletedSearch | null>(null);
 
+  useEffect(() => {
+    if (!examples || examples.length < 2) return;
+    const timer = window.setInterval(() => setExampleIndex((index) => (index + 1) % examples.length), EXAMPLE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [examples]);
+
+  const placeholder = examples && examples.length > 0 ? examples[exampleIndex % examples.length] : DEFAULT_PLACEHOLDER;
   const items = flattenGroups(groups);
   const menuOpen = menu !== null && menu.start !== dismissedAt;
   const active = Math.min(activeIndex, Math.max(items.length - 1, 0));
@@ -184,7 +209,7 @@ export function VeraComposer({
 
   return (
     <PromptInput onSubmit={submit}>
-      <PromptInputBody ref={anchorRef}>
+      <PromptInputBody className="rounded-panel" ref={anchorRef}>
         {chips.length > 0 || limitReached ? (
           <div className="flex flex-col gap-2 px-3 pt-3">
             <VeraMentionChips chips={chips} onRemove={removeChip} />
@@ -203,18 +228,19 @@ export function VeraComposer({
           aria-label="Tulis pertanyaan untuk Vera"
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Tanya Vera… ketik @ untuk menyebut Materi, Kuis, atau Tryout"
+          placeholder={placeholder}
           ref={textareaRef}
           role="combobox"
-          rows={1}
+          rows={examples ? 2 : 1}
           value={input}
         />
         <span aria-live="polite" className="sr-only" role="status">
           {menuOpen ? statusText : ""}
         </span>
-        <PromptInputFooter>
-          <VeraEffortMenu onChange={onEffortChange} value={effort} />
-          <div className="flex items-center gap-2">
+        <PromptInputFooter className="flex-wrap">
+          {leading ? <div className="flex min-w-0 flex-wrap items-center gap-2">{leading}</div> : null}
+          <div className="ml-auto flex items-center gap-2">
+            <VeraEffortMenu onChange={onEffortChange} value={effort} />
             <span className="text-xs text-muted-foreground tabular-nums">{estimate}</span>
             <PromptInputSubmit disabled={!canSend} onStop={onStop} status={status} />
           </div>
@@ -232,6 +258,8 @@ export function VeraComposer({
           className="w-[min(28rem,calc(100vw-2rem))] gap-2 p-2"
           finalFocus={false}
           initialFocus={false}
+          // A fixed positioner stays out of the page's scrollable height, so an open menu cannot make the page scroll.
+          positionMethod="fixed"
           side="top"
         >
           <VeraMentionMenu

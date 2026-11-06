@@ -38,3 +38,5 @@ export function useVeraStudioDocs(initial: StudioDocumentSummary[]) {
 
   return { documents, error, refresh, remove };
 }
+
+export type VeraStudioDocsState = ReturnType<typeof useVeraStudioDocs>;

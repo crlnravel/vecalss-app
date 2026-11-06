@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
-import { PanelLeftClose, Plus } from "@/lib/icons";
+import { Plus } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import type { SessionView } from "@/modules/vera/use-vera-sessions";
 import { VeraSessionRow } from "@/modules/vera/VeraSessionRow";
 
-/** The new-session button, the Aktif and Arsip filters, and the list. The desktop panel and the mobile sheet both use it. */
+/** The new-session button, the Aktif and Arsip filters, and the list. The history sheet holds it. */
 export function VeraSessionsPanel({
   view,
   sessions,
@@ -20,7 +20,6 @@ export function VeraSessionsPanel({
   onRename,
   onArchive,
   onDelete,
-  onCollapse,
 }: {
   view: SessionView;
   sessions: VeraSessionSummary[];
@@ -33,22 +32,13 @@ export function VeraSessionsPanel({
   onRename: (id: string, title: string) => void;
   onArchive: (id: string, toArchive: boolean) => void;
   onDelete: (id: string) => void;
-  /** Only the desktop panel can fold into the icon rail, so only it passes this. */
-  onCollapse?: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <Button className="flex-1" onClick={onNew} type="button">
-          <Plus />
-          Sesi baru
-        </Button>
-        {onCollapse ? (
-          <Button aria-label="Sembunyikan sesi" onClick={onCollapse} size="icon" type="button" variant="quiet">
-            <PanelLeftClose />
-          </Button>
-        ) : null}
-      </div>
+      <Button onClick={onNew} type="button">
+        <Plus />
+        Sesi baru
+      </Button>
 
       <div aria-label="Tampilan sesi" className="grid grid-cols-2 gap-1.5" role="group">
         <SunkenTabButton

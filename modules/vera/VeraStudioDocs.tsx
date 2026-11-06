@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { VERA_TIME_ZONE } from "@/lib/vera/config";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import { STUDIO_TOOLS } from "@/lib/vera/studio";
@@ -29,19 +30,26 @@ function metaLine(doc: StudioDocumentSummary) {
   return `${DATE_TIME.format(new Date(doc.createdAt))} · ${formatCredits(doc.credits)} kredit`;
 }
 
-/** Saved documents, newest first. Each card names the tool, then shows its date and charge. */
+/**
+ * Saved documents, newest first. Each card names the tool, then shows its date and charge. The gallery lays them out as a grid of
+ * cards; the list gives each one a row.
+ */
 export function VeraStudioDocCards({
   documents,
+  emptyText,
+  layout,
   onOpen,
 }: {
   documents: StudioDocumentSummary[];
+  emptyText: string;
+  layout: "gallery" | "list";
   onOpen: (id: string) => void;
 }) {
   if (documents.length === 0) {
-    return <p className="text-sm text-muted-foreground">Belum ada dokumen. Buat satu dari pilihan di atas.</p>;
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   }
   return (
-    <ul aria-label="Dokumen tersimpan" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <ul aria-label="Dokumen tersimpan" className={cn("grid gap-3", layout === "gallery" ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1")}>
       {documents.map((doc) => {
         const label = STUDIO_TOOLS[doc.tool].label;
         const date = DATE_TIME.format(new Date(doc.createdAt));
@@ -49,11 +57,14 @@ export function VeraStudioDocCards({
           <li key={doc.id}>
             <button
               aria-label={`${label}, ${date}${doc.complete ? "" : ", belum selesai"}`}
-              className="flex h-full w-full min-w-0 flex-col gap-3 rounded-card border border-primary-100 bg-white p-5 text-left shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color] hover:border-primary-200 focus-visible:border-voyage-leaf focus-visible:ring-3 focus-visible:ring-voyage-leaf/35 focus-visible:outline-none motion-reduce:transition-none"
+              className={cn(
+                "flex h-full w-full min-w-0 gap-3 rounded-card border border-primary-100 bg-white p-5 text-left shadow-[0_18px_42px_-34px_color-mix(in_oklab,var(--voyage-forest)_48%,transparent)] transition-[border-color] hover:border-primary-200 focus-visible:border-voyage-leaf focus-visible:ring-3 focus-visible:ring-voyage-leaf/35 focus-visible:outline-none motion-reduce:transition-none",
+                layout === "gallery" ? "flex-col" : "flex-row items-center justify-between py-4",
+              )}
               onClick={() => onOpen(doc.id)}
               type="button"
             >
-              <span className="flex flex-wrap items-center gap-2">
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="font-heading text-base font-extrabold tracking-[-0.02em] text-voyage-ink">{label}</span>
                 {doc.complete ? null : (
                   <Badge size="xs" tone="attention">
@@ -61,7 +72,9 @@ export function VeraStudioDocCards({
                   </Badge>
                 )}
               </span>
-              <span className="mt-auto text-xs text-muted-foreground tabular-nums">{metaLine(doc)}</span>
+              <span className={cn("text-xs text-muted-foreground tabular-nums", layout === "gallery" && "mt-auto")}>
+                {metaLine(doc)}
+              </span>
             </button>
           </li>
         );

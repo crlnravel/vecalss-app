@@ -1,61 +1,32 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
-import Image from "next/image";
-import Link from "next/link";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
-import { ChatThread, ChatTurn } from "@/components/ai-elements/chat";
-import { Reasoning } from "@/components/ai-elements/reasoning";
-import { Sources } from "@/components/ai-elements/sources";
-import { ToolStep } from "@/components/ai-elements/tool";
-import { Badge } from "@/components/ui/badge";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Button } from "@/components/ui/button";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Message, MessageContent } from "@/components/ui/message";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { showToast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
-import { PanelLeftOpen, Plus } from "@/lib/icons";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
-import { formatCredits } from "@/lib/vera/credits-shared";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
-import {
-  collectSources,
-  studioDocumentHref,
-  uniqueSources,
-  type ResolvedMention,
-  type VeraSource,
-} from "@/lib/vera/sources/types";
-import { cn } from "@/lib/utils";
+import { studioDocumentHref } from "@/lib/vera/sources/types";
 import { type MentionChip } from "@/modules/vera/mention-model";
-import { VeraComposer, type ComposerSubmit } from "@/modules/vera/VeraComposer";
-import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
+import { VeraChat } from "@/modules/vera/VeraChat";
+import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
-import { VeraStudioPanel } from "@/modules/vera/VeraStudioPanel";
 import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
-
-const STARTER_PROMPTS = [
-  "Kenapa skor PK-ku turun?",
-  "Bahas soal salah Tryout terakhir",
-  "Apa yang perlu aku latih minggu ini?",
-  "Jelaskan konsep persentase bertingkat",
-];
+import { useVeraStudioDocs } from "@/modules/vera/use-vera-studio";
+import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 
 const DEFAULT_EFFORT: VeraEffortId = "seimbang";
 const UNAVAILABLE_ANSWER = "Vera belum bisa menjawab sekarang.";
-const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
 
-type VeraTab = "chat" | "studio";
+type VeraView = "home" | "chat";
 
 function effortStorageKey(studentId: string) {
   return `vera:effort:${studentId}`;
@@ -109,56 +80,62 @@ function answerErrorMessage(error: Error): string {
   return UNAVAILABLE_ANSWER;
 }
 
+/**
+ * The Vera page: a slim top bar over either home or the chat. Sessions live in a right-side sheet opened from the bar.
+ * Home has no active session, so going back to it starts nothing new; the session stays in the sheet.
+ *
+ * The chat hook lives here rather than in the chat view, so a message sent from home is sent from the click that sends it. Starting
+ * a request from an effect would be cancelled by React's development double-run of effects.
+ */
 export function VeraPageModule({
-  studentId,
-  session,
-  firstName,
-  notificationFeed,
-  returnHref,
-  returnLabel,
   conversationId: initialConversationId,
+  firstName,
   initialMessages,
   initialSessions,
-  initialTab,
   initialStudioDocs,
   initialStudioDocument,
   initialUsage,
+  notificationFeed,
+  session,
+  startInChat,
+  studentId,
 }: {
-  studentId: string;
-  session: SessionContext;
-  firstName: string | null;
-  notificationFeed: StudentNotificationFeed;
-  returnHref: string;
-  returnLabel: string;
   conversationId: string | null;
+  firstName: string | null;
   initialMessages: UIMessage[];
   initialSessions: VeraSessionSummary[];
-  initialTab: VeraTab;
   initialStudioDocs: StudioDocumentSummary[];
   initialStudioDocument: StudioDocument | null;
   initialUsage: VeraUsageSnapshot;
+  notificationFeed: StudentNotificationFeed;
+  session: SessionContext;
+  startInChat: boolean;
+  studentId: string;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<VeraTab>(initialTab);
-  // A Studio document the student asks Vera about is pinned when the composer mounts.
-  const [composerSeed, setComposerSeed] = useState<{ key: number; chips: MentionChip[] } | null>(null);
+  const [view, setView] = useState<VeraView>(startInChat ? "chat" : "home");
   // The server creates the conversation on the first send and returns its id in the answer metadata.
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [chatId] = useState(() => initialConversationId ?? crypto.randomUUID());
-  const [usage, setUsage] = useState(initialUsage);
   // Messages already on the page when it opens do not animate in again.
   const [restoredIds] = useState(() => new Set(initialMessages.map((message) => message.id)));
-  const sessions = useVeraSessions(initialSessions);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [stoppedMessageId, setStoppedMessageId] = useState<string | null>(null);
+  // A Studio document the student asks Vera about is pinned when the chat opens.
+  const [composerSeed, setComposerSeed] = useState<{ key: number; chips: MentionChip[] } | null>(null);
+  const [openDocument, setOpenDocument] = useState(initialStudioDocument);
+  const [usage, setUsage] = useState(initialUsage);
   const [sessionsOpen, setSessionsOpen] = useState(false);
-
+  const [effortOverride, setEffortOverride] = useState<VeraEffortId | null>(null);
+  const sessions = useVeraSessions(initialSessions);
+  const docs = useVeraStudioDocs(initialStudioDocs);
+  const studio = useVeraStudioRun(() => void docs.refresh());
   const storedEffort = useSyncExternalStore(
     subscribeToStorage,
     () => readStoredEffort(studentId),
     () => DEFAULT_EFFORT,
   );
-  const [effortOverride, setEffortOverride] = useState<VeraEffortId | null>(null);
   const effort = effortOverride ?? storedEffort;
+  const blocked = blockedMessage(usage);
 
   // Only the newest message travels in the request. The server loads the rest of the thread.
   const transport = useMemo(
@@ -171,34 +148,14 @@ export function VeraPageModule({
       }),
     [],
   );
-
-  async function refreshUsage() {
-    try {
-      const response = await fetch("/api/vera/usage", { cache: "no-store" });
-      if (response.ok) setUsage((await response.json()) as VeraUsageSnapshot);
-    } catch {
-      // Keep the numbers already on screen.
-    }
-  }
-
-  const [stoppedMessageId, setStoppedMessageId] = useState<string | null>(null);
-  const { messages, sendMessage, status, stop, regenerate } = useChat<UIMessage>({
+  const { messages, sendMessage, setMessages, status, stop, regenerate } = useChat<UIMessage>({
     id: chatId,
     messages: initialMessages,
     transport,
     onFinish: ({ message }) => {
       const id = (message.metadata as { conversationId?: string } | undefined)?.conversationId;
-      if (id) {
-        setConversationId(id);
-        // The URL follows the session without a navigation, so a reload restores it.
-        window.history.replaceState(null, "", `/vera-ai?c=${id}`);
-      }
-      void refreshUsage();
-      sessions.refresh();
-      // The title is written after the response, and it can take several seconds. The list asks again shortly after, then twice more.
-      window.setTimeout(() => sessions.refresh(), 2_500);
-      window.setTimeout(() => sessions.refresh(), 6_000);
-      window.setTimeout(() => sessions.refresh(), 10_000);
+      if (id) conversationCreated(id);
+      afterAnswer();
     },
     onError: (error) => {
       void refreshUsage();
@@ -210,14 +167,38 @@ export function VeraPageModule({
   });
 
   const busy = status === "submitted" || status === "streaming";
-  const blocked = blockedMessage(usage);
   const historyChars = messages.reduce(
     (total, message) =>
       total + message.parts.reduce((sum, part) => sum + (part.type === "text" ? part.text.length : 0), 0),
     0,
   );
 
-  // The pinned sources travel twice: as metadata so the bubble can show them at once, and as ids for the server to re-read.
+  async function refreshUsage() {
+    try {
+      const response = await fetch("/api/vera/usage", { cache: "no-store" });
+      if (response.ok) setUsage((await response.json()) as VeraUsageSnapshot);
+    } catch {
+      // Keep the numbers already on screen.
+    }
+  }
+
+  // Once an answer ends or fails, the usage meter and the session list are read again.
+  function afterAnswer() {
+    void refreshUsage();
+    sessions.refresh();
+    // The title is written after the response, and it can take several seconds. The list asks again shortly after, then twice more.
+    window.setTimeout(() => sessions.refresh(), 2_500);
+    window.setTimeout(() => sessions.refresh(), 6_000);
+    window.setTimeout(() => sessions.refresh(), 10_000);
+  }
+
+  function conversationCreated(id: string) {
+    setConversationId(id);
+    // The URL follows the session without a navigation, so a reload restores it.
+    window.history.replaceState(null, "", `/vera-ai?c=${id}`);
+  }
+
+  // The pinned sources travel twice: as metadata so the message can show them at once, and as ids for the server to re-read.
   function send(text: string, chips: MentionChip[] = []) {
     void sendMessage(
       {
@@ -242,22 +223,55 @@ export function VeraPageModule({
     );
   }
 
+  function stopAnswer() {
+    // The server saves a stopped answer with a marker. Marking it at once matches that, without waiting for a reload.
+    const streaming = messages.at(-1);
+    if (streaming?.role === "assistant") setStoppedMessageId(streaming.id);
+    void stop();
+  }
+
+  function startChatFromHome(text: string, chips: MentionChip[]) {
+    setView("chat");
+    send(text, chips);
+  }
+
   // "Tanya Vera soal ini" opens the chat with the document already pinned as a source.
   function askAboutDocument(doc: StudioDocument) {
     setComposerSeed({
       key: Date.now(),
       chips: [{ type: "studio", id: doc.id, label: doc.title, href: studioDocumentHref(doc.id) }],
     });
-    setTab("chat");
+    setOpenDocument(null);
+    setView("chat");
+  }
+
+  // Home starts clean: the thread is cleared and no session is active. The session itself stays in the sheet.
+  function goHome() {
+    if (busy) void stop();
+    setMessages([]);
+    setStoppedMessageId(null);
+    setConversationId(null);
+    setComposerSeed(null);
+    setSessionsOpen(false);
+    setView("home");
+    window.history.replaceState(null, "", "/vera-ai");
+  }
+
+  async function openDocumentById(id: string) {
+    const response = await fetch(`/api/vera/studio/${encodeURIComponent(id)}`, { cache: "no-store" });
+    if (!response.ok) return;
+    const { document } = (await response.json()) as { document: StudioDocument };
+    setOpenDocument(document);
+  }
+
+  async function deleteDocument(id: string) {
+    setOpenDocument(null);
+    await docs.remove(id);
   }
 
   function changeEffort(next: VeraEffortId) {
     setEffortOverride(next);
     persistEffort(studentId, next);
-  }
-
-  function submitComposer({ text, chips }: ComposerSubmit) {
-    send(text, chips);
   }
 
   // Switching sessions goes through the URL, so the page loads that session's messages and the chat starts from them.
@@ -292,280 +306,62 @@ export function VeraPageModule({
   };
 
   return (
-    <Tabs className="flex min-h-0 flex-1 flex-col gap-3" onValueChange={(value) => setTab(value as VeraTab)} value={tab}>
+    <div className="flex min-h-0 flex-1 flex-col">
       <VeraWorkspaceHeader
         notificationFeed={notificationFeed}
         onOpenSessions={() => setSessionsOpen(true)}
         onRefreshUsage={() => void refreshUsage()}
-        returnHref={returnHref}
-        returnLabel={returnLabel}
         session={session}
         usage={usage}
       />
 
-      <div className="flex min-h-0 flex-1 gap-3">
-        {sidebarOpen ? (
-          <aside
-            aria-label="Sesi Vera"
-            className="hidden w-[264px] shrink-0 flex-col rounded-panel border border-primary-100 bg-white p-3 md:flex"
-          >
-            <VeraSessionsPanel {...panel} onCollapse={() => setSidebarOpen(false)} />
-          </aside>
-        ) : (
-          <aside
-            aria-label="Sesi Vera"
-            className="hidden w-14 shrink-0 flex-col items-center gap-2 rounded-panel border border-primary-100 bg-white p-2 md:flex"
-          >
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    aria-label="Tampilkan sesi"
-                    onClick={() => setSidebarOpen(true)}
-                    size="icon"
-                    type="button"
-                    variant="quiet"
-                  />
-                }
-              >
-                <PanelLeftOpen />
-              </TooltipTrigger>
-              <TooltipContent side="right">Tampilkan sesi</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={<Button aria-label="Sesi baru" onClick={newSession} size="icon" type="button" variant="outline" />}
-              >
-                <Plus />
-              </TooltipTrigger>
-              <TooltipContent side="right">Sesi baru</TooltipContent>
-            </Tooltip>
-          </aside>
-        )}
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <TabsContent className="flex min-h-0 flex-1 flex-col" value="chat">
-            {messages.length === 0 ? (
-              <EmptyState
-                disabled={blocked !== null || busy}
-                firstName={firstName}
-                onPick={(text) => send(text)}
-              />
-            ) : (
-              <ChatThread className="mx-auto w-full max-w-3xl">
-                {messages.map((message) => (
-                  <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
-                    <ThreadMessage
-                      fresh={!restoredIds.has(message.id)}
-                      message={message}
-                      stopping={message.id === stoppedMessageId}
-                    />
-                  </ChatTurn>
-                ))}
-              </ChatThread>
-            )}
-
-            <div className="mx-auto w-full max-w-3xl px-1 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              {blocked ? (
-                <p
-                  className="mb-2 rounded-card border border-student-status-attention-border bg-student-status-attention-bg px-4 py-3 text-sm text-student-status-attention-fg"
-                  role="status"
-                >
-                  {blocked}
-                </p>
-              ) : null}
-              <VeraComposer
-                blocked={blocked}
-                effort={effort}
-                historyChars={historyChars}
-                initialChips={composerSeed?.chips ?? []}
-                key={composerSeed?.key ?? 0}
-                onEffortChange={changeEffort}
-                onSend={submitComposer}
-                onStop={() => {
-                  // The server saves a stopped answer with a marker. Marking it at once matches that, without waiting for a reload.
-                  const streaming = messages.at(-1);
-                  if (streaming?.role === "assistant") setStoppedMessageId(streaming.id);
-                  void stop();
-                }}
-                prices={usage.prices}
-                status={status}
-              />
-              <p className="mt-2 text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
-            </div>
-          </TabsContent>
-
-          <TabsContent className="flex min-h-0 flex-1 flex-col overflow-y-auto" value="studio">
-            <div className="mx-auto w-full max-w-[78rem] px-4 py-5 md:px-6 md:py-6">
-              <VeraStudioPanel
-                initialDocument={initialStudioDocument}
-                initialDocuments={initialStudioDocs}
-                onAsk={askAboutDocument}
-                prices={usage.prices}
-              />
-            </div>
-          </TabsContent>
-        </div>
-      </div>
+      {view === "home" ? (
+        <VeraHome
+          blocked={blocked}
+          docs={docs}
+          effort={effort}
+          firstName={firstName}
+          onAsk={askAboutDocument}
+          onChangeEffort={changeEffort}
+          onCloseDocument={() => setOpenDocument(null)}
+          onDeleteDocument={(id) => void deleteDocument(id)}
+          onOpenDocument={(id) => void openDocumentById(id)}
+          onSend={startChatFromHome}
+          openDocument={openDocument}
+          prices={usage.prices}
+          studio={studio}
+        />
+      ) : (
+        <VeraChat
+          blocked={blocked}
+          busy={busy}
+          composerKey={composerSeed?.key ?? 0}
+          effort={effort}
+          historyChars={historyChars}
+          initialChips={composerSeed?.chips ?? []}
+          messages={messages}
+          onBack={goHome}
+          onChangeEffort={changeEffort}
+          onSend={send}
+          onStop={stopAnswer}
+          prices={usage.prices}
+          restoredIds={restoredIds}
+          status={status}
+          stoppedMessageId={stoppedMessageId}
+        />
+      )}
 
       <Sheet onOpenChange={setSessionsOpen} open={sessionsOpen}>
-        <SheetContent side="left">
+        <SheetContent side="right">
           <SheetHeader>
-            <SheetTitle>Sesi Vera</SheetTitle>
-            <SheetDescription>Pilih sesi untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
+            <SheetTitle>Percakapan</SheetTitle>
+            <SheetDescription>Pilih percakapan untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
             <VeraSessionsPanel {...panel} />
           </div>
         </SheetContent>
       </Sheet>
-    </Tabs>
-  );
-}
-
-function EmptyState({
-  disabled,
-  firstName,
-  onPick,
-}: {
-  disabled: boolean;
-  firstName: string | null;
-  onPick: (text: string) => void;
-}) {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
-      <Empty className="max-w-2xl gap-6 p-0">
-        <EmptyMedia className="relative mb-0 size-[80px] overflow-hidden rounded-pill">
-          <Image alt="" className="object-contain" fill sizes="80px" src={MASCOT_SRC} />
-        </EmptyMedia>
-        <EmptyHeader className="max-w-xl gap-2">
-          <EmptyTitle className="text-[1.5rem] font-extrabold tracking-[-0.035em] text-voyage-ink">
-            {firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?"}
-          </EmptyTitle>
-          <EmptyDescription>Tanya apa saja soal belajarmu, aku bantu jelaskan pelan-pelan.</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent className="max-w-2xl">
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
-            {STARTER_PROMPTS.map((prompt) => (
-              <Button
-                className="h-auto min-h-[44px] w-full justify-start py-2.5 text-left whitespace-normal"
-                disabled={disabled}
-                key={prompt}
-                onClick={() => onPick(prompt)}
-                type="button"
-                variant="outline"
-              >
-                {prompt}
-              </Button>
-            ))}
-          </div>
-        </EmptyContent>
-      </Empty>
     </div>
-  );
-}
-
-/** The `@` sources a student pinned. A source the server could not open says so instead of linking. */
-function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
-  return (
-    <div className="flex flex-wrap justify-end gap-2">
-      {mentions.map((mention) =>
-        mention.status === "accepted" && mention.source ? (
-          <Link className="max-w-full min-w-0" href={mention.source.href} key={`${mention.type}:${mention.id}`}>
-            <Badge className="max-w-full min-w-0 truncate" size="sm" tone="info">
-              {mention.label}
-            </Badge>
-          </Link>
-        ) : (
-          <Badge key={`${mention.type}:${mention.id}`} size="sm" tone="attention">
-            {`${mention.label}: tidak bisa dibuka`}
-          </Badge>
-        ),
-      )}
-    </div>
-  );
-}
-
-function ThreadMessage({
-  message,
-  stopping = false,
-  fresh = false,
-}: {
-  message: UIMessage;
-  stopping?: boolean;
-  fresh?: boolean;
-}) {
-  // A turn that arrives during the session eases in. Under reduced motion it appears at once.
-  const enter = fresh
-    ? "animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none"
-    : undefined;
-
-  if (message.role === "user") {
-    const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
-    const mentions = (message.metadata as { mentions?: ResolvedMention[] } | undefined)?.mentions ?? [];
-    return (
-      <Message align="end" className={enter}>
-        <MessageContent className="flex flex-col items-end gap-2">
-          <Bubble align="end" variant="muted">
-            <BubbleContent className="text-base leading-[1.6] whitespace-pre-wrap text-accent-foreground">
-              {text}
-            </BubbleContent>
-          </Bubble>
-          {mentions.length > 0 ? <MentionLinks mentions={mentions} /> : null}
-        </MessageContent>
-      </Message>
-    );
-  }
-
-  const stopped =
-    stopping ||
-    message.parts.some(
-      (part) => part.type === "data-vera-status" && (part.data as { stopped?: boolean } | undefined)?.stopped === true,
-    );
-  const credits = (message.metadata as { credits?: number } | undefined)?.credits;
-  // Links come from the pinned sources the server accepted and from the tool results the answer used. Both only point at pages
-  // the student could open.
-  const pinnedSources = (message.metadata as { sources?: VeraSource[] } | undefined)?.sources ?? [];
-  const toolOutputs = message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []));
-  const sources = uniqueSources([...pinnedSources, ...collectSources(toolOutputs)]);
-  return (
-    <Message align="start" className={cn("gap-3", enter)}>
-      <span
-        aria-hidden="true"
-        className="relative mt-0.5 size-[32px] shrink-0 overflow-hidden rounded-pill border border-primary-100 bg-white"
-      >
-        <Image alt="" className="object-contain" fill sizes="32px" src={MASCOT_SRC} />
-      </span>
-      <MessageContent className="min-w-0 gap-3 text-base leading-[1.7] text-foreground">
-        {message.parts.map((part, index) => {
-          if (part.type === "reasoning") {
-            return <Reasoning key={index} streaming={part.state === "streaming"} text={part.text} />;
-          }
-          if (isToolUIPart(part)) {
-            return (
-              <ToolStep
-                key={index}
-                output={part.output}
-                state={part.state}
-                toolName={part.type.slice("tool-".length)}
-              />
-            );
-          }
-          if (part.type === "text") {
-            return (
-              <VeraMarkdown className="max-w-[68ch]" key={index}>
-                {part.text}
-              </VeraMarkdown>
-            );
-          }
-          return null;
-        })}
-        {sources.length > 0 ? <Sources sources={sources} /> : null}
-        {stopped ? <p className="text-xs text-muted-foreground">Jawaban dihentikan.</p> : null}
-        {typeof credits === "number" ? (
-          <p className="text-xs text-muted-foreground tabular-nums">{formatCredits(credits)} kredit</p>
-        ) : null}
-      </MessageContent>
-    </Message>
   );
 }
