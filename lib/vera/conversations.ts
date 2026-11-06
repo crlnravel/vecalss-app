@@ -26,15 +26,6 @@ export async function createConversation(studentId: string) {
   return conversation.id;
 }
 
-export async function getLatestConversationId(studentId: string) {
-  const conversation = await prisma.veraConversation.findFirst({
-    where: { studentId, archivedAt: null, messages: { some: {} } },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true },
-  });
-  return conversation?.id ?? null;
-}
-
 export async function getConversationWithMessages(studentId: string, conversationId: string) {
   const conversation = await prisma.veraConversation.findFirst({
     where: { id: conversationId, studentId },
