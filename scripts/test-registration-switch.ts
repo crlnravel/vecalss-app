@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 import { getPrivacyPolicy, getTermsOfService } from "@/lib/legal";
 import type { LegalDocument } from "@/lib/legal/types";
-import { getRegistrationStatus, isRegistrationOpen } from "@/lib/registration/switch";
+import { getRegistrationStatus, isRegistrationOpen, type RegistrationBlocker } from "@/lib/registration/switch";
 import { TEST_SECRET_KEY, TEST_SITE_KEY, resolveTurnstileKeys } from "@/lib/registration/turnstile";
 
 /**
@@ -121,7 +121,7 @@ for (const [override, blocker] of [
   [{ TURNSTILE_SECRET_KEY: "", TURNSTILE_SITE_KEY: "x" }, "turnstile_not_configured"],
   [{ FRAUD_LOOKUP_SECRET: "short" }, "fraud_lookup_unavailable"],
 ] as Array<[Record<string, string>, string]>) {
-  assert.ok(status({ ...LOCAL, ...override }, shipped).blockers.includes(blocker), `locally, ${blocker} still closes it`);
+  assert.ok(status({ ...LOCAL, ...override }, shipped).blockers.includes(blocker as RegistrationBlocker), `locally, ${blocker} still closes it`);
 }
 pass("the local exception (draft legal pages, no sender) needs the stand-in gate; the other preconditions still apply there");
 
