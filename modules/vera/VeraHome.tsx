@@ -5,7 +5,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { CircleHelp } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
-import type { VeraPrices } from "@/lib/vera/credits-shared";
 import type { StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
 import type { MentionChip } from "@/modules/vera/mention-model";
@@ -36,7 +35,6 @@ export function VeraHome({
   onPickTool,
   onSend,
   openDocument,
-  prices,
   savedDocumentId,
   studio,
 }: {
@@ -44,7 +42,6 @@ export function VeraHome({
   effort: VeraEffortId;
   firstName: string | null;
   openDocument: StudioDocument | null;
-  prices: VeraPrices;
   savedDocumentId: string | null;
   studio: VeraStudioRun;
   onAsk: (doc: StudioDocument) => void;
@@ -83,11 +80,9 @@ export function VeraHome({
             blocked={blocked}
             effort={effort}
             examples={VERA_STARTER_PROMPTS}
-            historyChars={0}
             onEffortChange={onChangeEffort}
             onSend={({ text, chips }) => onSend(text, chips)}
             onStop={() => undefined}
-            prices={prices}
             status="ready"
           />
           <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>

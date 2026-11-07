@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, CircleHelp, Copy } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
-import { formatCredits, type VeraPrices } from "@/lib/vera/credits-shared";
+import { formatCredits } from "@/lib/vera/credits-shared";
 import { cn } from "@/lib/utils";
 import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
 import { type MentionChip } from "@/modules/vera/mention-model";
@@ -33,13 +33,11 @@ export function VeraChat({
   busy,
   composerKey,
   effort,
-  historyChars,
   initialChips,
   messages,
   onChangeEffort,
   onSend,
   onStop,
-  prices,
   restoredIds,
   status,
   stoppedMessageId,
@@ -48,10 +46,8 @@ export function VeraChat({
   busy: boolean;
   composerKey: number;
   effort: VeraEffortId;
-  historyChars: number;
   initialChips: MentionChip[];
   messages: UIMessage[];
-  prices: VeraPrices;
   restoredIds: Set<string>;
   status: PromptInputStatus;
   stoppedMessageId: string | null;
@@ -104,14 +100,12 @@ export function VeraChat({
         <VeraComposer
           blocked={blocked}
           effort={effort}
-          historyChars={historyChars}
           initialChips={initialChips}
           key={composerKey}
           onEffortChange={onChangeEffort}
           onSend={({ text, chips }) => onSend(text, chips)}
           onStop={onStop}
           placeholder="Balas Vera"
-          prices={prices}
           status={status}
         />
         <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
