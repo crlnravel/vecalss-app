@@ -39,6 +39,17 @@ type StudentNavigationItem = {
   label: string;
 };
 
+/** The reference look of a navigation item: 44px tall, a 12px corner, quiet text, and the Sea-Glass active state. */
+export const studentSidebarItemClassName =
+  "h-11 min-h-11 rounded-control px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35 data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]";
+
+/** The reference sidebar's surface: a white card with a Voyage border and a soft shadow, on a 12px corner. */
+export const studentSidebarSurfaceClassName =
+  "rounded-control border border-primary-100 bg-white shadow-[0_12px_28px_-24px_color-mix(in_oklab,var(--voyage-deep)_28%,transparent)]";
+
+/** The reference footer control: a bordered, lightly tinted block, the one the sidebar's footer control uses. */
+export const studentSidebarControlClassName = "rounded-control border border-primary-100 bg-primary-50/60";
+
 const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Beranda" },
   { href: "/courses", icon: BookOpen, label: "Materi" },
@@ -86,8 +97,7 @@ function StudentSidebarNavigation({ activeLabel, isReference, notificationBadge,
                     className={
                       isReference
                         ? cn(
-                            "h-11 min-h-11 rounded-control px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
-                            "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_color-mix(in_oklab,var(--voyage-deep)_8%,transparent)]",
+                            studentSidebarItemClassName,
                             "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
                             item.label === activeLabel &&
                               "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!",
@@ -129,7 +139,7 @@ function StudentSidebarNavigation({ activeLabel, isReference, notificationBadge,
 
 function StudentSidebarFooter({ isReference, state }: { isReference: boolean; state: "collapsed" | "expanded" }) {
   if (!isReference) return null;
-  return <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!"><SidebarTrigger aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"} className={cn("min-h-11 w-full rounded-control border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35", state === "collapsed" ? "justify-center" : "justify-end px-4", "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!")}>{state === "collapsed" ? <ChevronRight aria-hidden="true" className="size-4" /> : <ChevronLeft aria-hidden="true" className="size-4" />}</SidebarTrigger></SidebarFooter>;
+  return <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!"><SidebarTrigger aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"} className={cn(studentSidebarControlClassName, "min-h-11 w-full text-secondary-500 transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35", state === "collapsed" ? "justify-center" : "justify-end px-4", "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!")}>{state === "collapsed" ? <ChevronRight aria-hidden="true" className="size-4" /> : <ChevronLeft aria-hidden="true" className="size-4" />}</SidebarTrigger></SidebarFooter>;
 }
 
 function StudentSidebar({

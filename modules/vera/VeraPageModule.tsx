@@ -5,23 +5,26 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sidebar } from "@/components/ui/sidebar";
 import { showToast } from "@/components/ui/toast";
-import type { SessionContext } from "@/lib/auth/types";
-import type { StudentNotificationFeed } from "@/lib/notifications/types";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { History } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import type { StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
 import { studioDocumentHref } from "@/lib/vera/sources/types";
+import { studentSidebarSurfaceClassName } from "@/modules/student/components/student-sidebar";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
 import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
-import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
-import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
+import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 
@@ -83,8 +86,9 @@ function answerErrorMessage(error: Error): string {
 }
 
 /**
- * The Vera page, in Aily's layout: a header over the centre column, which shows either home or the chat. From lg up a right panel holds
- * the conversation list and the usage block. Below lg the list opens from the header, in a sheet. Starting a new session goes to home.
+ * The Vera page, in Aily's layout, inside the student shell: the centre column shows either home or the chat. From lg up a right panel
+ * holds the conversation list and the usage block. Below lg a small row above the column holds the history button and the usage pill, and
+ * the list opens from that button in a sheet. Starting a new session goes to home.
  *
  * The chat hook lives here rather than in the chat view, so a message sent from home is sent from the click that sends it. Starting
  * a request from an effect would be cancelled by React's development double-run of effects.
@@ -96,8 +100,6 @@ export function VeraPageModule({
   initialSessions,
   initialStudioDocument,
   initialUsage,
-  notificationFeed,
-  session,
   startInChat,
   studentId,
 }: {
@@ -107,8 +109,6 @@ export function VeraPageModule({
   initialSessions: VeraSessionSummary[];
   initialStudioDocument: StudioDocument | null;
   initialUsage: VeraUsageSnapshot;
-  notificationFeed: StudentNotificationFeed;
-  session: SessionContext;
   startInChat: boolean;
   studentId: string;
 }) {
@@ -335,16 +335,28 @@ export function VeraPageModule({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <VeraWorkspaceHeader
-        notificationFeed={notificationFeed}
-        onOpenSessions={() => setSessionsOpen(true)}
-        onRefreshUsage={() => void refreshUsage()}
-        session={session}
-        usage={usage}
-      />
-
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Below lg the history button and the usage pill sit in a small row above the column. From lg up the right panel holds both. */}
+          <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 lg:hidden">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="Buka daftar sesi"
+                    onClick={() => setSessionsOpen(true)}
+                    size="icon"
+                    type="button"
+                    variant="quiet"
+                  />
+                }
+              >
+                <History />
+              </TooltipTrigger>
+              <TooltipContent>Daftar sesi</TooltipContent>
+            </Tooltip>
+            <VeraUsagePopover onOpen={() => void refreshUsage()} usage={usage} />
+          </div>
           {view === "home" ? (
             <VeraHome
               blocked={blocked}
@@ -385,16 +397,15 @@ export function VeraPageModule({
           )}
         </div>
 
-        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. */}
-        <aside
+        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. The panel is the dashboard sidebar's own component, in its surface, at the width of the dashboard's card, which is the sidebar width less its inset. */}
+        <Sidebar
           aria-label="Percakapan"
-          className="hidden min-h-0 w-68 shrink-0 flex-col gap-4 border-l border-border p-4 lg:flex"
+          className={cn("hidden min-h-0 w-[calc(var(--sidebar-width)_-_1rem)] shrink-0 lg:flex", studentSidebarSurfaceClassName)}
+          collapsible="none"
+          role="complementary"
         >
-          <div className="flex min-h-0 flex-1 flex-col">
-            <VeraSessionsPanel {...panel} />
-          </div>
-          <VeraUsageBody className="shrink-0 border-t border-border pt-4" usage={usage} />
-        </aside>
+          <VeraSessionsPanel {...panel} usage={usage} />
+        </Sidebar>
       </div>
 
       {/* Below lg the same panel opens from the header, in a sheet. */}
@@ -404,9 +415,8 @@ export function VeraPageModule({
             <SheetTitle>Percakapan</SheetTitle>
             <SheetDescription>Pilih percakapan untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
-            <VeraSessionsPanel {...panel} />
-            <VeraUsageBody usage={usage} />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-6">
+            <VeraSessionsPanel {...panel} usage={usage} />
           </div>
         </SheetContent>
       </Sheet>

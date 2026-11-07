@@ -8,6 +8,7 @@ function CourseWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
+  fillViewport,
   mainClassName,
   notificationFeed,
   searchPlaceholder = "Cari materi, bacaan, atau topik...",
@@ -17,6 +18,7 @@ function CourseWorkspaceShell({
   activeLabel: string;
   breadcrumbLabel: string;
   children: React.ReactNode;
+  fillViewport?: boolean;
   mainClassName?: string;
   notificationFeed?: StudentNotificationFeed;
   searchPlaceholder?: string;
@@ -27,6 +29,7 @@ function CourseWorkspaceShell({
     <StudentWorkspaceShell
       activeLabel={activeLabel}
       breadcrumbLabel={breadcrumbLabel}
+      fillViewport={fillViewport}
       mainClassName={mainClassName}
       notificationFeed={notificationFeed}
       searchPlaceholder={searchPlaceholder}
