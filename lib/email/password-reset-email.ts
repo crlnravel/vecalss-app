@@ -37,10 +37,10 @@ function buildPasswordResetEmail({
     "",
     "Kalau bukan kamu yang meminta, abaikan saja email ini. Kata sandimu tidak berubah.",
     "",
-    "Vecalss tidak pernah meminta kata sandimu lewat email, chat, atau telepon. Jangan bagikan tautan ini ke siapa pun.",
+    "PTN Pro tidak pernah meminta kata sandimu lewat email, chat, atau telepon. Jangan bagikan tautan ini ke siapa pun.",
     "",
     "Salam,",
-    "Tim Vecalss",
+    "Tim PTN Pro",
   ].join("\n");
 
   const safeUrl = escapeHtml(resetUrl);
@@ -54,8 +54,8 @@ function buildPasswordResetEmail({
 <p style="margin:0 0 20px;font-size:14px;color:#4b5b54">Kalau tombolnya tidak bisa diklik, salin tautan ini ke peramban:<br><span style="word-break:break-all">${safeUrl}</span></p>
 <p style="margin:0 0 16px">Tautan ini berlaku ${minutes} menit dan hanya bisa dipakai sekali.</p>
 <p style="margin:0 0 16px">Kalau bukan kamu yang meminta, abaikan saja email ini. Kata sandimu tidak berubah.</p>
-<p style="margin:0 0 16px">Vecalss tidak pernah meminta kata sandimu lewat email, chat, atau telepon. Jangan bagikan tautan ini ke siapa pun.</p>
-<p style="margin:0">Salam,<br>Tim Vecalss</p>
+<p style="margin:0 0 16px">PTN Pro tidak pernah meminta kata sandimu lewat email, chat, atau telepon. Jangan bagikan tautan ini ke siapa pun.</p>
+<p style="margin:0">Salam,<br>Tim PTN Pro</p>
 </div>
 </body>
 </html>`;
@@ -63,7 +63,7 @@ function buildPasswordResetEmail({
   return {
     html,
     idempotencyKey,
-    subject: "Atur ulang kata sandi akun Vecalss-mu",
+    subject: "Atur ulang kata sandi akun PTN Pro-mu",
     text,
     to,
   };
