@@ -127,6 +127,13 @@ unexpected deletion is noticed the day it happens.
 
 ## Things to know
 
+- **Registration consent (MS-21).** `registration_consents` is a registered evidence table
+  (class `registration_consent`): the app can add rows and never change or remove them. It has
+  no retention rule yet, because the owner has not decided how long it is kept once an account is
+  gone, and an unlisted class is kept, never deleted. Add a rule in a new register version when
+  that is decided. Unverified signups never reach this table: they are deleted by the daily job
+  after 7 days, with their verification links. Signup attempts (`registration_attempts`) are a
+  security log, removed after 90 days with the others.
 - **Refund approval and transfer authorization.** Owner-only approval and
   second-factor verification are enforced by the application, not by the
   database. The database checks refund-state consistency, the balance cap,

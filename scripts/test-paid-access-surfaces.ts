@@ -196,6 +196,11 @@ const ACTION_CLASSES: ClassTable = {
     account: ["changePasswordAction", "logoutAction"],
     public: ["forgotPasswordAction", "getResetTokenStatus", "loginAction", "resetPasswordAction"],
   },
+  "modules/auth/registration-actions.ts": {
+    // Before sign-in: no session exists yet. The switch, Turnstile, the limits and the fraud
+    // blocks are the controls (test-registration-flow.ts), and the verification link is the credential.
+    public: ["registerStudentAction", "resendVerificationAction", "verifyEmailAction"],
+  },
   "modules/auth/mfa-actions.ts": {
     account: ["challengeAction", "confirmEnrollmentAction", "recoveryCodeAction", "setupCodeAction"],
   },

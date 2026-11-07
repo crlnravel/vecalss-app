@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import type { EmailMessage, MailResult } from "../lib/email/mailer";
 import {
@@ -294,6 +295,59 @@ for (const statement of statements) {
   assert.equal(statement.sql.includes("now()"), true, "cutoff comes from database time");
   assert.equal(statement.sql.includes("LIMIT"), true, "every delete is bounded");
   assert.equal(statement.values.includes(SECURITY_LOG_RETENTION_DAYS), true, "retention is 90 days");
+}
+
+// 8. The registration step (MS-21): unverified signups are cleaned up daily; an account that
+// could not be removed is a failure the owner is told about; a crash in it stops nothing else.
+{
+  const alerts: EmailMessage[] = [];
+  const base = (overrides: Partial<MaintenanceDeps>): MaintenanceDeps => ({
+    alertTo: "owner@ptnpro.test",
+    db: { $executeRaw: async () => 0, $queryRaw: async () => [{ count: 0n }] } as unknown as MaintenanceDeps["db"],
+    now: new Date("2026-11-09T19:00:00Z"),
+    probes: { database: ok, redis: ok },
+    sendAlert: async (message) => {
+      alerts.push(message);
+      return { id: "email_test", ok: true, redirected: false } as MailResult;
+    },
+    ...overrides,
+  });
+
+  const clean = await runDailyMaintenance(base({ registration: async () => ({ complete: true, deleted: 3, failed: 0 }) }));
+  assert.equal(clean.ok, true);
+  assert.deepEqual(clean.registration, { complete: true, deleted: 3, failed: 0 }, "the step's counts are in the result");
+  assert.equal(alerts.length, 0, "deleting unverified signups is routine and sends nothing");
+
+  const stuck = await runDailyMaintenance(base({ registration: async () => ({ complete: true, deleted: 1, failed: 2 }) }));
+  assert.deepEqual(stuck.failures, ["registration_cleanup"], "an account that could not be removed is a failure");
+  assert.equal(stuck.ok, false);
+  assert.equal(alerts.length, 1, "and the owner is told");
+  assert.match(alerts[0].text, /pembersihan pendaftaran yang belum diverifikasi/u);
+  alerts.length = 0;
+
+  const crashed = await runDailyMaintenance(base({
+    payments: async () => ({ deadCriticalAlerts: 0 } as never),
+    registration: async () => {
+      throw new Error("relation users does not exist");
+    },
+  }));
+  assert.deepEqual(crashed.failures, ["registration_cleanup"], "a crash in the step is a failure of that step only");
+  assert.equal(crashed.registration, null);
+  assert.equal(alerts[0]?.text.includes("relation users"), false, "the alert carries no error text");
+  alerts.length = 0;
+
+  const without = await runDailyMaintenance(base({}));
+  assert.equal(without.registration, null, "a run given no registration step reports none");
+  assert.equal(without.ok, true);
+
+  const route = readFileSync("app/api/cron/daily-maintenance/route.ts", "utf8");
+  assert.match(route, /registration: \(\) => cleanupUnverifiedSignups\(\)/u, "the cron route runs the cleanup");
+  assert.ok((SECURITY_LOG_TABLES as readonly string[]).includes("registration_attempts"), "signup attempts are cleaned up with the other security logs");
+  const response = await (await handleDailyMaintenanceRequest(
+    new Request("https://app.example.test/api/cron/daily-maintenance", { headers: { authorization: `Bearer ${SECRET}` } }),
+    { run: async () => ({ ...(await runStub()), registration: { complete: true, deleted: 1, failed: 0 } }), secret: SECRET },
+  )).json();
+  assert.deepEqual(response.registration, { complete: true, deleted: 1, failed: 0 }, "the cron answer carries the counts");
 }
 
 console.log("Daily maintenance checks passed.");
