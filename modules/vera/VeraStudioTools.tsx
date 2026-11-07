@@ -31,7 +31,7 @@ const TOOL_ICONS: Record<StudioToolId, AppIcon> = {
 /** What each card says, in one short sentence a student can read at a glance. The dialog keeps the longer description. */
 const TOOL_CARD_TEXT: Record<StudioToolId, string> = {
   weakness_analysis: "Cari tahu topik yang paling perlu kamu perkuat.",
-  study_route: "Susun jadwal belajar seminggu yang tidak padat.",
+  study_route: "Susun jadwal belajar, tidak terlalu padat.",
   wrong_answer_review: "Bedah soal yang salah, langkah demi langkah.",
 };
 
