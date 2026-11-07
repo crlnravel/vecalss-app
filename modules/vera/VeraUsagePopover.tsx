@@ -1,10 +1,12 @@
+"use client";
+
+import { useState } from "react";
+
 import { Context } from "@/components/ai-elements/context";
-import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
-import { VERA_TIME_ZONE } from "@/lib/vera/config";
-import { formatCredits } from "@/lib/vera/credits-shared";
+import { Progress } from "@/components/ui/progress";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
+import { formatResetAt, formatResetIn, formatUsagePercent, usagePercent } from "@/lib/vera/usage-display";
 
 const WINDOWS = [
   { key: "day", label: "Hari ini" },
@@ -12,59 +14,60 @@ const WINDOWS = [
   { key: "month", label: "Bulan ini" },
 ] as const;
 
-function formatReset(value: string) {
-  const formatted = new Intl.DateTimeFormat("id-ID", {
-    timeZone: VERA_TIME_ZONE,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-  return `${formatted} WIB`;
-}
-
-/** Header meter. Opening it shows each window with its reset time. */
+/**
+ * Header meter. The pill shows today's share of its limit. Opening it shows each window as a bar with its share and its reset time.
+ * A bar takes the attention tone at the soft limit and the danger tone at the full limit.
+ */
 export function VeraUsagePopover({ usage, onOpen }: { usage: VeraUsageSnapshot; onOpen?: () => void }) {
+  // The reset times are worded from the moment the meter opens, so they match the numbers beside them.
+  const [openedAt, setOpenedAt] = useState(() => new Date());
+  const dayPercent = formatUsagePercent(usage.day.used, usage.day.hardLimit);
+  // A screen reader says "kurang dari 1" where the pill shows "<1%".
+  const daySpoken = dayPercent === "<1%" ? "kurang dari 1" : dayPercent.slice(0, -1);
+
   return (
     <Popover
       onOpenChange={(open) => {
-        if (open) onOpen?.();
+        if (!open) return;
+        setOpenedAt(new Date());
+        onOpen?.();
       }}
     >
-      <PopoverTrigger
-        aria-label={`Kredit hari ini ${formatCredits(usage.day.used)} dari ${usage.day.hardLimit}`}
-        className="rounded-pill"
-      >
+      <PopoverTrigger aria-label={`Pemakaian hari ini ${daySpoken} persen. Buka rincian`} className="rounded-pill">
         <Context used={usage.day.used} limit={usage.day.hardLimit} />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-4 p-4">
         {WINDOWS.map(({ key, label }) => {
-          const window = usage[key];
-          const percent = Math.min(100, (window.used / window.hardLimit) * 100);
+          const usageWindow = usage[key];
+          const percent = usagePercent(usageWindow.used, usageWindow.hardLimit);
+          const percentText = formatUsagePercent(usageWindow.used, usageWindow.hardLimit);
+          const reset =
+            key === "day" ? formatResetIn(usageWindow.resetsAt, openedAt) : formatResetAt(usageWindow.resetsAt, openedAt);
+          const tone =
+            percent >= 100
+              ? "bg-student-status-danger-fg"
+              : usageWindow.softWarning
+                ? "bg-student-status-attention-fg"
+                : "bg-voyage-leaf";
           return (
-            <div className="space-y-1.5" key={key}>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="font-medium text-secondary-950">{label}</span>
-                <span className="text-muted-foreground tabular-nums">
-                  {formatCredits(window.used)} / {window.hardLimit}
+            <Progress
+              aria-label={label}
+              className="gap-1.5"
+              getAriaValueText={() => `${percentText} terpakai`}
+              indicatorClassName={tone}
+              key={key}
+              trackClassName="h-2 bg-voyage-sea-glass"
+              value={percent}
+            >
+              <div className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <span className="text-sm font-medium text-secondary-950">{label}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {percentText} terpakai · {reset}
                 </span>
               </div>
-              <Progress value={percent}>
-                <ProgressTrack>
-                  <ProgressIndicator />
-                </ProgressTrack>
-              </Progress>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>Reset {formatReset(window.resetsAt)}</span>
-                {window.softWarning ? <Badge>Hampir habis</Badge> : null}
-              </div>
-            </div>
+            </Progress>
           );
         })}
-        <p className="text-xs text-muted-foreground">
-          Biaya tiap jawaban tergantung mode berpikir dan panjang percakapan.
-        </p>
       </PopoverContent>
     </Popover>
   );
