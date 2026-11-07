@@ -159,14 +159,14 @@ async function runBrowserChecks() {
     await page.keyboard.press("Escape");
     await composer.fill("");
 
-    // 4. A Studio run saves a document, and the list shows it. The tools and the list are on the home page.
+    // 4. A Studio run saves a document. The preview card under the tools says so, and its button opens the saved document.
     await page.getByRole("button", { name: "Kembali ke Vera AI" }).click();
-    const cards = page.locator('ul[aria-label="Dokumen tersimpan"] > li');
-    const before = await cards.count();
     await page.getByRole("button", { name: "Analisis Kelemahan", exact: true }).click();
     await page.getByRole("button", { name: "Buat" }).click();
-    await page.getByText("Dokumen tersimpan. Lihat di daftar di bawah.").waitFor({ timeout: 120_000 });
-    assert.equal(await cards.count(), before + 1, "The Studio run adds one saved document to the list");
+    await page.getByText("Dokumen tersimpan.", { exact: true }).waitFor({ timeout: 120_000 });
+    await page.getByRole("button", { name: "Buka dokumen", exact: true }).click();
+    await page.getByRole("dialog").getByText("Analisis Kelemahan", { exact: true }).waitFor({ timeout: 30_000 });
+    await page.keyboard.press("Escape");
 
     // 5. The session can be renamed from the history sheet.
     await page.getByRole("button", { name: "Buka daftar sesi" }).click();
