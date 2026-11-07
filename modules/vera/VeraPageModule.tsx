@@ -397,10 +397,10 @@ export function VeraPageModule({
           )}
         </div>
 
-        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. The panel is the dashboard sidebar's own component, in its surface. */}
+        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. The panel is the dashboard sidebar's own component, in its surface, at the width of the dashboard's card, which is the sidebar width less its inset. */}
         <Sidebar
           aria-label="Percakapan"
-          className={cn("hidden min-h-0 shrink-0 lg:flex", studentSidebarSurfaceClassName)}
+          className={cn("hidden min-h-0 w-[calc(var(--sidebar-width)_-_1rem)] shrink-0 lg:flex", studentSidebarSurfaceClassName)}
           collapsible="none"
           role="complementary"
         >
