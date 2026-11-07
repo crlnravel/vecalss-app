@@ -74,6 +74,7 @@ async function readDeviceCookie() {
 
 export {
   buildDeviceSetCookie,
+  DEVICE_COOKIE_MAX_AGE_SECONDS,
   DEVICE_COOKIE_NAME,
   deviceCookieOptions,
   ensureDeviceCookie,
