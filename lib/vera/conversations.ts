@@ -46,21 +46,47 @@ export async function getConversationWithMessages(studentId: string, conversatio
   };
 }
 
+/** The row a stored message is written as. Sources and mentions stay unset (NULL) when empty, so an empty list never looks like a choice. */
+function storedRow(conversationId: string, message: StoredVeraMessage) {
+  return {
+    id: message.id,
+    conversationId,
+    role: message.role,
+    parts: message.parts as unknown as Prisma.InputJsonValue,
+    effort: message.effort ?? null,
+    credits: message.credits ?? null,
+    sources: message.sources?.length ? (message.sources as unknown as Prisma.InputJsonValue) : undefined,
+    mentions: message.mentions?.length ? (message.mentions as unknown as Prisma.InputJsonValue) : undefined,
+    createdAt: message.createdAt,
+  };
+}
+
 export async function appendMessages(conversationId: string, messages: StoredVeraMessage[]) {
-  await prisma.veraMessage.createMany({
-    data: messages.map((message) => ({
-      id: message.id,
-      conversationId,
-      role: message.role,
-      parts: message.parts as unknown as Prisma.InputJsonValue,
-      effort: message.effort ?? null,
-      credits: message.credits ?? null,
-      // Left unset (NULL) when the answer used no tools, so an empty list never looks like a stored choice.
-      sources: message.sources?.length ? (message.sources as unknown as Prisma.InputJsonValue) : undefined,
-      mentions: message.mentions?.length ? (message.mentions as unknown as Prisma.InputJsonValue) : undefined,
-      createdAt: message.createdAt,
-    })),
-  });
+  await prisma.veraMessage.createMany({ data: messages.map((message) => storedRow(conversationId, message)) });
+}
+
+/**
+ * Edit writes its replacement: it removes the listed messages of this session and stores the new message in their place, in one
+ * transaction. The session keeps its title and its usage events.
+ */
+export async function replaceMessages({
+  conversationId,
+  removeIds,
+  next,
+}: {
+  conversationId: string;
+  removeIds: string[];
+  next: StoredVeraMessage;
+}) {
+  await prisma.$transaction([
+    prisma.veraMessage.deleteMany({ where: { conversationId, id: { in: removeIds } } }),
+    prisma.veraMessage.create({ data: storedRow(conversationId, next) }),
+  ]);
+}
+
+/** Removes listed messages of this session, such as the answer that a regenerate replaces. Usage events are not touched. */
+export async function removeMessages({ conversationId, ids }: { conversationId: string; ids: string[] }) {
+  await prisma.veraMessage.deleteMany({ where: { conversationId, id: { in: ids } } });
 }
 
 export async function touchConversation(studentId: string, conversationId: string) {

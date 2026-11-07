@@ -21,6 +21,8 @@ import {
   createConversation,
   discardEmptyConversation,
   getConversationWithMessages,
+  removeMessages,
+  replaceMessages,
   touchConversation,
 } from "./conversations";
 import { VeraError } from "./errors";
@@ -38,34 +40,96 @@ import { createVeraTools } from "./tools";
 import { scheduleConversationTitle } from "./titles";
 import { finalStepControl, trackAnswerUsage } from "./usage-tracker";
 
-export const veraChatRequestSchema = z.object({
-  conversationId: z.uuid().optional(),
-  message: z.object({
-    // Only a request key. The stored id is assigned by the server, so reuse cannot collide.
-    id: z.string().min(1).max(64),
-    role: z.literal("user"),
-    parts: z
-      .array(z.object({ type: z.literal("text"), text: z.string().trim().min(1).max(VERA_LIMITS.maxMessageChars) }))
-      .length(1),
-  }),
-  effort: z.enum(VERA_EFFORT_IDS).default("seimbang"),
-  // Sources the student pinned with @. The server re-reads each one before it reaches the prompt.
-  mentions: z
-    .array(
-      z.object({
-        type: z.enum(VERA_MENTION_TYPES),
-        id: z.string().min(1).max(64),
-        // The label the student's menu showed. Kept only for a pin the server refuses.
-        label: z.string().max(200).optional(),
-      }),
-    )
-    .max(VERA_LIMITS.maxMentions)
-    .default([]),
+// A mention is a source the student pinned with @. The server re-reads each one before it reaches the prompt.
+const mentionSchema = z.object({
+  type: z.enum(VERA_MENTION_TYPES),
+  id: z.string().min(1).max(64),
+  // The label the student's menu showed. Kept only for a pin the server refuses.
+  label: z.string().max(200).optional(),
 });
 
+const messageSchema = z.object({
+  // Only a request key. The stored id is assigned by the server, so reuse cannot collide.
+  id: z.string().min(1).max(64),
+  role: z.literal("user"),
+  parts: z
+    .array(z.object({ type: z.literal("text"), text: z.string().trim().min(1).max(VERA_LIMITS.maxMessageChars) }))
+    .length(1),
+});
+
+const effortField = z.enum(VERA_EFFORT_IDS).default("seimbang");
+const mentionsField = z.array(mentionSchema).max(VERA_LIMITS.maxMentions).default([]);
+
+const sendRequestSchema = z.object({
+  action: z.literal("send"),
+  conversationId: z.uuid().optional(),
+  message: messageSchema,
+  effort: effortField,
+  mentions: mentionsField,
+});
+
+// Edit replaces one stored user message, and the answer after it, with this message.
+const editRequestSchema = z.object({
+  action: z.literal("edit"),
+  conversationId: z.uuid(),
+  userMessageId: z.string().min(1).max(64),
+  message: messageSchema,
+  effort: effortField,
+  mentions: mentionsField,
+});
+
+// Regenerate answers again the question before one stored answer. The question's mentions are read from its stored row.
+const regenerateRequestSchema = z.object({
+  action: z.literal("regenerate"),
+  conversationId: z.uuid(),
+  assistantMessageId: z.string().min(1).max(64),
+  effort: effortField,
+});
+
+/** One shape per action, so each action's fields are checked on their own. */
+export const veraChatRequestSchema = z.discriminatedUnion("action", [
+  sendRequestSchema,
+  editRequestSchema,
+  regenerateRequestSchema,
+]);
+
 export type VeraChatInput = z.infer<typeof veraChatRequestSchema>;
+export type VeraSendInput = z.infer<typeof sendRequestSchema>;
+type MentionRequest = z.infer<typeof mentionSchema>;
+type PinnedSources = Awaited<ReturnType<typeof resolveMentions>>;
+
+/** A request from before the action field existed. It is a send. */
+export function parseVeraChatRequest(body: unknown) {
+  const withAction = body && typeof body === "object" && !("action" in body) ? { action: "send", ...body } : body;
+  return veraChatRequestSchema.safeParse(withAction);
+}
 
 const STOPPED_PART_TYPE = "data-vera-status";
+
+/**
+ * What one request asks for: the question to answer, the messages before it, and what its stored rows become. The question keeps the id
+ * its row is stored under.
+ */
+type Turn =
+  | { kind: "send"; conversationId: string | null; history: UIMessage[]; question: UIMessage; mentions: MentionRequest[] }
+  | {
+      kind: "edit";
+      conversationId: string;
+      history: UIMessage[];
+      question: UIMessage;
+      mentions: MentionRequest[];
+      // The edited message and every message after it. The new question takes their place.
+      removeIds: string[];
+    }
+  | {
+      kind: "regenerate";
+      conversationId: string;
+      history: UIMessage[];
+      question: UIMessage;
+      mentions: MentionRequest[];
+      // The answer this run replaces.
+      answerId: string;
+    };
 
 /** Starts one answer and returns the UI message stream. Ownership is checked and a reservation taken before anything is written. */
 export async function runVeraChat({
@@ -84,14 +148,8 @@ export async function runVeraChat({
     throw new VeraError("vera_unavailable", "Vera sedang tidak tersedia. Coba lagi nanti.");
   }
 
-  let history: UIMessage[] = [];
-  if (input.conversationId) {
-    const conversation = await getConversationWithMessages(studentId, input.conversationId);
-    if (!conversation) {
-      throw new VeraError("not_found", "Sesi tidak ditemukan.");
-    }
-    history = conversation.messages;
-  }
+  // Ownership and the last-message rules are checked before anything is reserved or written.
+  const turn = await planTurn(studentId, input);
 
   const effort = VERA_EFFORTS[input.effort];
   const prices = getVeraPrices();
@@ -100,11 +158,10 @@ export async function runVeraChat({
     studentId,
     effort: input.effort,
     model: getVeraModelId(),
-    conversationId: input.conversationId ?? null,
+    conversationId: turn.conversationId,
     now,
   });
 
-  const userMessage: UIMessage = { id: crypto.randomUUID(), role: "user", parts: input.message.parts };
   let conversationId: string;
   let instructions: string;
   let modelMessages: ModelMessage[];
@@ -114,10 +171,10 @@ export async function runVeraChat({
   let createdConversationId: string | null = null;
   try {
     // Any failure in this block releases the reservation, so a broken setup never holds the student's limit.
-    const pinned = await resolveMentions({ studentId, mentions: input.mentions, now });
+    const pinned = await resolveMentions({ studentId, mentions: turn.mentions, now });
     mentionSources = pinned.accepted.flatMap((mention) => (mention.source ? [mention.source] : []));
-    conversationId = input.conversationId ?? (await createConversation(studentId));
-    if (!input.conversationId) {
+    conversationId = turn.conversationId ?? (await createConversation(studentId));
+    if (!turn.conversationId) {
       createdConversationId = conversationId;
       await attachReservationConversation(eventId, conversationId);
     }
@@ -127,18 +184,10 @@ export async function runVeraChat({
     instructions = buildVeraInstructions({ firstName, now, pinned: pinned.pinned });
     const historyBudget = VERA_LIMITS.maxInputTokensPerStep - estimateTokens(instructions) - effort.maxOutputTokens;
     modelMessages = await convertToModelMessages(
-      toModelHistory([...trimHistory(history, Math.max(0, historyBudget)), userMessage]),
+      toModelHistory([...trimHistory(turn.history, Math.max(0, historyBudget)), turn.question]),
     );
 
-    await appendMessages(conversationId, [
-      {
-        id: userMessage.id,
-        role: "user",
-        parts: userMessage.parts,
-        mentions: [...pinned.accepted, ...pinned.rejected],
-        createdAt: now,
-      },
-    ]);
+    await storeTurn({ conversationId, turn, pinned, now });
   } catch (error) {
     await releaseVeraReservation({ eventId, errorCode: "setup_failed", now });
     if (createdConversationId) await discardEmptyConversation({ studentId, conversationId: createdConversationId });
@@ -176,10 +225,13 @@ export async function runVeraChat({
 
     const stream = toUIMessageStream({
       stream: result.stream,
-      originalMessages: [userMessage],
+      originalMessages: [turn.question],
       generateMessageId: () => crypto.randomUUID(),
       messageMetadata: ({ part }) => {
-        if (part.type === "start") return { conversationId, effort: input.effort, sources: mentionSources };
+        // The question's stored id travels with the answer, so the page can match its own copy of the question to the stored one.
+        if (part.type === "start") {
+          return { conversationId, effort: input.effort, sources: mentionSources, userMessageId: turn.question.id };
+        }
         if (part.type === "finish") return { effort: input.effort, credits: usage.creditsForAnswer() };
         return undefined;
       },
@@ -209,11 +261,111 @@ export async function runVeraChat({
     throw error;
   }
 
-  // The first answer of a session is titled once the response has finished. Later answers keep the title.
-  if (!history.some((message) => message.role === "assistant")) {
+  // The first answer of a session is titled once the response has finished. Later answers keep the title, and so does an edit.
+  if (turn.kind === "send" && !turn.history.some((message) => message.role === "assistant")) {
     scheduleConversationTitle({ studentId, conversationId });
   }
   return response;
+}
+
+/**
+ * Works out what a request asks for and checks that the student owns it. Edit and regenerate only act on the newest message of their
+ * kind, so a stale screen cannot replace an older answer. Nothing is reserved or written until this passes.
+ */
+async function planTurn(studentId: string, input: VeraChatInput): Promise<Turn> {
+  if (input.action === "send") {
+    const history = input.conversationId ? await loadHistory(studentId, input.conversationId) : [];
+    return {
+      kind: "send",
+      conversationId: input.conversationId ?? null,
+      history,
+      question: { id: crypto.randomUUID(), role: "user", parts: input.message.parts },
+      mentions: input.mentions,
+    };
+  }
+
+  const messages = await loadHistory(studentId, input.conversationId);
+  if (input.action === "edit") {
+    const index = messages.findIndex((message) => message.id === input.userMessageId);
+    if (index === -1 || messages[index].role !== "user") {
+      throw new VeraError("not_found", "Pesan yang mau diubah sudah tidak ada.");
+    }
+    if (index !== messages.map((message) => message.role).lastIndexOf("user")) {
+      throw new VeraError("not_latest", "Hanya pesan terakhir yang bisa diubah.");
+    }
+    return {
+      kind: "edit",
+      conversationId: input.conversationId,
+      history: messages.slice(0, index),
+      question: { id: crypto.randomUUID(), role: "user", parts: input.message.parts },
+      mentions: input.mentions,
+      removeIds: messages.slice(index).map((message) => message.id),
+    };
+  }
+
+  const index = messages.findIndex((message) => message.id === input.assistantMessageId);
+  if (index === -1 || messages[index].role !== "assistant") {
+    throw new VeraError("not_found", "Jawaban yang mau dibuat ulang sudah tidak ada.");
+  }
+  if (index !== messages.length - 1) {
+    throw new VeraError("not_latest", "Hanya jawaban terakhir yang bisa dibuat ulang.");
+  }
+  const question = messages[index - 1];
+  if (!question || question.role !== "user") {
+    throw new VeraError("invalid_request", "Jawaban ini tidak bisa dibuat ulang.");
+  }
+  return {
+    kind: "regenerate",
+    conversationId: input.conversationId,
+    history: messages.slice(0, index - 1),
+    question,
+    mentions: storedMentions(question),
+    answerId: input.assistantMessageId,
+  };
+}
+
+async function loadHistory(studentId: string, conversationId: string) {
+  const conversation = await getConversationWithMessages(studentId, conversationId);
+  if (!conversation) {
+    throw new VeraError("not_found", "Sesi tidak ditemukan.");
+  }
+  return conversation.messages;
+}
+
+/** The mentions a question was sent with, read back from its stored row. They are checked again, as they are for any send. */
+function storedMentions(question: UIMessage): MentionRequest[] {
+  const parsed = z.array(mentionSchema).safeParse((question.metadata as { mentions?: unknown } | undefined)?.mentions ?? []);
+  return parsed.success ? parsed.data : [];
+}
+
+/**
+ * Writes the request's own rows before the answer streams. Regenerate drops the answer it replaces, and edit replaces its message with the
+ * new question. A send only adds its question.
+ */
+async function storeTurn({
+  conversationId,
+  turn,
+  pinned,
+  now,
+}: {
+  conversationId: string;
+  turn: Turn;
+  pinned: PinnedSources;
+  now: Date;
+}) {
+  if (turn.kind === "regenerate") {
+    await removeMessages({ conversationId, ids: [turn.answerId] });
+    return;
+  }
+  const row = {
+    id: turn.question.id,
+    role: "user" as const,
+    parts: turn.question.parts,
+    mentions: [...pinned.accepted, ...pinned.rejected],
+    createdAt: now,
+  };
+  if (turn.kind === "edit") await replaceMessages({ conversationId, removeIds: turn.removeIds, next: row });
+  else await appendMessages(conversationId, [row]);
 }
 
 /**

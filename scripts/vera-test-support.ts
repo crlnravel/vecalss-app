@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
-import type { VeraChatInput } from "../lib/vera/chat";
+import type { VeraSendInput } from "../lib/vera/chat";
 import { listTryoutResults } from "../lib/vera/sources/tryout";
 
 /** Helpers shared by the Vera checks. None of them calls the provider: every model is the AI SDK mock. */
@@ -82,8 +82,9 @@ export function minimalPdf(line: string) {
   return new TextEncoder().encode(body);
 }
 
-export function userInput(text: string, mentions: VeraChatInput["mentions"] = []): VeraChatInput {
+export function userInput(text: string, mentions: VeraSendInput["mentions"] = []): VeraSendInput {
   return {
+    action: "send",
     message: { id: `msg-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text }] },
     effort: "cepat",
     mentions,
