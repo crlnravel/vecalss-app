@@ -6,57 +6,33 @@ import { Button } from "@/components/ui/button";
 import { CircleHelp } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
 import type { StudioToolId } from "@/lib/vera/studio";
-import type { StudioDocument } from "@/lib/vera/studio-documents";
 import type { MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
-import { VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
-import { VeraStudioPreview } from "@/modules/vera/VeraStudioPreview";
 import { VeraStudioCards } from "@/modules/vera/VeraStudioTools";
-import type { VeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
 const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
 
 /**
  * The start screen, in Aily's layout: the mascot above the heading, the composer card with its toolbar, the disclaimer, the three Studio
- * cards, and the starter questions in a 2×2 grid. A Studio run's preview card takes the place of the cards and the starter questions. A
- * saved document opens from that card or from its dialog.
+ * cards, and the starter questions in a 2×2 grid. A Studio card opens its options, and the request then goes to the chat.
  */
 export function VeraHome({
   blocked,
   effort,
   firstName,
-  onAsk,
-  onAskDocumentById,
   onChangeEffort,
-  onCloseDocument,
-  onDeleteDocument,
-  onOpenDocument,
   onPickTool,
   onSend,
-  openDocument,
-  savedDocumentId,
-  studio,
 }: {
   blocked: string | null;
   effort: VeraEffortId;
   firstName: string | null;
-  openDocument: StudioDocument | null;
-  savedDocumentId: string | null;
-  studio: VeraStudioRun;
-  onAsk: (doc: StudioDocument) => void;
-  onAskDocumentById: (id: string) => void;
   onChangeEffort: (effort: VeraEffortId) => void;
-  onCloseDocument: () => void;
-  onDeleteDocument: (id: string) => void;
-  onOpenDocument: (id: string) => void;
   onPickTool: (tool: StudioToolId) => void;
   onSend: (text: string, chips: MentionChip[]) => void;
 }) {
   const title = firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?";
-  // The Studio cards and the starter questions step aside while the Studio preview card is up, running or done. A new start screen brings
-  // them back.
-  const showingPreview = studio.busy || studio.preview !== null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -86,40 +62,24 @@ export function VeraHome({
             status="ready"
           />
           <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
-          {showingPreview ? (
-            <VeraStudioPreview
-              busy={studio.busy}
-              className="max-h-[min(36dvh,16rem)] md:max-h-[min(40dvh,22rem)]"
-              onAsk={onAskDocumentById}
-              onOpen={onOpenDocument}
-              onStop={() => void studio.stop()}
-              preview={studio.preview}
-              savedDocumentId={savedDocumentId}
-            />
-          ) : (
-            <VeraStudioCards busy={studio.busy} onPick={onPickTool} />
-          )}
+          <VeraStudioCards busy={blocked !== null} onPick={onPickTool} />
         </div>
-        {showingPreview ? null : (
-          <div className="grid w-full gap-2 sm:grid-cols-2">
-            {VERA_STARTER_PROMPTS.map((prompt) => (
-              <Button
-                className="h-11 justify-start rounded-pill text-left"
-                disabled={blocked !== null}
-                key={prompt}
-                onClick={() => onSend(prompt, [])}
-                type="button"
-                variant="outline"
-              >
-                <CircleHelp />
-                {prompt}
-              </Button>
-            ))}
-          </div>
-        )}
+        <div className="grid w-full gap-2 sm:grid-cols-2">
+          {VERA_STARTER_PROMPTS.map((prompt) => (
+            <Button
+              className="h-11 justify-start rounded-pill text-left"
+              disabled={blocked !== null}
+              key={prompt}
+              onClick={() => onSend(prompt, [])}
+              type="button"
+              variant="outline"
+            >
+              <CircleHelp />
+              {prompt}
+            </Button>
+          ))}
+        </div>
       </section>
-
-      <VeraStudioDocDialog doc={openDocument} onAsk={onAsk} onClose={onCloseDocument} onDelete={onDeleteDocument} />
     </div>
   );
 }

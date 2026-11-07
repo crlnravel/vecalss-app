@@ -35,7 +35,17 @@ import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
 import { resolveMentions } from "./sources/mentions";
 import { collectSources, uniqueSources, VERA_MENTION_TYPES, type VeraSource } from "./sources/types";
-import { keepToolLinks, STUDIO_WRITE_TOOLS, studioModelText, studioOptionsSchema, studioTitle, studioToolOfWrite, type StudioOptions } from "./studio";
+import {
+  keepToolLinks,
+  STUDIO_DOCUMENT_PART,
+  STUDIO_REQUEST_PART,
+  STUDIO_WRITE_TOOLS,
+  studioModelText,
+  studioOptionsSchema,
+  studioTitle,
+  studioToolOfWrite,
+  type StudioOptions,
+} from "./studio";
 import { saveStudioDocument } from "./studio-documents";
 import { createVeraTools, type StudioWrite } from "./tools";
 import { scheduleConversationTitle } from "./titles";
@@ -108,10 +118,6 @@ export function parseVeraChatRequest(body: unknown) {
 }
 
 const STOPPED_PART_TYPE = "data-vera-status";
-// The Studio request a question carries, so Ulangi asks for the same document again. The student's bubble does not show it.
-const STUDIO_REQUEST_PART = "data-vera-studio-request";
-// The document a Studio answer was saved as. The answer shows its card from this.
-const STUDIO_DOCUMENT_PART = "data-vera-studio";
 
 /**
  * What one request asks for: the question to answer, the messages before it, and what its stored rows become. The question keeps the id
@@ -277,7 +283,11 @@ export async function runVeraChat({
         }
         if (part.type === "finish") {
           finishReason = (part as { finishReason?: string }).finishReason;
-          return { effort: input.effort, credits: usage.creditsForAnswer(), finishReason };
+          // The document this turn wrote is named here, so its card can open it as soon as the answer finishes.
+          const studio = studioWrite
+            ? { documentId: studioWrite.documentId, complete: finishReason !== "length" }
+            : undefined;
+          return { effort: input.effort, credits: usage.creditsForAnswer(), finishReason, studio };
         }
         return undefined;
       },

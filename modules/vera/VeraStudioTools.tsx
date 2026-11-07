@@ -11,7 +11,7 @@ import { SunkenTabButton } from "@/components/ui/sunken-tabs";
 import { Compass, ListChecks, Target, type AppIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/vera/credits-shared";
-import { STUDY_ROUTE_MINUTES, STUDIO_TOOLS, type StudioRequest, type StudioToolId } from "@/lib/vera/studio";
+import { STUDY_ROUTE_MINUTES, STUDIO_TOOLS, studioBubbleText, type StudioOptions, type StudioToolId } from "@/lib/vera/studio";
 import { quizSubjects } from "@/modules/quiz/data";
 import type { MentionCandidate, MentionGroups } from "@/modules/vera/mention-model";
 
@@ -71,7 +71,7 @@ export function VeraStudioCards({ busy, onPick }: { busy: boolean; onPick: (tool
   );
 }
 
-/** One tool's options, with its credit estimate and the primary Buat action. The dialog closes when a run starts. */
+/** One tool's options, with its credit estimate and the primary Buat action. The dialog closes when the request is sent. */
 export function VeraStudioToolDialog({
   busy,
   onClose,
@@ -81,7 +81,7 @@ export function VeraStudioToolDialog({
 }: {
   busy: boolean;
   onClose: () => void;
-  onRun: (request: StudioRequest) => void;
+  onRun: (options: StudioOptions, bubble: string) => void;
   prices: VeraPrices;
   tool: StudioToolId | null;
 }) {
@@ -117,7 +117,7 @@ function ToolOptions({
 }: {
   busy: boolean;
   estimate: string;
-  onRun: (request: StudioRequest) => void;
+  onRun: (options: StudioOptions, bubble: string) => void;
   tool: StudioToolId;
 }) {
   const [subtest, setSubtest] = useState("");
@@ -152,17 +152,14 @@ function ToolOptions({
   const reviewReady = reviewMode === "latest" || picked !== null;
 
   function runTool() {
-    if (tool === "weakness_analysis") {
-      onRun({ tool, input: subtest ? { subtest } : {}, effort: "mendalam" });
-    } else if (tool === "study_route") {
-      onRun({ tool, input: { minutesPerDay: minutes }, effort: "mendalam" });
-    } else {
-      onRun({
-        tool,
-        input: { target: reviewMode === "latest" || !picked ? "latest" : { type: picked.type, id: picked.id } },
-        effort: "mendalam",
-      });
-    }
+    const options: StudioOptions =
+      tool === "weakness_analysis"
+        ? { tool, input: subtest ? { subtest } : {} }
+        : tool === "study_route"
+          ? { tool, input: { minutesPerDay: minutes } }
+          : { tool, input: { target: reviewMode === "latest" || !picked ? "latest" : { type: picked.type, id: picked.id } } };
+    // The student reads the sentence. The options go to the server, which checks them again before the document is written.
+    onRun(options, studioBubbleText(options, picked?.label));
   }
 
   return (

@@ -8,6 +8,11 @@ export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
 
 export const STUDY_ROUTE_MINUTES = [20, 30, 45, 60] as const;
 
+/** The data part a Studio question keeps: the options its request was made with. Ulangi reads them back, and the bubble does not show them. */
+export const STUDIO_REQUEST_PART = "data-vera-studio-request";
+/** The data part a Studio answer keeps: the document it was saved as. The answer's card reads its document from this. */
+export const STUDIO_DOCUMENT_PART = "data-vera-studio";
+
 const effortField = z.enum(VERA_EFFORT_IDS).default("mendalam");
 
 /** One shape per tool, so each tool's options are checked against its own fields. */

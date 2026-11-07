@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, CircleHelp, Copy, Flag, Pencil, RefreshCw } from "@/lib/icons";
+import { Check, CircleHelp, Copy, FileText, Flag, MessageCircle, Pencil, RefreshCw } from "@/lib/icons";
 import {
   VERA_LIMITS,
   VERA_REPORT_NOTE_LIMIT,
@@ -26,6 +26,7 @@ import {
 import { formatCredits } from "@/lib/vera/credits-shared";
 import { cn } from "@/lib/utils";
 import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
+import { STUDIO_DOCUMENT_PART, STUDIO_REQUEST_PART, studioToolOfWrite } from "@/lib/vera/studio";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
 import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
@@ -46,11 +47,14 @@ export function VeraChat({
   blocked,
   busy,
   composerKey,
+  deletedDocumentId,
   effort,
   initialChips,
   messages,
+  onAskDocument,
   onChangeEffort,
   onEdit,
+  onOpenDocument,
   onRegenerate,
   onReport,
   onSend,
@@ -62,14 +66,17 @@ export function VeraChat({
   blocked: string | null;
   busy: boolean;
   composerKey: number;
+  deletedDocumentId: string | null;
   effort: VeraEffortId;
   initialChips: MentionChip[];
   messages: UIMessage[];
   restoredIds: Set<string>;
   status: PromptInputStatus;
   stoppedMessageId: string | null;
+  onAskDocument: (id: string) => void;
   onChangeEffort: (effort: VeraEffortId) => void;
   onEdit: EditHandler;
+  onOpenDocument: (id: string) => void;
   onRegenerate: (messageId: string) => void;
   onReport: ReportHandler;
   onSend: (text: string, chips: MentionChip[]) => void;
@@ -87,16 +94,20 @@ export function VeraChat({
               <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
                 <ThreadMessage
                   blocked={blocked}
-                  canEdit={!busy && index === lastUserIndex && storedId !== null}
+                  canEdit={!busy && index === lastUserIndex && storedId !== null && !isStudioQuestion(message)}
                   canRegenerate={!busy && index === messages.length - 1 && message.role === "assistant"}
                   canReport={!busy && message.role === "assistant"}
+                  deletedDocumentId={deletedDocumentId}
                   fresh={!restoredIds.has(message.id)}
                   message={message}
+                  onAskDocument={onAskDocument}
                   onEdit={onEdit}
+                  onOpenDocument={onOpenDocument}
                   onRegenerate={onRegenerate}
                   onReport={onReport}
                   storedId={storedId}
                   stopping={message.id === stoppedMessageId}
+                  writing={busy && index === messages.length - 1}
                 />
               </ChatTurn>
             );
@@ -157,6 +168,31 @@ function storedUserId(messages: UIMessage[], index: number, restoredIds: Set<str
   const named = (answer?.metadata as { userMessageId?: string } | undefined)?.userMessageId;
   if (named) return named;
   return restoredIds.has(messages[index].id) ? messages[index].id : null;
+}
+
+/** A Studio request's question. Its options are the request, so the question is not edited. */
+function isStudioQuestion(message: UIMessage) {
+  return (
+    message.parts.some((part) => part.type === STUDIO_REQUEST_PART) ||
+    (message.metadata as { studio?: unknown } | undefined)?.studio !== undefined
+  );
+}
+
+type StudioPointer = { documentId: string; complete: boolean };
+
+/**
+ * The Studio document an answer was saved as. A stored answer keeps a pointer to it, and a live answer names it in its finish metadata.
+ * `called` says the answer has called a Studio tool, so its document may still be on the way.
+ */
+function studioAnswerOf(message: UIMessage) {
+  const pointer = message.parts.find((part) => part.type === STUDIO_DOCUMENT_PART);
+  const pointed = pointer && "data" in pointer ? (pointer.data as StudioPointer) : undefined;
+  const named = pointed ?? (message.metadata as { studio?: StudioPointer } | undefined)?.studio;
+  return {
+    documentId: named?.documentId ?? null,
+    complete: named?.complete ?? false,
+    called: message.parts.some((part) => isToolUIPart(part) && studioToolOfWrite(part.type.slice("tool-".length)) !== null),
+  };
 }
 
 /**
@@ -332,25 +368,33 @@ function ThreadMessage({
   canEdit,
   canRegenerate,
   canReport,
+  deletedDocumentId,
   fresh = false,
   message,
+  onAskDocument,
   onEdit,
+  onOpenDocument,
   onRegenerate,
   onReport,
   storedId,
   stopping = false,
+  writing = false,
 }: {
   blocked: string | null;
   canEdit: boolean;
   canRegenerate: boolean;
   canReport: boolean;
+  deletedDocumentId: string | null;
   fresh?: boolean;
   message: UIMessage;
+  onAskDocument: (id: string) => void;
   onEdit: EditHandler;
+  onOpenDocument: (id: string) => void;
   onRegenerate: (messageId: string) => void;
   onReport: ReportHandler;
   storedId: string | null;
   stopping?: boolean;
+  writing?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -405,6 +449,9 @@ function ThreadMessage({
   const toolOutputs = message.parts.flatMap((part) => (isToolUIPart(part) ? [part.output] : []));
   const sources = uniqueSources([...pinnedSources, ...collectSources(toolOutputs)]);
   const answer = message.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n\n");
+  const studio = studioAnswerOf(message);
+  // The document's buttons need its text, and they stop once the student has deleted the document.
+  const documentId = studio.documentId && answer ? studio.documentId : null;
   return (
     <div className={cn("flex min-w-0 flex-col items-start gap-2", enter)}>
       <span aria-hidden="true" className="relative size-8 shrink-0 overflow-hidden">
@@ -418,6 +465,15 @@ function ThreadMessage({
         >
           <path d="M0 0 L6 12 L16 12 Z" />
         </svg>
+        {documentId ? (
+          <Badge className="self-start" size="sm" tone={studio.complete ? "success" : "attention"}>
+            {studio.complete ? "Tersimpan" : "Belum selesai"}
+          </Badge>
+        ) : studio.called && writing ? (
+          <Badge className="self-start" size="sm" tone="info">
+            Menyusun dokumen…
+          </Badge>
+        ) : null}
         {message.parts.map((part, index) => {
           if (part.type === "reasoning") {
             return <Reasoning key={index} streaming={part.state === "streaming"} text={part.text} />;
@@ -464,6 +520,18 @@ function ThreadMessage({
             <Flag />
             Laporkan
           </Button>
+        ) : null}
+        {documentId && documentId !== deletedDocumentId ? (
+          <>
+            <Button onClick={() => onOpenDocument(documentId)} size="sm" type="button" variant="quiet">
+              <FileText />
+              Buka dokumen
+            </Button>
+            <Button onClick={() => onAskDocument(documentId)} size="sm" type="button" variant="quiet">
+              <MessageCircle />
+              Tanya Vera soal ini
+            </Button>
+          </>
         ) : null}
         <Sources sources={sources} />
         {typeof credits === "number" ? <span className="tabular-nums">{formatCredits(credits)} kredit</span> : null}
