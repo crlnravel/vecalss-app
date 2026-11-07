@@ -242,6 +242,7 @@ async function main() {
       password: "Attacker-2026!", // An unsolicited credential must be ignored.
     });
     const registrationTarget = await redirectTarget(registered);
+    assert.ok(registrationTarget);
     assert.equal(registrationTarget?.pathname, "/daftar/periksa-email");
     assert.equal(registrationTarget.searchParams.get("returnTo"), CHECKOUT);
     assert.equal(registrationTarget.searchParams.get("ref"), "AFF-77");
