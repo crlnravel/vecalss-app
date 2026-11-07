@@ -43,6 +43,8 @@
     "test:registration-switch": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-switch.ts",
     "test:registration-turnstile": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-turnstile.ts",
     "test:registration-flow": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-flow.ts",
+    "test:registration-concurrency": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-concurrency.ts",
+    "test:registration-runtime-grants": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-runtime-grants.ts",
     "test:registration-surfaces": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-surfaces.ts",
     "test:registration-http": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-registration-http.ts",
     "test:legal-documents": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-legal-documents.ts",

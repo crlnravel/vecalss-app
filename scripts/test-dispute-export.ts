@@ -224,6 +224,7 @@ async function main() {
     }
     const affiliator = await prisma.affiliatorProfile.findUniqueOrThrow({ include: { user: true }, where: { id: referral.id } });
     assert.ok(!text.includes(affiliator.user.email), "the affiliator's identity is left out");
+    assert.ok(buyer.passwordHash, "the verified fixture has a credential");
     assert.ok(!text.includes("tokenHash") && !text.includes(buyer.passwordHash), "no secret material");
     assert.ok(!/device-cookie-for-test/u.test(text), "the device value is never printed, only a reference");
     assert.equal(packet.cases.every((item: Record<string, unknown>) => !("evidence" in item)), true, "case evidence stays out");

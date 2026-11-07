@@ -163,7 +163,7 @@ type CreateSessionIfUserStateMatchesInput = {
   expectedFailedLoginCount: number;
   expectedLockedUntil: Date | null;
   expectedMustChangePassword: boolean;
-  expectedPasswordHash: string;
+  expectedPasswordHash: string | null;
   expectedPasswordUpdatedAt: Date | null;
   userId: string;
 };

@@ -662,7 +662,7 @@ model User {
   id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email              String     @unique
   fullName           String     @map("full_name") @db.VarChar(160)
-  passwordHash       String     @map("password_hash") @db.Text
+  passwordHash       String?    @map("password_hash") @db.Text
   passwordUpdatedAt  DateTime?  @map("password_updated_at") @db.Timestamptz
   /// When the address was proven to belong to the person. Accounts made by an
   /// admin, and every account that existed before self-registration, are

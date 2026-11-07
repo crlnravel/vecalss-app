@@ -6,12 +6,12 @@ the MS-21 ticket; this note says how the code behaves.
 
 ## The flow
 
-1. `/daftar`: name, email, password, the age box ("Saya berusia 18 tahun ke atas, atau sudah mendapat izin orang tua/wali") and a Turnstile check.
+1. `/daftar`: name, email, the age box ("Saya berusia 18 tahun ke atas, atau sudah mendapat izin orang tua/wali") and a Turnstile check.
 2. The server answers `/daftar/periksa-email` the same way for a new address, an address that already has an account, a blocked identifier and a pending signup. Only the email differs: a verification link, or "Kamu sudah punya akun PTN Pro".
-3. `/daftar/verifikasi/<link>` shows a button. Opening the link only reads; the button POSTs and verifies.
+3. `/daftar/verifikasi/<link>` asks the inbox owner to choose a password. Opening the link only reads; the button POSTs, sets the password and verifies atomically.
 4. The next step is `/login?notice=email-verified`. A buyer who came from checkout signs in and lands on the checkout; a referral code alone lands on `/pricing?ref=...`.
 
-Sign-in refuses an unverified account (only after the password matched) and offers a new link. No session can be created for an unverified account: `createSession`, `switchSessionToUser` and the sign-in insert all check it.
+A pending account has no password hash and cannot sign in. Repeated signup preserves its original name and consent. Verification validates the normal password policy and stores the hash only when the email is proved. No session can be created for an unverified account: `createSession`, `switchSessionToUser` and the sign-in insert all check it.
 
 ## The switch
 
@@ -52,6 +52,6 @@ To approve a page: fill the placeholders, set `status: "approved"` on the new ve
 2. Start the app on a free port, for example `next dev -p 5033` with `APP_BASE_URL=http://localhost:5033`.
 3. Open `/daftar`. Cloudflare's test widget passes by itself. Fill the form and tick the box.
 4. `/daftar/periksa-email` shows the verification link on screen (outside production only). To also send mail, set `RESEND_API_KEY`, `EMAIL_FROM="PTN Pro <onboarding@resend.dev>"` and `EMAIL_DEV_REDIRECT=delivered@resend.dev`.
-5. Open the link, press "Verifikasi email", then sign in.
+5. Open the link, choose a password, press "Simpan kata sandi dan verifikasi email", then sign in.
 
 The test secret `2x0000000000000000000000000000000AA` makes every check fail, for the error path.

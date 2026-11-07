@@ -28,7 +28,7 @@ function VerifyEmailPageModule({
       {isValid ? (
         <div className="space-y-5">
           <p className="text-base leading-7 text-secondary-600">
-            Pilih tombol di bawah untuk memastikan email ini milikmu. Setelah itu kamu bisa masuk dengan email dan kata sandi yang tadi kamu buat.
+            Buat kata sandi untuk akunmu, lalu pilih tombol di bawah untuk memverifikasi email. Setelah itu kamu bisa masuk.
           </p>
           <VerifyEmailForm referral={referral} resendHref={resendHref} returnTo={returnTo} token={token} />
         </div>

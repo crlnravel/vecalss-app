@@ -102,7 +102,7 @@ function harness(options: Partial<RegistrationDeps> & { env?: NodeJS.ProcessEnv;
 }
 
 function signup(email: string, extra: Partial<SignupInput> = {}): SignupInput {
-  return { ageConfirmed: true, email, fullName: "Siswa Uji", password: PASSWORD, turnstileToken: "token", ...extra };
+  return { ageConfirmed: true, email, fullName: "Siswa Uji", turnstileToken: "token", ...extra };
 }
 
 async function counts() {
@@ -156,18 +156,16 @@ async function main() {
   {
     const before = await counts();
     const h = harness();
-    const bad = await registerStudent({ ageConfirmed: false, email: "bukan-email", fullName: " ", password: "pendek", turnstileToken: "t" }, h.deps);
+    const bad = await registerStudent({ ageConfirmed: false, email: "bukan-email", fullName: " ", turnstileToken: "t" }, h.deps);
     assert.equal(bad.status, "invalid");
     if (bad.status === "invalid") {
-      assert.deepEqual(Object.keys(bad.errors).sort(), ["ageConfirmed", "email", "fullName", "password"]);
-      assert.equal(bad.errors.password, "too_short");
+      assert.deepEqual(Object.keys(bad.errors).sort(), ["ageConfirmed", "email", "fullName"]);
     }
     for (const [label, input, key] of [
       ["no age tick", signup(emailFor("v"), { ageConfirmed: false }), "ageConfirmed"],
       ["one-letter name", signup(emailFor("v"), { fullName: "A" }), "fullName"],
       ["a 121-letter name", signup(emailFor("v"), { fullName: "A".repeat(121) }), "fullName"],
       ["no @", signup("tanpa-at.test"), "email"],
-      ["weak password", signup(emailFor("v"), { password: "alllowercase1" }), "password"],
     ] as const) {
       const outcome = await registerStudent(input, harness().deps);
       assert.equal(outcome.status, "invalid", label);
@@ -197,7 +195,7 @@ async function main() {
   {
     const h = harness({ env: DEV_ENV, ip: happyIp });
     const outcome = await registerStudent(
-      signup(happyEmail.toUpperCase(), { fullName: "  Siti   Aminah ", password: " Sandi-Uji-2026! ", ref: "AFF-77", returnTo: continuationReturn }),
+      signup(happyEmail.toUpperCase(), { fullName: "  Siti   Aminah ", ref: "AFF-77", returnTo: continuationReturn }),
       h.deps,
     );
     assert.equal(outcome.status, "accepted");
@@ -214,9 +212,7 @@ async function main() {
     assert.deepEqual(user.roleAssignments.map((row) => row.role), ["student"], "self-registration creates a student only");
     assert.equal(user.studentProfile?.displayName, "Siti Aminah");
     assert.equal(user.studentProfile?.onboardingStatus, "not_started");
-    assert.equal(await verifyPassword(" Sandi-Uji-2026! ", user.passwordHash), true, "the password is hashed exactly as typed, spaces included");
-    assert.equal(await verifyPassword("Sandi-Uji-2026!", user.passwordHash), false, "and is not trimmed");
-    assert.ok(!user.passwordHash.includes("Sandi"));
+    assert.equal(user.passwordHash, null, "signup stores no password or hash before inbox ownership is proven");
 
     assert.equal(user.emailVerificationTokens.length, 1);
     const [token] = user.emailVerificationTokens;
@@ -357,19 +353,18 @@ async function main() {
   {
     const email = emailFor("again");
     const first = harness({ env: DEV_ENV });
-    const a = await registerStudent(signup(email, { fullName: "Nama Lama", password: "Sandi-Lama-2026!" }), first.deps);
+    const a = await registerStudent(signup(email, { fullName: "Nama Lama" }), first.deps);
     const tokenA = tokenFromUrl(a.status === "accepted" ? a.deliveredVerificationUrl : null);
     const second = harness({ env: DEV_ENV });
-    const b = await registerStudent(signup(email, { fullName: "Nama Baru", password: "Sandi-Baru-2026!" }), second.deps);
+    const b = await registerStudent(signup(email, { fullName: "Nama Baru" }), second.deps);
     const tokenB = tokenFromUrl(b.status === "accepted" ? b.deliveredVerificationUrl : null);
     const user = await userByEmail(email);
-    assert.equal(user!.fullName, "Nama Baru");
-    assert.equal(await verifyPassword("Sandi-Baru-2026!", user!.passwordHash), true, "the newest password is the one kept");
-    assert.equal(await verifyPassword("Sandi-Lama-2026!", user!.passwordHash), false);
+    assert.equal(user!.fullName, "Nama Lama", "a repeat signup cannot replace the pending name");
+    assert.equal(user!.passwordHash, null, "neither signup can preset a password");
     assert.equal(await isVerificationLinkUsable(tokenA), false, "the older link ended");
     assert.equal(await isVerificationLinkUsable(tokenB), true);
     assert.equal(await prisma.user.count({ where: { email } }), 1);
-    pass("a second signup for a pending address replaces the password and ends the older link");
+    pass("a second signup preserves the pending owner's name and empty credential and ends the older link");
   }
 
   // ---- Concurrent signups for one new address -------------------------------------------------------
@@ -439,13 +434,21 @@ async function main() {
     // Expired.
     const late = () => new Date(Date.now() + 25 * 3_600_000);
     assert.equal(await isVerificationLinkUsable(happyToken, late()), false);
-    assert.deepEqual(await verifyEmail(happyToken, { now: late }), { status: "invalid" }, "a link older than 24 hours is refused");
+    assert.deepEqual(await verifyEmail(happyToken, PASSWORD, { now: late }), { status: "invalid" }, "a link older than 24 hours is refused");
     assert.equal((await userByEmail(happyEmail))!.emailVerifiedAt, null);
-    assert.deepEqual(await verifyEmail("tidak-ada"), { status: "invalid" });
-    assert.deepEqual(await verifyEmail(""), { status: "invalid" });
+    assert.deepEqual(await verifyEmail("tidak-ada", PASSWORD), { status: "invalid" });
+    assert.deepEqual(await verifyEmail("", PASSWORD), { status: "invalid" });
 
     // The button.
-    assert.deepEqual(await verifyEmail(happyToken), { status: "verified" });
+    for (const badPassword of ["", "short", "alllowercase1", "NoNumbersHere!", "A1!".repeat(30)]) {
+      assert.equal((await verifyEmail(happyToken, badPassword)).status, "invalid_password");
+      assert.equal((await userByEmail(happyEmail))!.emailVerifiedAt, null);
+      assert.equal((await userByEmail(happyEmail))!.passwordHash, null);
+      assert.equal(await isVerificationLinkUsable(happyToken), true, "invalid passwords do not consume the token");
+    }
+    assert.deepEqual(await verifyEmail(happyToken, " Sandi-Uji-2026! "), { status: "verified" });
+    assert.equal(await verifyPassword(" Sandi-Uji-2026! ", (await userByEmail(happyEmail))!.passwordHash), true, "verification hashes exactly as typed");
+    assert.equal(await verifyPassword("Sandi-Uji-2026!", (await userByEmail(happyEmail))!.passwordHash), false, "no trimming");
     const after = await userByEmail(happyEmail);
     assert.ok(after!.emailVerifiedAt, "the email is verified");
     assert.equal(after!.registrationConsents.length, 1, "the agreement becomes a consent record");
@@ -462,7 +465,7 @@ async function main() {
     assert.equal(JSON.stringify(audit.metadata).includes(happyEmail), false, "the audit names no address");
 
     // One use.
-    assert.deepEqual(await verifyEmail(happyToken), { status: "invalid" }, "a link works once");
+    assert.deepEqual(await verifyEmail(happyToken, PASSWORD), { status: "invalid" }, "a link works once");
     assert.equal(await isVerificationLinkUsable(happyToken), false);
     assert.equal((await userByEmail(happyEmail))!.registrationConsents.length, 1, "using it again records nothing more");
     pass("opening a link verifies nothing; the button verifies once, within 24 hours, and writes the consent record");
@@ -521,8 +524,8 @@ async function main() {
     await none.flush();
     assert.equal(none.mails().length, 0);
     assert.deepEqual(await resendVerification({ email: happyEmail }, harness().deps), { deliveredVerificationUrl: null, status: "accepted" }, "the same answer for an account that is already verified");
-    assert.deepEqual(await verifyEmail(tokenB), { status: "verified" }, "the newest link verifies");
-    assert.deepEqual(await verifyEmail(tokenA), { status: "invalid" }, "the ended link does not");
+    assert.deepEqual(await verifyEmail(tokenB, PASSWORD), { status: "verified" }, "the newest link verifies");
+    assert.deepEqual(await verifyEmail(tokenA, PASSWORD), { status: "invalid" }, "the ended link does not");
     pass("a resend ends the older link, carries the original agreement, and answers the same for every address");
   }
 
@@ -540,7 +543,7 @@ async function main() {
     const stuck = await pendingSignup("stuck", 9);
     await prisma.notificationPreference.create({ data: { userId: stuck.id } });
     const verified = await pendingSignup("verified-old", 9);
-    await prisma.user.update({ data: { emailVerifiedAt: new Date() }, where: { id: verified.id } });
+    await prisma.user.update({ data: { emailVerifiedAt: new Date(), passwordHash: "fixture-only" }, where: { id: verified.id } });
     const adminCreated = await prisma.user.create({ data: { email: emailFor("admin-made"), fullName: "Dibuat admin", passwordHash: "x", roleAssignments: { create: { role: "student" } } } });
     const backdated = await pendingSignup("revived", 9);
     // Someone tried again yesterday: a new link, so the clock restarts.

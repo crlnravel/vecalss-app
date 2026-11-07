@@ -321,7 +321,7 @@ async function authenticateUser(
       };
     }
 
-    const passwordMatches = await verifyPassword(password, user.passwordHash);
+    const passwordMatches = await verifyPassword(password, user.passwordHash ?? DECOY_PASSWORD_HASH);
 
     if (!passwordMatches) {
       const failedLoginCount = user.failedLoginCount + 1;

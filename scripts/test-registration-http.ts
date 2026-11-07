@@ -189,7 +189,7 @@ async function main() {
     const page = await (await get(`/daftar?returnTo=${encodeURIComponent(CHECKOUT)}`)).text();
     assert.match(page, /name="fullName"/u);
     assert.match(page, /name="email"/u);
-    assert.match(page, /name="password"/u);
+    assert.doesNotMatch(page, /name="password"/u);
     assert.match(page, /name="ageConfirmed"/u, "the age box is part of the form");
     assert.match(page, /Saya berusia 18 tahun ke atas, atau sudah mendapat izin orang tua\/wali/u, "with the decided wording");
     assert.match(page, /name="returnTo"/u, "returnTo rides along");
@@ -209,7 +209,7 @@ async function main() {
     const email = `http-${runId}@ms21.test`;
     createdEmails.push(email);
     const created = await registerStudent(
-      { ageConfirmed: true, email, fullName: "Siswa HTTP", password: PASSWORD, ref: "AFF-77", returnTo: CHECKOUT, turnstileToken: "t" },
+      { ageConfirmed: true, email, fullName: "Siswa HTTP", ref: "AFF-77", returnTo: CHECKOUT, turnstileToken: "t" },
       {
         env: { ...process.env, ...SERVER_ENV, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" } as unknown as NodeJS.ProcessEnv,
         getMetadata: async () => ({ ipAddress: `10.${Math.floor(Math.random() * 250) + 1}.9.9` }),
@@ -237,7 +237,7 @@ async function main() {
     const sessionsFor = async () => prisma.authSession.count({ where: { user: { email } } });
     const refusedLogin = await callFormAction(loginId, "/login", { email, password: PASSWORD });
     const refusedText = await refusedLogin.text();
-    assert.match(refusedText, /belum diverifikasi/u, "an unverified account is told to verify");
+    assert.match(refusedText, /Email atau kata sandi belum cocok/u, "pending accounts have no usable password");
     assert.equal(refusedLogin.headers.get("set-cookie")?.includes("vecalss_session") ?? false, false, "no session cookie");
     assert.equal(await sessionsFor(), 0, "and no session exists");
     const wrong = await callFormAction(loginId, "/login", { email, password: "Salah-Sandi-1!" });
@@ -246,7 +246,7 @@ async function main() {
     assert.match(wrongText, /Email atau kata sandi belum cocok/u);
     const unknown = await callFormAction(loginId, "/login", { email: `nobody-${runId}@ms21.test`, password: PASSWORD });
     assert.match(await unknown.text(), /Email atau kata sandi belum cocok/u);
-    const attempt = await prisma.loginAttempt.findFirst({ orderBy: { attemptedAt: "desc" }, where: { email, failureReason: "email_unverified" } });
+    const attempt = await prisma.loginAttempt.findFirst({ orderBy: { attemptedAt: "desc" }, where: { email, failureReason: "invalid_password" } });
     assert.ok(attempt, "the refusal is recorded as a login attempt");
     pass("an unverified account is refused at sign-in (no session), and only with the right password; wrong passwords and unknown emails get the usual answer");
 
@@ -274,14 +274,17 @@ async function main() {
     pass("the resend form gives one answer for a pending signup and for an address with none");
 
     // Using the first link now fails (the resend ended it); verify with the newest one, read from the new on-screen link.
-    const deadVerify = await callFormAction(verifyId, linkUrl.pathname, { token: linkUrl.pathname.split("/").pop()!, returnTo: CHECKOUT, ref: "AFF-77" });
+    const deadVerify = await callFormAction(verifyId, linkUrl.pathname, { token: linkUrl.pathname.split("/").pop()!, returnTo: CHECKOUT, ref: "AFF-77", password: PASSWORD });
     assert.match(await deadVerify.text(), /tidak valid atau sudah kedaluwarsa/u, "a link ended by a resend is refused");
     const resendFormAnswer = await (await callFormAction(resendId, "/daftar/periksa-email", { email })).text();
     const newLink = /\/daftar\/verifikasi\/([A-Za-z0-9_-]{20,})/u.exec(resendFormAnswer.replace(/\\u0026/gu, "&"));
     assert.ok(newLink, "outside production the new link is on screen");
     const token = newLink[1];
 
-    const verified = await callFormAction(verifyId, `/daftar/verifikasi/${token}`, { ref: "AFF-77", returnTo: CHECKOUT, token });
+    const missingPassword = await callFormAction(verifyId, `/daftar/verifikasi/${token}`, { token });
+    assert.match(await missingPassword.text(), /kata sandi/u);
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { email } })).emailVerifiedAt, null);
+    const verified = await callFormAction(verifyId, `/daftar/verifikasi/${token}`, { ref: "AFF-77", returnTo: CHECKOUT, token, password: PASSWORD });
     const target = await redirectTarget(verified);
     assert.ok(target, "verifying redirects");
     assert.equal(target.pathname, "/login");
@@ -291,7 +294,7 @@ async function main() {
     assert.ok(verifiedUser.emailVerifiedAt, "verified by the button");
     assert.equal(verifiedUser.registrationConsents.length, 1, "the consent record exists");
     assert.equal(verifiedUser.registrationConsents[0].ageConfirmed, true);
-    const reuse = await callFormAction(verifyId, `/daftar/verifikasi/${token}`, { returnTo: CHECKOUT, token });
+    const reuse = await callFormAction(verifyId, `/daftar/verifikasi/${token}`, { returnTo: CHECKOUT, token, password: PASSWORD });
     assert.match(await reuse.text(), /tidak valid atau sudah kedaluwarsa/u, "a link works once");
     pass("the verify button verifies, writes the consent record, and sends the buyer to sign in with returnTo intact; a second use fails");
 
@@ -299,7 +302,7 @@ async function main() {
     const refOnlyEmail = `http-ref-${runId}@ms21.test`;
     createdEmails.push(refOnlyEmail);
     const refOnly = await registerStudent(
-      { ageConfirmed: true, email: refOnlyEmail, fullName: "Siswa Ref", password: PASSWORD, ref: "AFF-88", turnstileToken: "t" },
+      { ageConfirmed: true, email: refOnlyEmail, fullName: "Siswa Ref", ref: "AFF-88", turnstileToken: "t" },
       {
         env: { ...process.env, ...SERVER_ENV, NODE_ENV: "development", PAYMENT_STAND_IN_LOCAL: "1" } as unknown as NodeJS.ProcessEnv,
         getMetadata: async () => ({ ipAddress: `10.${Math.floor(Math.random() * 250) + 1}.8.8` }),
@@ -309,7 +312,7 @@ async function main() {
       },
     );
     const refToken = new URL(refOnly.status === "accepted" ? refOnly.deliveredVerificationUrl! : "").pathname.split("/").pop()!;
-    const refTarget = await redirectTarget(await callFormAction(verifyId, `/daftar/verifikasi/${refToken}`, { ref: "AFF-88", token: refToken }));
+    const refTarget = await redirectTarget(await callFormAction(verifyId, `/daftar/verifikasi/${refToken}`, { ref: "AFF-88", token: refToken, password: PASSWORD }));
     assert.equal(refTarget?.searchParams.get("returnTo"), "/pricing?ref=AFF-88", "a referral with no checkout lands on pricing with the code");
     pass("a referral code alone survives verification as a pricing link");
 

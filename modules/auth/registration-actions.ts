@@ -22,7 +22,6 @@ function describeSignupErrors(errors: SignupFieldErrors) {
   const fieldErrors: Record<string, string> = {};
   if (errors.fullName) fieldErrors.fullName = "Tulis nama lengkapmu, minimal 2 huruf.";
   if (errors.email) fieldErrors.email = "Periksa penulisan emailmu. Contohnya nama@email.com.";
-  if (errors.password) fieldErrors.password = describePasswordViolation(errors.password);
   if (errors.ageConfirmed) fieldErrors.ageConfirmed = "Centang pernyataan ini untuk melanjutkan.";
   return fieldErrors;
 }
@@ -41,7 +40,6 @@ async function registerStudentAction(_previousState: FormState, formData: FormDa
     ageConfirmed: formData.get("ageConfirmed") === "yes",
     email,
     fullName,
-    password: readPasswordField(formData, "password"),
     ref: continuation.ref,
     returnTo: continuation.returnTo,
     turnstileToken: readTextField(formData, "cf-turnstile-response") || null,
@@ -132,7 +130,11 @@ async function verifyEmailAction(_previousState: FormState, formData: FormData):
     return { message: "Tautan ini tidak valid atau sudah kedaluwarsa. Kirim ulang tautan verifikasi.", status: "error" };
   }
 
-  const outcome = await verifyEmail(token);
+  const outcome = await verifyEmail(token, readPasswordField(formData, "password"));
+
+  if (outcome.status === "invalid_password") {
+    return { status: "error", fieldErrors: { password: describePasswordViolation(outcome.violation) }, message: "Periksa kata sandimu, lalu coba lagi." };
+  }
 
   if (outcome.status === "verified") {
     const params = new URLSearchParams({ notice: "email-verified" });

@@ -45,7 +45,7 @@ assert.deepEqual(
   ["registerStudentAction", "resendVerificationAction", "verifyEmailAction"],
   "the signup actions are exactly these three",
 );
-assert.match(actions, /await verifyEmail\(token\)/u);
+assert.match(actions, /await verifyEmail\(token, readPasswordField\(formData, "password"\)\)/u);
 assert.match(actions, /await registerStudent\(/u);
 assert.match(actions, /await resendVerification\(/u);
 pass("a link is only ever used by a POST from its button; opening it is a read");
@@ -55,7 +55,7 @@ const session = read("lib/auth/session.ts");
 assert.equal([...session.matchAll(/email_verified_at === null/gu)].length, 2, "createSession and switchSessionToUser refuse an unverified account");
 assert.match(session, /emailVerifiedAt: \{ not: null \}/u, "the sign-in session insert refuses an unverified account");
 const service = read("lib/auth/service.ts");
-const passwordCheck = service.indexOf("const passwordMatches = await verifyPassword(password, user.passwordHash)");
+const passwordCheck = service.indexOf("const passwordMatches = await verifyPassword(password, user.passwordHash ?? DECOY_PASSWORD_HASH)");
 const unverifiedCheck = service.indexOf("user.emailVerifiedAt === null");
 const blockCheck = service.indexOf("hasAccountBlockInForce(prisma, user.id)");
 assert.ok(passwordCheck > 0 && unverifiedCheck > passwordCheck, "sign-in says \"unverified\" only after the password matched");
@@ -77,7 +77,9 @@ assert.match(form, /href="\/syarat-ketentuan"/u);
 assert.match(form, /href="\/kebijakan-privasi"/u);
 assert.match(form, /name="returnTo"/u);
 assert.match(form, /name="ref"/u);
-assert.equal(/name="passwordConfirm|confirmPassword/u.test(form), false, "the form asks for name, email and password only");
+assert.equal(/name="passwordConfirm|confirmPassword/u.test(form), false, "the form has no password confirmation");
+assert.doesNotMatch(form, /name="password"/u, "signup cannot preset a password");
+assert.match(read("modules/auth/components/verify-email-form.tsx"), /name="password"/u);
 const widget = read("modules/auth/components/turnstile-widget.tsx");
 assert.match(widget, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/u, "the script comes from Cloudflare, exactly");
 assert.match(widget, /name="cf-turnstile-response"/u);
@@ -133,7 +135,6 @@ assert.match(read("app/api/cron/daily-maintenance/route.ts"), /registration: \(\
 assert.match(read("scripts/test-paid-access-surfaces.ts"), /"modules\/auth\/registration-actions\.ts": \{[\s\S]*public: \["registerStudentAction", "resendVerificationAction", "verifyEmailAction"\]/u, "the surface audit classes every new action");
 assert.match(read("lib/maintenance/retention.ts"), /registration_attempts/u);
 const stack = read("lib/registration/service.ts");
-assert.match(stack, /hashPassword\(input\.password\)[\s\S]*prisma\.\$transaction/u, "the password is hashed before the account lookup, so a new and an existing address take alike");
 assert.match(stack, /getRegistrationStatus\(\{ env, privacy: deps\.legal\?\.privacy, terms: deps\.legal\?\.terms \}\)\.open\) return \{ status: "closed" \}/u, "the switch is the first thing checked");
 assert.match(stack, /flagBlockedSignup/u, "a blocked signup opens an MS-07 case");
 const loggerArguments = [...stack.matchAll(/serverLogger\.\w+\(\s*(?:`[^`]*`|"[^"]*"),([^)]*)\)/gu)].map((match) => match[1]);

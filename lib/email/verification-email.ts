@@ -48,7 +48,7 @@ function buildVerificationEmail({
     "",
     verifyUrl,
     "",
-    `Tautan ini berlaku ${hours} jam dan hanya bisa dipakai sekali. Setelah itu kamu bisa masuk dengan email dan kata sandi yang tadi kamu buat.`,
+    `Tautan ini berlaku ${hours} jam dan hanya bisa dipakai sekali. Buka tautannya untuk membuat kata sandi dan memverifikasi emailmu. Setelah itu kamu bisa masuk.`,
     "",
     "Kalau bukan kamu, abaikan saja email ini. Akun yang tidak diverifikasi dihapus otomatis dalam 7 hari.",
     "",
@@ -62,7 +62,7 @@ function buildVerificationEmail({
 <p style="margin:0 0 20px">Seseorang membuat akun PTN Pro dengan alamat email ini. Kalau itu kamu, buka tautan ini untuk memverifikasi emailmu:</p>
 ${button(verifyUrl, "Verifikasi email")}
 <p style="margin:0 0 20px;font-size:14px;color:#4b5b54">Kalau tombolnya tidak bisa diklik, salin tautan ini ke peramban:<br><span style="word-break:break-all">${escapeHtml(verifyUrl)}</span></p>
-<p style="margin:0 0 16px">Tautan ini berlaku ${hours} jam dan hanya bisa dipakai sekali. Setelah itu kamu bisa masuk dengan email dan kata sandi yang tadi kamu buat.</p>
+<p style="margin:0 0 16px">Tautan ini berlaku ${hours} jam dan hanya bisa dipakai sekali. Buka tautannya untuk membuat kata sandi dan memverifikasi emailmu. Setelah itu kamu bisa masuk.</p>
 <p style="margin:0 0 16px">Kalau bukan kamu, abaikan saja email ini. Akun yang tidak diverifikasi dihapus otomatis dalam 7 hari.</p>
 <p style="margin:0 0 16px">PTN Pro tidak pernah meminta kata sandimu lewat email, chat, atau telepon. Jangan bagikan tautan ini ke siapa pun.</p>
 <p style="margin:0">Salam,<br>Tim PTN Pro</p>`);

@@ -56,7 +56,8 @@ async function hashUnusableCredential(secret: string) {
   return hash(secret, BCRYPT_ROUNDS);
 }
 
-async function verifyPassword(password: string, passwordHash: string) {
+async function verifyPassword(password: string, passwordHash: string | null) {
+  if (passwordHash === null) return false;
   return compare(password, passwordHash);
 }
 

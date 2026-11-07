@@ -8,7 +8,6 @@ import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field
 import { useActionToast } from "@/components/ui/use-action-toast";
 
 import { EMPTY_FORM_STATE } from "../form-state";
-import { PASSWORD_REQUIREMENTS_COPY } from "../password-copy";
 import { registerStudentAction } from "../registration-actions";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
@@ -70,22 +69,6 @@ function RegisterForm({
           type="email"
         />
         <FieldError error={state.fieldErrors?.email} id="register-email-error" />
-      </Field>
-
-      <Field>
-        <FieldLabel htmlFor="register-password" required>Kata sandi</FieldLabel>
-        <FieldInput
-          aria-describedby={state.fieldErrors?.password ? "register-password-error" : undefined}
-          aria-invalid={Boolean(state.fieldErrors?.password)}
-          autoComplete="new-password"
-          id="register-password"
-          name="password"
-          placeholder="Buat kata sandi"
-          required
-          type="password"
-        />
-        <p className="text-sm text-secondary-600">{PASSWORD_REQUIREMENTS_COPY}</p>
-        <FieldError error={state.fieldErrors?.password} id="register-password-error" />
       </Field>
 
       <div>

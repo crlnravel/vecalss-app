@@ -25,7 +25,7 @@ const PRIVACY_POLICY_2026_11_09: LegalDocument = {
     {
       heading: "Pasal 1. Data yang kami kumpulkan",
       items: [
-        "Saat mendaftar: nama, email, dan kata sandi. Kata sandi disimpan dalam bentuk acak satu arah, jadi kami sendiri tidak bisa membacanya. Kami juga menyimpan pernyataan usiamu, versi Syarat dan Ketentuan serta Kebijakan Privasi yang kamu setujui, waktunya, dan alamat IP saat itu.",
+        "Saat mendaftar: nama dan email. Kamu membuat kata sandi setelah membuka tautan verifikasi di emailmu. Kata sandi disimpan dalam bentuk acak satu arah, jadi kami sendiri tidak bisa membacanya. Kami juga menyimpan pernyataan usiamu, versi Syarat dan Ketentuan serta Kebijakan Privasi yang kamu setujui, waktunya, dan alamat IP saat itu.",
         "Saat kamu mengisi profil: target ujian, kampus, dan jurusan tujuan di onboarding. Nomor telepon dan foto profil hanya kalau kamu mengisinya di pengaturan.",
         "Aktivitas belajar: Materi yang kamu buka, progres, jawaban, skor Kuis dan Tryout, riwayat dan analisis performa, notifikasi, dan data kebiasaan belajar seperti streak.",
         "Percakapanmu dengan Vera: pesan yang kamu tulis, jawaban Vera, dan Materi atau soal yang kamu sebut di pesan.",

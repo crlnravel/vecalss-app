@@ -59,18 +59,28 @@ async function cleanupUnverifiedSignups(
 
     for (const { id } of fresh) {
       try {
-        await db.$transaction(async (tx) => {
+        const removed = await db.$transaction(async (tx) => {
           // Re-check inside the transaction: the account may have verified a moment ago.
           const [locked = null] = await tx.$queryRaw<Array<{ id: string }>>`
             SELECT id FROM users WHERE id = ${id}::uuid AND email_verified_at IS NULL FOR UPDATE
           `;
-          if (!locked) return;
+          if (!locked) return false;
+          // A separate statement sees a renewal committed while we waited for the user lock.
+          const [eligible] = await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT u.id FROM users u WHERE u.id = ${id}::uuid
+              AND u.email_verified_at IS NULL AND u.preview_purpose IS NULL
+              AND NOT EXISTS (SELECT 1 FROM auth_sessions s WHERE s.user_id = u.id)
+              AND (SELECT max(t.created_at) FROM email_verification_tokens t WHERE t.user_id = u.id)
+                < now() - make_interval(days => ${days}::int)
+          `;
+          if (!eligible) return false;
           await tx.$executeRaw`DELETE FROM password_reset_tokens WHERE user_id = ${id}::uuid`;
           await tx.$executeRaw`DELETE FROM student_profiles WHERE user_id = ${id}::uuid`;
           await tx.$executeRaw`DELETE FROM role_assignments WHERE user_id = ${id}::uuid`;
           await tx.$executeRaw`DELETE FROM users WHERE id = ${id}::uuid AND email_verified_at IS NULL`;
+          return true;
         });
-        deleted += 1;
+        if (removed) deleted += 1;
       } catch (error) {
         failed += 1;
         skipped.add(id);

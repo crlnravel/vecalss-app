@@ -58,7 +58,6 @@ type SignupInput = {
   ageConfirmed: boolean;
   email: string;
   fullName: string;
-  password: string;
   ref?: unknown;
   returnTo?: unknown;
   turnstileToken: string | null;
@@ -68,7 +67,6 @@ type SignupFieldErrors = {
   ageConfirmed?: true;
   email?: "invalid";
   fullName?: "invalid";
-  password?: PasswordViolation;
 };
 
 type SignupOutcome =
@@ -86,7 +84,7 @@ type ResendOutcome =
   | { status: "rate_limited" }
   | { status: "unavailable" };
 
-type VerifyOutcome = { status: "invalid" } | { status: "unavailable" } | { status: "verified" };
+type VerifyOutcome = { status: "invalid" } | { status: "invalid_password"; violation: PasswordViolation } | { status: "unavailable" } | { status: "verified" };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
@@ -95,7 +93,7 @@ function defaultSchedule(task: () => Promise<void>) {
 }
 
 /** Checks what the form sent. None of it depends on whether an account exists. */
-function validateSignupInput(input: Pick<SignupInput, "ageConfirmed" | "email" | "fullName" | "password">) {
+function validateSignupInput(input: Pick<SignupInput, "ageConfirmed" | "email" | "fullName">) {
   const errors: SignupFieldErrors = {};
   const fullName = input.fullName.trim().replace(/\s+/gu, " ");
   const email = normalizeEmail(input.email);
@@ -103,9 +101,6 @@ function validateSignupInput(input: Pick<SignupInput, "ageConfirmed" | "email" |
 
   if (nameLength < MIN_FULL_NAME_LENGTH || nameLength > MAX_FULL_NAME_LENGTH) errors.fullName = "invalid";
   if (!EMAIL_PATTERN.test(email) || email.length > MAX_EMAIL_LENGTH) errors.email = "invalid";
-  // The password is read exactly as typed (see lib/auth/password-policy.mjs).
-  const violation = getPasswordViolation(input.password);
-  if (violation) errors.password = violation;
   if (input.ageConfirmed !== true) errors.ageConfirmed = true;
 
   return Object.keys(errors).length > 0
@@ -171,9 +166,8 @@ function sendLater({
 }
 
 /**
- * Starts a signup. Every branch after the checks that do not depend on the
- * address (the switch, the form, Turnstile, the limits) takes about the same
- * time: the password is hashed first, whatever the address turns out to be.
+ * Starts a signup without credentials. Account-dependent replies have the same
+ * public shape and email delivery is deferred. Only verification can set a password.
  */
 async function registerStudent(input: SignupInput, deps: RegistrationDeps = {}): Promise<SignupOutcome> {
   const env = deps.env ?? process.env;
@@ -202,7 +196,6 @@ async function registerStudent(input: SignupInput, deps: RegistrationDeps = {}):
     return { status: "rate_limited" };
   }
 
-  const passwordHash = await hashPassword(input.password);
   const continuation = readContinuation(input);
   const deviceToken = await (deps.readDeviceToken ?? readDeviceCookie)().catch(() => null);
   const consentVersions = {
@@ -213,6 +206,8 @@ async function registerStudent(input: SignupInput, deps: RegistrationDeps = {}):
   const run = () =>
     prisma.$transaction(async (tx): Promise<Plan> => {
       const at = now();
+      // User first, then tokens: every signup, resend and verification follows this order.
+      await tx.$queryRaw`SELECT id FROM users WHERE email = ${email} FOR UPDATE`;
       const user = await tx.user.findUnique({
         select: { emailVerifiedAt: true, fullName: true, id: true, previewPurpose: true, softDeletedAt: true, status: true },
         where: { email },
@@ -232,8 +227,7 @@ async function registerStudent(input: SignupInput, deps: RegistrationDeps = {}):
             email,
             emailVerifiedAt: null,
             fullName,
-            passwordHash,
-            passwordUpdatedAt: at,
+            passwordHash: null,
             roleAssignments: { create: { role: RoleName.student } },
             status: UserStatus.active,
             studentProfile: { create: { displayName: fullName } },
@@ -252,23 +246,15 @@ async function registerStudent(input: SignupInput, deps: RegistrationDeps = {}):
         && (user.status === UserStatus.active || user.status === UserStatus.locked);
       if (!pending) return { fullName: user.fullName, kind: "existing" };
 
-      // An address that was typed in earlier but never verified: the newest signup wins, so
-      // whoever can read the inbox (and so can verify) is the one whose password is kept.
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
-      await tx.user.update({
-        data: {
-          failedLoginCount: 0,
-          fullName,
-          lockedUntil: null,
-          passwordHash,
-          passwordUpdatedAt: at,
-          status: UserStatus.active,
-        },
-        where: { id: user.id },
+      // A repeat request cannot change the pending owner's name, consent or credentials.
+      const earlier = await tx.emailVerificationToken.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { consentedAt: true, ipAddress: true, privacyVersion: true, termsVersion: true },
+        where: { userId: user.id },
       });
-      await tx.studentProfile.updateMany({ data: { displayName: fullName }, where: { userId: user.id } });
-      const token = await issueToken(tx, user.id, consent, at);
-      return { fullName, kind: "verify", ...token };
+      if (!earlier) return { kind: "none" };
+      const token = await issueToken(tx, user.id, earlier, at);
+      return { fullName: user.fullName, kind: "verify", ...token };
     });
 
   let plan: Plan;
@@ -359,6 +345,7 @@ async function resendVerification(
   try {
     plan = await prisma.$transaction(async (tx): Promise<Plan> => {
       const at = now();
+      await tx.$queryRaw`SELECT id FROM users WHERE email = ${email} FOR UPDATE`;
       const user = await tx.user.findUnique({
         select: { emailVerifiedAt: true, fullName: true, id: true, previewPurpose: true, softDeletedAt: true, status: true },
         where: { email },
@@ -378,7 +365,6 @@ async function resendVerification(
         && (user.status === UserStatus.active || user.status === UserStatus.locked);
       if (!pending) return { fullName: user.fullName, kind: "existing" };
 
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
       // What was agreed to at signup moves to the new link unchanged. With no earlier link there is
       // nothing that was agreed to, so nothing is sent.
       const earlier = await tx.emailVerificationToken.findFirst({
@@ -466,23 +452,20 @@ async function isVerificationLinkUsable(rawToken: string, now: Date = new Date()
  * append-only consent record, and every other link of the account ends. Runs
  * only from a POST (the button), once per link.
  */
-async function verifyEmail(rawToken: string, deps: Pick<RegistrationDeps, "now"> = {}): Promise<VerifyOutcome> {
+async function verifyEmail(rawToken: string, password: string, deps: Pick<RegistrationDeps, "now"> = {}): Promise<VerifyOutcome> {
   if (!rawToken || rawToken.length > 200) return { status: "invalid" };
+  const violation = getPasswordViolation(password);
+  if (violation) return { status: "invalid_password", violation };
 
   const tokenHash = hashToken(rawToken);
   const now = (deps.now ?? (() => new Date()))();
 
   try {
+    const passwordHash = await hashPassword(password);
     return await prisma.$transaction(async (tx): Promise<VerifyOutcome> => {
-      const [token = null] = await tx.$queryRaw<TokenRow[]>`
-        SELECT id, user_id, terms_version, privacy_version, consented_at, host(ip_address) AS ip
-        FROM email_verification_tokens
-        WHERE token_hash = ${tokenHash}
-          AND used_at IS NULL
-          AND expires_at > ${now}
-        FOR UPDATE
-      `;
-      if (!token) return { status: "invalid" };
+      // Read identity without locking a token. Revalidate it only after locking its user.
+      const identity = await tx.emailVerificationToken.findUnique({ where: { tokenHash }, select: { userId: true } });
+      if (!identity) return { status: "invalid" };
 
       const [user = null] = await tx.$queryRaw<Array<{
         email_verified_at: Date | null;
@@ -491,7 +474,7 @@ async function verifyEmail(rawToken: string, deps: Pick<RegistrationDeps, "now">
         status: UserStatus;
       }>>`
         SELECT email_verified_at, preview_purpose, soft_deleted_at, status
-        FROM users WHERE id = ${token.user_id}::uuid FOR UPDATE
+        FROM users WHERE id = ${identity.userId}::uuid FOR UPDATE
       `;
       if (
         !user
@@ -502,15 +485,24 @@ async function verifyEmail(rawToken: string, deps: Pick<RegistrationDeps, "now">
         return { status: "invalid" };
       }
 
+      const [token = null] = await tx.$queryRaw<TokenRow[]>`
+        SELECT id, user_id, terms_version, privacy_version, consented_at, host(ip_address) AS ip
+        FROM email_verification_tokens
+        WHERE token_hash = ${tokenHash} AND user_id = ${identity.userId}::uuid
+          AND used_at IS NULL AND expires_at > ${now}
+        FOR UPDATE
+      `;
+      if (!token) return { status: "invalid" };
+
       await tx.emailVerificationToken.updateMany({
         data: { usedAt: now },
         where: { usedAt: null, userId: token.user_id },
       });
 
       // Already verified through another link: nothing more to record.
-      if (user.email_verified_at !== null) return { status: "verified" };
+      if (user.email_verified_at !== null) return { status: "invalid" };
 
-      await tx.user.update({ data: { emailVerifiedAt: now }, where: { id: token.user_id } });
+      await tx.user.update({ data: { emailVerifiedAt: now, passwordHash, passwordUpdatedAt: now, status: UserStatus.active, failedLoginCount: 0, lockedUntil: null }, where: { id: token.user_id } });
       await tx.registrationConsent.create({
         data: {
           ageConfirmed: true,
