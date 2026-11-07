@@ -56,6 +56,8 @@ export function VeraHome({
   onSend: (text: string, chips: MentionChip[]) => void;
 }) {
   const title = firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?";
+  // The starter questions step aside while the Studio preview card is up, running or done. A new start screen brings them back.
+  const showingPreview = studio.busy || studio.preview !== null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -88,7 +90,7 @@ export function VeraHome({
             status="ready"
           />
           <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
-          {studio.busy || studio.preview ? (
+          {showingPreview ? (
             <VeraStudioPreview
               busy={studio.busy}
               className="max-h-[min(36dvh,16rem)] md:max-h-[min(40dvh,22rem)]"
@@ -100,21 +102,23 @@ export function VeraHome({
             />
           ) : null}
         </div>
-        <div className="grid w-full gap-2 sm:grid-cols-2">
-          {VERA_STARTER_PROMPTS.map((prompt) => (
-            <Button
-              className="h-11 justify-start rounded-pill text-left"
-              disabled={blocked !== null}
-              key={prompt}
-              onClick={() => onSend(prompt, [])}
-              type="button"
-              variant="outline"
-            >
-              <CircleHelp />
-              {prompt}
-            </Button>
-          ))}
-        </div>
+        {showingPreview ? null : (
+          <div className="grid w-full gap-2 sm:grid-cols-2">
+            {VERA_STARTER_PROMPTS.map((prompt) => (
+              <Button
+                className="h-11 justify-start rounded-pill text-left"
+                disabled={blocked !== null}
+                key={prompt}
+                onClick={() => onSend(prompt, [])}
+                type="button"
+                variant="outline"
+              >
+                <CircleHelp />
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        )}
       </section>
 
       <VeraStudioDocDialog doc={openDocument} onAsk={onAsk} onClose={onCloseDocument} onDelete={onDeleteDocument} />
