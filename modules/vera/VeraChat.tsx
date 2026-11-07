@@ -243,12 +243,12 @@ function ThreadMessage({
           }
           return null;
         })}
-        {sources.length > 0 ? <Sources sources={sources} /> : null}
         {stopped ? <p className="text-xs text-muted-foreground">Jawaban dihentikan.</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground">
         {answer ? <CopyAnswerButton text={answer} /> : null}
         {typeof credits === "number" ? <span className="tabular-nums">{formatCredits(credits)} kredit</span> : null}
+        <Sources sources={sources} />
       </div>
     </div>
   );
