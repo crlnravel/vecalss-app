@@ -262,6 +262,22 @@ local-seed: local-env _local-services _resource-status
     set -e
     exit "$command_status"
 
+# Add about nine demo transactions (paid, pending, expired, failed, refunded,
+# disputed, held, late, authority refund) to the local database, run through the
+# real checkout, the stand-in provider and the refund and dispute code. Needs
+# PAYMENT_STAND_IN_LOCAL=1 and loopback DATABASE_URL and APP_BASE_URL in
+# `.env.local`; refuses anywhere else. Safe to run twice; does not reset data.
+local-demo-transactions: local-env _local-postgres _resource-status
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export DATABASE_URL='postgresql://vecalss:vecalss@127.0.0.1:55432/vecalss_dev?schema=public'
+    set +e
+    ./_harness/resource-guard.sh run -- rtk pnpm db:seed-transaction-demo 2>&1 \
+      | sed -E 's#postgres(ql)?://[^[:space:]]+#<redacted DATABASE_URL>#g; s/figd_[[:alnum:]_-]+/<redacted API token>/g'
+    command_status=${PIPESTATUS[0]}
+    set -e
+    exit "$command_status"
+
 # Add repeatable, clearly labeled stress records to the local demo database.
 # Override LOCAL_HUGE_SEED_STUDENTS / LOCAL_HUGE_SEED_MODULES to change the
 # requested rows per group (10,000 each by default). This does not reset data.
