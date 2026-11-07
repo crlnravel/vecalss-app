@@ -1400,3 +1400,9 @@ Live refresh/polling. AS-08 remains closed.
 
 - [x] Clean-context exact6.1-sol/high c5497398 verified/claimed isolated transient lifecycle repair; root acceptance role and Q1–Q12 matrix created. Ticket1; no implementation/gate pass yet.
 - [ ] Actual no-proof hide/archive/unpublish, shared caller/lease/owner/history/race regressions, localUI, final cold reviews/gates and finding closure. Preserve F6/F3/peerwork. Child startup2+redthird allocation, root0 launches; browser approval pending exactfixtures.
+
+## MS-21 continuation — 7 November 2026
+
+- Draft PR https://github.com/crlnravel/vecalss-app/pull/43 targets `feat/vera-openai`; no merge. Implementation through `3cb36399`.
+- Six registration/legal suites passed in recovered logs. Finished remaining prepared suites: full 190 outcomes in Traycer MS-21 delivery artifact. TypeScript/build pass; repository lint and broad suites have failures. No claim of all-green validation.
+- Independent Luna spec/standards review found credential-proof and concurrency defects. Coordinator asked to approve verification password-confirmation flow; remediation and browser acceptance remain. Public signup stays closed by default.

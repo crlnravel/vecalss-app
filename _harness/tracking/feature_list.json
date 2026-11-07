@@ -1,6 +1,14 @@
 {
   "features": [
     {
+      "id": "ms21-self-registration",
+      "name": "Student self-registration and draft legal pages",
+      "description": "Public student signup, email verification, consent, abuse controls and PTN Pro legal pages.",
+      "dependencies": [],
+      "status": "in_progress",
+      "evidence": "Draft PR #43, feat/ms21-self-registration through 3cb36399. Six new suites passed; 190-suite prepared battery completed, with broad failures recorded in MS-21 delivery artifact. TypeScript/build pass, existing-file lint failure. Independent review blocks merge: pending-account credential proof, stale verification read, cleanup renewal race and lock order. Awaiting coordinator decision; signup closed by default. Browser acceptance pending."
+    },
+    {
       "id": "tryout-f13-deadline-reconciliation",
       "name": "Reconcile Tryout deadlines after early active reads",
       "description": "Bound automatic deadline rechecks and preserve authoritative attempt expiry, stable request budgets and explicit recovery.",

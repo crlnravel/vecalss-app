@@ -1616,3 +1616,11 @@
 - Independent Luna coverage review confirmed 65 sources and 30 section mappings; its P2 linked/interactive dashboard examples are resolved. Standards review fixes are applied; final confirmation was requested asynchronously.
 - Runtime/browser QA and a production build remain unverified. Obscura was unavailable, and ego-browser requires explicit approval for `/developer/components` as Developer, including desktop/mobile, search/categories, computed tokens, keyboard/overlay controls, and sidebar/dashboard previews.
 - Next: run approved browser QA and rerun the production gate after the unrelated repository blockers are resolved. No main-owned Node processes remain.
+
+## MS-21 checkpoint — 7 November 2026 (takes precedence for this feature)
+
+Branch `feat/ms21-self-registration`; draft PR https://github.com/crlnravel/vecalss-app/pull/43 into `feat/vera-openai`. Six implementation commits through `3cb36399`. Current model GPT-6.1 Sol explicitly approved by user this turn.
+
+The earlier suite runner stopped after 23/190. Recovered logs, completed remaining 167 sequentially plus typecheck/lint/build. Typecheck/build pass; full lint fails in unchanged materi-pdf-upload-dialog, many suite failures remain. Durable per-suite codes/command ledger, missing checks, owner placeholders and local steps: `epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/merchant-security-plan/tickets/ms-21-self-registration/delivery/index.md`.
+
+Not accepted. Fresh native Luna reviewers found pending-account password pre-hijack, stale verified-state password overwrite, cleanup-versus-renewal race and inverted user/token locking. Coordinator b46443a0 was asked to approve password confirmation at verification (response thread b8d14dfa). Await that decision; repair concurrency issues and add regressions, then rerun focused checks and obtain review/browser acceptance. Do not enable signup or merge. Legal placeholders stay draft. No owned server remains; resumed validation shell exited. Do not touch other agents' server on 5023 or seeded MFA keys. No new dependency or Neon access.
