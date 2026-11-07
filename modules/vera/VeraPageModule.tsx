@@ -314,16 +314,13 @@ export function VeraPageModule({
   }
 
   const panel = {
-    view: sessions.view,
     sessions: sessions.sessions,
     loading: sessions.loading,
     error: sessions.error,
     activeId: conversationId,
-    onViewChange: sessions.changeView,
     onNew: newSession,
     onOpen: openSession,
     onRename: (id: string, title: string) => void sessions.rename(id, title),
-    onArchive: (id: string, toArchive: boolean) => void sessions.archive(id, toArchive),
     onDelete: deleteSession,
   };
 
