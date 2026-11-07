@@ -122,8 +122,9 @@ export function createVeraTools({
         const options = chosen?.tool === "weakness_analysis" ? chosen.input : input;
         const documentId = crypto.randomUUID();
         onWrite?.({ documentId, tool: "weakness_analysis", input: options.subtest ? { subtest: options.subtest } : {} });
-        return { documentId, instructions: studioInstructions("weakness_analysis") };
+        return { documentId, tool: "weakness_analysis" };
       },
+      toModelOutput: () => ({ type: "json", value: { instructions: studioInstructions("weakness_analysis") } }),
     }),
     write_study_route: tool({
       description:
@@ -137,8 +138,9 @@ export function createVeraTools({
         const options = chosen?.tool === "study_route" ? chosen.input : input;
         const documentId = crypto.randomUUID();
         onWrite?.({ documentId, tool: "study_route", input: { minutesPerDay: options.minutesPerDay } });
-        return { documentId, instructions: studioInstructions("study_route") };
+        return { documentId, tool: "study_route" };
       },
+      toModelOutput: () => ({ type: "json", value: { instructions: studioInstructions("study_route") } }),
     }),
     write_wrong_answer_review: tool({
       description:
@@ -158,13 +160,20 @@ export function createVeraTools({
         if ("error" in resolved) return resolved;
         const documentId = crypto.randomUUID();
         onWrite?.({ documentId, tool: "wrong_answer_review", input: { target } });
-        return {
-          documentId,
-          target: { type: resolved.type, id: resolved.id },
-          source: resolved.source,
-          instructions: studioInstructions("wrong_answer_review"),
-        };
+        return { documentId, tool: "wrong_answer_review", source: resolved.source };
       },
+      // The model reads the instructions and the result it reviews. The stored and streamed output keeps only the document, the tool and the link.
+      toModelOutput: ({ output }) =>
+        "error" in output
+          ? { type: "json", value: output }
+          : {
+              type: "json",
+              value: {
+                instructions: studioInstructions("wrong_answer_review"),
+                target: { type: output.source.type, id: output.source.id },
+                source: output.source,
+              },
+            },
     }),
   };
 }

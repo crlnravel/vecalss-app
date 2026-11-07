@@ -35,6 +35,9 @@ if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
 }
 
 const EFFORT = "cepat" as const;
+// Phrases from the instructions each write tool gives its model. The model reads them in its turn. The stored answer and the stream never carry them.
+const ROUTE_INSTRUCTIONS = "Susun Rute Belajar 7 hari dengan satu judul per hari";
+const REVIEW_INSTRUCTIONS = "Bahas soal yang salah dengan struktur ini";
 const signal = new AbortController().signal;
 
 /** A model step that answers and then stops for lack of room, as a document cut off part way does. */
@@ -80,6 +83,12 @@ function pointerOf(parts: unknown) {
   if (!Array.isArray(parts)) return undefined;
   const found = (parts as Array<{ type: string; data?: unknown }>).find((part) => part.type === "data-vera-studio");
   return found?.data as { documentId: string; tool: string; complete: boolean } | undefined;
+}
+
+/** The output a stored answer keeps for one tool call, or an empty object when the answer has no such call. */
+function toolOutputOf(parts: unknown, type: string): Record<string, unknown> {
+  const part = (parts as Array<{ type: string; output?: Record<string, unknown> }>).find((candidate) => candidate.type === type);
+  return part?.output ?? {};
 }
 
 /** The options a saved document was written with. The list and read APIs leave them out. */
@@ -215,6 +224,18 @@ try {
   assert.deepEqual(await inputOf(routeDocumentId), { minutesPerDay: 30 }, "The document keeps the options the student chose");
   assert.equal(pointerOf(routeAnswer.parts)?.complete, true, "The pointer says the document is complete");
   assert.equal(textOf(routeAnswer.parts).includes(routeDocumentId), false, "The answer's words never show the document's id");
+  // The instructions reach the model in this turn. The stored answer and the stream never carry them, and the stored output keeps the document and the tool.
+  assert.ok(
+    JSON.stringify(routeModel.doStreamCalls[1]?.prompt).includes(ROUTE_INSTRUCTIONS),
+    "The model reads its document's instructions in the same turn",
+  );
+  assert.equal(JSON.stringify(routeAnswer.parts).includes(ROUTE_INSTRUCTIONS), false, "The stored answer keeps no instructions");
+  assert.equal(JSON.stringify(routeEvents).includes(ROUTE_INSTRUCTIONS), false, "The student's stream carries no instructions");
+  assert.deepEqual(
+    Object.keys(toolOutputOf(routeAnswer.parts, "tool-write_study_route")).sort(),
+    ["documentId", "tool"],
+    "A write tool's stored output keeps its document and its tool",
+  );
   assert.equal((await listStudioDocuments({ studentId: routeOwner })).length, 1, "The Studio answer is saved as one document");
   const routeUsage = await answerUsageOf(routeConversationId);
   assert.equal(routeUsage.length, 1, "A Studio turn is one chat answer");
@@ -288,6 +309,16 @@ try {
     await inputOf(reviewDocumentId),
     { target: { type: "tryout", id: released.id } },
     "The document reviews the result the student chose",
+  );
+  // The model reads the review's instructions and the result to review in this turn. The stored output keeps the document, the tool and the link.
+  const reviewToolResult = JSON.stringify(reviewModel.doStreamCalls[1]?.prompt.find((message) => message.role === "tool") ?? null);
+  assert.ok(reviewToolResult.includes(REVIEW_INSTRUCTIONS), "The model reads the review's instructions in the same turn");
+  assert.ok(reviewToolResult.includes(`"id":"${released.id}"`), "The model is told which result to review");
+  assert.equal(JSON.stringify(reviewAnswer.parts).includes(REVIEW_INSTRUCTIONS), false, "The stored answer keeps no review instructions");
+  assert.deepEqual(
+    Object.keys(toolOutputOf(reviewAnswer.parts, "tool-write_wrong_answer_review")).sort(),
+    ["documentId", "source", "tool"],
+    "A review's stored output keeps its document, its tool and its link",
   );
 
   // A review of a result this student may not read is refused by the tool. Nothing is saved, and the answer says so.
