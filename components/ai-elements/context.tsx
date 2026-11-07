@@ -1,9 +1,9 @@
 import * as React from "react";
 
-import { formatCredits } from "@/lib/vera/credits-shared";
+import { formatUsagePercent } from "@/lib/vera/usage-display";
 import { cn } from "@/lib/utils";
 
-/** Today's credit meter, as a sunken pill. It reports spend against the day's limit, not a context window. */
+/** Today's credit meter, as a sunken pill. It shows the share of the day's limit that is used, not a context window. */
 function Context({
   used,
   limit,
@@ -19,7 +19,7 @@ function Context({
       {...props}
     >
       <span className="text-muted-foreground max-sm:hidden">Kredit hari ini</span>
-      {formatCredits(used)} / {limit}
+      {formatUsagePercent(used, limit)}
     </span>
   );
 }

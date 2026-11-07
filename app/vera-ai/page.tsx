@@ -6,7 +6,7 @@ import { getStudentNotificationFeed } from "@/lib/notifications/service";
 import { getConversationWithMessages, listSessions } from "@/lib/vera/conversations";
 import { getVeraUsageSnapshot } from "@/lib/vera/ledger";
 import { isUuid } from "@/lib/vera/sources/types";
-import { getStudioDocument, listStudioDocuments } from "@/lib/vera/studio-documents";
+import { getStudioDocument } from "@/lib/vera/studio-documents";
 import { VeraPageModule } from "@/modules/vera/VeraPageModule";
 
 /**
@@ -26,11 +26,10 @@ export default async function VeraAiPage({
   const explicit = c === "new" ? "new" : c && isUuid(c) ? c : undefined;
   const documentId = tab === "studio" && doc && isUuid(doc) ? doc : null;
   const firstName = session.user.fullName?.trim().split(/\s+/)[0] || null;
-  const [notificationFeed, initialUsage, initialSessions, initialStudioDocs, initialStudioDocument] = await Promise.all([
+  const [notificationFeed, initialUsage, initialSessions, initialStudioDocument] = await Promise.all([
     getStudentNotificationFeed({ userId: studentId }),
     getVeraUsageSnapshot({ studentId }),
     listSessions({ studentId, archived: false }),
-    listStudioDocuments({ studentId }),
     documentId ? getStudioDocument({ studentId, id: documentId }) : Promise.resolve(null),
   ]);
   const conversation = explicit && explicit !== "new" ? await getConversationWithMessages(studentId, explicit) : null;
@@ -44,7 +43,6 @@ export default async function VeraAiPage({
         firstName={firstName}
         initialMessages={conversation?.messages ?? []}
         initialSessions={initialSessions}
-        initialStudioDocs={initialStudioDocs}
         initialStudioDocument={initialStudioDocument}
         initialUsage={initialUsage}
         notificationFeed={notificationFeed}

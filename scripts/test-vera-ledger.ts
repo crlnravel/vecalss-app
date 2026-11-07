@@ -25,6 +25,8 @@ import {
   type VeraLimitCode,
 } from "../lib/vera/ledger";
 import { setVeraModelForTests } from "../lib/vera/model";
+import { formatResetAt, formatResetIn, formatUsagePercent, usagePercent } from "../lib/vera/usage-display";
+import { sessionDay, sessionTime } from "../modules/vera/session-day";
 import { trackAnswerUsage } from "../lib/vera/usage-tracker";
 import { dayWindow, monthWindow, weekWindow } from "../lib/vera/windows";
 
@@ -159,6 +161,31 @@ try {
   const range = estimateCreditRange({ effort: "mendalam", historyChars: 40_000, mentionCount: 2 });
   assert.ok(range.low >= 0.1 && range.high >= range.low, "The estimate range is ordered");
   assert.equal(formatCredits(0.6), "0,6");
+
+  // The meter's wording: a share of each limit, and the reset time in words and on the Jakarta clock.
+  assert.equal(formatUsagePercent(0, 15), "0%", "Nothing used reads 0%");
+  assert.equal(formatUsagePercent(0.1, 15), "1%", "A tenth of a credit out of 15 rounds to 1%");
+  assert.equal(formatUsagePercent(0.01, 15), "<1%", "A small share never reads as 0%");
+  assert.equal(formatUsagePercent(15, 15), "100%", "The full limit reads 100%");
+  assert.equal(formatUsagePercent(16, 15), "100%", "Past the limit caps at 100%");
+  assert.equal(usagePercent(16, 15), 100, "The capped share is exactly 100");
+  assert.equal(formatUsagePercent(10, 15), "67%", "Two thirds rounds to a whole percent");
+  assert.equal(formatResetIn(new Date(now.getTime() + 220 * 60_000), now), "Reset dalam 3j 40m", "Hours and minutes");
+  assert.equal(formatResetIn(new Date(now.getTime() + 40 * 60_000), now), "Reset dalam 40m", "Under an hour, minutes only");
+  assert.equal(formatResetIn(dayWindow(now).resetsAt, now), "Reset dalam 14j", "Midnight WIB is 14 hours after 10.00");
+  assert.equal(formatResetAt(weekWindow(now).resetsAt, now), "Reset 9 Nov 00.00", "The week resets on Monday at 00.00 WIB");
+  assert.equal(formatResetAt(monthWindow(now).resetsAt, now), "Reset 1 Des 00.00", "The month resets on the first at 00.00 WIB");
+  assert.equal(
+    formatResetAt(new Date("2027-01-01T17:00:00Z"), new Date("2026-12-30T10:00:00+07:00")),
+    "Reset 2 Jan 2027 00.00",
+    "The year shows only when it is not the current year",
+  );
+
+  // The session list's day groups and times, on the Jakarta calendar.
+  assert.equal(sessionDay("2026-11-04T08:00:00+07:00", now), "today", "A session updated earlier today is today");
+  assert.equal(sessionDay("2026-11-03T23:30:00+07:00", now), "yesterday", "Late last night is yesterday");
+  assert.equal(sessionDay("2026-11-02T10:00:00+07:00", now), "older", "Two days back is older");
+  assert.match(sessionTime("2026-11-04T09:05:00+07:00", now), /^09\.05$/u, "Today's rows show the clock time");
 
   // Settlement. A completed step costs what the provider reported. A step cut off after it streamed costs an estimate on top of that,
   // because OpenAI bills generation once it starts. An answer that streamed nothing is released.

@@ -147,11 +147,9 @@ async function runBrowserChecks() {
     assert.equal(await sawStop, true, "The answer streams: the stop control shows while it is being written");
     await page.getByText(/\d+,\d kredit/).first().waitFor({ timeout: 30_000 });
 
-    // 2. The first answer names the session on the server. After a reload, the history sheet lists that name.
+    // 2. The first answer names the session on the server. After a reload, the conversation list in the right panel lists that name.
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Buka daftar sesi" }).click();
     await page.getByText(MOCK_TITLE).first().waitFor({ timeout: 30_000 });
-    await page.keyboard.press("Escape");
 
     // 3. Typing @ opens the source menu.
     await composer.fill("@");
@@ -159,18 +157,19 @@ async function runBrowserChecks() {
     await page.keyboard.press("Escape");
     await composer.fill("");
 
-    // 4. A Studio run saves a document, and the list shows it. The tools and the list are on the home page.
-    await page.getByRole("button", { name: "Kembali ke Vera AI" }).click();
-    const cards = page.locator('ul[aria-label="Dokumen tersimpan"] > li');
-    const before = await cards.count();
-    await page.getByRole("button", { name: "Analisis Kelemahan", exact: true }).click();
+    // 4. A Studio run saves a document. The preview card under the composer says so, and its button opens the saved document.
+    // "Sesi baru" opens the start screen, and the Studio menu in its toolbar picks the tool.
+    await page.getByRole("button", { name: "Sesi baru" }).click();
+    await page.getByRole("button", { name: "Pilih alat Studio" }).click();
+    await page.getByRole("menuitem", { name: "Analisis Kelemahan" }).click();
     await page.getByRole("button", { name: "Buat" }).click();
-    await page.getByText("Dokumen tersimpan. Lihat di daftar di bawah.").waitFor({ timeout: 120_000 });
-    assert.equal(await cards.count(), before + 1, "The Studio run adds one saved document to the list");
+    await page.getByText("Dokumen tersimpan.", { exact: true }).waitFor({ timeout: 120_000 });
+    await page.getByRole("button", { name: "Buka dokumen", exact: true }).click();
+    await page.getByRole("dialog").getByText("Analisis Kelemahan", { exact: true }).waitFor({ timeout: 30_000 });
+    await page.keyboard.press("Escape");
 
-    // 5. The session can be renamed from the history sheet.
-    await page.getByRole("button", { name: "Buka daftar sesi" }).click();
-    await page.getByRole("button", { name: `Aksi untuk sesi ${MOCK_TITLE}` }).click();
+    // 5. The session can be renamed from its row menu in the conversation list.
+    await page.locator("li", { hasText: MOCK_TITLE }).getByRole("button", { name: "Opsi percakapan" }).click();
     await page.getByText("Ganti nama").click();
     const nameInput = page.getByLabel("Nama sesi");
     await nameInput.fill(RENAMED_TITLE);
