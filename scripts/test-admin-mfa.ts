@@ -35,7 +35,7 @@ import {
   getSessionContextForToken,
 } from "../lib/auth/session";
 import { changePasswordForUser } from "../lib/auth/service";
-import { hasDeveloperReportAccess } from "../lib/reports/access";
+import { hasAdminReportAccess } from "../lib/reports/access";
 import { prisma } from "../lib/prisma";
 import { assertBannerDeliverySession } from "../lib/banner/delivery";
 import { requireTryoutCapability, TryoutCapabilityError } from "../lib/tryout/capabilities";
@@ -202,8 +202,8 @@ async function main() {
 
   // ---- Return paths and home routing -----------------------------------
   assert.equal(getSafeMfaReturnPath("/admin/imports?x=1"), "/admin/imports?x=1");
-  assert.equal(getSafeMfaReturnPath("/developer/reports"), "/developer/reports");
-  for (const bad of ["//evil.example/admin", "https://evil.example/admin", "/adminx", "/mfa", "/dashboard", "/admin\\evil", "/admin /x", null, 7]) {
+  assert.equal(getSafeMfaReturnPath("/admin/laporan/abc"), "/admin/laporan/abc");
+  for (const bad of ["/developer/reports", "/developer", "//evil.example/admin", "https://evil.example/admin", "/adminx", "/mfa", "/dashboard", "/admin\\evil", "/admin /x", null, 7]) {
     assert.equal(getSafeMfaReturnPath(bad), null, String(bad));
   }
   const pendingUser = { email: "a@b.c", fullName: "A", id: "1", mfaStatus: "challenge" as const, mustChangePassword: false, onboardingStatus: null, roles: [], status: "active" as const };
@@ -215,7 +215,7 @@ async function main() {
 
   // ---- Fixtures --------------------------------------------------------
   const admin = await makeUser("admin", [RoleName.admin]);
-  const developer = await makeUser("developer", [RoleName.developer]);
+  const secondAdmin = await makeUser("second-admin", [RoleName.admin]);
   const adminTutor = await makeUser("admintutor", [RoleName.admin, RoleName.tutor]);
   const tutor = await makeUser("tutor", [RoleName.tutor]);
   const student = await makeUser("student", [RoleName.student]);
@@ -398,16 +398,18 @@ async function main() {
     // Verified a second ago on database time, so the grant below is strictly later on the same clock.
     await markVerified(sessionId, adminSecret.factorId, 1);
     assert.equal((await contextOf(token)).user.mfaStatus, "verified");
-    // A privileged role granted after the verification needs a fresh check.
-    await prisma.roleAssignment.create({ data: { role: RoleName.developer, userId: admin.id } });
+    // A privileged role granted after the verification needs a fresh check (here: admin granted again).
+    await prisma.roleAssignment.updateMany({ data: { revokedAt: new Date() }, where: { revokedAt: null, role: RoleName.admin, userId: admin.id } });
+    await prisma.roleAssignment.create({ data: { role: RoleName.admin, userId: admin.id } });
     const regranted = await contextOf(token);
     assert.equal(regranted.user.mfaStatus, "challenge", "role grant re-checks privileged sessions");
     assert.deepEqual(regranted.user.roles, []);
     await markVerified(sessionId, adminSecret.factorId, 0);
     const reverified = await contextOf(token);
     assert.equal(reverified.user.mfaStatus, "verified");
-    assert.ok(reverified.user.roles.includes(RoleName.developer) && reverified.user.roles.includes(RoleName.admin));
-    await prisma.roleAssignment.updateMany({ data: { revokedAt: new Date() }, where: { role: RoleName.developer, userId: admin.id } });
+    assert.ok(reverified.user.roles.includes(RoleName.admin));
+    // Back to a long-ago grant so the later checks on this account are not re-challenged.
+    await prisma.$executeRaw`UPDATE role_assignments SET assigned_at = now() - make_interval(days => 30) WHERE user_id = ${admin.id}::uuid AND revoked_at IS NULL`;
 
     // Disabling the account ends the session outright.
     const disabled = await makeUser("disabled", [RoleName.admin]);
@@ -435,7 +437,7 @@ async function main() {
 
   // ---- Recovery codes --------------------------------------------------
   {
-    const user = await makeUser("recovery", [RoleName.developer]);
+    const user = await makeUser("recovery", [RoleName.admin]);
     const factor = await provisionFactor(user.id);
     const codes = Array.from({ length: 4 }, () => generateOneUseCode());
     await prisma.mfaRecoveryCode.createMany({
@@ -490,7 +492,7 @@ async function main() {
       await verifyRecoveryCode({ code: generateOneUseCode(), sessionId: session.id, userId: user.id });
     }
     assert.deepEqual(await verifyRecoveryCode({ code: generateOneUseCode(), sessionId: session.id, userId: user.id }), { ok: false, reason: "throttled" });
-    const noFactor = await makeUser("throttle-setup", [RoleName.developer]);
+    const noFactor = await makeUser("throttle-setup", [RoleName.admin]);
     const noFactorSession = await makeSession(noFactor.id);
     for (let attempt = 0; attempt < MFA_MAX_FAILED_ATTEMPTS; attempt += 1) {
       assert.deepEqual(await startEnrollment({ sessionId: noFactorSession.id, setupCode: generateOneUseCode(), userId: noFactor.id }), { ok: false, reason: "invalid" });
@@ -539,7 +541,7 @@ async function main() {
         assert.equal(context.user.mfaStatus, "unavailable");
         assert.deepEqual(context.user.roles, []);
       }
-      const newcomer = await makeUser("keys-newcomer", [RoleName.developer]);
+      const newcomer = await makeUser("keys-newcomer", [RoleName.admin]);
       const newcomerSession = await makeSession(newcomer.id);
       assert.equal((await contextOf(newcomerSession.token)).user.mfaStatus, "unavailable");
       assert.deepEqual(await startEnrollment({ sessionId: newcomerSession.id, setupCode: (await issueSetupCode(newcomer.id)).code, userId: newcomer.id }), { ok: false, reason: "unavailable" });
@@ -576,7 +578,7 @@ async function main() {
   // ---- Password-only session: every direct role check ------------------
   {
     const unverifiedAdmin = await contextOf((await makeSession(admin.id)).token);
-    const unverifiedDev = await contextOf((await makeSession(developer.id)).token);
+    const unverifiedSecond = await contextOf((await makeSession(secondAdmin.id)).token);
     const unverifiedMixed = await contextOf((await makeSession(adminTutor.id)).token);
     const verifiedAdmin = await (async () => {
       const factor = await provisionFactor(adminTutor.id);
@@ -587,14 +589,17 @@ async function main() {
 
     // lib/tryout/capabilities.ts
     assert.throws(() => requireTryoutCapability(unverifiedAdmin, "tryout.delivery.configure"), TryoutCapabilityError);
-    assert.throws(() => requireTryoutCapability(unverifiedDev, "tryout.delivery.configure"), TryoutCapabilityError);
+    assert.throws(() => requireTryoutCapability(unverifiedSecond, "tryout.delivery.configure"), TryoutCapabilityError);
     requireTryoutCapability(verifiedAdmin.context, "tryout.delivery.configure");
     // lib/banner/delivery.ts
     assert.throws(() => assertBannerDeliverySession(unverifiedAdmin, "draft"), /tidak diizinkan/u);
     assert.throws(() => assertBannerDeliverySession(unverifiedAdmin, "admin-published"), /tidak diizinkan/u);
     assertBannerDeliverySession(verifiedAdmin.context, "draft");
-    // lib/reports/access.ts (developer reports)
-    assert.equal(hasDeveloperReportAccess(unverifiedDev.user.roles, false), false);
+    // lib/reports/access.ts (Laporan): a password-only admin is not an admin yet; a verified one is.
+    assert.equal(hasAdminReportAccess(unverifiedSecond.user.roles, false), false);
+    assert.equal(hasAdminReportAccess(unverifiedAdmin.user.roles, false), false);
+    assert.equal(hasAdminReportAccess(verifiedAdmin.context.user.roles, false), true);
+    assert.equal(hasAdminReportAccess(verifiedAdmin.context.user.roles, true), false, "a temporary password blocks Laporan");
     // An account that is both admin and tutor keeps only its tutor role while unverified.
     assert.deepEqual(unverifiedMixed.user.roles, [RoleName.tutor]);
     assert.equal(unverifiedMixed.user.mfaStatus, "enroll");
@@ -661,11 +666,11 @@ async function main() {
     assert.equal(await prisma.userMfaFactor.count({ where: { userId: user.id } }), 1, "refusals change nothing");
     assert.equal((await contextOf(session.token)).user.mfaStatus, "verified");
 
-    // "Last admin": the script never looks at other admins. Park every other admin and developer
+    // "Last admin": the script never looks at other admins. Park every other admin
     // assignment, run it, and put them back.
     const parked = await prisma.roleAssignment.findMany({
       select: { id: true },
-      where: { revokedAt: null, role: { in: [RoleName.admin, RoleName.developer] }, userId: { not: user.id } },
+      where: { revokedAt: null, role: RoleName.admin, userId: { not: user.id } },
     });
     let run: ReturnType<typeof runScript>;
     try {
@@ -719,8 +724,8 @@ async function main() {
     assert.deepEqual(await startEnrollment({ sessionId: lateSession.id, setupCode: secondCode, userId: user.id }), { ok: false, reason: "invalid" }, "expired code");
     assert.equal(await auditCount(), 2);
 
-    // A developer account works the same way.
-    const dev = await makeUser("cli-dev", [RoleName.developer]);
+    // Another admin account works the same way.
+    const dev = await makeUser("cli-second", [RoleName.admin]);
     const devRun = runScript(script, ["--email", dev.email, "--operator", "Test Operator", "--reason", "first setup (test)", "--yes"]);
     assert.equal(devRun.status, 0, devRun.stderr);
     assert.match(devRun.stdout, /The account had no factor/u);

@@ -31,7 +31,7 @@ async function requireSession(loginPath = getLoginPathForAudience("student")) {
 }
 
 /**
- * An admin or developer who has not passed the second factor is signed in but
+ * An admin who has not passed the second factor is signed in but
  * unprivileged: their context carries neither role. Send them to the
  * verification screen (a forced password change still comes first), remembering
  * the page they were on when the request carries it.
@@ -217,25 +217,6 @@ async function requireAffiliatorSession({
   return session;
 }
 
-async function requireDeveloperSession({
-  allowMustChangePassword = false,
-}: {
-  allowMustChangePassword?: boolean;
-} = {}) {
-  const session = await requireSession(getLoginPathForAudience("developer"));
-  await redirectIfMfaPending(session, allowMustChangePassword);
-
-  if (!hasRole(session, RoleName.developer)) {
-    redirect(getDefaultHomePath(session.user));
-  }
-
-  if (!allowMustChangePassword && session.user.mustChangePassword) {
-    redirect("/change-password");
-  }
-
-  return session;
-}
-
 function redirectToAuthorizedHome(user: AuthenticatedUser) {
   redirect(getDefaultHomePath(user));
 }
@@ -264,7 +245,6 @@ export {
   requireAdminSession,
   requireAdminReadOnlySession,
   requireAffiliatorSession,
-  requireDeveloperSession,
   requirePasswordSettledSession,
   requireSession,
   requireStudentSession,

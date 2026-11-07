@@ -1,5 +1,5 @@
 /**
- * Seeded admin and developer accounts get a fixed, publicly documented test
+ * The seeded admin account gets a fixed, publicly documented test
  * authenticator secret so agents and QA can still sign in. Like the default
  * seed passwords, it is only acceptable against a database on this machine:
  * anywhere else the seed enrolls nothing, and the account is enrolled with the
@@ -35,7 +35,7 @@ export function assertSeedMfaAllowed(env = process.env) {
 }
 
 /**
- * Enrolls the fixed test factor for a seeded admin or developer. Returns false
+ * Enrolls the fixed test factor for the seeded admin. Returns false
  * (and enrolls nothing) when the database is not local or no MFA key ring is
  * configured, so a shared or staging seed never plants a known secret.
  */
@@ -47,7 +47,7 @@ export async function ensureSeedMfaFactor(client, userId, env = process.env) {
     keyRing = loadMfaKeyRing(env);
   } catch (error) {
     console.warn(
-      `[seed] MFA test factor not enrolled for ${userId}: ${error instanceof Error ? error.message : error}. Set MFA_KEY_RING and MFA_ACTIVE_KEY_ID (see .env.example) and seed again; admin and developer sign-in stays closed until then.`,
+      `[seed] MFA test factor not enrolled for ${userId}: ${error instanceof Error ? error.message : error}. Set MFA_KEY_RING and MFA_ACTIVE_KEY_ID (see .env.example) and seed again; admin sign-in stays closed until then.`,
     );
     return false;
   }

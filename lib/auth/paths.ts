@@ -67,18 +67,10 @@ function getAffiliatorHomePath(user: AuthenticatedUser) {
   return "/affiliator/dashboard";
 }
 
-function getDeveloperHomePath(user: AuthenticatedUser) {
-  if (user.mustChangePassword) {
-    return "/change-password";
-  }
-
-  return "/developer/reports";
-}
-
-/** Sign-in and re-verification screen for admin and developer accounts. */
+/** Sign-in and re-verification screen for admin accounts. */
 const MFA_PATH = "/mfa";
 
-/** Set by proxy.ts on admin and developer pages so a guard can remember where the person was. */
+/** Set by proxy.ts on admin pages so a guard can remember where the person was. */
 const MFA_RETURN_PATH_HEADER = "x-vecalss-return-path";
 
 function isMfaPending(user: AuthenticatedUser) {
@@ -96,14 +88,14 @@ function getMfaGatePath(user: AuthenticatedUser, returnTo?: string | null) {
 }
 
 /**
- * Pages an admin or developer may be returned to after verifying. Anything
- * else (other hosts, other areas, the verification screen itself) is dropped.
+ * Pages an admin may be returned to after verifying. Anything else (other
+ * hosts, other areas, the verification screen itself) is dropped.
  */
 function getSafeMfaReturnPath(value: unknown) {
   if (typeof value !== "string") return null;
   const path = value.trim();
   if (
-    !/^\/(?:admin|developer)(?:[/?][^\s\\]*)?$/u.test(path)
+    !/^\/admin(?:[/?][^\s\\]*)?$/u.test(path)
     || path.startsWith("//")
     || path.includes("\\")
   ) {
@@ -119,10 +111,6 @@ function getDefaultHomePath(user: AuthenticatedUser) {
 
   if (user.roles.includes(RoleName.admin)) {
     return "/admin";
-  }
-
-  if (user.roles.includes(RoleName.developer)) {
-    return getDeveloperHomePath(user);
   }
 
   if (user.roles.includes(RoleName.affiliator)) {
@@ -146,7 +134,6 @@ export {
   getDefaultHomePath,
   isMfaPending,
   getAffiliatorHomePath,
-  getDeveloperHomePath,
   getLoginPathForAudience,
   getMfaGatePath,
   getSafeAdminReturnPath,

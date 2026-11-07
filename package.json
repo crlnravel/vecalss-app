@@ -69,6 +69,8 @@
     "test:materi-builder-validation": "tsx scripts/test-materi-builder-validation.ts",
     "test:materi-save-structure": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-materi-save-structure.ts",
     "test:mentor-dashboard-ia": "tsx scripts/test-mentor-dashboard-ia.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/test-mentor-dashboard-ia-repository.ts",
+    "test:remove-developer-role-migration": "tsx scripts/test-remove-developer-role-migration.ts",
+    "test:admin-reports": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-admin-reports.ts",
     "test:mentor-report": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-mentor-report.ts",
     "test:media-domain": "tsx scripts/test-media-domain.ts",
     "test:banner-media-safety": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-banner-media-safety.ts",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Prints the current verification code for the seeded local admin and
- * developer accounts, so tests and agents can pass the second factor.
+ * Prints the current verification code for the seeded local admin
+ * account, so tests and agents can pass the second factor.
  *
  *   node scripts/mfa-code.mjs            # current code
  *   node scripts/mfa-code.mjs --next     # the following 30-second code

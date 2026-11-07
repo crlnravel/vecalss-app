@@ -27,7 +27,7 @@ const MFA_COPY = {
   },
   setup: {
     description:
-      "Akun admin dan developer wajib memakai verifikasi dua langkah. Kamu butuh kode pendaftaran dari pengelola sistem.",
+      "Akun admin wajib memakai verifikasi dua langkah. Kamu butuh kode pendaftaran dari pengelola sistem.",
     hint: "Kode ini berlaku 30 menit dan hanya bisa dipakai sekali.",
     title: "Aktifkan verifikasi dua langkah",
   },
