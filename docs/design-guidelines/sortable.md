@@ -40,4 +40,4 @@ import { GripVertical } from "@/lib/icons";
 - Pass `disabled` on the root for a locked list, or on an item to lock an individual row. Handles inherit this state. Callers must also enforce authorization when committing or saving an order.
 - The caller supplies row styling. Preserve visible focus, shared control sizes, 44px touch targets, and reduced-motion behavior. The item removes sorting transitions under reduced motion.
 
-The developer component catalogue includes a working `Sortable` example with a disabled-state toggle. The quiz editor's inventory is the first product consumer.
+The quiz editor's inventory is the first product consumer.

@@ -33,18 +33,17 @@ All seeded accounts authenticate through `http://localhost:5023/login`.
 
 | Role / Persona | Email | Password | Default Redirect | Purpose / Test Scope |
 |---|---|---|---|---|
-| **Admin** | `admin@vecalss.local` | `Admin12345!` + verification code (see below) | `/mfa`, then `/admin` | Administration, student enrollment, question bank governance, notification broadcasting, operations |
-| **Developer** | `developer@vecalss.local` | `Developer12345!` + verification code (see below) | `/mfa`, then `/developer/reports` | Developer-only report inbox and report details |
+| **Admin** | `admin@vecalss.local` | `Admin12345!` + verification code (see below) | `/mfa`, then `/admin` | Administration, student enrollment, question bank governance, notification broadcasting, operations, and Laporan (mentor reports, `/admin/laporan`) |
 | **Kapten (Tutor)** | `tutor@vecalss.local` | `Tutor12345!` | `/mentor/dashboard` | Mentor workspaces, question bank authoring, tryout package assembly, learning material management |
 | **Voyager (Student - Active)** | `student@vecalss.local` | `Student12345!` | `/dashboard` | Primary student learning journey, module courses (`/courses`), quizzes (`/quiz`), tryout exam delivery (`/tryout`), Vera AI assistant (`/vera-ai`), account settings (`/settings`) |
 | **Student (New / Onboarding)** | `newstudent@vecalss.local` | `TempStudent123!` | `/onboarding` (or `/change-password`) | First-time onboarding flow, compulsory password reset flow, initial diagnostic flows |
 | **Affiliator** | `affiliator@vecalss.local` | `Affiliator12345!` (Code: `SALSA2027`) | `/affiliator/dashboard` | Affiliator dashboard, referral conversions, package purchase tracking, commission insights |
 
-### Admin and developer sign-in needs a verification code
+### Admin sign-in needs a verification code
 
-Admin and developer accounts require two-step verification. After the password, `/mfa` asks for a 6-digit code; until it is entered the session is signed in but carries no admin or developer role (every guarded page redirects to `/mfa`). A code is asked for again 12 hours after the last one. There is no setting that skips this.
+Admin accounts require two-step verification. After the password, `/mfa` asks for a 6-digit code; until it is entered the session is signed in but carries no admin role (every guarded page redirects to `/mfa`). A code is asked for again 12 hours after the last one. There is no setting that skips this.
 
-The seeded local admin and developer accounts share a fixed, publicly documented test secret, planted by `pnpm db:seed` only when `DATABASE_URL` points at this machine (the same rule as the default seed passwords). To get the current code:
+The seeded local admin account uses a fixed, publicly documented test secret, planted by `pnpm db:seed` only when `DATABASE_URL` points at this machine (the same rule as the default seed passwords). To get the current code:
 
 ```bash
 ./_harness/resource-guard.sh run -- rtk node scripts/mfa-code.mjs          # current code
@@ -53,9 +52,11 @@ The seeded local admin and developer accounts share a fixed, publicly documented
 
 A code works once: use `--next` (or wait for the next 30-second step) if you need a second one right away. Ten fixed recovery codes are also seeded for these accounts: `RC00-SEED-TEST` through `RC09-SEED-TEST` (each works once; `pnpm db:seed` restores them).
 
-Seeding and signing in need the MFA key ring in the environment (`MFA_KEY_RING`, `MFA_ACTIVE_KEY_ID`, see `.env.example`; put them in both `.env` and `.env.local`, because scripts read `.env` and Next.js reads both). Without a usable key ring the seed plants no factor and admin/developer access stays closed. If several worktrees share one local database, they must share the same key ring, or an account sealed by one worktree will not open in another.
+Seeding and signing in need the MFA key ring in the environment (`MFA_KEY_RING`, `MFA_ACTIVE_KEY_ID`, see `.env.example`; put them in both `.env` and `.env.local`, because scripts read `.env` and Next.js reads both). Without a usable key ring the seed plants no factor and admin access stays closed. If several worktrees share one local database, they must share the same key ring, or an account sealed by one worktree will not open in another.
 
-The debug account switcher does not skip this: switching to an admin or developer account lands on `/mfa` like a normal sign-in. Tutor, student and affiliator accounts are unaffected.
+There is no separate developer role any more (MS-23): developers became admins. A local database created before then may still hold `developer@vecalss.local`; the migration made it an admin with its authenticator untouched, and new seeds do not create it. Use `admin@vecalss.local`.
+
+The debug account switcher does not skip this: switching to an admin account lands on `/mfa` like a normal sign-in. Tutor, student and affiliator accounts are unaffected.
 
 To enroll or reset a factor (for example to test first-time enrollment), run the operator script, then enter the code it prints at `/mfa`:
 

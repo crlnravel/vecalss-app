@@ -65,7 +65,7 @@ failure, information, and warning notifications across every audience.
 
 **The Toast-Only Alert Rule.** The inline `Alert`, `AlertTitle`,
 `AlertDescription`, and `AlertAction` family is retired and removed from the
-primitive library and developer catalogue. Do not replace it with a one-off
+primitive library. Do not replace it with a one-off
 colored notification banner, a sentence badge, or a local toast implementation.
 Use the shared `showToast`/`toast` helpers and the single root Toaster.
 

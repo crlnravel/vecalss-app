@@ -7,6 +7,8 @@ PTN Pro tetap konsisten.
 | --- | --- |
 | Voyager | Nama brand untuk siswa. Gunakan terutama pada onboarding, sapaan, dan momen apresiasi. Untuk instruksi sehari-hari, sapa siswa dengan “kamu”. |
 | Kapten | Nama brand untuk tutor dan penulis konten. Jangan menggantinya dengan “mentor” atau “guru” di label produk tanpa alasan konteks. |
+| Admin | Peran pengelola PTN Pro. Satu peran ini memegang semua kewenangan admin, termasuk membuka Laporan; tidak ada peran terpisah untuk developer. |
+| Laporan | Kendala dan usulan perbaikan yang dikirim Kapten, dibaca admin di menu Laporan. Gunakan “laporan”, bukan “report” atau “tiket”. |
 | Program | Gunakan untuk program belajar yang memang bernama atau dijelaskan sebagai program. Jangan pakai sebagai sinonim untuk kelas, Materi, atau Kuis. |
 | Kelas | Kelompok belajar siswa. Jangan gunakan sebagai nama lain untuk katalog Materi atau kumpulan unit. |
 | Materi | Konten belajar yang dibaca atau ditonton siswa. Gunakan juga untuk nama area belajar yang berisi materi. |
