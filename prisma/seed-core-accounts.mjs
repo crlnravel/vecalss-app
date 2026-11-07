@@ -19,14 +19,6 @@ export const DEFAULT_ADMIN = {
   },
 };
 
-export const DEFAULT_DEVELOPER = {
-  email: process.env.SEED_DEVELOPER_EMAIL?.trim() || "developer@vecalss.local",
-  fullName: "PTN Pro Developer",
-  get password() {
-    return seedPassword("SEED_DEVELOPER_PASSWORD", "Developer12345!");
-  },
-};
-
 export const DEFAULT_STUDENT = {
   email: process.env.SEED_STUDENT_EMAIL?.trim() || "student@vecalss.local",
   fullName: "Alya Ramadhani",
@@ -536,22 +528,6 @@ export async function seedCoreAccounts(client) {
   await ensureNotificationPreference(client, adminUserId);
   await ensureSeedMfaFactor(client, adminUserId);
 
-  const developerUserId = await upsertUser(client, {
-    email: DEFAULT_DEVELOPER.email,
-    fullName: DEFAULT_DEVELOPER.fullName,
-    mustChangePassword: false,
-    passwordHash: await hashPassword(DEFAULT_DEVELOPER.password),
-    passwordUpdatedAt: new Date(),
-  });
-
-  await ensureRoleAssignment(client, {
-    assignedByUserId: adminUserId,
-    role: "developer",
-    userId: developerUserId,
-  });
-  await ensureNotificationPreference(client, developerUserId);
-  await ensureSeedMfaFactor(client, developerUserId);
-
   const previewUserId = await ensureAdminStudentPreviewFixture(client, { adminUserId });
 
   const studentUserId = await upsertUser(client, {
@@ -651,14 +627,6 @@ export async function seedCoreAccounts(client) {
       loginPath: "/login",
     },
     {
-      fullName: DEFAULT_DEVELOPER.fullName,
-      email: DEFAULT_DEVELOPER.email,
-      role: "developer",
-      password: DEFAULT_DEVELOPER.password,
-      mustChangePassword: false,
-      loginPath: "/login",
-    },
-    {
       fullName: DEFAULT_TUTOR.fullName,
       email: DEFAULT_TUTOR.email,
       role: "tutor",
@@ -702,7 +670,6 @@ export async function seedCoreAccounts(client) {
 
   return {
     adminUserId,
-    developerUserId,
     previewUserId,
     studentUserId,
     tempStudentUserId,

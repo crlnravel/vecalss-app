@@ -89,21 +89,19 @@ async function redirectOf(response: Response) {
 async function main() {
   const adminId = await makeUser("admin", [RoleName.admin]);
   const adminFactor = await factorFor(adminId);
-  const devId = await makeUser("developer", [RoleName.developer]);
-  const devFactor = await factorFor(devId);
   const newAdminId = await makeUser("newadmin", [RoleName.admin]);
   const mustChangeId = await makeUser("mustchange", [RoleName.admin], true);
   await factorFor(mustChangeId);
   const tutorId = await makeUser("tutor", [RoleName.tutor]);
+  const studentId = await makeUser("student", [RoleName.student]);
 
   const unverifiedAdmin = await sessionFor(adminId);
   const verifiedAdmin = await sessionFor(adminId, { factorId: adminFactor.factorId, secondsAgo: 60 });
   const staleAdmin = await sessionFor(adminId, { factorId: adminFactor.factorId, secondsAgo: 13 * 3600 });
-  const unverifiedDev = await sessionFor(devId);
-  const verifiedDev = await sessionFor(devId, { factorId: devFactor.factorId, secondsAgo: 60 });
   const newAdmin = await sessionFor(newAdminId);
   const mustChange = await sessionFor(mustChangeId);
   const tutor = await sessionFor(tutorId);
+  const student = await sessionFor(studentId);
 
   const server = spawn(`${process.cwd()}/node_modules/.bin/next`, ["dev", "-p", "5023"], {
     cwd: process.cwd(),
@@ -121,10 +119,10 @@ async function main() {
       }
     }
 
-    // Central guards: a password-only admin or developer session is sent to /mfa, remembering the page.
+    // Central guards: a password-only admin session is sent to /mfa, remembering the page.
     assert.equal(await redirectOf(await get("/admin", unverifiedAdmin.cookie)), "/mfa?returnTo=%2Fadmin");
     assert.equal(await redirectOf(await get("/admin/audit-logs", unverifiedAdmin.cookie)), "/mfa?returnTo=%2Fadmin%2Faudit-logs");
-    assert.equal(await redirectOf(await get("/developer/reports", unverifiedDev.cookie)), "/mfa?returnTo=%2Fdeveloper%2Freports");
+    assert.equal(await redirectOf(await get("/admin/laporan", unverifiedAdmin.cookie)), "/mfa?returnTo=%2Fadmin%2Flaporan");
     assert.equal(await redirectOf(await get("/admin", newAdmin.cookie)), "/mfa?returnTo=%2Fadmin", "no factor yet: enrollment, not access");
     // The page cannot be chosen by the client: the proxy overwrites a forged header.
     assert.equal(
@@ -136,7 +134,42 @@ async function main() {
 
     // Verified sessions get in; stale ones are asked again.
     assert.equal((await get("/admin", verifiedAdmin.cookie)).status, 200);
-    assert.equal((await get("/developer/reports", verifiedDev.cookie)).status, 200);
+    assert.equal((await get("/admin/laporan", verifiedAdmin.cookie)).status, 200, "Laporan is an admin page");
+    assert.equal(await redirectOf(await get("/admin/laporan", staleAdmin.cookie)), "/mfa?returnTo=%2Fadmin%2Flaporan");
+
+    // Laporan blocks everyone who is not a verified admin: mentors and students go home, anonymous goes to login.
+    assert.equal(await redirectOf(await get("/admin/laporan", tutor.cookie)), "/mentor/dashboard");
+    assert.equal(await redirectOf(await get("/admin/laporan", student.cookie)), "/dashboard");
+    assert.equal(await redirectOf(await get("/admin/laporan")), "/login");
+    assert.equal(await redirectOf(await get(`/admin/laporan/${randomUUID()}`, tutor.cookie)), "/mentor/dashboard");
+    {
+      // A loading shell may already be streaming, which keeps the 200 status; the not-found marker is in the body then.
+      const unknownReport = await get(`/admin/laporan/${randomUUID()}`, verifiedAdmin.cookie);
+      const body = await unknownReport.text();
+      assert.ok(unknownReport.status === 404 || /NEXT_HTTP_ERROR_FALLBACK;404|could not be found/u.test(body), "unknown report is not found");
+    }
+
+    // The attachment route: same checks, now under /api/admin. Anyone but a verified admin is refused.
+    const attachmentPath = `/api/admin/reports/${randomUUID()}/attachment/${randomUUID()}`;
+    assert.equal((await get(`${attachmentPath}?mode=preview`)).status, 401);
+    assert.equal((await get(`${attachmentPath}?mode=preview`, tutor.cookie)).status, 403);
+    assert.equal((await get(`${attachmentPath}?mode=preview`, student.cookie)).status, 403);
+    assert.equal((await get(`${attachmentPath}?mode=preview`, unverifiedAdmin.cookie)).status, 403);
+    assert.equal((await get(`${attachmentPath}?mode=preview`, staleAdmin.cookie)).status, 403);
+    assert.equal((await get(attachmentPath, verifiedAdmin.cookie)).status, 400, "a verified admin still needs a valid mode");
+    assert.equal((await get(`${attachmentPath}?mode=preview`, verifiedAdmin.cookie)).status, 404, "unknown attachment");
+
+    // The developer area is gone: a verified admin gets 404, not a redirect, on every old address.
+    for (const gone of [
+      "/developer",
+      "/developer/reports",
+      `/developer/reports/${randomUUID()}`,
+      "/developer/components",
+      `/api/developer/reports/${randomUUID()}/attachment/${randomUUID()}?mode=preview`,
+    ]) {
+      assert.equal((await get(gone, verifiedAdmin.cookie)).status, 404, `${gone} no longer exists`);
+      assert.equal((await get(gone)).status, 404, `${gone} no longer exists for anonymous visitors`);
+    }
     assert.equal(await redirectOf(await get("/admin", staleAdmin.cookie)), "/mfa?returnTo=%2Fadmin", "13 hours after the last code");
 
     // Read-only guard (admin API routes): redirect when unverified, served when verified.

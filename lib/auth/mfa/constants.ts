@@ -3,7 +3,7 @@ import { RoleName } from "@/generated/prisma/client";
 import { RECOVERY_CODE_COUNT, SETUP_CODE_TTL_MINUTES } from "./codes.mjs";
 
 /** Roles that must hold a verified second factor before any privilege applies. */
-const MFA_REQUIRED_ROLES: readonly RoleName[] = [RoleName.admin, RoleName.developer];
+const MFA_REQUIRED_ROLES: readonly RoleName[] = [RoleName.admin];
 
 /** A code is asked for at sign-in and again once this much time has passed. */
 const MFA_REVERIFY_SECONDS = 12 * 60 * 60;

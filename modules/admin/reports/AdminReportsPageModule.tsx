@@ -1,21 +1,27 @@
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import type { SessionContext } from "@/lib/auth/types";
-import type { DeveloperReportListItem } from "@/lib/reports";
+import type { AdminReportListItem } from "@/lib/reports";
+import { PortalShell } from "@/modules/portal/components/portal-shell";
 
-import { DeveloperReportsTable } from "./DeveloperReportsTable";
-import { DeveloperWorkspaceShell } from "./components/developer-workspace-shell";
+import { AdminReportsTable } from "./AdminReportsTable";
 
-function DeveloperReportsPageModule({
+function AdminReportsPageModule({
   reports,
   session,
 }: {
-  reports: DeveloperReportListItem[];
+  reports: AdminReportListItem[];
   session: SessionContext;
 }) {
   return (
-    <DeveloperWorkspaceShell accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
-      <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-reports-title">
-        <ReferencePageHeader id="developer-reports-title" title="Laporan" />
+    <PortalShell
+      activeAdminSection="laporan"
+      audience="admin"
+      description="Kendala dan usulan perbaikan yang dikirim mentor."
+      session={session}
+      title="Laporan"
+    >
+      <section className="flex min-w-0 flex-col gap-7" aria-labelledby="admin-reports-title">
+        <ReferencePageHeader id="admin-reports-title" title="Laporan" />
 
         <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white">
           <div className="flex items-center justify-between gap-4 border-b border-primary-100 px-4 py-5 sm:px-5">
@@ -30,11 +36,11 @@ function DeveloperReportsPageModule({
               <span>laporan</span>
             </p>
           </div>
-          <DeveloperReportsTable reports={reports} />
+          <AdminReportsTable reports={reports} />
         </div>
       </section>
-    </DeveloperWorkspaceShell>
+    </PortalShell>
   );
 }
 
-export { DeveloperReportsPageModule };
+export { AdminReportsPageModule };

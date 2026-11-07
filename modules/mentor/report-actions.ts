@@ -30,7 +30,7 @@ async function submitMentorReportAction(
     return { ok: false, message: "Laporan belum terkirim. Coba lagi sebentar." };
   }
 
-  revalidatePath("/developer/reports");
+  revalidatePath("/admin/laporan");
   return { ok: true, message: "Laporan terkirim." };
 }
 

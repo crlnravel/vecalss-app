@@ -2,18 +2,19 @@ import "server-only";
 
 import type { MentorReportFeature } from "@/generated/prisma/client";
 import { getSessionContext } from "@/lib/auth/session";
+import type { SessionContext } from "@/lib/auth/types";
 import { prisma } from "@/lib/prisma";
 
-import { hasDeveloperReportAccess } from "./access";
+import { hasAdminReportAccess } from "./access";
 
-class DeveloperReportAccessError extends Error {
+class AdminReportAccessError extends Error {
   constructor() {
-    super("Developer role required to access reports.");
-    this.name = "DeveloperReportAccessError";
+    super("Admin role required to access reports.");
+    this.name = "AdminReportAccessError";
   }
 }
 
-type DeveloperReportListItem = {
+type AdminReportListItem = {
   authorName: string;
   createdAt: Date;
   feature: MentorReportFeature;
@@ -22,7 +23,7 @@ type DeveloperReportListItem = {
   url: string;
 };
 
-type DeveloperReportDetail = {
+type AdminReportDetail = {
   attachments: {
     contentType: string;
     downloadUrl: string;
@@ -44,7 +45,7 @@ type DeveloperReportDetail = {
   url: string;
 };
 
-type DeveloperReportAttachmentAccess = {
+type AdminReportAttachmentAccess = {
   contentType: string;
   fileName: string;
   key: string;
@@ -53,15 +54,22 @@ type DeveloperReportAttachmentAccess = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-async function requireDeveloperReportAccess() {
-  const session = await getSessionContext();
-  if (!hasDeveloperReportAccess(session?.user.roles, session?.user.mustChangePassword)) {
-    throw new DeveloperReportAccessError();
+/**
+ * Admin only, and only a session that passed the second factor: the context
+ * leaves the admin role out until then. A caller that already holds the session
+ * passes it in (the attachment route does); the pages let this read it.
+ */
+type ReportSession = Pick<SessionContext, "user"> | null;
+
+async function requireAdminReportAccess(suppliedSession?: ReportSession) {
+  const session = suppliedSession === undefined ? await getSessionContext() : suppliedSession;
+  if (!hasAdminReportAccess(session?.user.roles, session?.user.mustChangePassword)) {
+    throw new AdminReportAccessError();
   }
 }
 
-async function listDeveloperReports(): Promise<DeveloperReportListItem[]> {
-  await requireDeveloperReportAccess();
+async function listAdminReports(session?: ReportSession): Promise<AdminReportListItem[]> {
+  await requireAdminReportAccess(session);
 
   const reports = await prisma.mentorReport.findMany({
     orderBy: { createdAt: "desc" },
@@ -81,8 +89,8 @@ async function listDeveloperReports(): Promise<DeveloperReportListItem[]> {
   }));
 }
 
-async function getDeveloperReportById(reportId: string): Promise<DeveloperReportDetail | null> {
-  await requireDeveloperReportAccess();
+async function getAdminReportById(reportId: string, session?: ReportSession): Promise<AdminReportDetail | null> {
+  await requireAdminReportAccess(session);
   if (!UUID_PATTERN.test(reportId)) return null;
 
   const report = await prisma.mentorReport.findUnique({
@@ -110,7 +118,7 @@ async function getDeveloperReportById(reportId: string): Promise<DeveloperReport
   if (!report) return null;
 
   const attachments = report.attachments.map((attachment) => {
-    const attachmentUrl = `/api/developer/reports/${report.id}/attachment/${attachment.id}`;
+    const attachmentUrl = `/api/admin/reports/${report.id}/attachment/${attachment.id}`;
     return {
       contentType: attachment.contentType,
       downloadUrl: `${attachmentUrl}?mode=download`,
@@ -137,11 +145,12 @@ async function getDeveloperReportById(reportId: string): Promise<DeveloperReport
   };
 }
 
-async function getDeveloperReportAttachmentForAccess(
+async function getAdminReportAttachmentForAccess(
   reportId: string,
   attachmentId: string,
-): Promise<DeveloperReportAttachmentAccess | null> {
-  await requireDeveloperReportAccess();
+  session?: ReportSession,
+): Promise<AdminReportAttachmentAccess | null> {
+  await requireAdminReportAccess(session);
   if (!UUID_PATTERN.test(reportId) || !UUID_PATTERN.test(attachmentId)) {
     return null;
   }
@@ -166,13 +175,14 @@ async function getDeveloperReportAttachmentForAccess(
 }
 
 export {
-  DeveloperReportAccessError,
-  getDeveloperReportAttachmentForAccess,
-  getDeveloperReportById,
-  listDeveloperReports,
+  AdminReportAccessError,
+  getAdminReportAttachmentForAccess,
+  getAdminReportById,
+  listAdminReports,
 };
 export type {
-  DeveloperReportAttachmentAccess,
-  DeveloperReportDetail,
-  DeveloperReportListItem,
+  AdminReportAttachmentAccess,
+  ReportSession,
+  AdminReportDetail,
+  AdminReportListItem,
 };

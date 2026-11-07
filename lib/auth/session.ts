@@ -329,7 +329,7 @@ async function getSessionContextForToken(sessionToken: string) {
     });
   }
 
-  // Privileged roles (admin, developer) are part of the context only while
+  // The privileged role (admin) is part of the context only while
   // this session holds a current second-factor verification. Every guard and
   // every direct role check reads this list, so they all inherit the rule.
   const effective = await resolveMfaRoles({

@@ -1,9 +1,11 @@
-import { getSessionContext } from "@/lib/auth/session";
+import "server-only";
+
 import { readPrivateReportAttachment } from "@/lib/media/r2";
-import { createReportAttachmentResponse } from "@/lib/reports/attachment-http";
-import { hasDeveloperReportAccess } from "@/lib/reports/access";
-import { getDeveloperReportAttachmentForAccess } from "@/lib/reports/queries";
-import { REPORT_ATTACHMENT_MAX_SIZE_BYTES } from "@/lib/reports/validation";
+
+import { createReportAttachmentResponse } from "./attachment-http";
+import { hasAdminReportAccess } from "./access";
+import { getAdminReportAttachmentForAccess, type ReportSession } from "./queries";
+import { REPORT_ATTACHMENT_MAX_SIZE_BYTES } from "./validation";
 
 const ALLOWED_CONTENT_TYPES = new Set([
   "application/pdf",
@@ -13,23 +15,33 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "image/webp",
 ]);
 
-async function GET(
-  request: Request,
-  { params }: { params: Promise<{ attachmentId: string; reportId: string }> },
-) {
-  const session = await getSessionContext();
+/**
+ * Answers a request for one report attachment. The route hands in the session it
+ * read from the cookie: anonymous is 401, everyone but a verified admin with a
+ * settled password is 403. Kept apart from the route so a test can call it
+ * without a request scope.
+ */
+async function serveAdminReportAttachment({
+  attachmentId,
+  mode,
+  reportId,
+  session,
+}: {
+  attachmentId: string;
+  mode: string | null;
+  reportId: string;
+  session: ReportSession;
+}) {
   if (!session) return new Response(null, { status: 401 });
-  if (!hasDeveloperReportAccess(session.user.roles, session.user.mustChangePassword)) {
+  if (!hasAdminReportAccess(session.user.roles, session.user.mustChangePassword)) {
     return new Response(null, { status: 403 });
   }
 
-  const { attachmentId, reportId } = await params;
-  const mode = new URL(request.url).searchParams.get("mode");
   if (mode !== "preview" && mode !== "download") {
     return new Response(null, { status: 400 });
   }
 
-  const attachment = await getDeveloperReportAttachmentForAccess(reportId, attachmentId);
+  const attachment = await getAdminReportAttachmentForAccess(reportId, attachmentId, session);
   if (
     !attachment
     || !ALLOWED_CONTENT_TYPES.has(attachment.contentType)
@@ -49,4 +61,4 @@ async function GET(
   }
 }
 
-export { GET };
+export { serveAdminReportAttachment };

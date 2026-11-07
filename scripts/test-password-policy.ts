@@ -44,7 +44,6 @@ import { prisma } from "../lib/prisma";
 import {
   DEFAULT_ADMIN,
   DEFAULT_AFFILIATOR,
-  DEFAULT_DEVELOPER,
   DEFAULT_STUDENT,
   DEFAULT_TEMP_STUDENT,
   DEFAULT_TUTOR,
@@ -191,7 +190,6 @@ function checkSeeds() {
   const local = { DATABASE_URL: "postgresql://u:p@127.0.0.1:55432/vecalss_dev" } as unknown as NodeJS.ProcessEnv;
   for (const seeded of [
     DEFAULT_ADMIN,
-    DEFAULT_DEVELOPER,
     DEFAULT_STUDENT,
     DEFAULT_TEMP_STUDENT,
     DEFAULT_TUTOR,
@@ -715,7 +713,7 @@ async function checkMigration() {
   try {
     await client.query("BEGIN");
     const ids: Record<string, string> = {};
-    for (const role of ["admin", "tutor", "student", "affiliator", "developer"]) {
+    for (const role of ["admin", "tutor", "student", "affiliator"]) {
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO users (email, full_name, password_hash, must_change_password)
          VALUES ($1, $2, 'fixture-hash', false) RETURNING id`,
@@ -736,7 +734,7 @@ async function checkMigration() {
       `SELECT must_change_password FROM users WHERE id = ANY($1::uuid[])`,
       [Object.values(ids)],
     );
-    assert.equal(flags.rowCount, 5);
+    assert.equal(flags.rowCount, 4);
     assert.ok(flags.rows.every((row) => row.must_change_password === true), "every role is flagged, compliant or not");
     const everyone = await client.query<{ unflagged: string }>(
       `SELECT count(*) AS unflagged FROM users WHERE must_change_password = false`,

@@ -3,18 +3,18 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 /**
- * Every place in runtime code that compares a role to admin or developer is
+ * Every place in runtime code that compares a role to admin is
  * listed here with how it stays behind the second factor. The session context
- * (lib/auth/session.ts) leaves admin and developer out of `roles` until the
+ * (lib/auth/session.ts) leaves admin out of `roles` until the
  * session is verified, so a check that reads the context inherits the rule. A
  * check that reads the database instead must go through lib/auth/mfa.
  *
- * Adding a new direct admin/developer check makes this test fail on purpose:
+ * Adding a new direct admin check makes this test fail on purpose:
  * decide which of the two it is, make it so, then add it below.
  */
 const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
   "lib/auth/access.ts": {
-    count: 3,
+    count: 2,
     how: "central guards: redirectIfMfaPending runs first, then hasRole on the context",
   },
   "lib/auth/debug-account-switcher.ts": {
@@ -27,12 +27,12 @@ const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
     how: "database-side admin check that requires a live verified session",
   },
   "lib/auth/paths.ts": {
-    count: 2,
+    count: 1,
     how: "home-path routing from effective roles; a pending account is routed to /mfa first",
   },
   "lib/auth/service.ts": {
-    count: 3,
-    how: "sign-in role support and invite audience label (authorizes nothing); the login result carries no privileged roles",
+    count: 1,
+    how: "sign-in role support (authorizes nothing); the login result carries no privileged roles",
   },
   "lib/banner/delivery.ts": { count: 1, how: "reads session.user.roles from the context" },
   "lib/disputes/export.ts": {
@@ -45,7 +45,7 @@ const ROLE_CHECKS: Record<string, { count: number; how: string }> = {
   },
   "lib/fraud/blocks.ts": {
     count: 1,
-    how: "refuses to block admin or developer accounts (authorizes nothing)",
+    how: "refuses to block admin accounts (authorizes nothing)",
   },
   "lib/media/repository.ts": { count: 1, how: "hasRole on the context" },
   "lib/reports/access.ts": { count: 1, how: "roles passed from the context" },
@@ -65,7 +65,9 @@ const ROLE_BUILDERS = new Set([
 ]);
 
 const ROOTS = ["app", "components", "hooks", "lib", "modules", "workers", "proxy.ts"];
-const CHECK = /RoleName\.(?:admin|developer)\b|(?=.*\brole)[^\n]*["'](?:admin|developer)["']/u;
+const CHECK = /RoleName\.admin\b|(?=.*\brole)[^\n]*["']admin["']/u;
+/** The developer role was removed (MS-23): no runtime file may name it again. */
+const RETIRED_ROLE = /RoleName\.developer\b|(?=.*\brole)[^\n]*["']developer["']|requireDeveloperSession/u;
 
 function sourceFiles() {
   const files: string[] = [];
@@ -102,8 +104,18 @@ const expected = Object.fromEntries(Object.entries(ROLE_CHECKS).map(([file, { co
 assert.deepEqual(
   found,
   expected,
-  "Direct admin/developer role checks changed. Make the new check read the session context (roles) or go through lib/auth/mfa, then update ROLE_CHECKS in scripts/test-admin-mfa-role-checks.ts.",
+  "Direct admin role checks changed. Make the new check read the session context (roles) or go through lib/auth/mfa, then update ROLE_CHECKS in scripts/test-admin-mfa-role-checks.ts.",
 );
+
+// The developer role no longer exists: not in the schema, not in runtime code, not as a route.
+const retiredRoleUses = files.filter((file) => readFileSync(file, "utf8").split("\n").some((line) => RETIRED_ROLE.test(line)));
+assert.deepEqual(retiredRoleUses, [], "The developer role was removed. Use admin, and do not add the role back.");
+const schema = readFileSync("prisma/schema.prisma", "utf8");
+const roleEnum = /enum RoleName \{([^}]*)\}/u.exec(schema)?.[1] ?? "";
+assert.deepEqual(roleEnum.split(/\s+/u).filter((word) => /^[a-z]+$/u.test(word)), ["student", "tutor", "admin", "affiliator"], "RoleName lists exactly the four roles in use");
+for (const gone of ["app/developer", "app/api/developer", "modules/developer"]) {
+  assert.throws(() => statSync(gone), `${gone} was deleted with the developer role`);
+}
 
 const builders = files.filter((file) => {
   const text = readFileSync(file, "utf8");
@@ -124,4 +136,4 @@ for (const file of ["lib/auth/kapten-access.ts", "lib/tryout/invitation-picker.t
 const session = readFileSync("lib/auth/session.ts", "utf8");
 assert.equal(session.match(/resolveMfaRoles\(/gu)?.length, 2, "getSessionContext and the read-only reader both resolve MFA roles");
 
-console.log(`Admin/developer role checks: ${Object.keys(found).length} files, all accounted for.`);
+console.log(`Admin role checks: ${Object.keys(found).length} files, all accounted for.`);

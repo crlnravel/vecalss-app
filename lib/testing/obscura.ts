@@ -194,11 +194,6 @@ export const SEEDED_CREDENTIALS = {
     password: "Affiliator12345!",
     expectedHomePath: "/affiliator/dashboard",
   },
-  developer: {
-    email: "developer@vecalss.local",
-    password: "Developer12345!",
-    expectedHomePath: "/developer/reports",
-  },
 } as const;
 
 export type SeededRole = keyof typeof SEEDED_CREDENTIALS;

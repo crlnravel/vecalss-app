@@ -3,10 +3,9 @@ import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
-import type { DeveloperReportDetail } from "@/lib/reports";
+import type { AdminReportDetail } from "@/lib/reports";
 import { ArrowUpRight, Download, FileText } from "@/lib/icons";
-
-import { DeveloperWorkspaceShell } from "./components/developer-workspace-shell";
+import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 const SUBMITTED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "long",
@@ -73,21 +72,27 @@ function getSafeReportUrl(url: string) {
   return null;
 }
 
-function DeveloperReportDetailPageModule({
+function AdminReportDetailPageModule({
   report,
   session,
 }: {
-  report: DeveloperReportDetail;
+  report: AdminReportDetail;
   session: SessionContext;
 }) {
   const reportUrl = getSafeReportUrl(report.url);
 
   return (
-    <DeveloperWorkspaceShell isDetailPage accountUser={{ id: session.user.id, email: session.user.email, fullName: session.user.fullName }}>
-      <section className="flex min-w-0 flex-col gap-7" aria-labelledby="developer-report-title">
+    <PortalShell
+      activeAdminSection="laporan"
+      audience="admin"
+      description="Detail laporan yang dikirim mentor."
+      session={session}
+      title="Detail laporan"
+    >
+      <section className="flex min-w-0 flex-col gap-7" aria-labelledby="admin-report-title">
         <header className="flex items-start gap-4">
           <div className="min-w-0">
-            <h1 className="max-w-[32ch] break-words font-heading text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance text-voyage-ink sm:text-3xl" id="developer-report-title">
+            <h1 className="max-w-[32ch] break-words font-heading text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance text-voyage-ink sm:text-3xl" id="admin-report-title">
               {report.title}
             </h1>
             <p className="mt-2 text-sm leading-6 text-secondary-600">
@@ -223,8 +228,8 @@ function DeveloperReportDetailPageModule({
           </section>
         </article>
       </section>
-    </DeveloperWorkspaceShell>
+    </PortalShell>
   );
 }
 
-export { DeveloperReportDetailPageModule };
+export { AdminReportDetailPageModule };

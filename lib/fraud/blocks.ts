@@ -184,12 +184,12 @@ async function recordBlockEvent(
 async function assertAccountMayBeBlocked(tx: Tx, userId: string) {
   const [row = null] = await tx.$queryRaw<Array<{ privileged: boolean }>>`
     SELECT EXISTS (
-      SELECT 1 FROM role_assignments WHERE user_id = ${userId}::uuid AND revoked_at IS NULL AND role IN ('admin', 'developer')
+      SELECT 1 FROM role_assignments WHERE user_id = ${userId}::uuid AND revoked_at IS NULL AND role = 'admin'
     ) AS privileged
     FROM users WHERE id = ${userId}::uuid
   `;
   if (!row) throw new FraudValidationError("not_found", "The account could not be found.");
-  if (row.privileged) throw new FraudValidationError("protected_account", "An admin or developer account cannot be blocked.");
+  if (row.privileged) throw new FraudValidationError("protected_account", "An admin account cannot be blocked.");
 }
 
 async function markExpiredInTx(tx: Tx, block: { id: string; version: number; expiresAt: Date | null }) {

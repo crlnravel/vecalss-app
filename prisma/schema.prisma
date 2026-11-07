@@ -25,7 +25,6 @@ enum RoleName {
   tutor
   admin
   affiliator
-  developer
 
   @@map("role_name")
 }
@@ -826,7 +825,7 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
-/// One authenticator-app factor per privileged account (admin, developer). The
+/// One authenticator-app factor per privileged account (admin). The
 /// secret is stored only as an AES-256-GCM envelope bound to the owner. A row
 /// with no `confirmedAt` is an enrollment in progress and never authorizes
 /// anything; it belongs to the session that presented the setup code.

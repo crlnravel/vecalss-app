@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Operator script for admin and developer two-step verification: first setup,
+ * Operator script for admin two-step verification: first setup,
  * a lost phone, and the last admin. It is the only way to enroll or reset a
  * factor; there is no web route for it, and it needs access to the database.
  *
@@ -80,10 +80,10 @@ export async function issueMfaSetupCode(client, { email, operator, reason, ttlMi
 
     const roles = await client.query(
       `SELECT role FROM role_assignments
-       WHERE user_id = $1 AND revoked_at IS NULL AND role IN ('admin', 'developer')`,
+       WHERE user_id = $1 AND revoked_at IS NULL AND role = 'admin'`,
       [user.id],
     );
-    if (!roles.rowCount) throw new CliError("That account is not an admin or developer, so it does not use two-step verification.");
+    if (!roles.rowCount) throw new CliError("That account is not an admin, so it does not use two-step verification.");
 
     const hadFactor = (await client.query("SELECT 1 FROM user_mfa_factors WHERE user_id = $1", [user.id])).rowCount > 0;
     await client.query("DELETE FROM user_mfa_factors WHERE user_id = $1", [user.id]);

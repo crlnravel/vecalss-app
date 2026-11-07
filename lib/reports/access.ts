@@ -1,10 +1,10 @@
 import { RoleName } from "@/generated/prisma/client";
 
-function hasDeveloperReportAccess(
+function hasAdminReportAccess(
   roles: readonly RoleName[] | null | undefined,
   mustChangePassword = false,
 ) {
-  return !mustChangePassword && (roles?.includes(RoleName.developer) ?? false);
+  return !mustChangePassword && (roles?.includes(RoleName.admin) ?? false);
 }
 
 function hasTutorReportSubmissionAccess(
@@ -14,4 +14,4 @@ function hasTutorReportSubmissionAccess(
   return !mustChangePassword && (roles?.includes(RoleName.tutor) ?? false);
 }
 
-export { hasDeveloperReportAccess, hasTutorReportSubmissionAccess };
+export { hasAdminReportAccess, hasTutorReportSubmissionAccess };

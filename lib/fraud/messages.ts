@@ -35,7 +35,7 @@ function describeFraudError(error: unknown) {
       case "invalid_duration":
         return "Lama blokir di luar batas untuk jenis ini.";
       case "protected_account":
-        return "Akun admin atau developer tidak bisa diblokir.";
+        return "Akun admin tidak bisa diblokir.";
       default:
         return "Data yang dimaksud tidak ditemukan.";
     }

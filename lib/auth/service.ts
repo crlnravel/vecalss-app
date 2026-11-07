@@ -278,8 +278,7 @@ async function authenticateUser(
         (role) => role === RoleName.admin
           || role === RoleName.tutor
           || role === RoleName.student
-          || role === RoleName.affiliator
-          || role === RoleName.developer,
+          || role === RoleName.affiliator,
       );
 
     if (
@@ -881,9 +880,7 @@ async function completeEnrollmentInvite(
       ? "tutor" as const
       : activeRoles.some((assignment) => assignment.role === RoleName.affiliator)
         ? "affiliator" as const
-        : activeRoles.some((assignment) => assignment.role === RoleName.developer)
-          ? "developer" as const
-          : "student" as const;
+        : "student" as const;
 
     // Do not spend bcrypt work on invalid, expired, or terminal bearer tokens.
     const passwordHash = await hashPassword(nextPassword);

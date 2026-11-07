@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Passes the page being requested to the server render as a request header, so
- * the guard that sends an admin or developer to the two-step verification
- * screen can bring them back to the same page afterwards. The header is always
- * overwritten here, so a client cannot choose it, and the verification screen
- * only accepts admin and developer paths from it.
+ * the guard that sends an admin to the two-step verification screen can bring
+ * them back to the same page afterwards. The header is always overwritten here,
+ * so a client cannot choose it, and the verification screen only accepts admin
+ * paths from it.
  */
 export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -18,5 +18,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/developer/:path*"],
+  matcher: ["/admin/:path*"],
 };

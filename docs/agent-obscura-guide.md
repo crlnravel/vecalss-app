@@ -179,7 +179,6 @@ Available roles in `loginWithSeededUser`:
 - `"student"` (`student@vecalss.local` → `/dashboard`)
 - `"newstudent"` (`newstudent@vecalss.local` → `/onboarding`)
 - `"affiliator"` (`affiliator@vecalss.local` → `/affiliator/dashboard`)
-- `"developer"` (`developer@vecalss.local` → `/developer/reports`)
 
 ### Pattern 3: Direct `playwright-core` CDP Connection
 

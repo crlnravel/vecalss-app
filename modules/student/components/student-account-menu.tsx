@@ -52,7 +52,7 @@ import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar-utils";
 
 type StudentAccountMenuItem = "notifications";
-type AccountMenuAudience = "admin" | "student" | "tutor" | "affiliator" | "developer";
+type AccountMenuAudience = "admin" | "student" | "tutor" | "affiliator";
 type AccountMenuUser = Pick<SessionContext["user"], "id" | "email" | "fullName"> & {
   avatarUrl?: string | null;
 };
@@ -78,7 +78,6 @@ type DebugSwitchAccountResponse = {
 const debugRoleLabels: Record<string, string> = {
   affiliator: "Affiliator",
   admin: "Admin",
-  developer: "Developer",
   student: "Siswa",
   tutor: "Kapten",
 };
@@ -222,7 +221,6 @@ function StudentAccountMenu({
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
   const isAffiliator = audience === "affiliator";
-  const isDeveloper = audience === "developer";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
   const settingsHref = "/mentor/settings";
   const selectedAccount = debugAccounts?.find((account) => account.id === selectedAccountId) ?? null;
@@ -354,7 +352,7 @@ function StudentAccountMenu({
                 Dashboard
               </DropdownMenuItem>
             ) : null}
-            {!isAdmin && !isTutor && !isAffiliator && !isDeveloper ? (
+            {!isAdmin && !isTutor && !isAffiliator ? (
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}
                 render={<Link href={profileHref} />}
