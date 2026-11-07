@@ -14,14 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, CircleHelp, Copy } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
-import { formatCredits, type VeraPrices } from "@/lib/vera/credits-shared";
+import { formatCredits } from "@/lib/vera/credits-shared";
 import { cn } from "@/lib/utils";
-import type { StudioToolId } from "@/lib/vera/studio";
 import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
 import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
-import { VeraStudioMenu } from "@/modules/vera/VeraStudioTools";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
 const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
@@ -35,33 +33,25 @@ export function VeraChat({
   busy,
   composerKey,
   effort,
-  historyChars,
   initialChips,
   messages,
   onChangeEffort,
-  onPickTool,
   onSend,
   onStop,
-  prices,
   restoredIds,
   status,
   stoppedMessageId,
-  studioBusy,
 }: {
   blocked: string | null;
   busy: boolean;
   composerKey: number;
   effort: VeraEffortId;
-  historyChars: number;
   initialChips: MentionChip[];
   messages: UIMessage[];
-  prices: VeraPrices;
   restoredIds: Set<string>;
   status: PromptInputStatus;
   stoppedMessageId: string | null;
-  studioBusy: boolean;
   onChangeEffort: (effort: VeraEffortId) => void;
-  onPickTool: (tool: StudioToolId) => void;
   onSend: (text: string, chips: MentionChip[]) => void;
   onStop: () => void;
 }) {
@@ -110,15 +100,12 @@ export function VeraChat({
         <VeraComposer
           blocked={blocked}
           effort={effort}
-          historyChars={historyChars}
           initialChips={initialChips}
           key={composerKey}
-          leading={<VeraStudioMenu busy={studioBusy} onPick={onPickTool} />}
           onEffortChange={onChangeEffort}
           onSend={({ text, chips }) => onSend(text, chips)}
           onStop={onStop}
           placeholder="Balas Vera"
-          prices={prices}
           status={status}
         />
         <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>

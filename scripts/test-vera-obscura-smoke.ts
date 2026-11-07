@@ -158,10 +158,9 @@ async function runBrowserChecks() {
     await composer.fill("");
 
     // 4. A Studio run saves a document. The preview card under the composer says so, and its button opens the saved document.
-    // "Sesi baru" opens the start screen, and the Studio menu in its toolbar picks the tool.
+    // "Sesi baru" opens the start screen, and its Analisis Kelemahan card picks the tool.
     await page.getByRole("button", { name: "Sesi baru" }).click();
-    await page.getByRole("button", { name: "Pilih alat Studio" }).click();
-    await page.getByRole("menuitem", { name: "Analisis Kelemahan" }).click();
+    await page.getByRole("button", { name: "Analisis Kelemahan" }).click();
     await page.getByRole("button", { name: "Buat" }).click();
     await page.getByText("Dokumen tersimpan.", { exact: true }).waitFor({ timeout: 120_000 });
     await page.getByRole("button", { name: "Buka dokumen", exact: true }).click();

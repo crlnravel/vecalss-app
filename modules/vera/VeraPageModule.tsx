@@ -176,12 +176,6 @@ export function VeraPageModule({
   });
 
   const busy = status === "submitted" || status === "streaming";
-  const historyChars = messages.reduce(
-    (total, message) =>
-      total + message.parts.reduce((sum, part) => sum + (part.type === "text" ? part.text.length : 0), 0),
-    0,
-  );
-
   async function refreshUsage() {
     const read = ++usageReads.current;
     try {
@@ -371,7 +365,6 @@ export function VeraPageModule({
               onPickTool={setPickedTool}
               onSend={startChatFromHome}
               openDocument={openDocument}
-              prices={usage.prices}
               savedDocumentId={savedDocumentId}
               studio={studio}
             />
@@ -381,18 +374,14 @@ export function VeraPageModule({
               busy={busy}
               composerKey={composerSeed?.key ?? 0}
               effort={effort}
-              historyChars={historyChars}
               initialChips={composerSeed?.chips ?? []}
               messages={messages}
               onChangeEffort={changeEffort}
-              onPickTool={setPickedTool}
               onSend={send}
               onStop={stopAnswer}
-              prices={usage.prices}
               restoredIds={restoredIds}
               status={status}
               stoppedMessageId={stoppedMessageId}
-              studioBusy={studio.busy}
             />
           )}
         </div>

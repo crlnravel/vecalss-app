@@ -8,7 +8,6 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 
 import {
@@ -19,11 +18,8 @@ import {
   PromptInputTextarea,
   type PromptInputStatus,
 } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent } from "@/components/ui/popover";
-import { AtSign } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
-import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/vera/credits-shared";
 import { VeraEffortMenu } from "@/modules/vera/VeraEffortMenu";
 import { VeraMentionChips } from "@/modules/vera/VeraMentionChips";
 import { optionId, VeraMentionMenu } from "@/modules/vera/VeraMentionMenu";
@@ -50,28 +46,23 @@ const DEFAULT_PLACEHOLDER = "Tanya Vera… ketik @ untuk menyebut Materi, Kuis, 
 export type ComposerSubmit = { text: string; chips: MentionChip[] };
 
 /**
- * The message box, as a card: the text, the sources pinned with `@`, and a toolbar. The toolbar's left side holds the "@ Sebut" button,
- * the effort menu and the Studio menu passed as `leading`. Its right side holds the credit estimate and the send button, which becomes
- * Stop while an answer streams. `examples` rotates the placeholder through suggested questions; `placeholder` fixes it instead.
+ * The message box, as a card: the text, the sources pinned with `@`, and a toolbar. The toolbar's left side holds the effort menu, and its
+ * right side holds the send button, which becomes Stop while an answer streams. `examples` rotates the placeholder through suggested
+ * questions; `placeholder` fixes it instead.
  */
 export function VeraComposer({
   effort,
   onEffortChange,
-  prices,
-  historyChars,
   status,
   blocked,
   onSend,
   onStop,
   initialChips = [],
   examples,
-  leading,
   placeholder: fixedPlaceholder,
 }: {
   effort: VeraEffortId;
   onEffortChange: (effort: VeraEffortId) => void;
-  prices: VeraPrices;
-  historyChars: number;
   status: PromptInputStatus;
   blocked: string | null;
   onSend: (submit: ComposerSubmit) => void;
@@ -79,7 +70,6 @@ export function VeraComposer({
   // Sources already pinned when the composer mounts, such as a Studio document the student asked Vera about.
   initialChips?: MentionChip[];
   examples?: readonly string[];
-  leading?: ReactNode;
   placeholder?: string;
 }) {
   const [input, setInput] = useState("");
@@ -113,7 +103,6 @@ export function VeraComposer({
   const active = Math.min(activeIndex, Math.max(items.length - 1, 0));
   const busy = status === "submitted" || status === "streaming";
   const canSend = input.trim().length > 0 && !busy && blocked === null;
-  const estimate = formatCreditRange(estimateCreditRange({ effort, historyChars, mentionCount: chips.length }, prices));
 
   function queueSearch(query: string) {
     window.clearTimeout(timerRef.current);
@@ -151,23 +140,6 @@ export function VeraComposer({
     }
     if (value.endsWith(" ") && shouldDismissOnSpace(mention.query, completedSearchRef.current)) setDismissedAt(mention.start);
     queueSearch(mention.query);
-  }
-
-  // "@ Sebut" types an `@` at the caret, so the source menu opens exactly as it does when the student types one.
-  function insertMention() {
-    const textarea = textareaRef.current;
-    const caret = textarea?.selectionStart ?? input.length;
-    const next = `${input.slice(0, caret)}@${input.slice(caret)}`;
-    setInput(next);
-    setLimitReached(false);
-    const mention = activeMention(next, caret + 1);
-    setMenu(mention);
-    setDismissedAt(null);
-    if (mention) queueSearch(mention.query);
-    requestAnimationFrame(() => {
-      textarea?.focus();
-      textarea?.setSelectionRange(caret + 1, caret + 1);
-    });
   }
 
   function pick(candidate: MentionCandidate) {
@@ -262,15 +234,9 @@ export function VeraComposer({
         </span>
         <PromptInputFooter className="flex-wrap">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Button onClick={insertMention} size="sm" type="button" variant="quiet">
-              <AtSign />
-              Sebut
-            </Button>
             <VeraEffortMenu onChange={onEffortChange} value={effort} />
-            {leading}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <span className="text-xs text-muted-foreground tabular-nums">{estimate}</span>
             <PromptInputSubmit className="size-12 rounded-pill" disabled={!canSend} onStop={onStop} status={status} />
           </div>
         </PromptInputFooter>
