@@ -7,6 +7,7 @@ import { VERA_LIMITS } from "../lib/vera/config";
 import { VeraError } from "../lib/vera/errors";
 import { VeraLimitError } from "../lib/vera/ledger";
 import { setVeraModelForTests } from "../lib/vera/model";
+import { saveMessageReport, veraReportSchema } from "../lib/vera/reports";
 
 import { answerChunks, conversationIdFrom, readEvents, scriptedModel, streamedText, userInput, type StreamEvent } from "./vera-test-support";
 
@@ -315,6 +316,33 @@ try {
     titlesBefore,
     "Ulangi and Edit do not add a title event",
   );
+
+  // Laporkan: the student reports one of their own answers. A second report replaces the first. A question, another student's
+  // answer, and a note over the limit are refused.
+  const reportedAnswer = afterEdit[1];
+  await saveMessageReport({ studentId: owner, messageId: reportedAnswer.id, reason: "wrong_answer", note: "Ada yang salah." });
+  await saveMessageReport({ studentId: owner, messageId: reportedAnswer.id, reason: "other", note: null });
+  const reports = await prisma.veraMessageReport.findMany({
+    where: { messageId: reportedAnswer.id },
+    select: { studentId: true, conversationId: true, reason: true, note: true },
+  });
+  assert.deepEqual(
+    reports,
+    [{ studentId: owner, conversationId, reason: "other", note: null }],
+    "One report per student per answer, and a second report replaces the first",
+  );
+  await assert.rejects(
+    saveMessageReport({ studentId: owner, messageId: afterEdit[2].id, reason: "other", note: null }),
+    (error) => error instanceof VeraError && error.code === "not_found",
+    "A question cannot be reported",
+  );
+  await assert.rejects(
+    saveMessageReport({ studentId: other, messageId: reportedAnswer.id, reason: "other", note: null }),
+    (error) => error instanceof VeraError && error.code === "not_found",
+    "Another student's answer cannot be reported",
+  );
+  assert.equal(veraReportSchema.safeParse({ reason: "other", note: "a".repeat(501) }).success, false, "A note is at most 500 characters");
+  assert.equal(veraReportSchema.safeParse({ reason: "lainnya" }).success, false, "A report names one of the listed reasons");
 
   console.log("Vera chat actions checks passed.");
 } finally {

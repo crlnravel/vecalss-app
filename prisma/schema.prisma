@@ -743,6 +743,7 @@ model User {
   veraConversations                      VeraConversation[]                   @relation("VeraConversations")
   veraUsageEvents                        VeraUsageEvent[]                     @relation("VeraUsageEvents")
   veraStudioDocuments                    VeraStudioDocument[]                 @relation("VeraStudioDocuments")
+  veraMessageReports                     VeraMessageReport[]                  @relation("VeraMessageReports")
 
   @@index([fullName, id], map: "users_directory_full_name_id_idx")
   @@index([createdAt, id], map: "users_directory_created_at_id_idx")
@@ -3339,6 +3340,7 @@ model VeraConversation {
   updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   student    User          @relation("VeraConversations", fields: [studentId], references: [id], onDelete: Cascade)
   messages   VeraMessage[]
+  reports    VeraMessageReport[]
 
   @@index([studentId, updatedAt])
   @@map("vera_conversations")
@@ -3358,6 +3360,33 @@ model VeraMessage {
 
   @@index([conversationId, createdAt])
   @@map("vera_messages")
+}
+
+enum VeraMessageReportReason {
+  wrong_answer
+  not_my_context
+  inappropriate
+  other
+
+  @@map("vera_message_report_reason")
+}
+
+// One report per student per answer. There is no foreign key on messageId: Ulangi removes the answer, and its report should stay for
+// review. The report goes with its session or its student.
+model VeraMessageReport {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String                  @map("student_id") @db.Uuid
+  conversationId String                  @map("conversation_id") @db.Uuid
+  messageId      String                  @map("message_id") @db.VarChar(64)
+  reason         VeraMessageReportReason
+  note           String?                 @db.VarChar(500)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  student        User                    @relation("VeraMessageReports", fields: [studentId], references: [id], onDelete: Cascade)
+  conversation   VeraConversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, messageId])
+  @@index([conversationId])
+  @@map("vera_message_reports")
 }
 
 model VeraUsageEvent {
