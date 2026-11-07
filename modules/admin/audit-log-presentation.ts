@@ -1,5 +1,6 @@
 import type { AuditLogRange, AuditLogTargetType } from "@/lib/admin/operations/audit-query";
 import type { AdminAuditLogEntry } from "@/lib/admin/operations/service";
+import { paymentAuditLabel } from "@/lib/admin/payment-audit-labels";
 
 const AUDIT_TIME_ZONE = "Asia/Jakarta";
 const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: AUDIT_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
@@ -41,6 +42,8 @@ const standaloneActionLabels: Record<string, string> = {
 };
 
 export function auditActionLabel(action: string) {
+  const payment = paymentAuditLabel(action);
+  if (payment) return payment.label;
   if (standaloneActionLabels[action]) return standaloneActionLabels[action];
   const separator = action.indexOf(".");
   const subject = subjectLabels[action.slice(0, separator)];
@@ -50,8 +53,20 @@ export function auditActionLabel(action: string) {
   return "Aktivitas tercatat";
 }
 
+/** Targets the payment, refund, dispute and fraud actions point at. They are not filter tabs, only names. */
+const paymentTargetLabels: Record<string, string> = {
+  checkout_intent: "Checkout", fraud_appeal: "Banding", fraud_block: "Blokir", fraud_case: "Kasus fraud",
+  payment_dispute: "Sengketa", payment_event: "Kabar pembayaran", payment_order: "Pesanan", refund_case: "Pengembalian dana",
+};
+
 export function auditTargetLabel(target: string | null) {
-  return auditTargetLabels[target as AuditLogTargetType] ?? "Aktivitas lainnya";
+  return auditTargetLabels[target as AuditLogTargetType] ?? paymentTargetLabels[target ?? ""] ?? "Aktivitas lainnya";
+}
+
+/** Where a payment row's order lives, so the audit page can open its whole history. Null for rows that are not about one order. */
+export function auditOrderHref(entry: { targetId: string | null; targetType: string | null }) {
+  if (entry.targetType !== "payment_order" || !entry.targetId) return null;
+  return /^[0-9a-f-]{36}$/iu.test(entry.targetId) ? `/admin/fraud/orders/${entry.targetId}` : null;
 }
 
 export function auditReferenceLabel(reference: string) {
@@ -60,6 +75,10 @@ export function auditReferenceLabel(reference: string) {
 }
 
 export function auditEventStatus(action: string) {
+  const payment = paymentAuditLabel(action);
+  if (payment?.tone === "danger") return { label: "Perlu perhatian", tone: "danger" as const };
+  if (payment?.tone === "attention") return { label: "Ditinjau", tone: "attention" as const };
+  if (payment) return { label: "Catatan", tone: "neutral" as const };
   if (/(?:^|[._])(failed|failure|denied|rejected)(?:$|[._])/u.test(action)) return { label: "Gagal", tone: "danger" as const };
   if (/(?:^|[._])(deleted|revoked|deactivated|password_changed)(?:$|[._])/u.test(action)) return { label: "Perubahan", tone: "attention" as const };
   return { label: "Catatan", tone: "neutral" as const };
