@@ -67,5 +67,24 @@ async function flagBlockedAttempt(
   });
 }
 
-export { flagBlockedAttempt, flagPaymentReview, flagQuarantinedEvent };
+/**
+ * Someone tried to register with an identifier that is blocked. There is no account yet, so the
+ * case is about the block, deduped per block while the case is open (a bot hammering one blocked
+ * address is one case with a hit count, not a thousand). It carries block ids and types only.
+ */
+async function flagBlockedSignup(tx: Tx, input: { matches: BlockMatch[] }) {
+  const blockIds = [...new Set(input.matches.map((match) => match.id))].sort();
+  return openFraudCase(tx, {
+    evidence: {
+      blockIds,
+      context: "signup",
+      matchedTypes: [...new Set(input.matches.map((match) => match.type))],
+    },
+    signal: "blocked_attempt",
+    subjectKey: `block:${blockIds[0]}`,
+    subjectType: "block",
+  });
+}
+
+export { flagBlockedAttempt, flagBlockedSignup, flagPaymentReview, flagQuarantinedEvent };
 export type { AttemptContext };

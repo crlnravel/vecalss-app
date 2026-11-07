@@ -37,11 +37,12 @@ async function createSession(userId: string) {
 
   const session = await prisma.$transaction(async (tx) => {
     const users = await tx.$queryRaw<Array<{
+      email_verified_at: Date | null;
       preview_purpose: string | null;
       soft_deleted_at: Date | null;
       status: UserStatus;
     }>>`
-      SELECT status, soft_deleted_at, preview_purpose
+      SELECT status, soft_deleted_at, preview_purpose, email_verified_at
       FROM users
       WHERE id = ${userId}::uuid
       FOR UPDATE
@@ -54,6 +55,7 @@ async function createSession(userId: string) {
       || user.status !== UserStatus.active
       || user.soft_deleted_at !== null
       || user.preview_purpose !== null
+      || user.email_verified_at === null
     ) {
       return null;
     }
@@ -100,11 +102,12 @@ async function switchSessionToUser(userId: string) {
 
   const session = await prisma.$transaction(async (tx) => {
     const users = await tx.$queryRaw<Array<{
+      email_verified_at: Date | null;
       preview_purpose: string | null;
       soft_deleted_at: Date | null;
       status: UserStatus;
     }>>`
-      SELECT status, soft_deleted_at, preview_purpose
+      SELECT status, soft_deleted_at, preview_purpose, email_verified_at
       FROM users
       WHERE id = ${userId}::uuid
       FOR UPDATE
@@ -116,6 +119,7 @@ async function switchSessionToUser(userId: string) {
       || user.status !== UserStatus.active
       || user.soft_deleted_at !== null
       || user.preview_purpose !== null
+      || user.email_verified_at === null
     ) {
       return null;
     }
@@ -159,7 +163,7 @@ type CreateSessionIfUserStateMatchesInput = {
   expectedFailedLoginCount: number;
   expectedLockedUntil: Date | null;
   expectedMustChangePassword: boolean;
-  expectedPasswordHash: string;
+  expectedPasswordHash: string | null;
   expectedPasswordUpdatedAt: Date | null;
   userId: string;
 };
@@ -189,6 +193,7 @@ async function createSessionIfUserStateMatches(input: CreateSessionIfUserStateMa
         failedLoginCount: input.expectedFailedLoginCount,
         id: input.userId,
         lockedUntil: input.expectedLockedUntil,
+        emailVerifiedAt: { not: null },
         mustChangePassword: input.expectedMustChangePassword,
         passwordHash: input.expectedPasswordHash,
         passwordUpdatedAt: input.expectedPasswordUpdatedAt,

@@ -124,6 +124,7 @@ type EnrollmentStatusBulkResult = {
 };
 
 type EnrollmentErrorCode =
+  | "email_unverified"
   | "confirmation_required"
   | "duplicate_email"
   | "invalid_email"
@@ -705,6 +706,7 @@ async function changeStudentEnrollmentPassword(input: ChangeStudentEnrollmentPas
 
     const current = await tx.user.findUnique({
       select: {
+        emailVerifiedAt: true,
         softDeletedAt: true,
         status: true,
       },
@@ -717,6 +719,10 @@ async function changeStudentEnrollmentPassword(input: ChangeStudentEnrollmentPas
       || current.status === UserStatus.soft_deleted
     ) {
       throw new EnrollmentServiceError("not_found", "The student account could not be found.");
+    }
+
+    if (current.emailVerifiedAt === null) {
+      throw new EnrollmentServiceError("email_unverified", "The student must verify their email before a password can be changed.");
     }
 
     const now = new Date();

@@ -5,6 +5,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { EmailMessage, MailResult } from "@/lib/email/mailer";
 import type { FraudMaintenanceResult } from "@/lib/fraud/maintenance";
 import type { PaymentMaintenanceResult } from "@/lib/payments/maintenance";
+import type { RegistrationCleanupResult } from "@/lib/registration/cleanup";
 import type { RetentionMaintenanceResult, RoleCheck } from "@/lib/retention/maintenance";
 import { serverLogger } from "@/lib/server-logger";
 
@@ -25,6 +26,7 @@ export type MaintenanceFailure =
   | "payment_maintenance"
   | "payment_reconciliation"
   | "redis"
+  | "registration_cleanup"
   | "retention_maintenance"
   | "runtime_role"
   | "security_log_cleanup"
@@ -41,6 +43,8 @@ export type MaintenanceDeps = {
   /** Whether this is a production deployment; the role check only runs there. Defaults to NODE_ENV. */
   production?: boolean;
   probes?: DependencyProbes;
+  /** Registration step: deletes self-registered accounts that were never verified. */
+  registration?: () => Promise<RegistrationCleanupResult>;
   /** Retention step: scrubs IP and device evidence and deletes what is past its period. */
   retention?: () => Promise<RetentionMaintenanceResult>;
   /** Production readiness: asks whether the connected database role can alter schema or delete evidence. */
@@ -57,6 +61,8 @@ export type MaintenanceResult = {
   /** Absent when the run was given no payment step. */
   payments?: PaymentMaintenanceResult | null;
   readiness: Readiness;
+  /** Absent when the run was given no registration step. */
+  registration?: RegistrationCleanupResult | null;
   /** Absent when the run was given no retention step. */
   retention?: RetentionMaintenanceResult | null;
   /** Absent outside production or when the run was given no role check. */
@@ -71,6 +77,7 @@ const failureLabels: Record<MaintenanceFailure, string> = {
   payment_maintenance: "pemeriksaan dan antrean pembayaran",
   payment_reconciliation: "pesanan yang belum terkonfirmasi penyedia lebih dari 24 jam setelah batas bayar",
   redis: "Redis",
+  registration_cleanup: "pembersihan pendaftaran yang belum diverifikasi",
   retention_maintenance: "pemangkasan dan pembersihan bukti sesuai kebijakan retensi",
   runtime_role: "peran basis data aplikasi (masih bisa mengubah skema atau menghapus bukti)",
   security_log_cleanup: "pembersihan log keamanan",
@@ -245,6 +252,17 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     }
   }
 
+  let registration: RegistrationCleanupResult | null = null;
+  if (deps.registration) {
+    try {
+      registration = await deps.registration();
+      // An account that could not be removed has something unexpected attached to it.
+      if (registration.failed > 0) failures.push("registration_cleanup");
+    } catch {
+      failures.push("registration_cleanup");
+    }
+  }
+
   // The retention step and the role check come last, and each one fails on its own,
   // so a problem here never stops the steps above.
   let retention: RetentionMaintenanceResult | null = null;
@@ -295,6 +313,7 @@ export async function runDailyMaintenance(deps: MaintenanceDeps): Promise<Mainte
     ok: failures.length === 0 && isReady(readiness),
     payments,
     readiness,
+    registration,
     retention,
     runtimeRole,
     staleEditLeases,
@@ -330,6 +349,7 @@ export async function handleDailyMaintenanceRequest(request: Request, deps: Cron
       ok: result.ok,
       payments: result.payments,
       readiness: result.readiness,
+      registration: result.registration,
       retention: result.retention
         ? { complete: result.retention.complete, delete: result.retention.delete, failedRows: result.retention.failedRows, scrub: result.retention.scrub }
         : result.retention,

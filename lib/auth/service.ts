@@ -61,7 +61,7 @@ import type {
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
-  | { code: "blocked" | "invalid_credentials" | "rate_limited" | "service_unavailable"; ok: false };
+  | { code: "blocked" | "invalid_credentials" | "rate_limited" | "service_unavailable" | "unverified"; ok: false };
 
 type PasswordResetRequestResult = {
   deliveredResetUrl: string | null;
@@ -321,7 +321,7 @@ async function authenticateUser(
       };
     }
 
-    const passwordMatches = await verifyPassword(password, user.passwordHash);
+    const passwordMatches = await verifyPassword(password, user.passwordHash ?? DECOY_PASSWORD_HASH);
 
     if (!passwordMatches) {
       const failedLoginCount = user.failedLoginCount + 1;
@@ -363,6 +363,22 @@ async function authenticateUser(
 
       return {
         code: "invalid_credentials",
+        ok: false,
+      };
+    }
+
+    // A self-registered account cannot sign in until its email is verified. Checked only after the
+    // password matched, so it is no way to learn which addresses have accounts.
+    if (user.emailVerifiedAt === null) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "email_unverified",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "unverified",
         ok: false,
       };
     }
@@ -475,6 +491,7 @@ async function requestPasswordReset(
 
   if (
     !user
+    || user.emailVerifiedAt === null
     || user.status === UserStatus.disabled
     || user.status === UserStatus.soft_deleted
     || user.softDeletedAt
@@ -554,7 +571,7 @@ async function getValidPasswordResetRecord(rawToken: string) {
       },
       tokenHash: hashToken(rawToken),
       usedAt: null,
-      user: { previewPurpose: null },
+      user: { previewPurpose: null, emailVerifiedAt: { not: null } },
     },
   });
 }
@@ -593,6 +610,7 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
     const user = await tx.user.findUnique({
       select: {
         id: true,
+        emailVerifiedAt: true,
         previewPurpose: true,
         softDeletedAt: true,
         status: true,
@@ -602,6 +620,7 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
 
     if (
       !user
+      || user.emailVerifiedAt === null
       || user.status === UserStatus.disabled
       || user.status === UserStatus.soft_deleted
       || user.softDeletedAt

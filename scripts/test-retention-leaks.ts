@@ -169,6 +169,9 @@ async function main() {
     "lib/fraud/queries.ts", // masks the address for the case page
     "lib/payments/audit.ts", "lib/payments/inbox.ts", "lib/payments/orders.ts", "lib/payments/risk/reserve.ts", // where the evidence is written
     "lib/pricing/checkout-pay.ts", // resolves the buyer's address at checkout
+    "lib/registration/service.ts", // consent evidence and block matching; no raw IP in email or public replies
+    "lib/registration/throttle.ts", // database signup/resend limits by address
+    "lib/registration/turnstile.ts", // sends the request address only to Cloudflare Siteverify
     "lib/retention/maintenance.ts", "lib/retention/mask.ts", "lib/retention/status.ts", // scrub, mask, and the owner's order page
     "lib/payments/inbox-http.ts", // reads the caller's address from the request
     "modules/admin/AuditLogsPageModule.tsx", "modules/admin/audit-log-presentation.ts", // show what the service already masked

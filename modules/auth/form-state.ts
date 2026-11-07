@@ -15,6 +15,10 @@ type FormState = {
   status: "error" | "idle" | "success";
   temporaryPassword?: string;
   userId?: string;
+  /** Sign-in was refused only because the email is not verified yet: offer to send the link again. */
+  verificationNeeded?: boolean;
+  /** Outside production only: the verification link, shown on screen because no mailbox is involved. */
+  verifyUrl?: string;
 };
 
 const EMPTY_FORM_STATE: FormState = {

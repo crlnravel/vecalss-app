@@ -160,6 +160,9 @@ async function main() {
     await owner(async (client) => {
       await client.query(`CREATE TABLE public.${table} (id int)`);
       await client.query(`ALTER TABLE public.${table} OWNER TO ${client.escapeIdentifier(owns)}`);
+      // Provisioning later requires ordinary-table availability as well as safe ownership.
+      // Keep this fixture available to the runtime group while testing ownership refusal.
+      await client.query("SELECT public.retention_apply_runtime_grants()");
     });
     for (const revokeExtra of [false, true]) {
       const ownsFailure = await refused(provisionRuntimeLogin({ login: owns, ownerUrl: ownerUrl(), password: secret(), revokeExtra }));

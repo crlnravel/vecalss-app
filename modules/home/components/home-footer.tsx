@@ -8,6 +8,12 @@ const quickLinks = [
   { label: "Masuk", href: "/login" },
 ];
 
+const legalLinks = [
+  { label: "Kebijakan Privasi", href: "/kebijakan-privasi" },
+  { label: "Syarat dan Ketentuan", href: "/syarat-ketentuan" },
+  { label: "Syarat Pembelian", href: "/syarat-pembelian" },
+];
+
 const contactLinks = [
   {
     label: "Instagram",
@@ -26,7 +32,7 @@ function HomeFooter() {
   return (
     <footer className="bg-[var(--voyage-deep)] text-white">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 pt-14 md:px-10 lg:px-16 lg:pt-16">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.8fr_0.8fr] lg:items-start">
           <div className="max-w-[28rem]">
             <Link
               aria-label="Beranda PTN Pro"
@@ -62,6 +68,24 @@ function HomeFooter() {
               Tautan cepat
             </p>
             {quickLinks.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="inline-flex min-h-11 items-center text-voyage-sea-glass transition-colors hover:text-white"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <nav
+            aria-label="Informasi hukum"
+            className="grid gap-3 text-sm font-medium"
+          >
+            <p className="kicker-label mb-2 text-voyage-sea-glass">
+              Informasi hukum
+            </p>
+            {legalLinks.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}

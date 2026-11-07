@@ -665,7 +665,9 @@ async function changeStudentEnrollmentPasswordAction(
     });
   } catch (error) {
     const message = error instanceof EnrollmentServiceError
-      ? error.code === "invalid_field"
+      ? error.code === "email_unverified"
+        ? "Siswa perlu memverifikasi email dan membuat kata sandi lewat tautan pendaftaran terlebih dahulu."
+        : error.code === "invalid_field"
         ? "Kata sandi belum memenuhi syarat. Gunakan huruf besar, huruf kecil, angka, dan satu simbol."
         : error.code === "not_found"
           ? "Akun siswa tidak ditemukan. Segarkan halaman lalu coba lagi."

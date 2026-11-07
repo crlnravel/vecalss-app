@@ -19,6 +19,7 @@ export const CLEANUP_MAX_BATCHES = 50;
 export const SECURITY_LOG_TABLES = [
   "login_attempts",
   "password_reset_requests",
+  "registration_attempts",
   "mfa_failed_attempts",
   "auth_sessions",
 ] as const;
@@ -55,6 +56,14 @@ const deleteBatches: Record<SecurityLogTable, DeleteBatch> = {
       DELETE FROM password_reset_requests
       WHERE id IN (
         SELECT id FROM password_reset_requests
+        WHERE requested_at < now() - make_interval(days => ${days}::int)
+        LIMIT ${limit}
+      )`,
+  registration_attempts: (db, limit, days) =>
+    db.$executeRaw`
+      DELETE FROM registration_attempts
+      WHERE id IN (
+        SELECT id FROM registration_attempts
         WHERE requested_at < now() - make_interval(days => ${days}::int)
         LIMIT ${limit}
       )`,

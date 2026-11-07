@@ -1,5 +1,6 @@
 import { Info } from "@/lib/icons";
 import type { PurchaseTerms } from "@/lib/fulfillment/terms";
+import { HomeFooter } from "@/modules/home/components/home-footer";
 import { MarketingHeader } from "@/modules/home/components/marketing-header";
 
 type PurchaseTermsPageModuleProps = {
@@ -66,6 +67,8 @@ export default function PurchaseTermsPageModule({ supportContact, terms }: Purch
           </a>
         </p>
       </div>
+
+      <HomeFooter />
     </main>
   );
 }

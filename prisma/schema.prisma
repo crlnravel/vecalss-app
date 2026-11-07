@@ -662,8 +662,13 @@ model User {
   id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email              String     @unique
   fullName           String     @map("full_name") @db.VarChar(160)
-  passwordHash       String     @map("password_hash") @db.Text
+  passwordHash       String?    @map("password_hash") @db.Text
   passwordUpdatedAt  DateTime?  @map("password_updated_at") @db.Timestamptz
+  /// When the address was proven to belong to the person. Accounts made by an
+  /// admin, and every account that existed before self-registration, are
+  /// verified at creation (the default). Only self-registration writes null,
+  /// and sign-in refuses an account until the link in the email is used.
+  emailVerifiedAt    DateTime?  @default(now()) @map("email_verified_at") @db.Timestamptz
   mustChangePassword Boolean    @default(false) @map("must_change_password")
   /// Non-null only for managed system subjects such as the admin student
   /// preview fixture. The value is unique so a purpose can never be claimed
@@ -682,6 +687,8 @@ model User {
   // Relations
   authSessions                           AuthSession[]
   passwordResetTokens                    PasswordResetToken[]
+  emailVerificationTokens                EmailVerificationToken[]
+  registrationConsents                   RegistrationConsent[]
   loginAttempts                          LoginAttempt[]
   roleAssignments                        RoleAssignment[]                     @relation("UserRoles")
   assignedRolesBy                        RoleAssignment[]                     @relation("RolesAssignedBy")
@@ -931,6 +938,69 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id])
 
   @@map("password_reset_tokens")
+}
+
+/// The link sent to a self-registered student. Only the hash is stored. The
+/// terms and privacy versions and the client address are what the student
+/// agreed to at signup; they become a RegistrationConsent when the link is used,
+/// so an account that is never verified leaves no evidence behind. A resend
+/// copies them from the earlier token.
+model EmailVerificationToken {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      String    @unique @map("token_hash") @db.Text
+  termsVersion   String    @map("terms_version") @db.VarChar(40)
+  privacyVersion String    @map("privacy_version") @db.VarChar(40)
+  /// The moment the age and agreement box was ticked: the first token of the
+  /// signup, copied unchanged onto every resend.
+  consentedAt    DateTime  @map("consented_at") @db.Timestamptz
+  ipAddress      String?   @map("ip_address") @db.Inet
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  usedAt         DateTime? @map("used_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+/// One row per signup or verification-resend attempt that was let through. It
+/// feeds the per-address and per-email limits; the email is kept only as a hash.
+/// Removed by the daily job with the other security logs.
+model RegistrationAttempt {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind        String   @db.VarChar(10)
+  emailHash   String   @map("email_hash") @db.VarChar(64)
+  ipAddress   String?  @map("ip_address") @db.Inet
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz
+
+  @@index([kind, emailHash, requestedAt])
+  @@index([kind, ipAddress, requestedAt])
+  @@index([requestedAt])
+  @@map("registration_attempts")
+}
+
+/// Append-only evidence of what a self-registered student agreed to, written
+/// when the email is verified: the terms and privacy versions, that the age
+/// (or guardian permission) box was ticked, when, and from which address. It is
+/// in the MS-10 registry (evidence_tables): the app can read and add rows, never
+/// change or remove them.
+model RegistrationConsent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  termsVersion   String   @map("terms_version") @db.VarChar(40)
+  privacyVersion String   @map("privacy_version") @db.VarChar(40)
+  ageConfirmed   Boolean  @map("age_confirmed")
+  consentedAt    DateTime @map("consented_at") @db.Timestamptz
+  ipAddress      String?  @map("ip_address") @db.Inet
+  verifiedAt     DateTime @default(now()) @map("verified_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("registration_consents")
 }
 
 /// One row per password reset request that was let through. It feeds the
