@@ -22,7 +22,6 @@
     "test:vera-mentions": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-mentions.ts",
     "test:vera-sessions": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sessions.ts",
     "test:vera-studio": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-studio.ts",
-    "test:vera-studio-tools": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-studio-tools.ts",
     "test:vera-admin-usage": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-admin-usage.ts",
     "test:vera-model": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-model.ts",
     "test:vera-obscura-smoke": "tsx scripts/test-vera-obscura-smoke.ts",

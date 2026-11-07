@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { VERA_EFFORT_IDS, VERA_TIME_ZONE } from "./config";
+import { VERA_TIME_ZONE } from "./config";
 import type { VeraSource } from "./sources/types";
 
 export const STUDIO_TOOL_IDS = ["weakness_analysis", "study_route", "wrong_answer_review"] as const;
@@ -12,34 +12,6 @@ export const STUDY_ROUTE_MINUTES = [20, 30, 45, 60] as const;
 export const STUDIO_REQUEST_PART = "data-vera-studio-request";
 /** The data part a Studio answer keeps: the document it was saved as. The answer's card reads its document from this. */
 export const STUDIO_DOCUMENT_PART = "data-vera-studio";
-
-const effortField = z.enum(VERA_EFFORT_IDS).default("mendalam");
-
-/** One shape per tool, so each tool's options are checked against its own fields. */
-export const studioRequestSchema = z.discriminatedUnion("tool", [
-  z.object({
-    tool: z.literal("weakness_analysis"),
-    input: z.object({ subtest: z.string().trim().min(1).max(60).optional() }).default({}),
-    effort: effortField,
-  }),
-  z.object({
-    tool: z.literal("study_route"),
-    input: z.object({ minutesPerDay: z.union([z.literal(20), z.literal(30), z.literal(45), z.literal(60)]) }),
-    effort: effortField,
-  }),
-  z.object({
-    tool: z.literal("wrong_answer_review"),
-    input: z.object({
-      target: z.union([
-        z.literal("latest"),
-        z.object({ type: z.enum(["kuis", "tryout"]), id: z.string().min(1).max(64) }),
-      ]),
-    }),
-    effort: effortField,
-  }),
-]);
-
-export type StudioRequest = z.infer<typeof studioRequestSchema>;
 
 /**
  * The options a Studio tool takes, without the effort. A Studio request in the chat carries these, and each tool checks its own fields.
@@ -170,22 +142,6 @@ const TOOL_PROMPTS: Record<StudioToolId, string> = {
 /** The instructions for one document: the shared rules, then the structure the tool requires. */
 export function studioInstructions(tool: StudioToolId) {
   return `${DOCUMENT_RULES}\n\n${TOOL_PROMPTS[tool]}`;
-}
-
-/** The user message that starts a document. It carries the student's options and, for a review, the target to read. */
-export function studioRequestText(request: StudioRequest, target?: ReviewTarget): string {
-  switch (request.tool) {
-    case "weakness_analysis":
-      return request.input.subtest
-        ? `Buat Analisis Kelemahan dengan fokus pada subtes ${request.input.subtest}.`
-        : "Buat Analisis Kelemahan untuk semua subtes.";
-    case "study_route":
-      return `Buat Rute Belajar 7 hari dengan ${request.input.minutesPerDay} menit per hari.`;
-    case "wrong_answer_review": {
-      const kind = target?.type === "tryout" ? "Tryout" : "Kuis";
-      return `Bahas soal yang salah pada hasil ${kind} dengan ID ${target?.id ?? ""}.`;
-    }
-  }
 }
 
 const DATE_FORMAT = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: VERA_TIME_ZONE });

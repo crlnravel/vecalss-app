@@ -157,12 +157,12 @@ async function runBrowserChecks() {
     await page.keyboard.press("Escape");
     await composer.fill("");
 
-    // 4. A Studio run saves a document. The preview card under the composer says so, and its button opens the saved document.
-    // "Sesi baru" opens the start screen, and its Analisis Kelemahan card picks the tool.
+    // 4. A Studio card sends its request into the chat. The answer is saved as a document, its card says so, and its button opens the document.
+    // "Sesi baru" opens the start screen, and its Analisis Kelemahan card opens the options.
     await page.getByRole("button", { name: "Sesi baru" }).click();
     await page.getByRole("button", { name: "Analisis Kelemahan" }).click();
     await page.getByRole("button", { name: "Buat" }).click();
-    await page.getByText("Dokumen tersimpan.", { exact: true }).waitFor({ timeout: 120_000 });
+    await page.getByText("Tersimpan", { exact: true }).waitFor({ timeout: 120_000 });
     await page.getByRole("button", { name: "Buka dokumen", exact: true }).click();
     await page.getByRole("dialog").getByText("Analisis Kelemahan", { exact: true }).waitFor({ timeout: 30_000 });
     await page.keyboard.press("Escape");
