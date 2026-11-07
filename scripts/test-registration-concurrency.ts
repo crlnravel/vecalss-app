@@ -92,8 +92,17 @@ async function lockOrder() {
   assert.deepEqual(result, { status: "invalid" }, "verification must recheck the rotated token after obtaining the user lock without deadlocking");
 }
 
+async function expiresWhileWaiting() {
+  const { user, token } = await fixture();
+  const result = await race(user.id, () => verifyEmail(token, password), async (tx) => {
+    await tx.emailVerificationToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1) } });
+  });
+  assert.deepEqual(result, { status: "invalid" }, "a token expiring while verification waits cannot activate the account");
+  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash, null);
+}
+
 async function main() {
-  const cases = { "verified-password-race": staleSignup, "cleanup-renewal-race": renewedCleanup, "user-token-lock-order": lockOrder };
+  const cases = { "verified-password-race": staleSignup, "cleanup-renewal-race": renewedCleanup, "user-token-lock-order": lockOrder, "token-expiry-after-user-lock": expiresWhileWaiting };
   let failed = false;
   for (const [name, run] of Object.entries(cases)) {
     try { await run(); console.log(`PASS ${name}`); }

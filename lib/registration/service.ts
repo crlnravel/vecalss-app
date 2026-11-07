@@ -458,7 +458,6 @@ async function verifyEmail(rawToken: string, password: string, deps: Pick<Regist
   if (violation) return { status: "invalid_password", violation };
 
   const tokenHash = hashToken(rawToken);
-  const now = (deps.now ?? (() => new Date()))();
 
   try {
     return await prisma.$transaction(async (tx): Promise<VerifyOutcome> => {
@@ -484,6 +483,8 @@ async function verifyEmail(rawToken: string, password: string, deps: Pick<Regist
         return { status: "invalid" };
       }
 
+      // The lock may have waited; expiry is evaluated after the user lock is held.
+      const now = (deps.now ?? (() => new Date()))();
       const [token = null] = await tx.$queryRaw<TokenRow[]>`
         SELECT id, user_id, terms_version, privacy_version, consented_at, host(ip_address) AS ip
         FROM email_verification_tokens
