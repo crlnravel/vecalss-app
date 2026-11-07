@@ -66,3 +66,14 @@ export const VERA_LIMITS = {
 } as const;
 
 export const VERA_CONVERSATION_TITLE = "Sesi baru";
+
+/** The reasons a student can give for reporting an answer, and the words the student sees for each. */
+export const VERA_REPORT_REASON_IDS = ["wrong_answer", "not_my_context", "inappropriate", "other"] as const;
+export type VeraReportReason = (typeof VERA_REPORT_REASON_IDS)[number];
+export const VERA_REPORT_REASON_LABELS: Record<VeraReportReason, string> = {
+  wrong_answer: "Jawabannya salah",
+  not_my_context: "Tidak sesuai dataku",
+  inappropriate: "Tidak pantas",
+  other: "Lainnya",
+};
+export const VERA_REPORT_NOTE_LIMIT = 500;

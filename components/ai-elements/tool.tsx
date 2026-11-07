@@ -1,5 +1,5 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { BarChart3, BookOpen, ClipboardList, ListChecks, Search, type AppIcon } from "@/lib/icons";
+import { BarChart3, BookOpen, ClipboardList, Compass, ListChecks, Search, Target, type AppIcon } from "@/lib/icons";
 
 const TOOL_STEPS: Record<string, { label: string; icon: AppIcon }> = {
   get_learning_overview: { label: "Membaca ringkasan belajar", icon: BarChart3 },
@@ -9,6 +9,9 @@ const TOOL_STEPS: Record<string, { label: string; icon: AppIcon }> = {
   get_tryout_result_review: { label: "Membaca pembahasan Tryout", icon: ListChecks },
   search_materi: { label: "Mencari Materi", icon: Search },
   read_materi: { label: "Membaca Materi", icon: BookOpen },
+  write_weakness_analysis: { label: "Menyusun Analisis Kelemahan", icon: Target },
+  write_study_route: { label: "Menyusun Rute Belajar 7 Hari", icon: Compass },
+  write_wrong_answer_review: { label: "Menyusun pembahasan soal salah", icon: ListChecks },
 };
 
 const REFUSALS: Record<string, string> = {

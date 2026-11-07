@@ -13,20 +13,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { History } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
-import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
+import { VERA_EFFORT_IDS, type VeraEffortId, type VeraReportReason } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
-import type { StudioToolId } from "@/lib/vera/studio";
+import type { StudioOptions, StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
-import { studioDocumentHref } from "@/lib/vera/sources/types";
+import { studioDocumentHref, type ResolvedMention } from "@/lib/vera/sources/types";
 import { studentSidebarSurfaceClassName } from "@/modules/student/components/student-sidebar";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
 import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
+import { VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
-import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 
 const DEFAULT_EFFORT: VeraEffortId = "seimbang";
 const UNAVAILABLE_ANSWER = "Vera belum bisa menjawab sekarang.";
@@ -125,16 +125,14 @@ export function VeraPageModule({
   const [openDocument, setOpenDocument] = useState(initialStudioDocument);
   const [usage, setUsage] = useState(initialUsage);
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  // The Studio tool whose options dialog is open. The toolbar of both the start screen and the chat picks it.
+  // The Studio tool whose options dialog is open. The start screen picks it.
   const [pickedTool, setPickedTool] = useState<StudioToolId | null>(null);
   const [effortOverride, setEffortOverride] = useState<VeraEffortId | null>(null);
-  // The document the student deleted from the dialog. The preview card stops offering it.
+  // The document the student deleted from the dialog. Its buttons in the chat stop offering it.
   const [deletedDocumentId, setDeletedDocumentId] = useState<string | null>(null);
   const sessions = useVeraSessions(initialSessions);
   // Each read of the usage meter takes a number, and only the newest read may write. So a slow response cannot replace a newer one.
   const usageReads = useRef(0);
-  // A run that ends, stopped or not, has used credits, so the usage meter is read again.
-  const studio = useVeraStudioRun(() => void refreshUsage());
   const storedEffort = useSyncExternalStore(
     subscribeToStorage,
     () => readStoredEffort(studentId),
@@ -142,18 +140,17 @@ export function VeraPageModule({
   );
   const effort = effortOverride ?? storedEffort;
   const blocked = blockedMessage(usage);
-  // A document the student deleted no longer offers its buttons on the preview card.
-  const savedDocumentId =
-    studio.previewDocumentId && studio.previewDocumentId !== deletedDocumentId ? studio.previewDocumentId : null;
 
   // Only the newest message travels in the request. The server loads the rest of the thread.
   const transport = useMemo(
     () =>
       new DefaultChatTransport<UIMessage>({
         api: "/api/vera/chat",
-        prepareSendMessagesRequest: ({ messages, body }) => ({
-          body: { ...body, message: messages.at(-1) },
-        }),
+        // Ulangi names the answer it replaces. Every other request, including the retry after a failed answer, sends the newest message.
+        prepareSendMessagesRequest: ({ messages, body, trigger, messageId }) =>
+          trigger === "regenerate-message" && body?.action === "regenerate"
+            ? { body: { ...body, assistantMessageId: messageId } }
+            : { body: { ...body, message: messages.at(-1) } },
       }),
     [],
   );
@@ -204,8 +201,9 @@ export function VeraPageModule({
     window.history.replaceState(null, "", `/vera-ai?c=${id}`);
   }
 
-  // The pinned sources travel twice: as metadata so the message can show them at once, and as ids for the server to re-read.
-  function send(text: string, chips: MentionChip[] = []) {
+  // The pinned sources travel twice: as metadata so the message can show them at once, and as ids for the server to re-read. A Studio
+  // request travels the same way: its options go in the body, and a flag on the message keeps its question from being edited.
+  function send(text: string, chips: MentionChip[] = [], studioRequest: StudioOptions | null = null, sendEffort = effort) {
     void sendMessage(
       {
         text: text.trim(),
@@ -217,16 +215,63 @@ export function VeraPageModule({
             status: "accepted",
             source: { type: chip.type, id: chip.id, label: chip.label, href: chip.href },
           })),
+          studio: studioRequest ?? undefined,
         },
       },
       {
         body: {
+          action: "send",
           conversationId: conversationId ?? undefined,
-          effort,
+          effort: sendEffort,
           mentions: chips.map((chip) => ({ type: chip.type, id: chip.id, label: chip.label })),
+          studio: studioRequest ?? undefined,
         },
       },
     );
+  }
+
+  // Ulangi answers the same question again. The server drops the answer it replaces once the new answer has its reservation.
+  function regenerateAnswer(messageId: string) {
+    if (!conversationId) return;
+    void regenerate({ messageId, body: { action: "regenerate", conversationId, effort } });
+  }
+
+  // Edit sends the question again in place of the stored one. The page replaces the question and the answer after it, as the server does.
+  function editQuestion(storedId: string, localId: string, text: string, mentions: ResolvedMention[]) {
+    if (!conversationId) return;
+    void sendMessage(
+      { messageId: localId, text, metadata: { mentions } },
+      {
+        body: {
+          action: "edit",
+          conversationId,
+          userMessageId: storedId,
+          effort,
+          mentions: mentions.map((mention) => ({ type: mention.type, id: mention.id, label: mention.label })),
+        },
+      },
+    );
+  }
+
+  // Laporkan saves one report for one answer. The dialog closes only when the report has been saved.
+  async function reportAnswer(messageId: string, reason: VeraReportReason, note: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/vera/messages/${encodeURIComponent(messageId)}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, note: note || undefined }),
+        cache: "no-store",
+      });
+      if (response.ok) {
+        showToast("Terima kasih, laporanmu tersimpan.", { variant: "success" });
+        return true;
+      }
+      const { message } = (await response.json().catch(() => ({}))) as { message?: string };
+      showToast(message ?? "Laporanmu belum bisa disimpan. Coba lagi.", { variant: "error" });
+    } catch {
+      showToast("Laporanmu belum bisa disimpan. Coba lagi.", { variant: "error" });
+    }
+    return false;
   }
 
   function stopAnswer() {
@@ -239,6 +284,12 @@ export function VeraPageModule({
   function startChatFromHome(text: string, chips: MentionChip[]) {
     setView("chat");
     send(text, chips);
+  }
+
+  // A Studio request is sent as a chat message the student can read. It goes at Mendalam effort, which is the effort the dialog estimates.
+  function startStudio(options: StudioOptions, bubble: string) {
+    setView("chat");
+    send(bubble, [], options, "mendalam");
   }
 
   // "Tanya Vera soal ini" opens the chat with the document already pinned as a source.
@@ -314,16 +365,13 @@ export function VeraPageModule({
   }
 
   const panel = {
-    view: sessions.view,
     sessions: sessions.sessions,
     loading: sessions.loading,
     error: sessions.error,
     activeId: conversationId,
-    onViewChange: sessions.changeView,
     onNew: newSession,
     onOpen: openSession,
     onRename: (id: string, title: string) => void sessions.rename(id, title),
-    onArchive: (id: string, toArchive: boolean) => void sessions.archive(id, toArchive),
     onDelete: deleteSession,
   };
 
@@ -356,27 +404,25 @@ export function VeraPageModule({
               blocked={blocked}
               effort={effort}
               firstName={firstName}
-              onAsk={askAboutDocument}
-              onAskDocumentById={(id) => void askAboutDocumentById(id)}
               onChangeEffort={changeEffort}
-              onCloseDocument={() => setOpenDocument(null)}
-              onDeleteDocument={(id) => void deleteDocument(id)}
-              onOpenDocument={(id) => void openDocumentById(id)}
               onPickTool={setPickedTool}
               onSend={startChatFromHome}
-              openDocument={openDocument}
-              savedDocumentId={savedDocumentId}
-              studio={studio}
             />
           ) : (
             <VeraChat
               blocked={blocked}
               busy={busy}
               composerKey={composerSeed?.key ?? 0}
+              deletedDocumentId={deletedDocumentId}
               effort={effort}
               initialChips={composerSeed?.chips ?? []}
               messages={messages}
+              onAskDocument={(id) => void askAboutDocumentById(id)}
               onChangeEffort={changeEffort}
+              onEdit={editQuestion}
+              onOpenDocument={(id) => void openDocumentById(id)}
+              onRegenerate={regenerateAnswer}
+              onReport={reportAnswer}
               onSend={send}
               onStop={stopAnswer}
               restoredIds={restoredIds}
@@ -411,14 +457,21 @@ export function VeraPageModule({
       </Sheet>
 
       <VeraStudioToolDialog
-        busy={studio.busy}
+        busy={busy || blocked !== null}
         onClose={() => setPickedTool(null)}
-        onRun={(request) => {
+        onRun={(options, bubble) => {
           setPickedTool(null);
-          studio.run(request);
+          startStudio(options, bubble);
         }}
         prices={usage.prices}
         tool={pickedTool}
+      />
+      {/* The document dialog is shared by the start screen and the chat, so a saved document opens from either. */}
+      <VeraStudioDocDialog
+        doc={openDocument}
+        onAsk={askAboutDocument}
+        onClose={() => setOpenDocument(null)}
+        onDelete={(id) => void deleteDocument(id)}
       />
     </div>
   );

@@ -43,6 +43,7 @@ const thisMonthNotThisWeek = new Date("2026-11-01T10:00:00+07:00");
 
 function userInput(text: string, effort: "cepat" | "seimbang" | "mendalam" = "cepat") {
   return {
+    action: "send" as const,
     message: { id: `msg-${crypto.randomUUID()}`, role: "user" as const, parts: [{ type: "text" as const, text }] },
     effort,
     mentions: [],

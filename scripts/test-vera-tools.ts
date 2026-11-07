@@ -5,7 +5,7 @@ import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { getPublishedLesson } from "../lib/materi/repository";
 import { prisma } from "../lib/prisma";
-import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
+import { runVeraChat, type VeraSendInput } from "../lib/vera/chat";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { getKuisAttemptReview, listKuisAttempts } from "../lib/vera/sources/kuis";
 import { pdfWithinLimits, readMateri, searchMateri, withTimeout } from "../lib/vera/sources/materi";
@@ -97,8 +97,9 @@ function minimalPdf(line: string) {
   return new TextEncoder().encode(body);
 }
 
-function userInput(text: string): VeraChatInput {
+function userInput(text: string): VeraSendInput {
   return {
+    action: "send",
     message: { id: `msg-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text }] },
     effort: "cepat",
     mentions: [],

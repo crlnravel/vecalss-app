@@ -2,7 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 
 import { prisma } from "../lib/prisma";
-import { runVeraChat, veraChatRequestSchema } from "../lib/vera/chat";
+import { parseVeraChatRequest, runVeraChat } from "../lib/vera/chat";
 import { VERA_LIMITS } from "../lib/vera/config";
 import { MENTION_SEARCHES_PER_MINUTE, takeMentionSearch } from "../lib/vera/mention-throttle";
 import { setVeraModelForTests } from "../lib/vera/model";
@@ -317,7 +317,7 @@ try {
   // The request takes at most five pins.
   const sixPins = Array.from({ length: 6 }, () => ({ type: "materi" as const, id: crypto.randomUUID() }));
   assert.equal(
-    veraChatRequestSchema.safeParse({
+    parseVeraChatRequest({
       message: { id: "msg-limit", role: "user", parts: [{ type: "text", text: "Halo" }] },
       mentions: sixPins,
     }).success,

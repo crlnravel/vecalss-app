@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 
 import { prisma } from "../lib/prisma";
-import { runVeraChat, type VeraChatInput } from "../lib/vera/chat";
+import { runVeraChat, type VeraSendInput } from "../lib/vera/chat";
 import { VERA_LIMITS } from "../lib/vera/config";
 import { VERA_ERROR_STATUS, VeraError } from "../lib/vera/errors";
 import { setVeraModelForTests } from "../lib/vera/model";
@@ -44,8 +44,9 @@ function answerModel(deltas: string[], chunkDelayInMs = 0) {
   });
 }
 
-function userInput(text: string, overrides: Partial<VeraChatInput> = {}): VeraChatInput {
+function userInput(text: string, overrides: Partial<VeraSendInput> = {}): VeraSendInput {
   return {
+    action: "send",
     message: { id: `msg-${crypto.randomUUID()}`, role: "user", parts: [{ type: "text", text }] },
     effort: "cepat",
     mentions: [],

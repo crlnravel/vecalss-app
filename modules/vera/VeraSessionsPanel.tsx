@@ -17,44 +17,36 @@ import { Plus, Search } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import { cn } from "@/lib/utils";
-import { studentSidebarControlClassName } from "@/modules/student/components/student-sidebar";
 import { SESSION_DAY_LABELS, sessionDay, type SessionDay } from "@/modules/vera/session-day";
-import type { SessionView } from "@/modules/vera/use-vera-sessions";
 import { VeraSessionRow } from "@/modules/vera/VeraSessionRow";
-import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
+import { VeraUsageBar } from "@/modules/vera/VeraUsageBar";
 
 const DAY_ORDER: readonly SessionDay[] = ["today", "yesterday", "older"];
 
 /**
- * The conversation list, built from the sidebar's own parts. The new-session button sits in the header, and the usage block sits in the
- * footer under the sidebar's footer treatment. The content holds the search, the Aktif and Arsip chips, and the rows under their day
- * groups. The same panel opens in the sheet below lg.
+ * The conversation list, built from the sidebar's own parts. The new-session button sits in the header, and the usage bar sits in the
+ * footer, outside the list's scroll area. The content holds the search and the active sessions under their day groups. The same panel
+ * opens in the sheet below lg.
  */
 export function VeraSessionsPanel({
-  view,
   sessions,
   loading,
   error,
   activeId,
   usage,
-  onViewChange,
   onNew,
   onOpen,
   onRename,
-  onArchive,
   onDelete,
 }: {
-  view: SessionView;
   sessions: VeraSessionSummary[];
   loading: boolean;
   error: string | null;
   activeId: string | null;
   usage: VeraUsageSnapshot;
-  onViewChange: (view: SessionView) => void;
   onNew: () => void;
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
-  onArchive: (id: string, toArchive: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   // The groups are counted from when the list first shows, so a row keeps its group while the student is looking at the list.
@@ -96,28 +88,6 @@ export function VeraSessionsPanel({
               value={query}
             />
           </div>
-          <div aria-label="Tampilan sesi" className="mt-2 flex gap-1.5" role="group">
-            <Button
-              aria-pressed={view === "active"}
-              className="rounded-pill"
-              onClick={() => onViewChange("active")}
-              size="sm"
-              type="button"
-              variant={view === "active" ? "default" : "outline"}
-            >
-              Aktif
-            </Button>
-            <Button
-              aria-pressed={view === "archived"}
-              className="rounded-pill"
-              onClick={() => onViewChange("archived")}
-              size="sm"
-              type="button"
-              variant={view === "archived" ? "default" : "outline"}
-            >
-              Arsip
-            </Button>
-          </div>
         </SidebarGroup>
 
         {error ? (
@@ -126,9 +96,7 @@ export function VeraSessionsPanel({
           </p>
         ) : null}
         {loading && sessions.length === 0 ? <p className="px-3 text-sm text-muted-foreground">Memuat…</p> : null}
-        {!loading && sessions.length === 0 ? (
-          <p className="px-3 text-sm text-muted-foreground">{view === "archived" ? "Belum ada arsip." : "Belum ada sesi."}</p>
-        ) : null}
+        {!loading && sessions.length === 0 ? <p className="px-3 text-sm text-muted-foreground">Belum ada sesi.</p> : null}
         {sessions.length > 0 && groups.length === 0 ? (
           <p className="px-3 text-sm text-muted-foreground">Tidak ada percakapan yang cocok.</p>
         ) : null}
@@ -145,7 +113,6 @@ export function VeraSessionsPanel({
                     active={session.id === activeId}
                     key={session.id}
                     now={now}
-                    onArchive={onArchive}
                     onDelete={onDelete}
                     onOpen={onOpen}
                     onRename={onRename}
@@ -159,9 +126,7 @@ export function VeraSessionsPanel({
       </SidebarContent>
 
       <SidebarFooter className="p-3">
-        <div className={cn("p-3", studentSidebarControlClassName)}>
-          <VeraUsageBody usage={usage} />
-        </div>
+        <VeraUsageBar usage={usage} />
       </SidebarFooter>
     </>
   );

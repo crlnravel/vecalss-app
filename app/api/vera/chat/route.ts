@@ -1,6 +1,6 @@
 import { RoleName } from "@/generated/prisma/client";
 import { getReadOnlySessionContext, hasRole } from "@/lib/auth/session";
-import { runVeraChat, veraChatRequestSchema } from "@/lib/vera/chat";
+import { parseVeraChatRequest, runVeraChat } from "@/lib/vera/chat";
 import { VERA_ERROR_STATUS, VeraError } from "@/lib/vera/errors";
 import { VeraLimitError } from "@/lib/vera/ledger";
 import { serverLogger } from "@/lib/server-logger";
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = veraChatRequestSchema.safeParse(body);
+  const parsed = parseVeraChatRequest(body);
   if (!parsed.success) {
     return Response.json(
       { code: "invalid_request", message: "Pesanmu belum bisa dikirim. Coba tulis ulang." },

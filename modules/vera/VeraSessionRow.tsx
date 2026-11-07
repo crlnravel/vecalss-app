@@ -29,7 +29,7 @@ import { sessionTime } from "@/modules/vera/session-day";
 
 /**
  * One conversation in the list, as an item of the sidebar: its title, with the time of its last update under it. The active one takes the
- * sidebar's own active look. Its menu renames it, archives or restores it, or deletes it after a confirmation.
+ * sidebar's own active look. Its menu renames it, or deletes it after a confirmation.
  */
 export function VeraSessionRow({
   session,
@@ -37,7 +37,6 @@ export function VeraSessionRow({
   now,
   onOpen,
   onRename,
-  onArchive,
   onDelete,
 }: {
   session: VeraSessionSummary;
@@ -45,7 +44,6 @@ export function VeraSessionRow({
   now: Date;
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
-  onArchive: (id: string, toArchive: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -117,9 +115,6 @@ export function VeraSessionRow({
               }}
             >
               Ganti nama
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onArchive(session.id, !session.archived)}>
-              {session.archived ? "Pulihkan" : "Arsipkan"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={() => setConfirming(true)}>
