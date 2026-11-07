@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/auth/access";
 import { EXPORT_LINK_MINUTES, listExportsForOrder } from "@/lib/disputes/export";
 import { getOrderSummary } from "@/lib/disputes/queries";
+import { getOrderTimeline } from "@/lib/admin/order-timeline";
+import { PENDING_REASON_LABELS } from "@/lib/admin/payment-audit-labels";
 import { getAccessState } from "@/lib/billing/service";
 import { describeAuthority } from "@/lib/fraud/authority";
 import { getStandInProvider } from "@/lib/payments/provider";
@@ -16,6 +18,7 @@ import { listDisputeRecords, listRefundRecords } from "@/lib/refunds/records";
 import { formatRupiah } from "@/lib/pricing/schedule";
 import { createDisputeExportAction } from "@/modules/admin/fraud-actions";
 import { RefundAndDisputePanels } from "@/modules/admin/fraud/refund-panels";
+import { OrderTimelinePanel, PurgedTimelinePanel } from "@/modules/admin/fraud/order-timeline-panel";
 import { PurgedPanel, RetentionPanel } from "@/modules/admin/fraud/retention-panel";
 import { Field, firstParam, formatDateTime, FraudPage, ownerNote, Panel, ReasonForm } from "@/modules/admin/fraud/shared";
 
@@ -28,15 +31,6 @@ const STATUS_LABELS: Record<string, string> = {
   paid: "Dibayar",
   pending: "Menunggu pembayaran",
   review: "Ditinjau",
-};
-
-const PENDING_REASON_LABELS: Record<string, string> = {
-  full_end_not_configured: "Tanggal akhir Full Access belum diatur.",
-  full_end_passed: "Tanggal akhir Full Access sudah lewat.",
-  grant_error: "Terjadi kesalahan saat memberi akses.",
-  paused: "Akses pembeli sedang dijeda.",
-  plan_unknown: "Paket pesanan tidak dikenali.",
-  student_not_found: "Akun pembeli tidak ditemukan.",
 };
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
@@ -54,12 +48,13 @@ export default async function AdminFraudOrderPage({
   const order = await getOrderSummary(orderId);
   if (!order) {
     // An order removed under the retention policy leaves a tombstone, and the page says so.
-    const removed = await getOrderRetention(orderId);
+    const removed = await getOrderTimeline(orderId);
     if (removed?.kind !== "purged") notFound();
     return (
       <FraudPage active="orders" done={firstParam(query.done)} error={firstParam(query.error)} session={session} title="Pesanan">
         <p className="mb-4"><Link className="text-sm font-medium text-primary-800 underline-offset-4 hover:underline" href="/admin/fraud/orders">← Kembali ke daftar pesanan</Link></p>
         <PurgedPanel purgedAt={removed.purgedAt} reference={removed.reference} />
+        <PurgedTimelinePanel />
       </FraudPage>
     );
   }
@@ -70,7 +65,8 @@ export default async function AdminFraudOrderPage({
   // The owner sees the address; other admins see it masked.
   const buyerIp = authority.isOwner ? rawBuyerIp : maskIp(rawBuyerIp);
   const exports = await listExportsForOrder(order.id);
-  const [refunds, disputes, payments, buyerAccess, orderRow] = await Promise.all([
+  const [timeline, refunds, disputes, payments, buyerAccess, orderRow] = await Promise.all([
+    getOrderTimeline(order.id),
     listRefundRecords(prisma, order.id),
     listDisputeRecords(prisma, order.id),
     listCapturedPayments(prisma, order.id),
@@ -112,6 +108,8 @@ export default async function AdminFraudOrderPage({
           </dl>
         </Panel>
       ) : null}
+
+      {timeline?.kind === "present" ? <OrderTimelinePanel entries={timeline.entries} /> : null}
 
       <RefundAndDisputePanels
         access={buyerAccess}

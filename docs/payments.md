@@ -708,12 +708,47 @@ stopped by a script check; the database owner can always disable a trigger. The
 protection against that is the runtime role (the app cannot do it) and the owner's
 own discipline.
 
+## The order timeline and demo transactions (MS-22)
+
+**Timeline.** `/admin/fraud/orders/<id>` has a read-only "Riwayat transaksi" table, built by
+`lib/admin/order-timeline.ts` from tables that already hold each fact: `audit_logs` rows about
+the order and its fraud cases, `payment_events` (source, outcome, held or review reason),
+refund and dispute records with their history, the access events of the order (grant, and the
+pause or revoke a dispute or refund caused), the receipt and its deliveries, paid-use days,
+linked fraud cases, legal holds and the retention scrub. Nothing is written. Times are
+database times. Rows sharing one transaction time are ordered by what had to happen first
+(provider event, order change, access, receipt, then refund, dispute, fraud, holds), then by
+key, so the order is the same on every read. Each line names who did it (the buyer, the
+payment provider, a status check, the system, "Admin (name)" or "Pemilik (name)") and fraud
+lines link to their case. Left out on purpose: the buyer's email, raw addresses (the buyer's
+and the provider's show as `203.0.*.*`), provider, refund and event ids, digests, and raw
+provider bodies; audit metadata is read through a short list of fields. Audit rows that only
+repeat another line are not listed again: `payment.event.*` (the provider event line carries
+the outcome and reason), `payment.order.delivered` (the access and receipt lines), `refund.*`
+and `dispute.*` (the case histories say who did each step) and `retention.hold.*` (the holds
+table also covers a hold on the whole buyer). An order removed under the retention policy
+answers with its purged state and no entries. Export and editing are out of scope.
+
+**Labels.** `lib/admin/payment-audit-labels.ts` holds the Indonesian wording for every
+payment, refund, dispute, fraud and retention action, shared by `/admin/audit-logs` and the
+timeline. `test:order-timeline` scans the code for action codes and fails when one has no
+label. A payment row on the audit page links to its order page.
+
+**Demo transactions.** `pnpm db:seed-transaction-demo` (`just local-demo-transactions`) creates nine
+orders through the real checkout handler, the stand-in provider, the payment inbox and the refund
+and dispute code (`scripts/transaction-demo-seed.ts`): paid, pending, expired, failed, paid
+then fully refunded, an open dispute with paused access, a mismatched event held in quarantine,
+a late success after expiry sent to review, and a refund ordered by an authority. It refuses
+unless the stand-in's local-only gate passes (`demoSeedRefusals`, which reuses
+`isLocalStandInRuntime`) and the database is not marked as a merchant's, writes no evidence by
+hand and leaves every trigger on. Steps and accounts are in `docs/agent-app-testing-guide.md`.
+
 ## Tests
 
 `test:payment-inbox`, `test:payment-orders`, `test:payment-outbox`,
 `test:payment-provider`, `test:payment-reconcile`, `test:risk-limits`,
 `test:fraud-blocks`, `test:fraud-cases`, `test:fulfillment`, `test:dispute-export`,
-`test:refunds`, `test:refund-authority`, `test:disputes`, plus `test:checkout-intent`,
+`test:refunds`, `test:refund-authority`, `test:disputes`, `test:order-timeline` (MS-22), plus `test:checkout-intent`,
 `test:affiliator`, `test:daily-maintenance` and `test:daily-maintenance-db`, and
 for MS-10 `test:retention-register`, `-roles`, `-runtime-smoke`, `-maintenance`,
 `-holds`, `-leaks`, `-reset-guard` and `-daily`. The payment suites only run

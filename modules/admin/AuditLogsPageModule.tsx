@@ -17,7 +17,7 @@ import { CalendarDays, ChevronDown, ChevronRight, Download, FileText, History, S
 import { cn } from "@/lib/utils";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
-import { auditActionLabel, auditEventStatus, auditPageCsv, auditRangeLabels, auditReferenceLabel, auditTargetLabel, auditTargetLabels, formatAuditTime, groupAuditEntries } from "./audit-log-presentation";
+import { auditActionLabel, auditEventStatus, auditOrderHref, auditPageCsv, auditRangeLabels, auditReferenceLabel, auditTargetLabel, formatAuditTime, groupAuditEntries } from "./audit-log-presentation";
 import { CopyValueButton } from "./components/copy-value-button";
 
 const categoryTabs: { label: string; value: AuditLogTargetType | null }[] = [
@@ -93,7 +93,12 @@ function AuditTimelineEvent({ entry, defaultOpen }: { entry: AdminAuditLogEntry;
                 {entry.targetId ? <span className="font-mono text-xs">{auditReferenceLabel(entry.targetId)}</span> : "Belum tercatat"}
               </AuditField>
             </dl>
-            <p className="text-xs leading-5 text-secondary-600">Aktivitas {auditTargetLabels[entry.targetType as AuditLogTargetType]?.toLowerCase() ?? "ini"} dicatat atas nama {actorName}.</p>
+            {auditOrderHref(entry) ? (
+              <p className="text-sm leading-5">
+                <Link className="font-medium text-primary-800 underline underline-offset-4" href={auditOrderHref(entry) ?? "#"} prefetch={false}>Buka riwayat pesanan ini</Link>
+              </p>
+            ) : null}
+            <p className="text-xs leading-5 text-secondary-600">Aktivitas {auditTargetLabel(entry.targetType).toLowerCase()} dicatat atas nama {actorName}.</p>
             <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-primary-100 pt-2.5">
               <span className="min-w-0 max-w-full truncate rounded-md border border-primary-100 px-1.5 py-0.5 font-mono text-xs text-secondary-600">{auditReferenceLabel(entry.id)}</span>
               <CopyValueButton ariaLabel="Salin referensi aktivitas" label="Salin referensi" value={entry.id} />

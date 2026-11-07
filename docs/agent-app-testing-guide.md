@@ -77,6 +77,39 @@ Students can be required to hold a running package before they use the learning 
 
 Checkout needs a payment provider; with none configured it stays closed and shows the paused notice. For local testing set `PAYMENT_PROVIDER=stand-in` and `PAYMENT_STAND_IN_LOCAL=1` in your local environment, with `APP_BASE_URL` explicitly set to a loopback URL such as `http://localhost:5023`. The database host must be `localhost`, `127.0.0.1` or `::1`; `host.docker.internal` does not qualify. Keep the opt-in out of every deployed environment. Then set the three `PRICING_PACKAGE_CODE_*` variables to a published package code and check out as the seeded student from `/pricing`. The test pay page lets you pay, fail or expire the payment. Orders and payment events cannot be deleted, so test checkouts stay in the dev database until it is reseeded. See `docs/payments.md`.
 
+### Demo transactions and the order timeline (MS-22)
+
+`/admin/fraud/orders` is empty on a fresh database, because the other seeds create no orders. The demo transaction seed fills it with nine orders that went through the real checkout, the stand-in provider, the payment inbox and the refund and dispute code, so every audit row is genuine. It never disables a trigger and writes no evidence by hand.
+
+```bash
+./_harness/resource-guard.sh run -- rtk pnpm db:seed-transaction-demo    # or: just local-demo-transactions
+```
+
+Needs the baseline accounts and the published package that `pnpm db:seed` creates (run that first on a clean database). It refuses to run, and writes nothing, unless all of these hold: `PAYMENT_STAND_IN_LOCAL=1`, `DATABASE_URL` on `localhost`, `127.0.0.1` or `::1`, `APP_BASE_URL` a loopback URL, `NODE_ENV` not `production`, and no hosting-platform variable (`VERCEL`, `NETLIFY`, `RENDER`, ...). It also refuses a database marked as a merchant's. Neon is never touched: its host is not loopback. It is safe to run twice: a buyer who already has an order is checked and left alone; a half-finished scenario stops the run and says to reset. Evidence cannot be deleted, so to start over run `just local-reset`.
+
+| Buyer (never signs in) | Order state | What the timeline shows |
+|---|---|---|
+| `demo-transaksi-paid@vecalss.local` | Dibayar | Checkout, order, the provider's success, payment accepted, access given, receipt made and delivered |
+| `demo-transaksi-pending@vecalss.local` | Menunggu pembayaran | Only the checkout and the order |
+| `demo-transaksi-expired@vecalss.local` | Kedaluwarsa | The provider's expiry notice, the order closed |
+| `demo-transaksi-failed@vecalss.local` | Gagal | The provider's failure notice, the order closed |
+| `demo-transaksi-refunded@vecalss.local` | Dibayar, dikembalikan penuh | Refund prepared by the demo admin, approved by the owner, sent to the provider, confirmed by its signed event, access taken away |
+| `demo-transaksi-dispute-open@vecalss.local` | Dibayar, sengketa terbuka | The provider's dispute notice, the dispute, access paused |
+| `demo-transaksi-quarantined@vecalss.local` | Menunggu pembayaran | A success notice with the wrong amount, held; the order is not paid |
+| `demo-transaksi-late-success-review@vecalss.local` | Ditinjau | Expiry, then a payment arriving after it, sent to review; no access |
+| `demo-transaksi-authority-refund@vecalss.local` | Dibayar, dikembalikan | A refund ordered by Pengadilan Negeri Jakarta Selatan (name and reference shown), approved, confirmed from the provider's status, access taken away |
+
+The seed uses two admin identities: the owner, which is `FRAUD_OWNER_EMAIL` or else the seeded `admin@vecalss.local`, and `demo-admin-transaksi@vecalss.local`, an admin row with no usable password that only prepares refunds. The existing seed credentials are unchanged.
+
+**Steps for the browser pass** (admin only; the buyers have no passwords):
+
+1. In `.env.local` set `FRAUD_OWNER_EMAIL=admin@vecalss.local` so the signed-in admin counts as the owner (the order page then shows the buyer's full email, the timeline never does). Restart the dev server.
+2. Sign in as `admin@vecalss.local` / `Admin12345!`, enter the code from `scripts/mfa-code.mjs`, open `/admin/fraud/orders`. Nine rows, newest first; the buyer column is masked (`de***@v***.local`).
+3. Open each row. On `/admin/fraud/orders/<id>`, "Riwayat transaksi" sits under the summary: a one-line-per-row table (Waktu, Kejadian, Oleh, Rincian), oldest first, with a badge per line. Check the wording against the table above; no codes, ids or raw addresses (`203.0.*.*` style only); the panel has no buttons or forms.
+4. Open `/admin/audit-logs`. The newest rows are the demo's: titles are Indonesian ("Pembayaran diterima, pesanan lunas", "Pengembalian dana selesai", ...), and a payment row's expanded detail has "Buka riwayat pesanan ini", which leads to that order's page.
+5. Check desktop and 390 px wide: the timeline table scrolls inside its frame (no page-level horizontal scroll), titles truncate on one line with the full text on hover.
+6. A removed order shows "Retensi bukti" and "Riwayat transaksi tidak tersedia ..." instead of a timeline; this only happens after the retention job removes a family, so it is covered by `test:order-timeline`.
+
 ### Additional Cohort Students (Multi-User & Leaderboard Tests)
 
 For testing multi-student scenarios, batch rankings, cohorts, and tryout participant states, the following students are also pre-seeded with password `Student12345!`:
