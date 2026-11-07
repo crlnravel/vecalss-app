@@ -4,7 +4,6 @@ import {
   consumeStream,
   convertToModelMessages,
   createUIMessageStreamResponse,
-  isStepCount,
   isToolUIPart,
   streamText,
   toUIMessageStream,
@@ -36,7 +35,9 @@ import { getVeraModel, getVeraModelId } from "./model";
 import { buildVeraInstructions, estimateTokens, trimHistory } from "./prompt";
 import { resolveMentions } from "./sources/mentions";
 import { collectSources, uniqueSources, VERA_MENTION_TYPES, type VeraSource } from "./sources/types";
-import { createVeraTools } from "./tools";
+import { keepToolLinks, STUDIO_WRITE_TOOLS, studioModelText, studioOptionsSchema, studioTitle, studioToolOfWrite, type StudioOptions } from "./studio";
+import { saveStudioDocument } from "./studio-documents";
+import { createVeraTools, type StudioWrite } from "./tools";
 import { scheduleConversationTitle } from "./titles";
 import { finalStepControl, trackAnswerUsage } from "./usage-tracker";
 
@@ -66,6 +67,8 @@ const sendRequestSchema = z.object({
   message: messageSchema,
   effort: effortField,
   mentions: mentionsField,
+  // A Studio request from the start screen or its options dialog. The message text is the sentence the student sees.
+  studio: studioOptionsSchema.optional(),
 });
 
 // Edit replaces one stored user message, and the answer after it, with this message.
@@ -105,13 +108,24 @@ export function parseVeraChatRequest(body: unknown) {
 }
 
 const STOPPED_PART_TYPE = "data-vera-status";
+// The Studio request a question carries, so Ulangi asks for the same document again. The student's bubble does not show it.
+const STUDIO_REQUEST_PART = "data-vera-studio-request";
+// The document a Studio answer was saved as. The answer shows its card from this.
+const STUDIO_DOCUMENT_PART = "data-vera-studio";
 
 /**
  * What one request asks for: the question to answer, the messages before it, and what its stored rows become. The question keeps the id
- * its row is stored under.
+ * its row is stored under. A Studio request carries its options, which the model reads in place of the student's sentence.
  */
 type Turn =
-  | { kind: "send"; conversationId: string | null; history: UIMessage[]; question: UIMessage; mentions: MentionRequest[] }
+  | {
+      kind: "send";
+      conversationId: string | null;
+      history: UIMessage[];
+      question: UIMessage;
+      mentions: MentionRequest[];
+      studio: StudioOptions | null;
+    }
   | {
       kind: "edit";
       conversationId: string;
@@ -120,6 +134,7 @@ type Turn =
       mentions: MentionRequest[];
       // The edited message and every message after it. The new question takes their place.
       removeIds: string[];
+      studio: null;
     }
   | {
       kind: "regenerate";
@@ -129,6 +144,7 @@ type Turn =
       mentions: MentionRequest[];
       // The answer this run replaces.
       answerId: string;
+      studio: StudioOptions | null;
     };
 
 /** Starts one answer and returns the UI message stream. Ownership is checked and a reservation taken before anything is written. */
@@ -184,7 +200,7 @@ export async function runVeraChat({
     instructions = buildVeraInstructions({ firstName, now, pinned: pinned.pinned });
     const historyBudget = VERA_LIMITS.maxInputTokensPerStep - estimateTokens(instructions) - effort.maxOutputTokens;
     modelMessages = await convertToModelMessages(
-      toModelHistory([...trimHistory(turn.history, Math.max(0, historyBudget)), turn.question]),
+      toModelHistory([...trimHistory(turn.history, Math.max(0, historyBudget)), modelQuestion(turn)]),
     );
 
     await storeTurn({ conversationId, turn, pinned, now });
@@ -194,6 +210,16 @@ export async function runVeraChat({
     throw error;
   }
 
+  // The Studio tool a Studio request names is the first step's only option. Once a Studio tool has been called, the turn writes its
+  // document with Mendalam's output room, ceiling, and step count. The reservation stays the chosen effort's.
+  const forcedTool = turn.studio ? STUDIO_WRITE_TOOLS[turn.studio.tool] : null;
+  const chatControl = finalStepControl({ maxSteps: VERA_LIMITS.maxSteps, effort, prices });
+  const studioControl = finalStepControl({ maxSteps: VERA_LIMITS.studioMaxSteps, effort: VERA_EFFORTS.mendalam, prices });
+  // The last Studio tool the turn called. Its document is the answer the turn saves.
+  let studioWrite: StudioWrite | null = null;
+  // The reason the model stopped. A document cut off for room is not complete.
+  let finishReason: string | undefined;
+
   let response: Response;
   try {
     // The first step reads the instructions and the model messages, so its input is estimated from both.
@@ -202,7 +228,6 @@ export async function runVeraChat({
       prices,
       firstStepInputTokens: estimateTokens(instructions + JSON.stringify(modelMessages)),
     });
-    const finalStep = finalStepControl({ maxSteps: VERA_LIMITS.maxSteps, effort, prices });
     const result = streamText({
       model,
       instructions,
@@ -210,9 +235,27 @@ export async function runVeraChat({
       abortSignal: signal,
       maxOutputTokens: effort.maxOutputTokens,
       maxRetries: 1,
-      tools: createVeraTools({ studentId, now }),
-      prepareStep: finalStep.prepareStep,
-      stopWhen: [isStepCount(VERA_LIMITS.maxSteps), finalStep.stopWhen],
+      tools: createVeraTools({
+        studentId,
+        now,
+        // The options the student chose. A write tool of the same kind writes them, not the arguments the model passed.
+        chosen: turn.studio,
+        onWrite: (write) => {
+          studioWrite = write;
+        },
+      }),
+      prepareStep: (step) => {
+        const studio = isStudioTurn(step.steps);
+        return {
+          ...(studio ? studioControl : chatControl).prepareStep(step),
+          ...(studio ? { maxOutputTokens: VERA_EFFORTS.mendalam.maxOutputTokens } : {}),
+          ...(step.stepNumber === 0 && forcedTool ? { toolChoice: { type: "tool" as const, toolName: forcedTool } } : {}),
+        };
+      },
+      stopWhen: [
+        ({ steps }) => steps.length >= (isStudioTurn(steps) ? VERA_LIMITS.studioMaxSteps : VERA_LIMITS.maxSteps),
+        (options) => (isStudioTurn(options.steps) ? studioControl : chatControl).stopWhen(options),
+      ],
       providerOptions: {
         openai: { reasoningEffort: effort.openaiReasoningEffort, reasoningSummary: "auto", store: false },
       },
@@ -232,19 +275,25 @@ export async function runVeraChat({
         if (part.type === "start") {
           return { conversationId, effort: input.effort, sources: mentionSources, userMessageId: turn.question.id };
         }
-        if (part.type === "finish") return { effort: input.effort, credits: usage.creditsForAnswer() };
+        if (part.type === "finish") {
+          finishReason = (part as { finishReason?: string }).finishReason;
+          return { effort: input.effort, credits: usage.creditsForAnswer(), finishReason };
+        }
         return undefined;
       },
       onError: () => "Vera belum bisa menjawab sekarang. Coba kirim lagi.",
       onEnd: async ({ messages, isAborted, isCancelled }) => {
         await persistAnswer({
           studentId,
+          eventId,
           conversationId,
           messages,
           effort: input.effort,
           credits: usage.creditsForAnswer(),
           stopped: isAborted || isCancelled === true,
           mentionSources,
+          studio: studioWrite,
+          complete: usage.outcome() === "completed" && finishReason !== "length",
         });
       },
     });
@@ -275,12 +324,14 @@ export async function runVeraChat({
 async function planTurn(studentId: string, input: VeraChatInput): Promise<Turn> {
   if (input.action === "send") {
     const history = input.conversationId ? await loadHistory(studentId, input.conversationId) : [];
+    const studio = input.studio ?? null;
     return {
       kind: "send",
       conversationId: input.conversationId ?? null,
       history,
-      question: { id: crypto.randomUUID(), role: "user", parts: input.message.parts },
+      question: { id: crypto.randomUUID(), role: "user", parts: questionParts(input.message.parts, studio) },
       mentions: input.mentions,
+      studio,
     };
   }
 
@@ -293,6 +344,9 @@ async function planTurn(studentId: string, input: VeraChatInput): Promise<Turn> 
     if (index !== messages.map((message) => message.role).lastIndexOf("user")) {
       throw new VeraError("not_latest", "Hanya pesan terakhir yang bisa diubah.");
     }
+    if (storedStudioOf(messages[index])) {
+      throw new VeraError("invalid_request", "Permintaan Studio tidak bisa diubah. Kirim permintaan baru dari kartu Studio.");
+    }
     return {
       kind: "edit",
       conversationId: input.conversationId,
@@ -300,6 +354,7 @@ async function planTurn(studentId: string, input: VeraChatInput): Promise<Turn> 
       question: { id: crypto.randomUUID(), role: "user", parts: input.message.parts },
       mentions: input.mentions,
       removeIds: messages.slice(index).map((message) => message.id),
+      studio: null,
     };
   }
 
@@ -321,6 +376,7 @@ async function planTurn(studentId: string, input: VeraChatInput): Promise<Turn> 
     question,
     mentions: storedMentions(question),
     answerId: input.assistantMessageId,
+    studio: storedStudioOf(question),
   };
 }
 
@@ -336,6 +392,28 @@ async function loadHistory(studentId: string, conversationId: string) {
 function storedMentions(question: UIMessage): MentionRequest[] {
   const parsed = z.array(mentionSchema).safeParse((question.metadata as { mentions?: unknown } | undefined)?.mentions ?? []);
   return parsed.success ? parsed.data : [];
+}
+
+/** A question's parts: the sentence the student sees, and for a Studio request the request itself, which Ulangi reads back. */
+function questionParts(text: UIMessage["parts"], studio: StudioOptions | null): UIMessage["parts"] {
+  return studio ? [...text, { type: STUDIO_REQUEST_PART, data: studio }] : text;
+}
+
+/** The Studio request a stored question carries, or null for an ordinary question. */
+function storedStudioOf(message: UIMessage): StudioOptions | null {
+  const part = message.parts.find((candidate) => candidate.type === STUDIO_REQUEST_PART);
+  const parsed = studioOptionsSchema.safeParse(part && "data" in part ? part.data : undefined);
+  return parsed.success ? parsed.data : null;
+}
+
+/** The question the model answers. A Studio request reads its own sentence and options, not the student's bubble text. */
+function modelQuestion(turn: Turn): UIMessage {
+  return turn.studio ? { ...turn.question, parts: [{ type: "text", text: studioModelText(turn.studio) }] } : turn.question;
+}
+
+/** A turn is a Studio turn once it has called one of the Studio write tools. */
+function isStudioTurn(steps: ReadonlyArray<{ toolCalls: ReadonlyArray<{ toolName: string }> }>) {
+  return steps.some((step) => step.toolCalls.some((call) => studioToolOfWrite(call.toolName) !== null));
 }
 
 /**
@@ -403,30 +481,50 @@ function isToolRefusal(output: unknown) {
   return !!output && typeof output === "object" && Object.keys(output).length === 1 && "error" in output;
 }
 
+/** The text an answer wrote, in order, with the paragraphs between its parts. */
+function answerText(parts: UIMessage["parts"]) {
+  return parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("\n\n")
+    .trim();
+}
+
 async function persistAnswer({
   studentId,
+  eventId,
   conversationId,
   messages,
   effort,
   credits,
   stopped,
   mentionSources,
+  studio,
+  complete,
 }: {
   studentId: string;
+  eventId: string;
   conversationId: string;
   messages: UIMessage[];
   effort: VeraEffortId;
   credits: number | null;
   stopped: boolean;
   mentionSources: VeraSource[];
+  // The Studio tool the turn wrote with, if it called one.
+  studio: StudioWrite | null;
+  complete: boolean;
 }) {
   const answer = [...messages].reverse().find((message) => message.role === "assistant");
   try {
     if (answer) {
       const kept = storedParts(answer.parts);
-      const parts: UIMessage["parts"] = stopped
+      let parts: UIMessage["parts"] = stopped
         ? [...kept, { type: STOPPED_PART_TYPE, data: { stopped: true } }]
         : kept;
+      // A Studio answer is saved as its document, and the answer keeps a pointer to it. A turn that wrote no text saves nothing.
+      const pointer = studio
+        ? await saveTurnDocument({ studentId, eventId, studio, text: answerText(kept), sources: sourcesOf(kept), credits, complete })
+        : null;
+      if (pointer) parts = [...parts, pointer];
       const sources = uniqueSources([...mentionSources, ...sourcesOf(parts)]);
       await appendMessages(conversationId, [
         { id: answer.id, role: "assistant", parts, effort, credits, sources, createdAt: new Date() },
@@ -435,5 +533,47 @@ async function persistAnswer({
     await touchConversation(studentId, conversationId);
   } catch (error) {
     serverLogger.error("vera.chat.persist_failed", error, { area: "vera", operation: "persist_answer" });
+  }
+}
+
+/**
+ * Saves a Studio answer as its document and links the usage event that paid for it to that document. Returns the pointer the answer keeps,
+ * or null when nothing was saved.
+ */
+async function saveTurnDocument({
+  studentId,
+  eventId,
+  studio,
+  text,
+  sources,
+  credits,
+  complete,
+}: {
+  studentId: string;
+  eventId: string;
+  studio: StudioWrite;
+  text: string;
+  sources: VeraSource[];
+  credits: number | null;
+  complete: boolean;
+}): Promise<UIMessage["parts"][number] | null> {
+  if (!text) return null;
+  try {
+    await saveStudioDocument({
+      id: studio.documentId,
+      studentId,
+      tool: studio.tool,
+      title: studioTitle(studio.tool, new Date()),
+      markdown: keepToolLinks(text, sources),
+      sources,
+      input: studio.input,
+      credits: credits ?? 0,
+      complete,
+    });
+    await prisma.veraUsageEvent.update({ where: { id: eventId }, data: { studioDocumentId: studio.documentId } });
+    return { type: STUDIO_DOCUMENT_PART, data: { documentId: studio.documentId, tool: studio.tool, complete } };
+  } catch (error) {
+    serverLogger.error("vera.studio.save_failed", error, { area: "vera", operation: "save_studio_document" });
+    return null;
   }
 }

@@ -36,6 +36,83 @@ export const studioRequestSchema = z.discriminatedUnion("tool", [
 
 export type StudioRequest = z.infer<typeof studioRequestSchema>;
 
+/**
+ * The options a Studio tool takes, without the effort. A Studio request in the chat carries these, and each tool checks its own fields.
+ */
+export const studioOptionsSchema = z.discriminatedUnion("tool", [
+  z.object({
+    tool: z.literal("weakness_analysis"),
+    input: z.object({ subtest: z.string().trim().min(1).max(60).optional() }).default({}),
+  }),
+  z.object({
+    tool: z.literal("study_route"),
+    input: z.object({ minutesPerDay: z.union([z.literal(20), z.literal(30), z.literal(45), z.literal(60)]) }),
+  }),
+  z.object({
+    tool: z.literal("wrong_answer_review"),
+    input: z.object({
+      target: z.union([
+        z.literal("latest"),
+        z.object({ type: z.enum(["kuis", "tryout"]), id: z.string().min(1).max(64) }),
+      ]),
+    }),
+  }),
+]);
+
+export type StudioOptions = z.infer<typeof studioOptionsSchema>;
+
+/** The chat tool each Studio tool is called as. A turn that calls one of these writes its answer as a saved document. */
+export const STUDIO_WRITE_TOOLS = {
+  weakness_analysis: "write_weakness_analysis",
+  study_route: "write_study_route",
+  wrong_answer_review: "write_wrong_answer_review",
+} as const satisfies Record<StudioToolId, string>;
+
+/** The Studio tool a chat tool writes, or null when the tool is not one of them. */
+export function studioToolOfWrite(toolName: string): StudioToolId | null {
+  return (Object.keys(STUDIO_WRITE_TOOLS) as StudioToolId[]).find((tool) => STUDIO_WRITE_TOOLS[tool] === toolName) ?? null;
+}
+
+/**
+ * What the model reads as the student's request. A review's target id is for the model's tool call only, and the student never sees it.
+ */
+export function studioModelText(options: StudioOptions): string {
+  switch (options.tool) {
+    case "weakness_analysis":
+      return options.input.subtest
+        ? `Buat Analisis Kelemahan dengan fokus pada subtes ${options.input.subtest}.`
+        : "Buat Analisis Kelemahan untuk semua subtes.";
+    case "study_route":
+      return `Buat Rute Belajar 7 hari dengan ${options.input.minutesPerDay} menit per hari.`;
+    case "wrong_answer_review": {
+      const { target } = options.input;
+      if (target === "latest") return "Bahas soal yang salah pada hasil terbaru.";
+      return `Bahas soal yang salah pada hasil ${target.type === "tryout" ? "Tryout" : "Kuis"} dengan ID ${target.id}.`;
+    }
+  }
+}
+
+/**
+ * The sentence the student sees as their own message for a Studio request. It names the choice in plain words and never shows an id.
+ * A named result shows its title.
+ */
+export function studioBubbleText(options: StudioOptions, resultTitle?: string): string {
+  switch (options.tool) {
+    case "weakness_analysis":
+      return options.input.subtest
+        ? `Analisis Kelemahan untuk subtes ${options.input.subtest}.`
+        : "Analisis Kelemahan untuk semua subtes.";
+    case "study_route":
+      return `Rute Belajar 7 hari, ${options.input.minutesPerDay} menit per hari.`;
+    case "wrong_answer_review": {
+      const { target } = options.input;
+      if (target === "latest") return "Bahas soal yang salah pada hasil terakhir.";
+      const kind = target.type === "tryout" ? "Tryout" : "Kuis";
+      return `Bahas soal yang salah pada hasil ${kind}${resultTitle ? ` ${resultTitle}` : ""}.`;
+    }
+  }
+}
+
 /** A Kuis attempt or Tryout result the review is about, already checked against what the student may read. */
 export type ReviewTarget = { type: "kuis" | "tryout"; id: string };
 
