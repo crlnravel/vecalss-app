@@ -2,18 +2,13 @@
 
 import { useRef, useState } from "react";
 
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { ReferenceSelectField } from "@/components/dashboard/reference-select-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { fieldControlClassName } from "@/components/ui/field-constants";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
-import { ChevronDown, Compass, ListChecks, Target, type AppIcon } from "@/lib/icons";
+import { Compass, ListChecks, Target, type AppIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/vera/credits-shared";
 import { STUDY_ROUTE_MINUTES, STUDIO_TOOLS, type StudioRequest, type StudioToolId } from "@/lib/vera/studio";
@@ -33,35 +28,46 @@ const TOOL_ICONS: Record<StudioToolId, AppIcon> = {
   study_route: Compass,
   wrong_answer_review: ListChecks,
 };
+/** What each card says, in one short sentence a student can read at a glance. The dialog keeps the longer description. */
+const TOOL_CARD_TEXT: Record<StudioToolId, string> = {
+  weakness_analysis: "Cari tahu topik yang paling perlu kamu perkuat.",
+  study_route: "Susun jadwal belajar seminggu, tidak terlalu padat.",
+  wrong_answer_review: "Pelajari langkah demi langkah setiap soal yang salah.",
+};
 
 type PickedResult = { type: "kuis" | "tryout"; id: string; label: string };
 
 /**
- * The Studio menu in the composer's toolbar. Each of the three tools shows its icon and what it makes. Picking one opens its options
- * dialog, as the old chips did.
+ * The three Studio tools as cards on the start screen, in the order the dropdown used. Each card is a real button: the tool's icon in the
+ * mint block, its name, and one short sentence about what it makes. Picking one opens its options dialog.
  */
-export function VeraStudioMenu({ busy, onPick }: { busy: boolean; onPick: (tool: StudioToolId) => void }) {
+export function VeraStudioCards({ busy, onPick }: { busy: boolean; onPick: (tool: StudioToolId) => void }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger aria-label="Pilih alat Studio" render={<Button disabled={busy} variant="outline" />}>
-        Studio
-        <ChevronDown />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
-        {TOOL_ORDER.map((tool) => {
-          const Icon = TOOL_ICONS[tool];
-          return (
-            <DropdownMenuItem key={tool} onClick={() => onPick(tool)}>
-              <Icon />
-              <span className="flex flex-col gap-0.5">
-                <span className="font-medium">{STUDIO_TOOLS[tool].label}</span>
-                <span className="text-xs text-muted-foreground">{STUDIO_TOOLS[tool].description}</span>
-              </span>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="grid w-full gap-3 md:grid-cols-3">
+      {TOOL_ORDER.map((tool) => {
+        const Icon = TOOL_ICONS[tool];
+        return (
+          <button
+            className={cn(
+              REFERENCE_SURFACE_CLASS_NAMES.tactile,
+              "flex w-full min-w-0 flex-col items-start gap-4 border-learning-card-border p-5 text-left outline-none transition-[border-color,background-color] duration-200 hover:border-voyage-forest focus-visible:ring-4 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 motion-reduce:transition-none",
+            )}
+            disabled={busy}
+            key={tool}
+            onClick={() => onPick(tool)}
+            type="button"
+          >
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-voyage-sea-glass text-voyage-deep">
+              <Icon aria-hidden="true" className="size-6" />
+            </span>
+            <span className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-base font-extrabold text-voyage-ink">{STUDIO_TOOLS[tool].label}</span>
+              <span className="text-sm leading-5 text-learning-muted-ink">{TOOL_CARD_TEXT[tool]}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

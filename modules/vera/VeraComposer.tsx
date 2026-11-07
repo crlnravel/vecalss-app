@@ -8,7 +8,6 @@ import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 
 import {
@@ -50,9 +49,9 @@ const DEFAULT_PLACEHOLDER = "Tanya Vera… ketik @ untuk menyebut Materi, Kuis, 
 export type ComposerSubmit = { text: string; chips: MentionChip[] };
 
 /**
- * The message box, as a card: the text, the sources pinned with `@`, and a toolbar. The toolbar's left side holds the "@ Sebut" button,
- * the effort menu and the Studio menu passed as `leading`. Its right side holds the credit estimate and the send button, which becomes
- * Stop while an answer streams. `examples` rotates the placeholder through suggested questions; `placeholder` fixes it instead.
+ * The message box, as a card: the text, the sources pinned with `@`, and a toolbar. The toolbar's left side holds the effort menu, and its
+ * right side holds the send button, which becomes Stop while an answer streams. `examples` rotates the placeholder through suggested
+ * questions; `placeholder` fixes it instead.
  */
 export function VeraComposer({
   effort,
@@ -65,7 +64,6 @@ export function VeraComposer({
   onStop,
   initialChips = [],
   examples,
-  leading,
   placeholder: fixedPlaceholder,
 }: {
   effort: VeraEffortId;
@@ -79,7 +77,6 @@ export function VeraComposer({
   // Sources already pinned when the composer mounts, such as a Studio document the student asked Vera about.
   initialChips?: MentionChip[];
   examples?: readonly string[];
-  leading?: ReactNode;
   placeholder?: string;
 }) {
   const [input, setInput] = useState("");
@@ -267,7 +264,6 @@ export function VeraComposer({
               Sebut
             </Button>
             <VeraEffortMenu onChange={onEffortChange} value={effort} />
-            {leading}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <span className="text-xs text-muted-foreground tabular-nums">{estimate}</span>

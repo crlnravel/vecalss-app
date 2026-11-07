@@ -385,14 +385,12 @@ export function VeraPageModule({
               initialChips={composerSeed?.chips ?? []}
               messages={messages}
               onChangeEffort={changeEffort}
-              onPickTool={setPickedTool}
               onSend={send}
               onStop={stopAnswer}
               prices={usage.prices}
               restoredIds={restoredIds}
               status={status}
               stoppedMessageId={stoppedMessageId}
-              studioBusy={studio.busy}
             />
           )}
         </div>

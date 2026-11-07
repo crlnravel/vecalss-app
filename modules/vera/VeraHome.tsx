@@ -12,15 +12,16 @@ import type { MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
 import { VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioPreview } from "@/modules/vera/VeraStudioPreview";
-import { VeraStudioMenu } from "@/modules/vera/VeraStudioTools";
+import { VeraStudioCards } from "@/modules/vera/VeraStudioTools";
 import type { VeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
 const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
 
 /**
- * The start screen, in Aily's layout: the mascot above the heading, the composer card with its toolbar, the disclaimer, and the starter
- * questions in a 2×2 grid. A Studio run's preview card sits under the composer. A saved document opens from that card or from its dialog.
+ * The start screen, in Aily's layout: the mascot above the heading, the composer card with its toolbar, the disclaimer, the three Studio
+ * cards, and the starter questions in a 2×2 grid. A Studio run's preview card takes the place of the cards and the starter questions. A
+ * saved document opens from that card or from its dialog.
  */
 export function VeraHome({
   blocked,
@@ -56,7 +57,8 @@ export function VeraHome({
   onSend: (text: string, chips: MentionChip[]) => void;
 }) {
   const title = firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?";
-  // The starter questions step aside while the Studio preview card is up, running or done. A new start screen brings them back.
+  // The Studio cards and the starter questions step aside while the Studio preview card is up, running or done. A new start screen brings
+  // them back.
   const showingPreview = studio.busy || studio.preview !== null;
 
   return (
@@ -82,7 +84,6 @@ export function VeraHome({
             effort={effort}
             examples={VERA_STARTER_PROMPTS}
             historyChars={0}
-            leading={<VeraStudioMenu busy={studio.busy} onPick={onPickTool} />}
             onEffortChange={onChangeEffort}
             onSend={({ text, chips }) => onSend(text, chips)}
             onStop={() => undefined}
@@ -100,7 +101,9 @@ export function VeraHome({
               preview={studio.preview}
               savedDocumentId={savedDocumentId}
             />
-          ) : null}
+          ) : (
+            <VeraStudioCards busy={studio.busy} onPick={onPickTool} />
+          )}
         </div>
         {showingPreview ? null : (
           <div className="grid w-full gap-2 sm:grid-cols-2">
