@@ -1,8 +1,8 @@
 export {
-  getDeveloperReportById,
-  listDeveloperReports,
+  getAdminReportById,
+  listAdminReports,
 } from "./queries";
 export type {
-  DeveloperReportDetail,
-  DeveloperReportListItem,
+  AdminReportDetail,
+  AdminReportListItem,
 } from "./queries";

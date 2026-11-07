@@ -140,7 +140,7 @@ assert.match(access, /if\s*\(!allowUnpaid\)\s*\{\s*try\s*\{\s*if\s*\(!\(await en
 //            the forced password change are both checked)
 //   unpaid   a student needs it whatever their package (settings, onboarding, buying):
 //            requireStudentSession({ allowUnpaid: true }) or the buyer's own session
-//   staff    admin, Kapten, developer or affiliator only: the matching role guard, and a
+//   staff    admin, Kapten or affiliator only: the matching role guard, and a
 //            refusal while the account still has to change its password
 //   account  any signed-in or half-signed-in user acting on their own account
 //   public   before sign-in: no session exists yet
@@ -296,7 +296,6 @@ const STAFF_GUARDS = new Set([
   "requireAdminStudentPreviewContext",
   "requireAffiliatorSession",
   "handleBannerMakerDestinationAction",
-  "requireDeveloperSession",
   "requireOwner",
   "requireTutorSession",
   "runAdmin", // modules/admin/fraud/action-helpers.ts: requireAdminSession
@@ -312,7 +311,6 @@ const PASSWORD_SETTLED_GUARDS = new Set([
   "requireAdminSession",
   "requireAdminStudentPreviewContext",
   "requireAffiliatorSession",
-  "requireDeveloperSession",
   "requirePasswordSettledSession",
   "requireTutorSession",
   "runAdmin",
@@ -839,6 +837,7 @@ const ROUTE_CLASSES: Record<string, RouteClass> = {
   "app/api/admin/imports/[importId]/rows/skip/route.ts": "staff",
   "app/api/admin/imports/preview/route.ts": "staff",
   "app/api/admin/imports/templates/[template]/route.ts": "staff",
+  "app/api/admin/reports/[reportId]/attachment/[attachmentId]/route.ts": "staff",
   "app/api/admin/student-banners/[destination]/draft/[revision]/[slot]/route.ts": "staff",
   "app/api/admin/student-banners/[destination]/published/[revision]/[slot]/route.ts": "staff",
   "app/api/courses/[slug]/[lessonId]/document/route.ts": "student",
@@ -846,7 +845,6 @@ const ROUTE_CLASSES: Record<string, RouteClass> = {
   "app/api/cron/daily-maintenance/route.ts": "public", // bearer CRON_SECRET, 503 when unset
   "app/api/debug/accounts/route.ts": "public", // 404 unless the debug switcher is enabled (local only)
   "app/api/debug/switch-account/route.ts": "public", // same switch
-  "app/api/developer/reports/[reportId]/attachment/[attachmentId]/route.ts": "staff",
   "app/api/health/ready/route.ts": "public",
   "app/api/health/route.ts": "public",
   "app/api/internal/package-purchases/succeeded/route.ts": "public", // signed webhook
@@ -919,7 +917,7 @@ const functionBody = (text: string, name: string) => {
   return text.slice(start, next < 0 ? undefined : next);
 };
 const accessSource = readFileSync("lib/auth/access.ts", "utf8");
-for (const guard of ["requireAdminSession", "requireAdminReadOnlySession", "requireTutorSession", "requireAffiliatorSession", "requireDeveloperSession", "requirePasswordSettledSession"]) {
+for (const guard of ["requireAdminSession", "requireAdminReadOnlySession", "requireTutorSession", "requireAffiliatorSession", "requirePasswordSettledSession"]) {
   assert.match(functionBody(accessSource, guard), /mustChangePassword/u, `${guard} refuses a flagged account`);
 }
 assert.match(functionBody(accessSource, "requireAdminStudentPreviewContext"), /requireAdminReadOnlySession/u);
@@ -933,6 +931,7 @@ const ROUTE_HELPERS: Record<string, [file: string, pattern: RegExp]> = {
   requireAdminSession: ["lib/auth/access.ts", /mustChangePassword/u],
   requireMediaSession: ["lib/media/repository.ts", /mustChangePassword/u],
   requireOwner: ["lib/fraud/authority.ts", /password_change_required/u],
+  serveAdminReportAttachment: ["lib/reports/attachment-route.ts", /mustChangePassword/u],
   serveTryoutCalculationInspection: ["lib/tryout/result-recovery-http.ts", /mustChangePassword/u],
   serveTryoutReadinessInspection: ["lib/tryout/result-readiness-http.ts", /mustChangePassword/u],
 };

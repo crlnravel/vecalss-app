@@ -5,7 +5,7 @@ import { MentorReportFeature, RoleName } from "@/generated/prisma/client";
 import { withMediaStorageTestOverrides } from "@/lib/media/r2";
 import { createReportAttachmentResponse } from "@/lib/reports/attachment-http";
 import {
-  hasDeveloperReportAccess,
+  hasAdminReportAccess,
   hasTutorReportSubmissionAccess,
 } from "@/lib/reports/access";
 import { createMentorReport } from "@/lib/reports/service";
@@ -116,13 +116,15 @@ async function run() {
   assert.equal(overAggregateLimit.ok, false, "aggregate attachment bytes over 50 MiB are rejected");
   assert.equal(REPORT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES, 50 * 1024 * 1024);
 
-  assert.equal(hasDeveloperReportAccess(null), false, "anonymous requests cannot access reports");
-  assert.equal(hasDeveloperReportAccess([RoleName.tutor]), false, "mentor role cannot access reports");
-  assert.equal(hasDeveloperReportAccess([RoleName.developer]), true, "developer role can access reports");
+  assert.equal(hasAdminReportAccess(null), false, "anonymous requests cannot access reports");
+  assert.equal(hasAdminReportAccess([RoleName.tutor]), false, "mentor role cannot access reports");
+  assert.equal(hasAdminReportAccess([RoleName.student]), false, "student role cannot access reports");
+  assert.equal(hasAdminReportAccess([RoleName.affiliator]), false, "affiliator role cannot access reports");
+  assert.equal(hasAdminReportAccess([RoleName.admin]), true, "admin role can access reports");
   assert.equal(
-    hasDeveloperReportAccess([RoleName.developer], true),
+    hasAdminReportAccess([RoleName.admin], true),
     false,
-    "developers must change their password before accessing reports",
+    "admins must change their password before accessing reports",
   );
   assert.equal(hasTutorReportSubmissionAccess([RoleName.tutor]), true, "mentors can submit reports");
   assert.equal(

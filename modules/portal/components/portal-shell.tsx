@@ -30,6 +30,7 @@ const adminSectionLabels = {
   docs: "Dokumentasi",
   fraud: "Fraud",
   kapten: "Kapten",
+  laporan: "Laporan",
   notifications: "Notifikasi",
   overview: "Dashboard",
   "student-banners": "Editor banner",
@@ -45,6 +46,7 @@ const adminSectionRootHrefs = {
   docs: "/admin/docs",
   fraud: "/admin/fraud",
   kapten: "/admin/kapten",
+  laporan: "/admin/laporan",
   notifications: "/admin/notifications",
   overview: "/admin",
   "student-banners": "/admin/student-banners",
@@ -62,7 +64,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "student-banners" | "docs" | "fraud" | "table-demo";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "affiliators" | "notifications" | "audit-logs" | "ai-usage" | "student-banners" | "docs" | "fraud" | "laporan" | "table-demo";
   breadcrumbHref?: string;
   children: React.ReactNode;
   description: string;

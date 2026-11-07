@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { DeveloperReportListItem } from "@/lib/reports";
+import type { AdminReportListItem } from "@/lib/reports";
 import { ClipboardList } from "@/lib/icons";
 
 const SUBMITTED_AT_FORMATTER = new Intl.DateTimeFormat("id-ID", {
@@ -77,7 +77,7 @@ function EmptyReportsMessage() {
   );
 }
 
-function DeveloperReportsTable({ reports }: { reports: DeveloperReportListItem[] }) {
+function AdminReportsTable({ reports }: { reports: AdminReportListItem[] }) {
   const router = useRouter();
 
   return (
@@ -105,7 +105,7 @@ function DeveloperReportsTable({ reports }: { reports: DeveloperReportListItem[]
             </TableCell>
           </TableRow>
         ) : reports.map((report) => {
-          const detailHref = `/developer/reports/${report.id}`;
+          const detailHref = `/admin/laporan/${report.id}`;
 
           return (
             <TableRow
@@ -148,4 +148,4 @@ function DeveloperReportsTable({ reports }: { reports: DeveloperReportListItem[]
   );
 }
 
-export { DeveloperReportsTable };
+export { AdminReportsTable };
