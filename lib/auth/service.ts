@@ -61,7 +61,7 @@ import type {
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
-  | { code: "blocked" | "invalid_credentials" | "rate_limited" | "service_unavailable"; ok: false };
+  | { code: "blocked" | "invalid_credentials" | "rate_limited" | "service_unavailable" | "unverified"; ok: false };
 
 type PasswordResetRequestResult = {
   deliveredResetUrl: string | null;
@@ -363,6 +363,22 @@ async function authenticateUser(
 
       return {
         code: "invalid_credentials",
+        ok: false,
+      };
+    }
+
+    // A self-registered account cannot sign in until its email is verified. Checked only after the
+    // password matched, so it is no way to learn which addresses have accounts.
+    if (user.emailVerifiedAt === null) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "email_unverified",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "unverified",
         ok: false,
       };
     }
