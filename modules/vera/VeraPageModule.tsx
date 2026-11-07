@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { showToast } from "@/components/ui/toast";
@@ -126,7 +126,10 @@ export function VeraPageModule({
   // The document the student deleted from the dialog. The preview card stops offering it.
   const [deletedDocumentId, setDeletedDocumentId] = useState<string | null>(null);
   const sessions = useVeraSessions(initialSessions);
-  const studio = useVeraStudioRun();
+  // Each read of the usage meter takes a number, and only the newest read may write. So a slow response cannot replace a newer one.
+  const usageReads = useRef(0);
+  // A run that ends, stopped or not, has used credits, so the usage meter is read again.
+  const studio = useVeraStudioRun(() => void refreshUsage());
   const storedEffort = useSyncExternalStore(
     subscribeToStorage,
     () => readStoredEffort(studentId),
@@ -175,9 +178,12 @@ export function VeraPageModule({
   );
 
   async function refreshUsage() {
+    const read = ++usageReads.current;
     try {
       const response = await fetch("/api/vera/usage", { cache: "no-store" });
-      if (response.ok) setUsage((await response.json()) as VeraUsageSnapshot);
+      if (!response.ok) return;
+      const snapshot = (await response.json()) as VeraUsageSnapshot;
+      if (read === usageReads.current) setUsage(snapshot);
     } catch {
       // Keep the numbers already on screen.
     }
