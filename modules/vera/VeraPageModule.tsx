@@ -18,6 +18,7 @@ import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
 import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
+import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
 import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
@@ -80,8 +81,8 @@ function answerErrorMessage(error: Error): string {
 }
 
 /**
- * The Vera page: a slim top bar over either home or the chat. Sessions live in a right-side sheet opened from the bar.
- * Home has no active session, so going back to it starts nothing new; the session stays in the sheet.
+ * The Vera page, in Aily's layout: a header over the centre column, which shows either home or the chat. From lg up a right panel holds
+ * the conversation list and the usage block. Below lg the list opens from the header, in a sheet. Starting a new session goes to home.
  *
  * The chat hook lives here rather than in the chat view, so a message sent from home is sent from the click that sends it. Starting
  * a request from an effect would be cancelled by React's development double-run of effects.
@@ -252,7 +253,7 @@ export function VeraPageModule({
     setView("chat");
   }
 
-  // Home starts clean: the thread is cleared and no session is active. The session itself stays in the sheet.
+  // Home starts clean: the thread is cleared and no session is active. The session itself stays in the list.
   function goHome() {
     if (busy) void stop();
     setMessages([]);
@@ -315,10 +316,10 @@ export function VeraPageModule({
     router.push(`/vera-ai?c=${id}`);
   }
 
-  // The nonce gives the page a new key, so a new session never reuses the thread on screen, even when the URL already reads ?c=new.
+  // "Sesi baru" opens the start screen on a new page instance. The nonce gives the page a new key, so no thread or draft carries over.
   function newSession() {
     setSessionsOpen(false);
-    router.push(`/vera-ai?c=new&n=${Date.now()}`);
+    router.push(`/vera-ai?n=${Date.now()}`);
   }
 
   function deleteSession(id: string) {
@@ -350,51 +351,68 @@ export function VeraPageModule({
         usage={usage}
       />
 
-      {view === "home" ? (
-        <VeraHome
-          blocked={blocked}
-          effort={effort}
-          firstName={firstName}
-          onAsk={askAboutDocument}
-          onAskDocumentById={(id) => void askAboutDocumentById(id)}
-          onChangeEffort={changeEffort}
-          onCloseDocument={() => setOpenDocument(null)}
-          onDeleteDocument={(id) => void deleteDocument(id)}
-          onOpenDocument={(id) => void openDocumentById(id)}
-          onSend={startChatFromHome}
-          openDocument={openDocument}
-          prices={usage.prices}
-          savedDocumentId={savedDocumentId}
-          studio={studio}
-        />
-      ) : (
-        <VeraChat
-          blocked={blocked}
-          busy={busy}
-          composerKey={composerSeed?.key ?? 0}
-          effort={effort}
-          historyChars={historyChars}
-          initialChips={composerSeed?.chips ?? []}
-          messages={messages}
-          onBack={goHome}
-          onChangeEffort={changeEffort}
-          onSend={send}
-          onStop={stopAnswer}
-          prices={usage.prices}
-          restoredIds={restoredIds}
-          status={status}
-          stoppedMessageId={stoppedMessageId}
-        />
-      )}
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {view === "home" ? (
+            <VeraHome
+              blocked={blocked}
+              effort={effort}
+              firstName={firstName}
+              onAsk={askAboutDocument}
+              onAskDocumentById={(id) => void askAboutDocumentById(id)}
+              onChangeEffort={changeEffort}
+              onCloseDocument={() => setOpenDocument(null)}
+              onDeleteDocument={(id) => void deleteDocument(id)}
+              onOpenDocument={(id) => void openDocumentById(id)}
+              onSend={startChatFromHome}
+              openDocument={openDocument}
+              prices={usage.prices}
+              savedDocumentId={savedDocumentId}
+              studio={studio}
+            />
+          ) : (
+            <VeraChat
+              blocked={blocked}
+              busy={busy}
+              composerKey={composerSeed?.key ?? 0}
+              effort={effort}
+              historyChars={historyChars}
+              initialChips={composerSeed?.chips ?? []}
+              messages={messages}
+              onBack={goHome}
+              onChangeEffort={changeEffort}
+              onSend={send}
+              onStop={stopAnswer}
+              prices={usage.prices}
+              restoredIds={restoredIds}
+              status={status}
+              stoppedMessageId={stoppedMessageId}
+            />
+          )}
+        </div>
 
+        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. */}
+        <aside
+          aria-label="Percakapan"
+          className="hidden min-h-0 w-68 shrink-0 flex-col gap-4 border-l border-border p-4 lg:flex"
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <VeraSessionsPanel {...panel} />
+          </div>
+          <VeraUsageBody className="shrink-0 border-t border-border pt-4" usage={usage} />
+        </aside>
+      </div>
+
+      {/* Below lg the same panel opens from the header, in a sheet. */}
       <Sheet onOpenChange={setSessionsOpen} open={sessionsOpen}>
         <SheetContent side="right">
           <SheetHeader>
             <SheetTitle>Percakapan</SheetTitle>
             <SheetDescription>Pilih percakapan untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
             <VeraSessionsPanel {...panel} />
+            <VeraUsageBody usage={usage} />
           </div>
         </SheetContent>
       </Sheet>
