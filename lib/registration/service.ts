@@ -452,7 +452,7 @@ async function isVerificationLinkUsable(rawToken: string, now: Date = new Date()
  * append-only consent record, and every other link of the account ends. Runs
  * only from a POST (the button), once per link.
  */
-async function verifyEmail(rawToken: string, password: string, deps: Pick<RegistrationDeps, "now"> = {}): Promise<VerifyOutcome> {
+async function verifyEmail(rawToken: string, password: string, deps: Pick<RegistrationDeps, "now"> & { hashPassword?: typeof hashPassword } = {}): Promise<VerifyOutcome> {
   if (!rawToken || rawToken.length > 200) return { status: "invalid" };
   const violation = getPasswordViolation(password);
   if (violation) return { status: "invalid_password", violation };
@@ -461,7 +461,6 @@ async function verifyEmail(rawToken: string, password: string, deps: Pick<Regist
   const now = (deps.now ?? (() => new Date()))();
 
   try {
-    const passwordHash = await hashPassword(password);
     return await prisma.$transaction(async (tx): Promise<VerifyOutcome> => {
       // Read identity without locking a token. Revalidate it only after locking its user.
       const identity = await tx.emailVerificationToken.findUnique({ where: { tokenHash }, select: { userId: true } });
@@ -494,15 +493,18 @@ async function verifyEmail(rawToken: string, password: string, deps: Pick<Regist
       `;
       if (!token) return { status: "invalid" };
 
+      if (user.email_verified_at !== null) return { status: "invalid" };
+      // Expensive work only follows a valid, locked bearer token. Replays and random
+      // tokens cannot burn bcrypt CPU; concurrent requests recheck after waiting.
+      const passwordHash = await (deps.hashPassword ?? hashPassword)(password);
+
       await tx.emailVerificationToken.updateMany({
         data: { usedAt: now },
         where: { usedAt: null, userId: token.user_id },
       });
 
-      // Already verified through another link: nothing more to record.
-      if (user.email_verified_at !== null) return { status: "invalid" };
-
       await tx.user.update({ data: { emailVerifiedAt: now, passwordHash, passwordUpdatedAt: now, status: UserStatus.active, failedLoginCount: 0, lockedUntil: null }, where: { id: token.user_id } });
+      await tx.passwordResetToken.updateMany({ where: { userId: token.user_id, usedAt: null }, data: { usedAt: now } });
       await tx.registrationConsent.create({
         data: {
           ageConfirmed: true,

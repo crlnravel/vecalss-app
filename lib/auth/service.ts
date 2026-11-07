@@ -491,6 +491,7 @@ async function requestPasswordReset(
 
   if (
     !user
+    || user.emailVerifiedAt === null
     || user.status === UserStatus.disabled
     || user.status === UserStatus.soft_deleted
     || user.softDeletedAt
@@ -570,7 +571,7 @@ async function getValidPasswordResetRecord(rawToken: string) {
       },
       tokenHash: hashToken(rawToken),
       usedAt: null,
-      user: { previewPurpose: null },
+      user: { previewPurpose: null, emailVerifiedAt: { not: null } },
     },
   });
 }
@@ -609,6 +610,7 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
     const user = await tx.user.findUnique({
       select: {
         id: true,
+        emailVerifiedAt: true,
         previewPurpose: true,
         softDeletedAt: true,
         status: true,
@@ -618,6 +620,7 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
 
     if (
       !user
+      || user.emailVerifiedAt === null
       || user.status === UserStatus.disabled
       || user.status === UserStatus.soft_deleted
       || user.softDeletedAt

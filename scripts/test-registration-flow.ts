@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import { hashToken, verifyPassword } from "../lib/auth/crypto";
+import { completePasswordReset, getValidPasswordResetRecord, requestPasswordReset } from "../lib/auth/service";
 import type { EmailMessage, MailResult } from "../lib/email/mailer";
 import { createAutomaticBlock } from "../lib/fraud/blocks";
 import { newDeviceToken } from "../lib/fraud/tokens";
@@ -213,6 +214,16 @@ async function main() {
     assert.equal(user.studentProfile?.displayName, "Siti Aminah");
     assert.equal(user.studentProfile?.onboardingStatus, "not_started");
     assert.equal(user.passwordHash, null, "signup stores no password or hash before inbox ownership is proven");
+    const reset = await requestPasswordReset(happyEmail, "student", {
+      getMetadata: h.deps.getMetadata, mailer: h.deps.mailer, schedule: h.deps.schedule,
+    });
+    assert.deepEqual(reset, { deliveredResetUrl: null }, "password recovery cannot issue a credential-setting link for a pending signup");
+    assert.equal(await prisma.passwordResetToken.count({ where: { userId: user.id } }), 0);
+    const forgedReset = `pending-reset-${randomUUID()}`;
+    await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash: hashToken(forgedReset), expiresAt: new Date(Date.now() + 60000) } });
+    assert.equal(await getValidPasswordResetRecord(forgedReset), null, "even a pre-existing reset token does not make a pending account eligible");
+    await assert.rejects(() => completePasswordReset(forgedReset, PASSWORD), /invalid or has already expired/u);
+    assert.equal((await userByEmail(happyEmail))!.passwordHash, null);
 
     assert.equal(user.emailVerificationTokens.length, 1);
     const [token] = user.emailVerificationTokens;
@@ -437,6 +448,9 @@ async function main() {
     assert.deepEqual(await verifyEmail(happyToken, PASSWORD, { now: late }), { status: "invalid" }, "a link older than 24 hours is refused");
     assert.equal((await userByEmail(happyEmail))!.emailVerifiedAt, null);
     assert.deepEqual(await verifyEmail("tidak-ada", PASSWORD), { status: "invalid" });
+    let expensiveCalls = 0;
+    assert.deepEqual(await verifyEmail("unknown-opaque-token", PASSWORD, { hashPassword: async () => { expensiveCalls += 1; throw new Error("unexpected bcrypt"); } }), { status: "invalid" });
+    assert.equal(expensiveCalls, 0, "unknown tokens cannot trigger expensive password hashing");
     assert.deepEqual(await verifyEmail("", PASSWORD), { status: "invalid" });
 
     // The button.
@@ -449,6 +463,7 @@ async function main() {
     assert.deepEqual(await verifyEmail(happyToken, " Sandi-Uji-2026! "), { status: "verified" });
     assert.equal(await verifyPassword(" Sandi-Uji-2026! ", (await userByEmail(happyEmail))!.passwordHash), true, "verification hashes exactly as typed");
     assert.equal(await verifyPassword("Sandi-Uji-2026!", (await userByEmail(happyEmail))!.passwordHash), false, "no trimming");
+    assert.equal(await prisma.passwordResetToken.count({ where: { userId: (await userByEmail(happyEmail))!.id, usedAt: null } }), 0, "verification invalidates any older password recovery links");
     const after = await userByEmail(happyEmail);
     assert.ok(after!.emailVerifiedAt, "the email is verified");
     assert.equal(after!.registrationConsents.length, 1, "the agreement becomes a consent record");
