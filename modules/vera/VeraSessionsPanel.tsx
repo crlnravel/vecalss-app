@@ -17,17 +17,16 @@ import { Plus, Search } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import { cn } from "@/lib/utils";
-import { studentSidebarControlClassName } from "@/modules/student/components/student-sidebar";
 import { SESSION_DAY_LABELS, sessionDay, type SessionDay } from "@/modules/vera/session-day";
 import { VeraSessionRow } from "@/modules/vera/VeraSessionRow";
-import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
+import { VeraUsageBar } from "@/modules/vera/VeraUsageBar";
 
 const DAY_ORDER: readonly SessionDay[] = ["today", "yesterday", "older"];
 
 /**
- * The conversation list, built from the sidebar's own parts. The new-session button sits in the header, and the usage block sits in the
- * footer under the sidebar's footer treatment. The content holds the search and the active sessions under their day groups. The same
- * panel opens in the sheet below lg.
+ * The conversation list, built from the sidebar's own parts. The new-session button sits in the header, and the usage bar sits in the
+ * footer, outside the list's scroll area. The content holds the search and the active sessions under their day groups. The same panel
+ * opens in the sheet below lg.
  */
 export function VeraSessionsPanel({
   sessions,
@@ -127,9 +126,7 @@ export function VeraSessionsPanel({
       </SidebarContent>
 
       <SidebarFooter className="p-3">
-        <div className={cn("p-3", studentSidebarControlClassName)}>
-          <VeraUsageBody usage={usage} />
-        </div>
+        <VeraUsageBar usage={usage} />
       </SidebarFooter>
     </>
   );
