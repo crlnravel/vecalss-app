@@ -138,26 +138,27 @@ function MentionLinks({ mentions }: { mentions: ResolvedMention[] }) {
   );
 }
 
-/** Copies the answer's text. The label says "Tersalin" for two seconds, then goes back to "Salin". */
+/** Copies the answer's text. The icon turns into a check for two seconds, and the button keeps its name, "Salin". */
 function CopyAnswerButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <Button
+      aria-label="Salin"
+      className="-my-2"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
           setCopied(true);
           window.setTimeout(() => setCopied(false), 2_000);
         } catch {
-          // The browser refused the copy, so the label stays as it is.
+          // The browser refused the copy, so the icon stays as it is.
         }
       }}
-      size="sm"
+      size="icon"
       type="button"
       variant="quiet"
     >
-      {copied ? <Check /> : <Copy />}
-      {copied ? "Tersalin" : "Salin"}
+      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
     </Button>
   );
 }
@@ -206,7 +207,14 @@ function ThreadMessage({
       <span aria-hidden="true" className="relative size-8 shrink-0 overflow-hidden">
         <Image alt="" className="object-contain" fill sizes="32px" src={MASCOT_SRC} />
       </span>
-      <div className="flex w-full min-w-0 flex-col gap-3 rounded-panel border border-border bg-white p-4 text-base leading-[1.7] text-foreground">
+      <div className="relative flex w-full min-w-0 flex-col gap-3 rounded-panel border border-border bg-white p-4 text-base leading-[1.7] text-foreground">
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-3 left-2 h-3 w-4 overflow-visible fill-white stroke-border stroke-1"
+          viewBox="0 0 16 12"
+        >
+          <path d="M0 0 L6 12 L16 12 Z" />
+        </svg>
         {message.parts.map((part, index) => {
           if (part.type === "reasoning") {
             return <Reasoning key={index} streaming={part.state === "streaming"} text={part.text} />;
@@ -234,8 +242,8 @@ function ThreadMessage({
       </div>
       <div className="flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground">
         {answer ? <CopyAnswerButton text={answer} /> : null}
-        {typeof credits === "number" ? <span className="tabular-nums">{formatCredits(credits)} kredit</span> : null}
         <Sources sources={sources} />
+        {typeof credits === "number" ? <span className="tabular-nums">{formatCredits(credits)} kredit</span> : null}
       </div>
     </div>
   );
