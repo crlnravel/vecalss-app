@@ -247,7 +247,7 @@ async function main() {
       const [message] = h.sent;
       assert.equal(message.to, valid.email);
       assert.equal(message.idempotencyKey, `password-reset-${rows[0].id}`);
-      assert.equal(message.subject, "Atur ulang kata sandi akun Vecalss-mu");
+      assert.equal(message.subject, "Atur ulang kata sandi akun PTN Pro-mu");
       const link = message.text.match(/https?:\/\/\S+/u)?.[0] as string;
       assert.ok(link, "the email carries the link");
       validLink = link;

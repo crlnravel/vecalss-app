@@ -7,7 +7,7 @@ import { getSessionContext } from "@/lib/auth/session";
 import { MfaPageModule } from "@/modules/auth/MfaPageModule";
 
 export const metadata: Metadata = {
-  title: "Verifikasi dua langkah | Vecalss",
+  title: "Verifikasi dua langkah | PTN Pro",
   robots: { follow: false, index: false },
 };
 

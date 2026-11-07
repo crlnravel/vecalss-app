@@ -13,7 +13,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const TOTP_DIGITS = 6;
 /** One adjacent step of clock drift either way. */
 const TOTP_EPOCH_TOLERANCE_SECONDS = TOTP_PERIOD_SECONDS;
-const TOTP_ISSUER = "Vecalss";
+const TOTP_ISSUER = "PTN Pro";
 
 /** Failed attempts per account and kind inside the window before it is blocked. */
 const MFA_MAX_FAILED_ATTEMPTS = 5;

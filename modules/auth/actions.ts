@@ -102,7 +102,7 @@ async function handleLoginAction(
       // Neutral on purpose: it names no rule and no identifier.
       return {
         fields: { email },
-        message: `Akunmu belum bisa dipakai saat ini. Hubungi tim Vecalss lewat ${getSupportContact().label} supaya kami bisa membantu memeriksanya.`,
+        message: `Akunmu belum bisa dipakai saat ini. Hubungi tim PTN Pro lewat ${getSupportContact().label} supaya kami bisa membantu memeriksanya.`,
         status: "error",
       };
     }
