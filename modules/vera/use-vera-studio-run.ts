@@ -24,7 +24,7 @@ function runErrorMessage(error: Error): string {
  * One Studio run at a time. A run streams through the same message protocol as chat, so its tool rows show what Vera is reading
  * while the document is written. The last request is kept, so the retry in a failure toast can send it again.
  */
-export function useVeraStudioRun(onFinished: () => void) {
+export function useVeraStudioRun() {
   const lastRequest = useRef<StudioRequest | null>(null);
   // The run is described entirely by the request body (tool, input and effort), so only that body is sent.
   const transport = useMemo(
@@ -38,7 +38,6 @@ export function useVeraStudioRun(onFinished: () => void) {
   const { messages, sendMessage, status, stop } = useChat<UIMessage>({
     id: "vera-studio",
     transport,
-    onFinish: () => onFinished(),
     onError: (error) => {
       showToast(runErrorMessage(error), {
         variant: "error",
@@ -60,7 +59,7 @@ export function useVeraStudioRun(onFinished: () => void) {
   const preview = [...messages].reverse().find((message) => message.role === "assistant") ?? null;
   return {
     busy: status === "submitted" || status === "streaming",
-    // The run names its document in the start metadata, so the preview can tell whether the list holds that document.
+    // The saved document's id comes back in the message metadata, so the preview can open that document or ask about it.
     previewDocumentId: (preview?.metadata as { documentId?: string } | undefined)?.documentId,
     preview,
     run,

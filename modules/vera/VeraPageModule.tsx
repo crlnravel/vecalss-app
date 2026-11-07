@@ -12,7 +12,7 @@ import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
-import type { StudioDocument, StudioDocumentSummary } from "@/lib/vera/studio-documents";
+import type { StudioDocument } from "@/lib/vera/studio-documents";
 import { studioDocumentHref } from "@/lib/vera/sources/types";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
@@ -20,7 +20,6 @@ import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
-import { useVeraStudioDocs } from "@/modules/vera/use-vera-studio";
 import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 
 const DEFAULT_EFFORT: VeraEffortId = "seimbang";
@@ -92,7 +91,6 @@ export function VeraPageModule({
   firstName,
   initialMessages,
   initialSessions,
-  initialStudioDocs,
   initialStudioDocument,
   initialUsage,
   notificationFeed,
@@ -104,7 +102,6 @@ export function VeraPageModule({
   firstName: string | null;
   initialMessages: UIMessage[];
   initialSessions: VeraSessionSummary[];
-  initialStudioDocs: StudioDocumentSummary[];
   initialStudioDocument: StudioDocument | null;
   initialUsage: VeraUsageSnapshot;
   notificationFeed: StudentNotificationFeed;
@@ -126,9 +123,10 @@ export function VeraPageModule({
   const [usage, setUsage] = useState(initialUsage);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [effortOverride, setEffortOverride] = useState<VeraEffortId | null>(null);
+  // The document the student deleted from the dialog. The preview card stops offering it.
+  const [deletedDocumentId, setDeletedDocumentId] = useState<string | null>(null);
   const sessions = useVeraSessions(initialSessions);
-  const docs = useVeraStudioDocs(initialStudioDocs);
-  const studio = useVeraStudioRun(() => void docs.refresh());
+  const studio = useVeraStudioRun();
   const storedEffort = useSyncExternalStore(
     subscribeToStorage,
     () => readStoredEffort(studentId),
@@ -136,6 +134,9 @@ export function VeraPageModule({
   );
   const effort = effortOverride ?? storedEffort;
   const blocked = blockedMessage(usage);
+  // A document the student deleted no longer offers its buttons on the preview card.
+  const savedDocumentId =
+    studio.previewDocumentId && studio.previewDocumentId !== deletedDocumentId ? studio.previewDocumentId : null;
 
   // Only the newest message travels in the request. The server loads the rest of the thread.
   const transport = useMemo(
@@ -257,16 +258,44 @@ export function VeraPageModule({
     window.history.replaceState(null, "", "/vera-ai");
   }
 
-  async function openDocumentById(id: string) {
-    const response = await fetch(`/api/vera/studio/${encodeURIComponent(id)}`, { cache: "no-store" });
-    if (!response.ok) return;
-    const { document } = (await response.json()) as { document: StudioDocument };
-    setOpenDocument(document);
+  // The preview knows a document only by its id, so the full document is read from the server before it opens or is asked about.
+  async function loadDocument(id: string): Promise<StudioDocument | null> {
+    try {
+      const response = await fetch(`/api/vera/studio/${encodeURIComponent(id)}`, { cache: "no-store" });
+      if (response.ok) {
+        const { document } = (await response.json()) as { document: StudioDocument };
+        return document;
+      }
+    } catch {
+      // Fall through to the message below.
+    }
+    showToast("Dokumen belum bisa dibuka. Coba lagi.", { variant: "error" });
+    return null;
   }
 
+  async function openDocumentById(id: string) {
+    const document = await loadDocument(id);
+    if (document) setOpenDocument(document);
+  }
+
+  async function askAboutDocumentById(id: string) {
+    const document = await loadDocument(id);
+    if (document) askAboutDocument(document);
+  }
+
+  // The dialog stays open when the delete fails, so the student can try again.
   async function deleteDocument(id: string) {
-    setOpenDocument(null);
-    await docs.remove(id);
+    try {
+      const response = await fetch(`/api/vera/studio/${encodeURIComponent(id)}`, { method: "DELETE", cache: "no-store" });
+      if (response.ok) {
+        setOpenDocument(null);
+        setDeletedDocumentId(id);
+        return;
+      }
+    } catch {
+      // Fall through to the message below.
+    }
+    showToast("Dokumen belum bisa dihapus. Coba lagi.", { variant: "error" });
   }
 
   function changeEffort(next: VeraEffortId) {
@@ -318,10 +347,10 @@ export function VeraPageModule({
       {view === "home" ? (
         <VeraHome
           blocked={blocked}
-          docs={docs}
           effort={effort}
           firstName={firstName}
           onAsk={askAboutDocument}
+          onAskDocumentById={(id) => void askAboutDocumentById(id)}
           onChangeEffort={changeEffort}
           onCloseDocument={() => setOpenDocument(null)}
           onDeleteDocument={(id) => void deleteDocument(id)}
@@ -329,6 +358,7 @@ export function VeraPageModule({
           onSend={startChatFromHome}
           openDocument={openDocument}
           prices={usage.prices}
+          savedDocumentId={savedDocumentId}
           studio={studio}
         />
       ) : (
