@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 function ConditionalSpeedInsights() {
   const pathname = usePathname();
 
-  // Invite URLs carry a bearer token and must not be sent to third-party
-  // analytics or navigation instrumentation.
-  if (pathname?.startsWith("/invite/")) {
+  // Invite and email verification URLs carry a bearer token and must not be
+  // sent to third-party analytics or navigation instrumentation.
+  if (pathname?.startsWith("/invite/") || pathname?.startsWith("/daftar/verifikasi/")) {
     return null;
   }
 

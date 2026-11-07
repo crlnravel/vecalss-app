@@ -26,7 +26,8 @@ function LoginForm({
   registerUrl: string;
 }) {
   const [state, formAction] = useActionState(loginAction, EMPTY_FORM_STATE);
-  const keepMessageInline = useActionToast(state);
+  // The unverified-email answer carries a link, so it stays on the page instead of fading away as a toast.
+  const keepMessageInline = useActionToast(state.verificationNeeded ? { ...state, message: undefined } : state);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -35,9 +36,21 @@ function LoginForm({
       ) : null}
 
       {notice ? <ToastOnMount message={notice.text} variant="success" /> : null}
-      {state.message && keepMessageInline ? (
+      {state.message && (keepMessageInline || state.verificationNeeded) ? (
         <FormNotice showLabel={false} tone="danger">
           {state.message}
+          {state.verificationNeeded ? (
+            <>
+              {" "}
+              <Link
+                className="font-semibold underline underline-offset-4"
+                href={`/daftar/periksa-email${returnTo ? `?${new URLSearchParams({ returnTo })}` : ""}`}
+              >
+                Kirim ulang tautan verifikasi
+              </Link>
+              .
+            </>
+          ) : null}
         </FormNotice>
       ) : null}
 

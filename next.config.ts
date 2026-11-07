@@ -13,6 +13,9 @@ import type { NextConfig } from "next";
  * - connect-src https: the PDF viewer fetches documents from signed storage
  *   URLs and media uploads PUT to signed storage URLs.
  * - worker-src blob: pdf.js runs its worker from a bundled same-origin file.
+ * - challenges.cloudflare.com in script-src and frame-src: the Turnstile check on
+ *   the signup form loads its script and widget frame from there. Cloudflare asks
+ *   for exactly these two directives; connect-src already allows https.
  */
 function buildContentSecurityPolicy() {
   const isDevelopment = process.env.NODE_ENV !== "production";
@@ -24,14 +27,14 @@ function buildContentSecurityPolicy() {
     "frame-ancestors 'self'",
     "form-action 'self'",
     // React dev tooling needs eval; production builds never do.
-    `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDevelopment ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "font-src 'self' data:",
     `connect-src 'self' https:${isDevelopment ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
-    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com",
   ].join("; ");
 }
 

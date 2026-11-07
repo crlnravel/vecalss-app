@@ -98,6 +98,16 @@ async function handleLoginAction(
       };
     }
 
+    if (result.code === "unverified") {
+      // Only said after the password was right, so it tells nobody which emails have accounts.
+      return {
+        fields: { email },
+        message: "Emailmu belum diverifikasi. Buka tautan di email dari PTN Pro, atau minta tautan baru.",
+        status: "error",
+        verificationNeeded: true,
+      };
+    }
+
     if (result.code === "blocked") {
       // Neutral on purpose: it names no rule and no identifier.
       return {
