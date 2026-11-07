@@ -24,7 +24,7 @@ function formatReset(value: string) {
   return `${formatted} WIB`;
 }
 
-/** Top-bar meter. Opening it shows each window with its reset time. */
+/** Header meter. Opening it shows each window with its reset time. */
 export function VeraUsagePopover({ usage, onOpen }: { usage: VeraUsageSnapshot; onOpen?: () => void }) {
   return (
     <Popover
@@ -32,7 +32,10 @@ export function VeraUsagePopover({ usage, onOpen }: { usage: VeraUsageSnapshot; 
         if (open) onOpen?.();
       }}
     >
-      <PopoverTrigger className="rounded-pill">
+      <PopoverTrigger
+        aria-label={`Kredit hari ini ${formatCredits(usage.day.used)} dari ${usage.day.hardLimit}`}
+        className="rounded-pill"
+      >
         <Context used={usage.day.used} limit={usage.day.hardLimit} />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-4 p-4">

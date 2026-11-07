@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,12 +13,9 @@ import { VERA_EFFORT_IDS, VERA_EFFORTS, type VeraEffortId } from "@/lib/vera/con
 export function VeraEffortMenu({ value, onChange }: { value: VeraEffortId; onChange: (next: VeraEffortId) => void }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`Mode berpikir: ${VERA_EFFORTS[value].label}`}
-        className="inline-flex min-h-11 items-center gap-1 rounded-pill px-3 text-sm font-medium text-secondary-950"
-      >
+      <DropdownMenuTrigger aria-label={`Mode berpikir: ${VERA_EFFORTS[value].label}`} render={<Button variant="outline" />}>
         {VERA_EFFORTS[value].label}
-        <ChevronDown className="size-4" />
+        <ChevronDown />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuRadioGroup

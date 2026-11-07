@@ -9,11 +9,14 @@ import {
   TraceTitle,
 } from "@/components/ui/trace";
 
-/** Collapsible summary of the model's reasoning. It opens while the answer streams and folds away afterwards. */
+/**
+ * Collapsible summary of the model's reasoning. It stays folded in both states: the title says Vera is thinking while the answer
+ * streams, and the text opens only when the student asks for it.
+ */
 function Reasoning({ text, streaming }: { text: string; streaming: boolean }) {
   return (
     <Trace>
-      <TraceCollapsible defaultOpen={streaming}>
+      <TraceCollapsible>
         <TraceCollapsibleTrigger>
           <TraceIcon>
             <Brain />

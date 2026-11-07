@@ -25,6 +25,10 @@ The navigation contracts below continue to govern the existing interface.
   have no header breadcrumb use a plain text button labelled “Kembali” (outline,
   or inverse on a dark header) with a parent-specific accessible name such as
   “Kembali ke detail Kuis”. Never add an icon to it.
+- **Full-screen tool workspaces:** A tool that fills the viewport, such as Vera
+  AI, may use the Title role (Manrope 800 at `1.25rem`) for its header `h1`
+  instead of the Display role. A Display title would crowd the working surface,
+  so the header stays compact. Pages with a breadcrumb keep the Display role.
 - **Directional arrows stay:** Pagination, calendar, carousel, sidebar collapse
   and previous/next question or step controls keep their arrows. They move
   within a set; they do not leave the page.

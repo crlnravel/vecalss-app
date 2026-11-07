@@ -3,7 +3,7 @@ import * as React from "react";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import { cn } from "@/lib/utils";
 
-/** Today's credit meter. It reports spend against the day's limit, not a context window. */
+/** Today's credit meter, as a sunken pill. It reports spend against the day's limit, not a context window. */
 function Context({
   used,
   limit,
@@ -13,12 +13,12 @@ function Context({
   return (
     <span
       className={cn(
-        "inline-flex min-h-11 items-center gap-2 rounded-pill border border-border bg-card px-3 text-xs font-medium text-secondary-950 tabular-nums",
+        "inline-flex min-h-[44px] items-center gap-2 rounded-pill border border-primary-100/80 bg-secondary-50 px-3.5 text-xs font-medium text-voyage-deep tabular-nums shadow-[inset_-3px_-3px_8px_color-mix(in_oklab,var(--voyage-surface)_76%,transparent),inset_3px_3px_8px_color-mix(in_oklab,var(--voyage-forest)_10%,transparent)]",
         className,
       )}
       {...props}
     >
-      <span className="text-muted-foreground">Kredit hari ini</span>
+      <span className="text-muted-foreground max-sm:hidden">Kredit hari ini</span>
       {formatCredits(used)} / {limit}
     </span>
   );
