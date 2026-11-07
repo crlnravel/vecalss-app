@@ -9,6 +9,7 @@ import { createAutomaticBlock } from "../lib/fraud/blocks";
 import { newDeviceToken } from "../lib/fraud/tokens";
 import type { LegalDocument } from "../lib/legal/types";
 import { prisma } from "../lib/prisma";
+import { closeSharedRedisClient } from "../lib/redis";
 import { cleanupUnverifiedSignups } from "../lib/registration/cleanup";
 import { REGISTRATION_LIMITS, RESEND_LIMITS } from "../lib/registration/constants";
 import {
@@ -603,5 +604,6 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
+    await closeSharedRedisClient();
     await prisma.$disconnect();
   });
