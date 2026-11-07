@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { CircleHelp } from "@/lib/icons";
 import type { VeraEffortId } from "@/lib/vera/config";
 import type { VeraPrices } from "@/lib/vera/credits-shared";
 import type { StudioToolId } from "@/lib/vera/studio";
@@ -11,15 +13,15 @@ import type { MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
 import { VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioPreview } from "@/modules/vera/VeraStudioPreview";
-import { VeraStudioToolChips, VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
+import { VeraStudioMenu, VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
 import type { VeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
 const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
 
 /**
- * The home page: the mascot and the heading, the composer with the three Studio tools inside it, then the Studio preview. A saved
- * document opens from that preview or from its dialog. Older documents are found through the `@` menu.
+ * The start screen, in Aily's layout: the mascot above the heading, the composer card with its toolbar, the disclaimer, and the starter
+ * questions in a 2×2 grid. A Studio run's preview card sits under the composer. A saved document opens from that card or from its dialog.
  */
 export function VeraHome({
   blocked,
@@ -56,56 +58,64 @@ export function VeraHome({
   const title = firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <section className="shrink-0 px-4 pt-10 md:px-8 md:pt-24">
-        <div className="mx-auto flex w-full max-w-[760px] flex-col items-center gap-6">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
-            <span aria-hidden="true" className="relative size-[104px] shrink-0">
-              <Image alt="" className="object-contain" fill sizes="104px" src={MASCOT_SRC} />
-            </span>
-            <h1 className="font-heading text-center text-[2.25rem] leading-[1.25] font-extrabold tracking-[-0.04em] text-balance text-voyage-ink md:text-[3rem] sm:text-left">
-              {title}
-            </h1>
-          </div>
-          <div className="flex w-full flex-col gap-2">
-            {blocked ? (
-              <p
-                className="rounded-card border border-student-status-attention-border bg-student-status-attention-bg px-4 py-3 text-sm text-student-status-attention-fg"
-                role="status"
-              >
-                {blocked}
-              </p>
-            ) : null}
-            <VeraComposer
-              blocked={blocked}
-              effort={effort}
-              examples={VERA_STARTER_PROMPTS}
-              historyChars={0}
-              leading={<VeraStudioToolChips busy={studio.busy} onPick={setPickedTool} />}
-              onEffortChange={onChangeEffort}
-              onSend={({ text, chips }) => onSend(text, chips)}
-              onStop={() => undefined}
-              prices={prices}
-              status="ready"
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <section className="mx-auto flex w-full max-w-181 flex-1 flex-col items-center justify-center gap-6 px-4 py-6 md:px-0">
+        <span aria-hidden="true" className="relative size-20 shrink-0">
+          <Image alt="" className="object-contain" fill sizes="80px" src={MASCOT_SRC} />
+        </span>
+        <h2 className="font-heading text-center text-[clamp(1.5rem,2.4vw,1.875rem)] leading-[1.25] font-extrabold tracking-[-0.04em] text-balance text-voyage-ink">
+          {title}
+        </h2>
+        <div className="flex w-full flex-col gap-3">
+          {blocked ? (
+            <p
+              className="rounded-card border border-student-status-attention-border bg-student-status-attention-bg px-4 py-3 text-sm text-student-status-attention-fg"
+              role="status"
+            >
+              {blocked}
+            </p>
+          ) : null}
+          <VeraComposer
+            blocked={blocked}
+            effort={effort}
+            examples={VERA_STARTER_PROMPTS}
+            historyChars={0}
+            leading={<VeraStudioMenu busy={studio.busy} onPick={setPickedTool} />}
+            onEffortChange={onChangeEffort}
+            onSend={({ text, chips }) => onSend(text, chips)}
+            onStop={() => undefined}
+            prices={prices}
+            status="ready"
+          />
+          <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
+          {studio.busy || studio.preview ? (
+            <VeraStudioPreview
+              busy={studio.busy}
+              className="max-h-[min(36dvh,16rem)] md:max-h-[min(40dvh,22rem)]"
+              onAsk={onAskDocumentById}
+              onOpen={onOpenDocument}
+              onStop={() => void studio.stop()}
+              preview={studio.preview}
+              savedDocumentId={savedDocumentId}
             />
-            <p className="text-center text-xs text-muted-foreground">Vera bisa salah. Cek lagi jawabannya.</p>
-          </div>
+          ) : null}
+        </div>
+        <div className="grid w-full gap-2 sm:grid-cols-2">
+          {VERA_STARTER_PROMPTS.map((prompt) => (
+            <Button
+              className="h-11 justify-start rounded-pill text-left"
+              disabled={blocked !== null}
+              key={prompt}
+              onClick={() => onSend(prompt, [])}
+              type="button"
+              variant="outline"
+            >
+              <CircleHelp />
+              {prompt}
+            </Button>
+          ))}
         </div>
       </section>
-
-      {studio.busy || studio.preview ? (
-        <div className="mx-auto w-full max-w-[78rem] shrink-0 px-4 pt-6 md:px-8">
-          <VeraStudioPreview
-            busy={studio.busy}
-            className="max-h-[min(36dvh,16rem)] md:max-h-[min(40dvh,22rem)]"
-            onAsk={onAskDocumentById}
-            onOpen={onOpenDocument}
-            onStop={() => void studio.stop()}
-            preview={studio.preview}
-            savedDocumentId={savedDocumentId}
-          />
-        </div>
-      ) : null}
 
       <VeraStudioToolDialog
         busy={studio.busy}
@@ -117,12 +127,7 @@ export function VeraHome({
         prices={prices}
         tool={pickedTool}
       />
-      <VeraStudioDocDialog
-        doc={openDocument}
-        onAsk={onAsk}
-        onClose={onCloseDocument}
-        onDelete={onDeleteDocument}
-      />
+      <VeraStudioDocDialog doc={openDocument} onAsk={onAsk} onClose={onCloseDocument} onDelete={onDeleteDocument} />
     </div>
   );
 }

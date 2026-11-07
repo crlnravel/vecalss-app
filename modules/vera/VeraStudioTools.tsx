@@ -5,9 +5,15 @@ import { useRef, useState } from "react";
 import { ReferenceSelectField } from "@/components/dashboard/reference-select-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { fieldControlClassName } from "@/components/ui/field-constants";
 import { SunkenTabButton } from "@/components/ui/sunken-tabs";
-import { Compass, ListChecks, Target, type AppIcon } from "@/lib/icons";
+import { ChevronDown, Compass, ListChecks, Target, type AppIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { estimateCreditRange, formatCreditRange, type VeraPrices } from "@/lib/vera/credits-shared";
 import { STUDY_ROUTE_MINUTES, STUDIO_TOOLS, type StudioRequest, type StudioToolId } from "@/lib/vera/studio";
@@ -30,20 +36,32 @@ const TOOL_ICONS: Record<StudioToolId, AppIcon> = {
 
 type PickedResult = { type: "kuis" | "tryout"; id: string; label: string };
 
-/** The three Studio tools as chips. They sit in the home composer, and each one opens its options in a dialog. */
-export function VeraStudioToolChips({ busy, onPick }: { busy: boolean; onPick: (tool: StudioToolId) => void }) {
+/**
+ * The Studio menu in the composer's toolbar. Each of the three tools shows its icon and what it makes. Picking one opens its options
+ * dialog, as the old chips did.
+ */
+export function VeraStudioMenu({ busy, onPick }: { busy: boolean; onPick: (tool: StudioToolId) => void }) {
   return (
-    <div aria-label="Alat Studio" className="flex flex-wrap gap-2" role="group">
-      {TOOL_ORDER.map((tool) => {
-        const Icon = TOOL_ICONS[tool];
-        return (
-          <Button disabled={busy} key={tool} onClick={() => onPick(tool)} type="button" variant="outline">
-            <Icon />
-            {STUDIO_TOOLS[tool].label}
-          </Button>
-        );
-      })}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger aria-label="Pilih alat Studio" render={<Button disabled={busy} variant="outline" />}>
+        Studio
+        <ChevronDown />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        {TOOL_ORDER.map((tool) => {
+          const Icon = TOOL_ICONS[tool];
+          return (
+            <DropdownMenuItem key={tool} onClick={() => onPick(tool)}>
+              <Icon />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium">{STUDIO_TOOLS[tool].label}</span>
+                <span className="text-xs text-muted-foreground">{STUDIO_TOOLS[tool].description}</span>
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
