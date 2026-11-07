@@ -14,9 +14,8 @@ import { registerStudent } from "../lib/registration/service";
  * load, and the whole verification path through the actual server actions: an
  * unverified account is refused at sign-in (and gets no session), opening the
  * link verifies nothing, the button verifies, and the next sign-in lands on the
- * checkout the buyer came from. Turnstile itself is never called: the account is
- * created through the service with the check supplied by this test, and the form
- * is only ever sent without a token, which is refused before any network call.
+ * checkout the buyer came from. Turnstile's transport is injected in the child
+ * process, so successful signup actions are exercised without a network call.
  * Local database only.
  */
 if (!/@(127\.0\.0\.1|localhost):55432\//.test(process.env.DATABASE_URL ?? "")) {
@@ -52,7 +51,8 @@ let server: ChildProcess | null = null;
 function startServer(extra: Record<string, string>) {
   const env: NodeJS.ProcessEnv = { ...process.env, ...SERVER_ENV, ...extra };
   // This script runs under the react-server condition (the service imports server-only); the app must not.
-  delete env.NODE_OPTIONS;
+  env.NODE_OPTIONS = `--import=${ROOT}/scripts/fixtures/registration-turnstile-fetch.mjs`;
+  env.NEXT_TELEMETRY_DISABLED = "1";
   const log = process.env.REGISTRATION_TEST_SERVER_LOG ? openSync(process.env.REGISTRATION_TEST_SERVER_LOG, "a") : "ignore";
   server = spawn(`${ROOT}/node_modules/.bin/next`, ["dev", "-p", String(PORT)], { cwd: ROOT, env, stdio: ["ignore", log, log] });
   return server;
@@ -232,6 +232,31 @@ async function main() {
     const resendId = ids.get("modules/auth/registration-actions.ts#resendVerificationAction");
     const registerId = ids.get("modules/auth/registration-actions.ts#registerStudentAction");
     assert.ok(loginId && verifyId && resendId && registerId);
+
+    // A real successful signup action, with only the outbound Siteverify transport injected.
+    const actionEmail = `signup-action-${runId}@ms21.test`;
+    createdEmails.push(actionEmail);
+    const registered = await callFormAction(registerId, "/daftar", {
+      email: actionEmail, fullName: "Nama Pemilik", ageConfirmed: "yes",
+      "cf-turnstile-response": "ms21-http-pass", returnTo: CHECKOUT, ref: "AFF-77",
+      password: "Attacker-2026!", // An unsolicited credential must be ignored.
+    });
+    const registrationTarget = await redirectTarget(registered);
+    assert.equal(registrationTarget?.pathname, "/daftar/periksa-email");
+    assert.equal(registrationTarget.searchParams.get("returnTo"), CHECKOUT);
+    assert.equal(registrationTarget.searchParams.get("ref"), "AFF-77");
+    const actionUser = await prisma.user.findUniqueOrThrow({ where: { email: actionEmail } });
+    assert.equal(actionUser.emailVerifiedAt, null);
+    assert.equal(actionUser.passwordHash, null, "even a forged signup password is never persisted");
+    const repeated = await callFormAction(registerId, "/daftar", {
+      email: actionEmail, fullName: "Nama Penyerang", ageConfirmed: "yes",
+      "cf-turnstile-response": "ms21-http-pass", password: "Another-Attack-2026!",
+    });
+    assert.equal((await redirectTarget(repeated))?.pathname, "/daftar/periksa-email");
+    const stillOriginal = await prisma.user.findUniqueOrThrow({ where: { email: actionEmail } });
+    assert.equal(stillOriginal.fullName, "Nama Pemilik");
+    assert.equal(stillOriginal.passwordHash, null);
+    pass("successful signup action preserves returnTo/ref and ignores unsolicited passwords, including repeated signup");
 
     // Signing in is refused until the email is verified, whatever the password.
     const sessionsFor = async () => prisma.authSession.count({ where: { user: { email } } });
