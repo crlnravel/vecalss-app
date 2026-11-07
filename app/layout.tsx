@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
 
 import { ConditionalSpeedInsights } from "@/components/conditional-speed-insights";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -54,6 +55,7 @@ export default function RootLayout({
           <Toaster />
         </TooltipProvider>
         <ConditionalSpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
