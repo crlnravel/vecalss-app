@@ -1406,3 +1406,10 @@ Live refresh/polling. AS-08 remains closed.
 - Draft PR https://github.com/crlnravel/vecalss-app/pull/43 targets `feat/vera-openai`; no merge. Implementation through `3cb36399`.
 - Six registration/legal suites passed in recovered logs. Finished remaining prepared suites: full 190 outcomes in Traycer MS-21 delivery artifact. TypeScript/build pass; repository lint and broad suites have failures. No claim of all-green validation.
 - Independent Luna spec/standards review found credential-proof and concurrency defects. Coordinator asked to approve verification password-confirmation flow; remediation and browser acceptance remain. Public signup stays closed by default.
+
+## MS-21 review fixes and corrected-env validation — 7 November 2026
+
+- User chose password only on verification POST. Implemented in ad44edf4 with nullable pending credential and locked verification/cleanup/token rotation. Followups 47ea39b6,85c765f,5d71cd5,b34597a4 close recovery/admin writes, invalid-token bcrypt, expiry-after-lock and test Redis cleanup.
+- ffaa3ee/f99c605 add successful signup-action HTTP coverage with test-process-only Siteverify transport injection; this passes. 5dba7637 classifies new IP readers and fixes the provisioning fixture for stronger ordinary-table readiness; both tests pass. Independent rereviews clear all concrete findings.
+- Correct MFA env copied from approved integration worktree and loaded with process.loadEnvFile. Corrected-env 190-suite battery plus two new suites completed; all registration/legal/concurrency/grant suites pass, but broad failures remain. TypeScript passes; same lint error reproduced on clean fa020df9.
+- Current build, extra HTTP checks, corrected base Docker and several paired comparisons remain pending. Stopped the long wrapper at coordinator request and switched to one guard launch per suite. Three base payment-provider attempts then refused75; no bypass. Durable exact exits/classification checkpoint: MS-21 delivery/validation-20261107 artifact. PR43 stays draft; no browser pass.

@@ -6,7 +6,7 @@
       "description": "Public student signup, email verification, consent, abuse controls and PTN Pro legal pages.",
       "dependencies": [],
       "status": "in_progress",
-      "evidence": "Draft PR #43, feat/ms21-self-registration through 3cb36399. Six new suites passed; 190-suite prepared battery completed, with broad failures recorded in MS-21 delivery artifact. TypeScript/build pass, existing-file lint failure. Independent review blocks merge: pending-account credential proof, stale verification read, cleanup renewal race and lock order. Awaiting coordinator decision; signup closed by default. Browser acceptance pending."
+      "evidence": "Draft PR #43 through 5dba7637. User decision 7 Nov: password chosen only on verification POST. Credential, concurrency, expiry, recovery and runtime-grant fixes committed; four concurrency cases and real-login grants pass. Fresh security/spec reviews clear; successful signup HTTP action with injected transport passes. Corrected-env 190+2 battery and base comparisons recorded in delivery/validation-20261107 artifact; broad failures remain, two audit/fixture regressions fixed and rerun. Current tsc passes, lint error reproduced on clean fa020df9. Current build/extra HTTP and remaining paired comparisons await shared guard capacity; wrapper stopped to avoid starving peers. Signup closed by default; browser acceptance pending."
     },
     {
       "id": "tryout-f13-deadline-reconciliation",
