@@ -26,6 +26,7 @@ import {
 } from "../lib/vera/ledger";
 import { setVeraModelForTests } from "../lib/vera/model";
 import { formatResetAt, formatResetIn, formatUsagePercent, usagePercent } from "../lib/vera/usage-display";
+import { sessionDay, sessionTime } from "../modules/vera/session-day";
 import { trackAnswerUsage } from "../lib/vera/usage-tracker";
 import { dayWindow, monthWindow, weekWindow } from "../lib/vera/windows";
 
@@ -179,6 +180,12 @@ try {
     "Reset 2 Jan 2027 00.00",
     "The year shows only when it is not the current year",
   );
+
+  // The session list's day groups and times, on the Jakarta calendar.
+  assert.equal(sessionDay("2026-11-04T08:00:00+07:00", now), "today", "A session updated earlier today is today");
+  assert.equal(sessionDay("2026-11-03T23:30:00+07:00", now), "yesterday", "Late last night is yesterday");
+  assert.equal(sessionDay("2026-11-02T10:00:00+07:00", now), "older", "Two days back is older");
+  assert.match(sessionTime("2026-11-04T09:05:00+07:00", now), /^09\.05$/u, "Today's rows show the clock time");
 
   // Settlement. A completed step costs what the provider reported. A step cut off after it streamed costs an estimate on top of that,
   // because OpenAI bills generation once it starts. An answer that streamed nothing is released.

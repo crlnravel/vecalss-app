@@ -24,11 +24,16 @@ import { fieldControlClassName } from "@/components/ui/field-constants";
 import { Ellipsis } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { cn } from "@/lib/utils";
+import { sessionTime } from "@/modules/vera/session-day";
 
-/** One session in the list: open it, rename it inline, archive or restore it, or delete it after a confirmation. */
+/**
+ * One conversation in the list: its title, and the time of its last update under it. The active one sits on the Sea-Glass Wash with a
+ * Voyage border. Its menu renames it, archives or restores it, or deletes it after a confirmation.
+ */
 export function VeraSessionRow({
   session,
   active,
+  now,
   onOpen,
   onRename,
   onArchive,
@@ -36,6 +41,7 @@ export function VeraSessionRow({
 }: {
   session: VeraSessionSummary;
   active: boolean;
+  now: Date;
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onArchive: (id: string, toArchive: boolean) => void;
@@ -84,23 +90,22 @@ export function VeraSessionRow({
     <>
       <div
         className={cn(
-          "flex items-center gap-1 rounded-control pr-1 transition-colors motion-reduce:transition-none",
-          active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60",
+          "flex items-center gap-1 rounded-control border pr-1 transition-colors motion-reduce:transition-none",
+          active ? "border-voyage-leaf bg-accent text-accent-foreground" : "border-transparent text-foreground hover:bg-accent/60",
         )}
       >
         <button
           aria-current={active ? "true" : undefined}
-          className="min-h-[44px] min-w-0 flex-1 truncate rounded-control px-3 text-left text-sm font-medium"
+          className="flex min-h-16 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-control px-3 py-2 text-left"
           onClick={() => onOpen(session.id)}
           type="button"
         >
-          {session.title}
+          <span className="truncate text-sm font-medium">{session.title}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{sessionTime(session.updatedAt, now)}</span>
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={
-              <Button aria-label={`Aksi untuk sesi ${session.title}`} size="icon" type="button" variant="quiet" />
-            }
+            render={<Button aria-label="Opsi percakapan" size="icon" type="button" variant="quiet" />}
           >
             <Ellipsis />
           </DropdownMenuTrigger>
