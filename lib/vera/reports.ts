@@ -4,13 +4,11 @@ import { z } from "zod";
 
 import type { VeraMessageReportReason } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { VERA_REPORT_NOTE_LIMIT, VERA_REPORT_REASON_IDS } from "./config";
 import { VeraError } from "./errors";
 
-export const VERA_REPORT_REASONS = ["wrong_answer", "not_my_context", "inappropriate", "other"] as const;
-export const VERA_REPORT_NOTE_LIMIT = 500;
-
 export const veraReportSchema = z.object({
-  reason: z.enum(VERA_REPORT_REASONS),
+  reason: z.enum(VERA_REPORT_REASON_IDS),
   note: z.string().trim().max(VERA_REPORT_NOTE_LIMIT).optional(),
 });
 

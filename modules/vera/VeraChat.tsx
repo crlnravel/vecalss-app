@@ -12,8 +12,17 @@ import { Sources } from "@/components/ai-elements/sources";
 import { ToolStep } from "@/components/ai-elements/tool";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, CircleHelp, Copy } from "@/lib/icons";
-import type { VeraEffortId } from "@/lib/vera/config";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Check, CircleHelp, Copy, Flag, Pencil, RefreshCw } from "@/lib/icons";
+import {
+  VERA_LIMITS,
+  VERA_REPORT_NOTE_LIMIT,
+  VERA_REPORT_REASON_IDS,
+  VERA_REPORT_REASON_LABELS,
+  type VeraEffortId,
+  type VeraReportReason,
+} from "@/lib/vera/config";
 import { formatCredits } from "@/lib/vera/credits-shared";
 import { cn } from "@/lib/utils";
 import { collectSources, uniqueSources, type ResolvedMention, type VeraSource } from "@/lib/vera/sources/types";
@@ -23,6 +32,11 @@ import { VeraMarkdown } from "@/modules/vera/VeraMarkdown";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
 const MASCOT_SRC = "/brand/mascot-vecalss-2.png";
+
+/** The page sends an edit with the message's text, the message's stored id, and its mentions. */
+type EditHandler = (storedId: string, localId: string, text: string, mentions: ResolvedMention[]) => void;
+/** The page saves a report and says so. It resolves true once the report is saved, so the dialog can close. */
+type ReportHandler = (messageId: string, reason: VeraReportReason, note: string) => Promise<boolean>;
 
 /**
  * The chat view, in Aily's centre column: the thread scrolls inside the column, and the composer card stays pinned under it with the
@@ -36,6 +50,9 @@ export function VeraChat({
   initialChips,
   messages,
   onChangeEffort,
+  onEdit,
+  onRegenerate,
+  onReport,
   onSend,
   onStop,
   restoredIds,
@@ -52,22 +69,38 @@ export function VeraChat({
   status: PromptInputStatus;
   stoppedMessageId: string | null;
   onChangeEffort: (effort: VeraEffortId) => void;
+  onEdit: EditHandler;
+  onRegenerate: (messageId: string) => void;
+  onReport: ReportHandler;
   onSend: (text: string, chips: MentionChip[]) => void;
   onStop: () => void;
 }) {
+  // Edit and Ulangi act only on the newest message of their kind, and nothing of the three shows while a turn streams.
+  const lastUserIndex = messages.map((message) => message.role).lastIndexOf("user");
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {messages.length > 0 ? (
         <ChatThread className="mx-auto w-full max-w-3xl" contentClassName="flex flex-col gap-6 px-4 py-6">
-          {messages.map((message) => (
-            <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
-              <ThreadMessage
-                fresh={!restoredIds.has(message.id)}
-                message={message}
-                stopping={message.id === stoppedMessageId}
-              />
-            </ChatTurn>
-          ))}
+          {messages.map((message, index) => {
+            const storedId = message.role === "user" ? storedUserId(messages, index, restoredIds) : null;
+            return (
+              <ChatTurn fromUser={message.role === "user"} key={message.id} messageId={message.id}>
+                <ThreadMessage
+                  blocked={blocked}
+                  canEdit={!busy && index === lastUserIndex && storedId !== null}
+                  canRegenerate={!busy && index === messages.length - 1 && message.role === "assistant"}
+                  canReport={!busy && message.role === "assistant"}
+                  fresh={!restoredIds.has(message.id)}
+                  message={message}
+                  onEdit={onEdit}
+                  onRegenerate={onRegenerate}
+                  onReport={onReport}
+                  storedId={storedId}
+                  stopping={message.id === stoppedMessageId}
+                />
+              </ChatTurn>
+            );
+          })}
         </ChatThread>
       ) : null}
 
@@ -92,6 +125,7 @@ export function VeraChat({
         {blocked ? (
           <p
             className="rounded-card border border-student-status-attention-border bg-student-status-attention-bg px-4 py-3 text-sm text-student-status-attention-fg"
+            id="vera-limit-notice"
             role="status"
           >
             {blocked}
@@ -112,6 +146,17 @@ export function VeraChat({
       </div>
     </div>
   );
+}
+
+/**
+ * The id the server stores a student's message under. A message sent in this session is stored under the id its answer names. A message
+ * restored from the server already has that id. A message with neither is not edited, because the server could not find it.
+ */
+function storedUserId(messages: UIMessage[], index: number, restoredIds: Set<string>): string | null {
+  const answer = messages[index + 1];
+  const named = (answer?.metadata as { userMessageId?: string } | undefined)?.userMessageId;
+  if (named) return named;
+  return restoredIds.has(messages[index].id) ? messages[index].id : null;
 }
 
 /**
@@ -163,15 +208,152 @@ function CopyAnswerButton({ text }: { text: string }) {
   );
 }
 
-function ThreadMessage({
-  message,
-  stopping = false,
-  fresh = false,
+/** The student's question open for editing, in place. Kirim sends the new text, and the server replaces the question and the answer after it. */
+function EditQuestion({
+  blocked,
+  initial,
+  onCancel,
+  onSubmit,
 }: {
-  message: UIMessage;
-  stopping?: boolean;
-  fresh?: boolean;
+  blocked: boolean;
+  initial: string;
+  onCancel: () => void;
+  onSubmit: (text: string) => void;
 }) {
+  const [draft, setDraft] = useState(initial);
+  const text = draft.trim();
+  return (
+    <div className="flex w-full max-w-[70%] flex-col gap-2">
+      <Textarea
+        aria-label="Ubah pertanyaan"
+        className="min-h-20 rounded-panel bg-white text-base"
+        maxLength={VERA_LIMITS.maxMessageChars}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onCancel();
+        }}
+        ref={(node) => node?.focus()}
+        value={draft}
+      />
+      <div className="flex justify-end gap-2">
+        <Button onClick={onCancel} size="sm" type="button" variant="outline">
+          Batal
+        </Button>
+        <Button disabled={text.length === 0 || blocked} onClick={() => onSubmit(text)} size="sm" type="button">
+          Kirim
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Laporkan: the student picks a reason and may add a note. The report is saved for this one answer. */
+function ReportDialog({
+  onClose,
+  onSubmit,
+  open,
+}: {
+  onClose: () => void;
+  onSubmit: (reason: VeraReportReason, note: string) => Promise<boolean>;
+  open: boolean;
+}) {
+  const [reason, setReason] = useState<VeraReportReason | null>(null);
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+
+  function close() {
+    setReason(null);
+    setNote("");
+    onClose();
+  }
+
+  async function send() {
+    if (!reason || sending) return;
+    setSending(true);
+    const saved = await onSubmit(reason, note.trim());
+    setSending(false);
+    if (saved) close();
+  }
+
+  return (
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next) close();
+      }}
+      open={open}
+    >
+      <DialogContent className="flex w-[calc(100vw-1.5rem)] max-w-[32rem] flex-col gap-5 rounded-panel p-5 sm:max-w-[32rem] sm:p-6">
+        <DialogHeader>
+          <DialogTitle>Laporkan jawaban</DialogTitle>
+          <DialogDescription>Pilih alasannya. Catatan tambahan boleh dikosongkan.</DialogDescription>
+        </DialogHeader>
+        <div aria-label="Alasan laporan" className="flex flex-wrap gap-2" role="group">
+          {VERA_REPORT_REASON_IDS.map((id) => (
+            <Button
+              aria-pressed={reason === id}
+              className="rounded-pill"
+              key={id}
+              onClick={() => setReason(id)}
+              size="sm"
+              type="button"
+              variant={reason === id ? "default" : "outline"}
+            >
+              {VERA_REPORT_REASON_LABELS[id]}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Textarea
+            aria-label="Catatan"
+            maxLength={VERA_REPORT_NOTE_LIMIT}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Tulis catatan jika perlu"
+            value={note}
+          />
+          <p className="text-right text-xs text-muted-foreground tabular-nums">
+            {note.length}/{VERA_REPORT_NOTE_LIMIT}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={close} type="button" variant="outline">
+            Batal
+          </Button>
+          <Button disabled={!reason || sending} onClick={() => void send()} type="button">
+            Kirim laporan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ThreadMessage({
+  blocked,
+  canEdit,
+  canRegenerate,
+  canReport,
+  fresh = false,
+  message,
+  onEdit,
+  onRegenerate,
+  onReport,
+  storedId,
+  stopping = false,
+}: {
+  blocked: string | null;
+  canEdit: boolean;
+  canRegenerate: boolean;
+  canReport: boolean;
+  fresh?: boolean;
+  message: UIMessage;
+  onEdit: EditHandler;
+  onRegenerate: (messageId: string) => void;
+  onReport: ReportHandler;
+  storedId: string | null;
+  stopping?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [reporting, setReporting] = useState(false);
   // A turn that arrives during the session eases in. Under reduced motion it appears at once.
   const enter = fresh
     ? "animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none"
@@ -180,11 +362,32 @@ function ThreadMessage({
   if (message.role === "user") {
     const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
     const mentions = (message.metadata as { mentions?: ResolvedMention[] } | undefined)?.mentions ?? [];
+    // The editor opens only while this question can still be edited, and it sends the id the server stores the question under.
+    const editId = canEdit ? storedId : null;
+    const showEditor = editing && editId !== null;
     return (
       <div className={cn("flex flex-col items-end gap-2", enter)}>
-        <div className="max-w-[70%] rounded-pill bg-accent px-5 py-2.5 text-base leading-[1.6] whitespace-pre-wrap text-voyage-deep">
-          {text}
-        </div>
+        {showEditor ? (
+          <EditQuestion
+            blocked={blocked !== null}
+            initial={text}
+            onCancel={() => setEditing(false)}
+            onSubmit={(next) => {
+              setEditing(false);
+              onEdit(editId, message.id, next, mentions);
+            }}
+          />
+        ) : (
+          <div className="max-w-[70%] rounded-pill bg-accent px-5 py-2.5 text-base leading-[1.6] whitespace-pre-wrap text-voyage-deep">
+            {text}
+          </div>
+        )}
+        {editId !== null && !showEditor ? (
+          <Button onClick={() => setEditing(true)} size="sm" type="button" variant="quiet">
+            <Pencil />
+            Edit
+          </Button>
+        ) : null}
         {mentions.length > 0 ? <MentionLinks mentions={mentions} /> : null}
       </div>
     );
@@ -242,9 +445,36 @@ function ThreadMessage({
       </div>
       <div className="flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground">
         {answer ? <CopyAnswerButton text={answer} /> : null}
+        {canRegenerate ? (
+          <Button
+            aria-describedby={blocked ? "vera-limit-notice" : undefined}
+            disabled={blocked !== null}
+            onClick={() => onRegenerate(message.id)}
+            size="sm"
+            title={blocked ?? undefined}
+            type="button"
+            variant="quiet"
+          >
+            <RefreshCw />
+            Ulangi
+          </Button>
+        ) : null}
+        {canReport ? (
+          <Button onClick={() => setReporting(true)} size="sm" type="button" variant="quiet">
+            <Flag />
+            Laporkan
+          </Button>
+        ) : null}
         <Sources sources={sources} />
         {typeof credits === "number" ? <span className="tabular-nums">{formatCredits(credits)} kredit</span> : null}
       </div>
+      {canReport ? (
+        <ReportDialog
+          onClose={() => setReporting(false)}
+          onSubmit={(reason, note) => onReport(message.id, reason, note)}
+          open={reporting}
+        />
+      ) : null}
     </div>
   );
 }

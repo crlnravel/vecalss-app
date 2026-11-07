@@ -13,11 +13,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { History } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
-import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
+import { VERA_EFFORT_IDS, type VeraEffortId, type VeraReportReason } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import type { StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
-import { studioDocumentHref } from "@/lib/vera/sources/types";
+import { studioDocumentHref, type ResolvedMention } from "@/lib/vera/sources/types";
 import { studentSidebarSurfaceClassName } from "@/modules/student/components/student-sidebar";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
@@ -151,9 +151,11 @@ export function VeraPageModule({
     () =>
       new DefaultChatTransport<UIMessage>({
         api: "/api/vera/chat",
-        prepareSendMessagesRequest: ({ messages, body }) => ({
-          body: { ...body, message: messages.at(-1) },
-        }),
+        // Ulangi names the answer it replaces. Every other request, including the retry after a failed answer, sends the newest message.
+        prepareSendMessagesRequest: ({ messages, body, trigger, messageId }) =>
+          trigger === "regenerate-message" && body?.action === "regenerate"
+            ? { body: { ...body, assistantMessageId: messageId } }
+            : { body: { ...body, message: messages.at(-1) } },
       }),
     [],
   );
@@ -221,12 +223,57 @@ export function VeraPageModule({
       },
       {
         body: {
+          action: "send",
           conversationId: conversationId ?? undefined,
           effort,
           mentions: chips.map((chip) => ({ type: chip.type, id: chip.id, label: chip.label })),
         },
       },
     );
+  }
+
+  // Ulangi answers the same question again. The server drops the answer it replaces once the new answer has its reservation.
+  function regenerateAnswer(messageId: string) {
+    if (!conversationId) return;
+    void regenerate({ messageId, body: { action: "regenerate", conversationId, effort } });
+  }
+
+  // Edit sends the question again in place of the stored one. The page replaces the question and the answer after it, as the server does.
+  function editQuestion(storedId: string, localId: string, text: string, mentions: ResolvedMention[]) {
+    if (!conversationId) return;
+    void sendMessage(
+      { messageId: localId, text, metadata: { mentions } },
+      {
+        body: {
+          action: "edit",
+          conversationId,
+          userMessageId: storedId,
+          effort,
+          mentions: mentions.map((mention) => ({ type: mention.type, id: mention.id, label: mention.label })),
+        },
+      },
+    );
+  }
+
+  // Laporkan saves one report for one answer. The dialog closes only when the report has been saved.
+  async function reportAnswer(messageId: string, reason: VeraReportReason, note: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/vera/messages/${encodeURIComponent(messageId)}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, note: note || undefined }),
+        cache: "no-store",
+      });
+      if (response.ok) {
+        showToast("Terima kasih, laporanmu tersimpan.", { variant: "success" });
+        return true;
+      }
+      const { message } = (await response.json().catch(() => ({}))) as { message?: string };
+      showToast(message ?? "Laporanmu belum bisa disimpan. Coba lagi.", { variant: "error" });
+    } catch {
+      showToast("Laporanmu belum bisa disimpan. Coba lagi.", { variant: "error" });
+    }
+    return false;
   }
 
   function stopAnswer() {
@@ -374,6 +421,9 @@ export function VeraPageModule({
               initialChips={composerSeed?.chips ?? []}
               messages={messages}
               onChangeEffort={changeEffort}
+              onEdit={editQuestion}
+              onRegenerate={regenerateAnswer}
+              onReport={reportAnswer}
               onSend={send}
               onStop={stopAnswer}
               restoredIds={restoredIds}
