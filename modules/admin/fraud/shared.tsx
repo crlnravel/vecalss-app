@@ -10,6 +10,8 @@ import { Info } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
+import { Panel } from "./panel";
+
 const SEVERITY_LABELS = { critical: "Kritis", high: "Tinggi", low: "Rendah", medium: "Sedang" } as const;
 const SEVERITY_TONES = { critical: "danger", high: "danger", low: "neutral", medium: "attention" } as const;
 const STATE_LABELS = { acknowledged: "Sudah dilihat", closed: "Ditutup", escalated: "Dieskalasi", open: "Baru" } as const;
@@ -85,15 +87,6 @@ function FraudPage({
         {children}
       </section>
     </PortalShell>
-  );
-}
-
-function Panel({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <section className="mb-6 rounded-card border border-primary-100 bg-white p-4 sm:p-5">
-      <h2 className="mb-3 font-heading text-base font-semibold text-secondary-900">{title}</h2>
-      {children}
-    </section>
   );
 }
 

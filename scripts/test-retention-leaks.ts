@@ -163,6 +163,7 @@ async function main() {
   const ROOT = fileURLToPath(new URL("..", import.meta.url));
   const allowed = new Set([
     "lib/admin/operations/service.ts", // masks payment rows (audit page)
+    "lib/admin/order-timeline.ts", // reads the buyer's and the provider's address only to show them masked
     "lib/auth/mfa/service.ts", "lib/auth/password-reset-throttle.ts", "lib/auth/request.ts", "lib/auth/service.ts", // sessions and security logs
     "lib/disputes/export.ts", // the owner's evidence packet
     "lib/fraud/blocks.ts", "lib/fraud/daily.ts", // lookup tokens and daily signals; the case never holds the address
