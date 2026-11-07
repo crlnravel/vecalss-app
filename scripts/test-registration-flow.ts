@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { hashToken, verifyPassword } from "../lib/auth/crypto";
 import { completePasswordReset, getValidPasswordResetRecord, requestPasswordReset } from "../lib/auth/service";
+import { changeStudentEnrollmentPassword } from "../lib/admin/enrollment/service";
 import type { EmailMessage, MailResult } from "../lib/email/mailer";
 import { createAutomaticBlock } from "../lib/fraud/blocks";
 import { newDeviceToken } from "../lib/fraud/tokens";
@@ -215,6 +216,7 @@ async function main() {
     assert.equal(user.studentProfile?.displayName, "Siti Aminah");
     assert.equal(user.studentProfile?.onboardingStatus, "not_started");
     assert.equal(user.passwordHash, null, "signup stores no password or hash before inbox ownership is proven");
+    await assert.rejects(() => changeStudentEnrollmentPassword({ userId: user.id, actorUserId: user.id, password: PASSWORD }), { code: "email_unverified" }, "admin recovery cannot preset a pending signup credential");
     const reset = await requestPasswordReset(happyEmail, "student", {
       getMetadata: h.deps.getMetadata, mailer: h.deps.mailer, schedule: h.deps.schedule,
     });
