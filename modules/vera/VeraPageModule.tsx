@@ -12,12 +12,14 @@ import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
+import type { StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
 import { studioDocumentHref } from "@/lib/vera/sources/types";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
 import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
+import { VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
 import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
 import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
@@ -123,6 +125,8 @@ export function VeraPageModule({
   const [openDocument, setOpenDocument] = useState(initialStudioDocument);
   const [usage, setUsage] = useState(initialUsage);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  // The Studio tool whose options dialog is open. The toolbar of both the start screen and the chat picks it.
+  const [pickedTool, setPickedTool] = useState<StudioToolId | null>(null);
   const [effortOverride, setEffortOverride] = useState<VeraEffortId | null>(null);
   // The document the student deleted from the dialog. The preview card stops offering it.
   const [deletedDocumentId, setDeletedDocumentId] = useState<string | null>(null);
@@ -153,7 +157,7 @@ export function VeraPageModule({
       }),
     [],
   );
-  const { messages, sendMessage, setMessages, status, stop, regenerate } = useChat<UIMessage>({
+  const { messages, sendMessage, status, stop, regenerate } = useChat<UIMessage>({
     id: chatId,
     messages: initialMessages,
     transport,
@@ -251,18 +255,6 @@ export function VeraPageModule({
     });
     setOpenDocument(null);
     setView("chat");
-  }
-
-  // Home starts clean: the thread is cleared and no session is active. The session itself stays in the list.
-  function goHome() {
-    if (busy) void stop();
-    setMessages([]);
-    setStoppedMessageId(null);
-    setConversationId(null);
-    setComposerSeed(null);
-    setSessionsOpen(false);
-    setView("home");
-    window.history.replaceState(null, "", "/vera-ai");
   }
 
   // The preview knows a document only by its id, so the full document is read from the server before it opens or is asked about.
@@ -364,6 +356,7 @@ export function VeraPageModule({
               onCloseDocument={() => setOpenDocument(null)}
               onDeleteDocument={(id) => void deleteDocument(id)}
               onOpenDocument={(id) => void openDocumentById(id)}
+              onPickTool={setPickedTool}
               onSend={startChatFromHome}
               openDocument={openDocument}
               prices={usage.prices}
@@ -379,14 +372,15 @@ export function VeraPageModule({
               historyChars={historyChars}
               initialChips={composerSeed?.chips ?? []}
               messages={messages}
-              onBack={goHome}
               onChangeEffort={changeEffort}
+              onPickTool={setPickedTool}
               onSend={send}
               onStop={stopAnswer}
               prices={usage.prices}
               restoredIds={restoredIds}
               status={status}
               stoppedMessageId={stoppedMessageId}
+              studioBusy={studio.busy}
             />
           )}
         </div>
@@ -416,6 +410,17 @@ export function VeraPageModule({
           </div>
         </SheetContent>
       </Sheet>
+
+      <VeraStudioToolDialog
+        busy={studio.busy}
+        onClose={() => setPickedTool(null)}
+        onRun={(request) => {
+          setPickedTool(null);
+          studio.run(request);
+        }}
+        prices={usage.prices}
+        tool={pickedTool}
+      />
     </div>
   );
 }

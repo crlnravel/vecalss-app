@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CircleHelp } from "@/lib/icons";
@@ -13,7 +12,7 @@ import type { MentionChip } from "@/modules/vera/mention-model";
 import { VeraComposer } from "@/modules/vera/VeraComposer";
 import { VeraStudioDocDialog } from "@/modules/vera/VeraStudioDocs";
 import { VeraStudioPreview } from "@/modules/vera/VeraStudioPreview";
-import { VeraStudioMenu, VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
+import { VeraStudioMenu } from "@/modules/vera/VeraStudioTools";
 import type { VeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 import { VERA_STARTER_PROMPTS } from "@/modules/vera/vera-prompts";
 
@@ -33,6 +32,7 @@ export function VeraHome({
   onCloseDocument,
   onDeleteDocument,
   onOpenDocument,
+  onPickTool,
   onSend,
   openDocument,
   prices,
@@ -52,9 +52,9 @@ export function VeraHome({
   onCloseDocument: () => void;
   onDeleteDocument: (id: string) => void;
   onOpenDocument: (id: string) => void;
+  onPickTool: (tool: StudioToolId) => void;
   onSend: (text: string, chips: MentionChip[]) => void;
 }) {
-  const [pickedTool, setPickedTool] = useState<StudioToolId | null>(null);
   const title = firstName ? `Mau belajar apa hari ini, ${firstName}?` : "Mau belajar apa hari ini?";
 
   return (
@@ -80,7 +80,7 @@ export function VeraHome({
             effort={effort}
             examples={VERA_STARTER_PROMPTS}
             historyChars={0}
-            leading={<VeraStudioMenu busy={studio.busy} onPick={setPickedTool} />}
+            leading={<VeraStudioMenu busy={studio.busy} onPick={onPickTool} />}
             onEffortChange={onChangeEffort}
             onSend={({ text, chips }) => onSend(text, chips)}
             onStop={() => undefined}
@@ -117,16 +117,6 @@ export function VeraHome({
         </div>
       </section>
 
-      <VeraStudioToolDialog
-        busy={studio.busy}
-        onClose={() => setPickedTool(null)}
-        onRun={(request) => {
-          setPickedTool(null);
-          studio.run(request);
-        }}
-        prices={prices}
-        tool={pickedTool}
-      />
       <VeraStudioDocDialog doc={openDocument} onAsk={onAsk} onClose={onCloseDocument} onDelete={onDeleteDocument} />
     </div>
   );
