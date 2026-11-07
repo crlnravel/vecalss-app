@@ -1,21 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { fieldControlClassName } from "@/components/ui/field-constants";
+import {
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+} from "@/components/ui/sidebar";
 import { Plus, Search } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
+import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import { cn } from "@/lib/utils";
+import { studentSidebarControlClassName } from "@/modules/student/components/student-sidebar";
 import { SESSION_DAY_LABELS, sessionDay, type SessionDay } from "@/modules/vera/session-day";
 import type { SessionView } from "@/modules/vera/use-vera-sessions";
 import { VeraSessionRow } from "@/modules/vera/VeraSessionRow";
+import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
 
 const DAY_ORDER: readonly SessionDay[] = ["today", "yesterday", "older"];
 
 /**
- * The conversation list, shared by the right panel and the sheet below lg: the new-session button, a search over the loaded titles, the
- * Aktif and Arsip chips, and the rows grouped as Hari ini, Kemarin and Lebih lama.
+ * The conversation list, built from the sidebar's own parts. The new-session button sits in the header, and the usage block sits in the
+ * footer under the sidebar's footer treatment. The content holds the search, the Aktif and Arsip chips, and the rows under their day
+ * groups. The same panel opens in the sheet below lg.
  */
 export function VeraSessionsPanel({
   view,
@@ -23,6 +36,7 @@ export function VeraSessionsPanel({
   loading,
   error,
   activeId,
+  usage,
   onViewChange,
   onNew,
   onOpen,
@@ -35,6 +49,7 @@ export function VeraSessionsPanel({
   loading: boolean;
   error: string | null;
   activeId: string | null;
+  usage: VeraUsageSnapshot;
   onViewChange: (view: SessionView) => void;
   onNew: () => void;
   onOpen: (id: string) => void;
@@ -44,6 +59,8 @@ export function VeraSessionsPanel({
 }) {
   // The groups are counted from when the list first shows, so a row keeps its group while the student is looking at the list.
   const [now] = useState(() => new Date());
+  // The right panel and the sheet can both be mounted, so each panel makes its own label ids.
+  const labelId = useId();
   const [query, setQuery] = useState("");
   const term = query.trim().toLocaleLowerCase("id-ID");
   const shown = term
@@ -55,75 +72,78 @@ export function VeraSessionsPanel({
   })).filter((group) => group.items.length > 0);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <Button className="w-full" onClick={onNew} type="button">
-        <Plus />
-        Sesi baru
-      </Button>
-
-      <div className="relative">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <input
-          aria-label="Cari percakapan"
-          className={cn(fieldControlClassName, "pl-9")}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Cari percakapan…"
-          type="search"
-          value={query}
-        />
-      </div>
-
-      <div aria-label="Tampilan sesi" className="flex gap-1.5" role="group">
-        <Button
-          aria-pressed={view === "active"}
-          className="rounded-pill"
-          onClick={() => onViewChange("active")}
-          size="sm"
-          type="button"
-          variant={view === "active" ? "default" : "outline"}
-        >
-          Aktif
+    <>
+      <SidebarHeader className="p-3">
+        <Button className="w-full" onClick={onNew} type="button">
+          <Plus />
+          Sesi baru
         </Button>
-        <Button
-          aria-pressed={view === "archived"}
-          className="rounded-pill"
-          onClick={() => onViewChange("archived")}
-          size="sm"
-          type="button"
-          variant={view === "archived" ? "default" : "outline"}
-        >
-          Arsip
-        </Button>
-      </div>
+      </SidebarHeader>
 
-      {error ? (
-        <p className="px-1 text-sm text-muted-foreground" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <SidebarContent>
+        <SidebarGroup>
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              aria-label="Cari percakapan"
+              className={cn(fieldControlClassName, "pl-9")}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari percakapan…"
+              type="search"
+              value={query}
+            />
+          </div>
+          <div aria-label="Tampilan sesi" className="mt-2 flex gap-1.5" role="group">
+            <Button
+              aria-pressed={view === "active"}
+              className="rounded-pill"
+              onClick={() => onViewChange("active")}
+              size="sm"
+              type="button"
+              variant={view === "active" ? "default" : "outline"}
+            >
+              Aktif
+            </Button>
+            <Button
+              aria-pressed={view === "archived"}
+              className="rounded-pill"
+              onClick={() => onViewChange("archived")}
+              size="sm"
+              type="button"
+              variant={view === "archived" ? "default" : "outline"}
+            >
+              Arsip
+            </Button>
+          </div>
+        </SidebarGroup>
 
-      {loading && sessions.length === 0 ? <p className="px-1 text-sm text-muted-foreground">Memuat…</p> : null}
-      {!loading && sessions.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">{view === "archived" ? "Belum ada arsip." : "Belum ada sesi."}</p>
-      ) : null}
-      {sessions.length > 0 && groups.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">Tidak ada percakapan yang cocok.</p>
-      ) : null}
+        {error ? (
+          <p className="px-3 text-sm text-muted-foreground" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {loading && sessions.length === 0 ? <p className="px-3 text-sm text-muted-foreground">Memuat…</p> : null}
+        {!loading && sessions.length === 0 ? (
+          <p className="px-3 text-sm text-muted-foreground">{view === "archived" ? "Belum ada arsip." : "Belum ada sesi."}</p>
+        ) : null}
+        {sessions.length > 0 && groups.length === 0 ? (
+          <p className="px-3 text-sm text-muted-foreground">Tidak ada percakapan yang cocok.</p>
+        ) : null}
 
-      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
         {groups.map((group) => (
-          <section aria-label={SESSION_DAY_LABELS[group.day]} className="flex flex-col gap-1" key={group.day}>
-            <h2 className="px-3 text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">
+          <SidebarGroup aria-labelledby={`${labelId}-${group.day}`} key={group.day} role="group">
+            <SidebarGroupLabel id={`${labelId}-${group.day}`} render={<h2 />}>
               {SESSION_DAY_LABELS[group.day]}
-            </h2>
-            <ul className="flex flex-col gap-1">
-              {group.items.map((session) => (
-                <li key={session.id}>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((session) => (
                   <VeraSessionRow
                     active={session.id === activeId}
+                    key={session.id}
                     now={now}
                     onArchive={onArchive}
                     onDelete={onDelete}
@@ -131,12 +151,18 @@ export function VeraSessionsPanel({
                     onRename={onRename}
                     session={session}
                   />
-                </li>
-              ))}
-            </ul>
-          </section>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         ))}
-      </div>
-    </div>
+      </SidebarContent>
+
+      <SidebarFooter className="p-3">
+        <div className={cn("p-3", studentSidebarControlClassName)}>
+          <VeraUsageBody usage={usage} />
+        </div>
+      </SidebarFooter>
+    </>
   );
 }

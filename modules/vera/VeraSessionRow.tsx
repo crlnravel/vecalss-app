@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,14 +20,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fieldControlClassName } from "@/components/ui/field-constants";
+import { SidebarMenuAction, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { Ellipsis } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { cn } from "@/lib/utils";
+import { studentSidebarItemClassName } from "@/modules/student/components/student-sidebar";
 import { sessionTime } from "@/modules/vera/session-day";
 
 /**
- * One conversation in the list: its title, and the time of its last update under it. The active one sits on the Sea-Glass Wash with a
- * Voyage border. Its menu renames it, archives or restores it, or deletes it after a confirmation.
+ * One conversation in the list, as an item of the sidebar: its title, with the time of its last update under it. The active one takes the
+ * sidebar's own active look. Its menu renames it, archives or restores it, or deletes it after a confirmation.
  */
 export function VeraSessionRow({
   session,
@@ -64,48 +65,47 @@ export function VeraSessionRow({
 
   if (editing) {
     return (
-      <input
-        aria-label="Nama sesi"
-        className={fieldControlClassName}
-        maxLength={120}
-        onBlur={commit}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            commit();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            setDraft(session.title);
-            setEditing(false);
-          }
-        }}
-        ref={inputRef}
-        value={draft}
-      />
+      <SidebarMenuItem>
+        <input
+          aria-label="Nama sesi"
+          className={fieldControlClassName}
+          maxLength={120}
+          onBlur={commit}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commit();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setDraft(session.title);
+              setEditing(false);
+            }
+          }}
+          ref={inputRef}
+          value={draft}
+        />
+      </SidebarMenuItem>
     );
   }
 
   return (
     <>
-      <div
-        className={cn(
-          "flex items-center gap-1 rounded-control border pr-1 transition-colors motion-reduce:transition-none",
-          active ? "border-voyage-leaf bg-accent text-accent-foreground" : "border-transparent text-foreground hover:bg-accent/60",
-        )}
-      >
-        <button
+      <SidebarMenuItem>
+        <SidebarMenuButton
           aria-current={active ? "true" : undefined}
-          className="flex min-h-16 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-control px-3 py-2 text-left"
+          className={cn(studentSidebarItemClassName, "py-1 pr-9")}
+          isActive={active}
           onClick={() => onOpen(session.id)}
-          type="button"
         >
-          <span className="truncate text-sm font-medium">{session.title}</span>
-          <span className="text-xs text-muted-foreground tabular-nums">{sessionTime(session.updatedAt, now)}</span>
-        </button>
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-medium">{session.title}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{sessionTime(session.updatedAt, now)}</span>
+          </span>
+        </SidebarMenuButton>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button aria-label="Opsi percakapan" size="icon" type="button" variant="quiet" />}
+            render={<SidebarMenuAction aria-label="Opsi percakapan" className="top-3 peer-data-[size=default]/menu-button:top-3" />}
           >
             <Ellipsis />
           </DropdownMenuTrigger>
@@ -127,7 +127,7 @@ export function VeraSessionRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </SidebarMenuItem>
       <AlertDialog onOpenChange={setConfirming} open={confirming}>
         <AlertDialogContent>
           <AlertDialogHeader>

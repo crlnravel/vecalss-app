@@ -7,21 +7,23 @@ import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sidebar } from "@/components/ui/sidebar";
 import { showToast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { History } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
 import type { StudioToolId } from "@/lib/vera/studio";
 import type { StudioDocument } from "@/lib/vera/studio-documents";
 import { studioDocumentHref } from "@/lib/vera/sources/types";
+import { studentSidebarSurfaceClassName } from "@/modules/student/components/student-sidebar";
 import { type MentionChip } from "@/modules/vera/mention-model";
 import { VeraChat } from "@/modules/vera/VeraChat";
 import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
-import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
 import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
@@ -395,16 +397,15 @@ export function VeraPageModule({
           )}
         </div>
 
-        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. */}
-        <aside
+        {/* From lg up, the conversation list and the usage block sit in a right panel beside the centre column. The panel is the dashboard sidebar's own component, in its surface. */}
+        <Sidebar
           aria-label="Percakapan"
-          className="hidden min-h-0 w-68 shrink-0 flex-col gap-4 border-l border-border p-4 lg:flex"
+          className={cn("hidden min-h-0 shrink-0 lg:flex", studentSidebarSurfaceClassName)}
+          collapsible="none"
+          role="complementary"
         >
-          <div className="flex min-h-0 flex-1 flex-col">
-            <VeraSessionsPanel {...panel} />
-          </div>
-          <VeraUsageBody className="shrink-0 border-t border-border pt-4" usage={usage} />
-        </aside>
+          <VeraSessionsPanel {...panel} usage={usage} />
+        </Sidebar>
       </div>
 
       {/* Below lg the same panel opens from the header, in a sheet. */}
@@ -414,9 +415,8 @@ export function VeraPageModule({
             <SheetTitle>Percakapan</SheetTitle>
             <SheetDescription>Pilih percakapan untuk dilanjutkan, atau mulai sesi baru.</SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
-            <VeraSessionsPanel {...panel} />
-            <VeraUsageBody usage={usage} />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-6">
+            <VeraSessionsPanel {...panel} usage={usage} />
           </div>
         </SheetContent>
       </Sheet>
