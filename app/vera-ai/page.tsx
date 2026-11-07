@@ -7,6 +7,7 @@ import { getConversationWithMessages, listSessions } from "@/lib/vera/conversati
 import { getVeraUsageSnapshot } from "@/lib/vera/ledger";
 import { isUuid } from "@/lib/vera/sources/types";
 import { getStudioDocument } from "@/lib/vera/studio-documents";
+import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { VeraPageModule } from "@/modules/vera/VeraPageModule";
 
 /**
@@ -35,7 +36,14 @@ export default async function VeraAiPage({
   const conversation = explicit && explicit !== "new" ? await getConversationWithMessages(studentId, explicit) : null;
 
   return (
-    <main className="student-page-canvas flex h-dvh min-h-0 flex-col overflow-hidden">
+    <CourseWorkspaceShell
+      activeLabel="Vera AI"
+      breadcrumbLabel="Vera AI"
+      fillViewport
+      notificationFeed={notificationFeed}
+      session={session}
+      showSearch={false}
+    >
       <VeraPageModule
         // A new key remounts the page when the session, the open document or the nonce changes, so each starts from its own state.
         key={`${conversation?.id ?? "new"}:${initialStudioDocument?.id ?? ""}:${nonce}`}
@@ -45,11 +53,9 @@ export default async function VeraAiPage({
         initialSessions={initialSessions}
         initialStudioDocument={initialStudioDocument}
         initialUsage={initialUsage}
-        notificationFeed={notificationFeed}
-        session={session}
         startInChat={explicit !== undefined}
         studentId={studentId}
       />
-    </main>
+    </CourseWorkspaceShell>
   );
 }

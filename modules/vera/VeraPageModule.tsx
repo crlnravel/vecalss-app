@@ -5,10 +5,11 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { showToast } from "@/components/ui/toast";
-import type { SessionContext } from "@/lib/auth/types";
-import type { StudentNotificationFeed } from "@/lib/notifications/types";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { History } from "@/lib/icons";
 import type { VeraSessionSummary } from "@/lib/vera/conversations";
 import { VERA_EFFORT_IDS, type VeraEffortId } from "@/lib/vera/config";
 import type { VeraUsageSnapshot } from "@/lib/vera/ledger";
@@ -21,7 +22,7 @@ import { VeraHome } from "@/modules/vera/VeraHome";
 import { VeraSessionsPanel } from "@/modules/vera/VeraSessionsPanel";
 import { VeraStudioToolDialog } from "@/modules/vera/VeraStudioTools";
 import { VeraUsageBody } from "@/modules/vera/VeraUsageBody";
-import { VeraWorkspaceHeader } from "@/modules/vera/VeraWorkspaceHeader";
+import { VeraUsagePopover } from "@/modules/vera/VeraUsagePopover";
 import { useVeraSessions } from "@/modules/vera/use-vera-sessions";
 import { useVeraStudioRun } from "@/modules/vera/use-vera-studio-run";
 
@@ -83,8 +84,9 @@ function answerErrorMessage(error: Error): string {
 }
 
 /**
- * The Vera page, in Aily's layout: a header over the centre column, which shows either home or the chat. From lg up a right panel holds
- * the conversation list and the usage block. Below lg the list opens from the header, in a sheet. Starting a new session goes to home.
+ * The Vera page, in Aily's layout, inside the student shell: the centre column shows either home or the chat. From lg up a right panel
+ * holds the conversation list and the usage block. Below lg a small row above the column holds the history button and the usage pill, and
+ * the list opens from that button in a sheet. Starting a new session goes to home.
  *
  * The chat hook lives here rather than in the chat view, so a message sent from home is sent from the click that sends it. Starting
  * a request from an effect would be cancelled by React's development double-run of effects.
@@ -96,8 +98,6 @@ export function VeraPageModule({
   initialSessions,
   initialStudioDocument,
   initialUsage,
-  notificationFeed,
-  session,
   startInChat,
   studentId,
 }: {
@@ -107,8 +107,6 @@ export function VeraPageModule({
   initialSessions: VeraSessionSummary[];
   initialStudioDocument: StudioDocument | null;
   initialUsage: VeraUsageSnapshot;
-  notificationFeed: StudentNotificationFeed;
-  session: SessionContext;
   startInChat: boolean;
   studentId: string;
 }) {
@@ -335,16 +333,28 @@ export function VeraPageModule({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <VeraWorkspaceHeader
-        notificationFeed={notificationFeed}
-        onOpenSessions={() => setSessionsOpen(true)}
-        onRefreshUsage={() => void refreshUsage()}
-        session={session}
-        usage={usage}
-      />
-
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Below lg the history button and the usage pill sit in a small row above the column. From lg up the right panel holds both. */}
+          <div className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 lg:hidden">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label="Buka daftar sesi"
+                    onClick={() => setSessionsOpen(true)}
+                    size="icon"
+                    type="button"
+                    variant="quiet"
+                  />
+                }
+              >
+                <History />
+              </TooltipTrigger>
+              <TooltipContent>Daftar sesi</TooltipContent>
+            </Tooltip>
+            <VeraUsagePopover onOpen={() => void refreshUsage()} usage={usage} />
+          </div>
           {view === "home" ? (
             <VeraHome
               blocked={blocked}
